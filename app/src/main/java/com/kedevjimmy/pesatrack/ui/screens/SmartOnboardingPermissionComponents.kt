@@ -72,112 +72,113 @@ internal fun SmartSmsPermissionPage(
     onContinue: () -> Unit,
     onContinueWithout: () -> Unit
 ) {
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-    val compact = maxHeight < 600.dp
-    val constrained = maxHeight < 480.dp || LocalDensity.current.fontScale > 1.3f
-    val disclosureScroll = rememberScrollState()
     var showMoreDetails by rememberSaveable { mutableStateOf(false) }
+    val disclosureScroll = rememberScrollState()
     LaunchedEffect(denied) { if (denied) disclosureScroll.scrollTo(0) }
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 10.dp)) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         Column(
-            Modifier.fillMaxWidth().weight(1f).verticalScroll(disclosureScroll),
-            verticalArrangement = Arrangement.spacedBy(if (compact || constrained) 7.dp else 9.dp)
+            modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(disclosureScroll),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             consentError?.let {
-                Text(it, color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall)
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
             if (denied) {
-                Text(
-                    if (restrictedHelp) "Android did not allow SMS access. If access is restricted, open App info → ⋮ → Allow restricted settings, then return."
-                    else "SMS access wasn't allowed. You can retry or continue without importing history.",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Row {
-                    if (restrictedHelp) TextButton(onClick = onOpenAppInfo) { Text("Open App info") }
-                    TextButton(onClick = onTryAgain) { Text("Try SMS again") }
+                Surface(shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.errorContainer) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            if (restrictedHelp) "Android blocked SMS access. Open App info → ⋮ → Allow restricted settings, then return."
+                            else "SMS access was not allowed. You can try again or continue without scanning.",
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Row {
+                            if (restrictedHelp) TextButton(onClick = onOpenAppInfo) { Text("Open App info") }
+                            TextButton(onClick = onTryAgain) { Text("Try SMS again") }
+                        }
+                    }
                 }
             }
             Text(
                 "Your messages. Your choice.",
-                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 23.sp, lineHeight = 27.sp),
+                style = MaterialTheme.typography.headlineSmall.copy(fontSize = 27.sp, lineHeight = 32.sp),
                 fontWeight = FontWeight.Bold
             )
             Text(
-                "Before Android asks for SMS access, here's exactly what PesaTrack will do.",
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 19.sp),
+                "Give access only if you want PesaTrack to organize your financial SMS.",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 21.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            MessageExample(
-                icon = Icons.AutoMirrored.Rounded.Message,
-                title = "M-Pesa · KES 1,200",
-                description = "Example message → income or spending"
+            PremiumOnboardingHero("permission", Modifier.heightIn(max = 164.dp))
+            PremiumInfoPanel(
+                Icons.AutoMirrored.Rounded.Message,
+                "Checks M-Pesa and bank transaction messages",
+                "Looks for financial activity like income, spending, transfers and account activity."
             )
-            MessageExample(
-                icon = Icons.Rounded.AccountBalance,
-                title = "Equity Bank · KES 5,000",
-                description = "Example message → account activity"
+            PremiumInfoPanel(
+                Icons.Rounded.Shield,
+                "Processes full SMS text on this device",
+                "Full message text stays on this phone and is not uploaded."
             )
-            Text(
-                "Illustrations only — these are not your transactions",
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
+            PremiumInfoPanel(
+                Icons.Rounded.AccountBalance,
+                "Optional business-name lookup is separate",
+                "Used to identify merchant names. You can keep this off."
             )
-            MessageAccessDisclosureItem(
-                icon = Icons.AutoMirrored.Rounded.Message,
-                title = "What we check",
-                body = "SMS on this phone, ${selectedRangeDescription?.let { "within $it, " } ?: "within your chosen range, "}for financial activity. Other messages aren't added as transactions."
-            )
-            MessageAccessDisclosureItem(
-                icon = Icons.Rounded.Shield,
-                title = "Private by default",
-                body = "Full message text is processed on this device and isn't uploaded. Online business-name lookup is optional."
-            )
-            MessageAccessDisclosureItem(
-                icon = Icons.Rounded.Notifications,
-                title = "You stay in control",
-                body = "Android requests SMS access next. Notification access is a separate setting later. You can decline or revoke access."
-            )
+            Surface(shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant) {
+                Text(
+                    "Android grants SMS access. PesaTrack limits its scan to " +
+                        (selectedRangeDescription ?: "your chosen dates") +
+                        ". You can revoke access in Android settings.",
+                    modifier = Modifier.padding(12.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            MessageAccessAgreement(accepted, busy, onAccepted)
             TextButton(
                 onClick = { showMoreDetails = !showMoreDetails },
                 contentPadding = PaddingValues(horizontal = 0.dp, vertical = 2.dp)
             ) {
                 Text(
-                    if (showMoreDetails) "− Show less" else "+ More about how your data is used",
-                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 11.sp),
-                    fontWeight = FontWeight.Bold
+                    if (showMoreDetails) "− Show less" else "Learn how my data is used  ›",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
             if (showMoreDetails) {
                 Text(
-                    "PesaTrack uses matching financial messages to build your income, spending, savings and debt picture. New SMS can be checked when you reopen the app. You choose which message apps to include. If Android blocks access, you may need to allow restricted settings yourself.",
+                    "PesaTrack uses matching financial messages to build your income, spending, savings and debt picture. New SMS can be checked when you reopen the app. Notification access is a separate permission. You can decline or revoke either permission.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    "Optional online business-name lookup sends only a sanitized business descriptor. It does not send your full message, amount, balance, account number or transaction code.",
+                    "Optional online business-name lookup sends only a sanitized business descriptor, not full SMS text, transaction amounts, balances, account numbers or transaction codes.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            MessageAccessAgreement(accepted, busy, onAccepted)
-            Text(
-                "Next: Android's SMS access prompt",
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
-        Button(onClick = onContinue, enabled = accepted && !busy,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 49.dp),
-            shape = RoundedCornerShape(15.dp)) {
-            Text(if (busy) "Waiting for Android…" else "Continue to SMS access")
+        Button(
+            onClick = onContinue,
+            enabled = accepted && !busy,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text(if (busy) "Waiting for Android…" else "Allow SMS access",
+                fontWeight = FontWeight.Bold)
         }
-        TextButton(onClick = onContinueWithout, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-            Text("Continue without SMS access")
+        TextButton(
+            onClick = onContinueWithout, enabled = !busy,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+        ) {
+            Text("Continue without SMS access", fontWeight = FontWeight.SemiBold)
         }
-    }
     }
 }
 
