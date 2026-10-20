@@ -56,6 +56,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  var sourcePdfPassword by remember {mutableStateOf("")}
  var stagedPdf by remember {mutableStateOf<OfflineMpesaPdfReader.Prepared?>(null)}
  var statementPdfApproved by remember {mutableStateOf(false)}
+ // This constraint belongs to the current rows; changing accounts must not clear it.
  var activityRowsRequireAccountType by remember {mutableStateOf<AccountType?>(null)}
  val zoneId=rememberSaveable {TimeZone.getDefault().id}
  val today=remember {StatementImportDates.day(System.currentTimeMillis(),zoneId)}
@@ -123,7 +124,7 @@ private fun readStatement(c:Context,uri:Uri):String {
       Text("01 · Source account",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
      }
      Text("Select the account that appears on your statement.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     ChoiceField("Account",accounts.firstOrNull{it.id==accountId}?.name ?: "Choose account",accounts.map {it.id to it.name},!busy&&stagedPdf==null&&sourcePdfUri==null){if(accountId!=it){invalidatePreview();activityRowsRequireAccountType=null;accountId=it}}
+     ChoiceField("Account",accounts.firstOrNull{it.id==accountId}?.name ?: "Choose account",accounts.map {it.id to it.name},!busy&&stagedPdf==null&&sourcePdfUri==null){if(accountId!=it){invalidatePreview();accountId=it}}
      if(accountId.isEmpty()) Text("Choose a confirmed account before reviewing transactions.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
    }
@@ -288,7 +289,7 @@ private fun readStatement(c:Context,uri:Uri):String {
      val count=withContext(Dispatchers.IO){
       store.importRows(source.accountId,StatementImportDates.requireReviewed(source,reviewed,chosen),expectedAccountType)
      }
-     onChanged();done="Added $count entries. Confirm them in Activity.";rows=emptyList();previewSource=null;dateResult=null;preview=emptyList();selected.clear()
+      onChanged();done="Added $count entries. Confirm them in Activity.";rows=emptyList();activityRowsRequireAccountType=null;previewSource=null;dateResult=null;preview=emptyList();selected.clear()
     }catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "Could not finish import. Check Activity before retrying."}finally{importing=false}}
      },enabled=!busy&&dateError==null&&previewSource==selection&&selected.values.any{it}&&
       (activityRowsRequireAccountType==null||accounts.any{it.id==selection.accountId&&it.type==activityRowsRequireAccountType}),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text("Import ${selected.values.count{it}} entries")}}
