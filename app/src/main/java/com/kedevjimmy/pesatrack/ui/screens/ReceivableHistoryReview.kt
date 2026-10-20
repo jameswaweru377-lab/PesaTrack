@@ -17,6 +17,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.everyday.EverydayMoneyPolicy
 import com.kedevjimmy.pesatrack.domain.receivables.BatchTotals
+import com.kedevjimmy.pesatrack.domain.receivables.ReceivableHistoryPolicy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
