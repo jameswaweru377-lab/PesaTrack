@@ -59,66 +59,107 @@ internal fun ApprovedAnalysisPage(
     val completed = progressStep.coerceAtLeast(0)
     val progress = when {
         reviewMode -> 1f
-        completed >= 4 -> .9f
-        completed == 3 -> .75f
+        completed >= 4 -> .92f
+        completed == 3 -> .76f
         completed == 2 -> .58f
         completed == 1 -> .36f
         else -> .18f
     }
-    Column(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.fillMaxWidth().height(132.dp), contentAlignment = Alignment.Center) {
-            Surface(Modifier.align(Alignment.TopStart).padding(start = 42.dp, top = 14.dp).size(35.dp), shape = RoundedCornerShape(13.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                Box(contentAlignment = Alignment.Center) { Text("✦", color = MaterialTheme.colorScheme.secondary) }
-            }
-            Surface(Modifier.size(88.dp), shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.primaryContainer) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.PhoneAndroid, contentDescription = null, modifier = Modifier.size(44.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Surface(Modifier.align(Alignment.BottomEnd).padding(end = 5.dp, bottom = 5.dp).size(27.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surface) {
-                        Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.secondary) }
-                    }
-                }
-            }
-            Surface(Modifier.align(Alignment.BottomEnd).padding(end = 42.dp, bottom = 12.dp).size(35.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
-                Box(contentAlignment = Alignment.Center) { Text("↗", color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold) }
-            }
-        }
-        Text("Understanding your money", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+        verticalArrangement = Arrangement.spacedBy(11.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        PremiumOnboardingHero("analysis")
         Text(
-            "We’re turning your selected financial messages into a clear starting picture. Your messages stay on this phone.",
-            modifier = Modifier.padding(top = 8.dp),
+            "Building your money picture",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            "We're turning your selected financial messages into a clear starting picture. Your messages stay on this phone.",
+            modifier = Modifier.padding(horizontal = 6.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.bodyMedium
         )
-        PesaCard(Modifier.padding(top = 15.dp)) {
-            Column(Modifier.fillMaxWidth().padding(15.dp)) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Building your money picture", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Analyzing your messages",
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
                     Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-                        Text(if (reviewMode) "Ready" else if (importing) "Working…" else "Prepared", modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp), color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (reviewMode) "Ready" else if (importing) "Scanning…" else "Preparing…",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold
+                        )
                     }
                 }
-                Box(Modifier.fillMaxWidth().padding(top = 11.dp).height(7.dp).background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)) {
-                    Box(Modifier.fillMaxWidth(progress).height(7.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
+                Box(
+                    Modifier.fillMaxWidth().height(7.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
+                ) {
+                    Box(
+                        Modifier.fillMaxWidth(progress).height(7.dp)
+                            .background(MaterialTheme.colorScheme.primary, CircleShape)
+                    )
                 }
-                ApprovedAnalysisRow("Reading the selected date range", complete = progressStep > 0 || reviewMode, active = progressStep == 0 && importing)
-                ApprovedAnalysisRow("Grouping activity by financial institution", complete = reviewMode, active = progressStep in 1..2 && importing)
-                ApprovedAnalysisRow("Checking for possible accounts", complete = reviewMode, active = progressStep >= 3 && importing)
+                ApprovedAnalysisRow(
+                    "Reading selected messages",
+                    complete = progressStep > 0 || reviewMode,
+                    active = progressStep == 0 && !reviewMode
+                )
+                ApprovedAnalysisRow(
+                    "Finding banks and wallets",
+                    complete = reviewMode || progressStep >= 3,
+                    active = progressStep in 1..2 && !reviewMode
+                )
+                ApprovedAnalysisRow(
+                    "Preparing your review",
+                    complete = reviewMode,
+                    active = progressStep >= 3 && !reviewMode
+                )
             }
         }
         Text(
-            "This can take a little while. Keep PesaTrack open; you can review every suggestion before it’s added.",
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 11.dp),
+            "This can take a little while. Review every suggested account before adding it.",
+            modifier = Modifier.padding(horizontal = 10.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodySmall
         )
-        Button(onClick = onContinue, enabled = reviewMode, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(15.dp)) {
-            Text("Review detected institutions")
+        Spacer(Modifier.height(5.dp))
+        Button(
+            onClick = onContinue,
+            enabled = reviewMode,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text("Review detected institutions", fontWeight = FontWeight.Bold)
         }
-        TextButton(onClick = onContinue, enabled = reviewMode, modifier = Modifier.fillMaxWidth()) {
-            Text("Continue when analysis is ready")
-        }
+        Text(
+            if (reviewMode) "Analysis complete — ready for your review"
+            else "Stay on this screen while scanning",
+            color = MaterialTheme.colorScheme.primary,
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
