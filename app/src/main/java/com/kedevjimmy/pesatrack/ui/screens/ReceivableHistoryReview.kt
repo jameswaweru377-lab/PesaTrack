@@ -50,6 +50,9 @@ internal fun ReceivableHistoryReview(
     var gifts by remember { mutableStateOf<Map<Long,StoredTransaction>>(emptyMap()) }
     var amountInputs by remember { mutableStateOf<Map<Long,String>>(emptyMap()) }
     var offset by remember { mutableIntStateOf(0) }
+    var nextOffset by remember { mutableStateOf<Int?>(null) }
+    var previousOffsets by remember { mutableStateOf<List<Int>>(emptyList()) }
+    var pageNumber by remember { mutableIntStateOf(1) }
     var searched by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -79,11 +82,13 @@ internal fun ReceivableHistoryReview(
     fun resetChoices() {
         rows = emptyList(); selected = emptyMap(); gifts = emptyMap()
         amountInputs = emptyMap(); searched = false; preview = null; confirming = false
+        nextOffset = null; previousOffsets = emptyList(); offset = 0; pageNumber = 1
     }
-    fun load(page: Int, fresh: Boolean) {
+    fun load(page: Int, fresh: Boolean, navigate: Boolean = false) {
         if (busy) return
         if (fresh) {
             resetChoices()
+            previousOffsets = emptyList(); pageNumber = 1
             sessionName = when {
                 personId != null -> name
                 name.isNotBlank() -> name
@@ -99,11 +104,18 @@ internal fun ReceivableHistoryReview(
         scope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    repository.search(sessionQuery,personId,sessionName,sessionPhone,50,page,sourceFilter,dateFrom,dateThrough)
+                    repository.searchPage(sessionQuery,personId,sessionName,sessionPhone,50,page,sourceFilter,dateFrom,dateThrough)
                 }
-                rows = result; offset = page; searched = true
+                rows = result.candidates; nextOffset = result.nextOffset; searched = true
+                if (navigate) {
+                    if (page > offset) { previousOffsets = previousOffsets + offset; pageNumber++ }
+                    else if (page < offset) { previousOffsets = previousOffsets.dropLast(1); pageNumber = (pageNumber - 1).coerceAtLeast(1) }
+                } else if (page == 0) {
+                    previousOffsets = emptyList(); pageNumber = 1
+                }
+                offset = page
                 if (personId == null && name.isBlank()) {
-                    result.firstNotNullOfOrNull {
+                    result.candidates.firstNotNullOfOrNull {
                         it.row.counterparty?.takeIf { candidate ->
                             candidate.isNotBlank() && ReceivableHistoryPolicy.normalizedPhone(candidate) == null
                         }
@@ -197,11 +209,11 @@ internal fun ReceivableHistoryReview(
                             Text("Include sources",style = MaterialTheme.typography.labelLarge)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 FilterChip(selected = sourceFilter == ReceivableHistorySourceFilter.ALL,
-                                    onClick = { sourceFilter = ReceivableHistorySourceFilter.ALL },label = { Text("All sources") })
+                                    enabled = !busy,onClick = { sourceFilter = ReceivableHistorySourceFilter.ALL; if (searched) load(0,false) },label = { Text("All sources") })
                                 FilterChip(selected = sourceFilter == ReceivableHistorySourceFilter.MESSAGES,
-                                    onClick = { sourceFilter = ReceivableHistorySourceFilter.MESSAGES },label = { Text("Messages") })
+                                    enabled = !busy,onClick = { sourceFilter = ReceivableHistorySourceFilter.MESSAGES; if (searched) load(0,false) },label = { Text("Messages") })
                                 FilterChip(selected = sourceFilter == ReceivableHistorySourceFilter.STATEMENTS,
-                                    onClick = { sourceFilter = ReceivableHistorySourceFilter.STATEMENTS },label = { Text("Statements") })
+                                    enabled = !busy,onClick = { sourceFilter = ReceivableHistorySourceFilter.STATEMENTS; if (searched) load(0,false) },label = { Text("Statements") })
                             }
                             Column {
                                 Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -228,7 +240,7 @@ internal fun ReceivableHistoryReview(
                             item {
                                 Text("Search covers imported history. Statement files must be imported into Activity first; similar names can belong to different people.",
                                     style = MaterialTheme.typography.bodySmall)
-                                Text(if (dateFrom == null && dateThrough == null) "All imported dates" else "Filtered by the selected dates",
+                                    Text(if (dateFrom == null && dateThrough == null) "All imported dates" else "Filtered by the selected dates",
                                     style = MaterialTheme.typography.labelSmall)
                                 Row {
                                     FilterChip(selected = !showRepayments,onClick = { showRepayments = false },
@@ -295,10 +307,14 @@ internal fun ReceivableHistoryReview(
                             }
                             item {
                                 Row {
-                                    TextButton(enabled = !busy && offset > 0,onClick = { load((offset - 50).coerceAtLeast(0),false) }) { Text("Previous page") }
-                                    TextButton(enabled = !busy && rows.size == 50,onClick = { load(offset + 50,false) }) { Text("Next page") }
+                                    TextButton(enabled = !busy && previousOffsets.isNotEmpty(),onClick = {
+                                        previousOffsets.lastOrNull()?.let { load(it,false,true) }
+                                    }) { Text("Previous page") }
+                                    TextButton(enabled = !busy && nextOffset != null,onClick = {
+                                        nextOffset?.let { load(it,false,true) }
+                                    }) { Text("Next page") }
                                 }
-                                Text("Page " + (offset / 50 + 1) + " • selections from reviewed pages stay in the preview.",
+                                Text("Page " + pageNumber + " • selections from reviewed pages stay in the preview.",
                                     style = MaterialTheme.typography.bodySmall)
                             }
                         }

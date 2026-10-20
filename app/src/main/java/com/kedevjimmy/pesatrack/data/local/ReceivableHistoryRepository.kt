@@ -14,6 +14,7 @@ data class ReceivableHistoryCandidate(
     val accountName: String,
     val sourceLabel: String
 )
+data class ReceivableHistoryPage(val candidates: List<ReceivableHistoryCandidate>, val nextOffset: Int?)
 enum class ReceivableHistorySourceFilter { ALL, MESSAGES, STATEMENTS }
 data class ReceivableHistorySelection(val row: StoredTransaction, val kind: String, val amountMinor: Long)
 
@@ -28,6 +29,12 @@ class ReceivableHistoryRepository(context: Context) {
                limit: Int = 50, offset: Int = 0,
                sourceFilter: ReceivableHistorySourceFilter = ReceivableHistorySourceFilter.ALL,
                fromEpochMs: Long? = null, throughEpochMs: Long? = null): List<ReceivableHistoryCandidate> =
+        searchPage(query,personId,name,phone,limit,offset,sourceFilter,fromEpochMs,throughEpochMs).candidates
+
+    fun searchPage(query: String, personId: String?, name: String, phone: String?,
+               limit: Int = 50, offset: Int = 0,
+               sourceFilter: ReceivableHistorySourceFilter = ReceivableHistorySourceFilter.ALL,
+               fromEpochMs: Long? = null, throughEpochMs: Long? = null): ReceivableHistoryPage =
         synchronized(CanonicalStoreLock.monitor) {
             require(limit in 1..50 && offset >= 0)
             require(fromEpochMs == null || throughEpochMs == null || fromEpochMs <= throughEpochMs) {
@@ -47,6 +54,7 @@ class ReceivableHistoryRepository(context: Context) {
                 ReceivableHistorySourceFilter.ALL -> ""
                 ReceivableHistorySourceFilter.MESSAGES -> """
                     AND (LOWER(t.source_kind) LIKE '%sms%' OR LOWER(t.source_kind) LIKE '%notification%'
+                      OR LOWER(t.source_kind) LIKE '%historical%financial_message%'
                       OR EXISTS (SELECT 1 FROM evidence_links l JOIN evidence_observations o ON o.id=l.observation_id
                           WHERE l.transaction_id=t.id AND o.status='LINKED' AND o.source_kind IN ('SMS','NOTIFICATION')))
                 """.trimIndent()
@@ -60,50 +68,69 @@ class ReceivableHistoryRepository(context: Context) {
                 if (fromEpochMs != null) append(" AND t.occurred_at_epoch_ms >= ?")
                 if (throughEpochMs != null) append(" AND t.occurred_at_epoch_ms <= ?")
             }
-            val queryArgs = buildList {
-                add(namePattern); add(phonePattern)
-                if (fromEpochMs != null) add(fromEpochMs.toString())
-                if (throughEpochMs != null) add(throughEpochMs.toString())
-                add(limit.toString()); add(offset.toString())
-            }.toTypedArray()
-            val ids = database.readableDatabase.rawQuery(
-                """SELECT t.id FROM transactions t
-                   WHERE (LOWER(COALESCE(t.counterparty,'')) LIKE LOWER(?) ESCAPE '\'
-                      OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(t.counterparty_phone,''),' ',''),'-',''),'+',''),'(',''),')','') LIKE ?)
-                      $sourceClause
-                      $dateClause
-                   ORDER BY t.occurred_at_epoch_ms DESC, t.id DESC LIMIT ? OFFSET ?""",
-                queryArgs
-            ).use { c -> buildList { while (c.moveToNext()) add(c.getLong(0)) } }
-            val rowsById = ids.mapNotNull { id -> transactions.getById(id)?.let { id to it } }.toMap()
-            val evidenceByTransaction = EvidenceJournalStore.sourcesFor(app,rowsById.map { (id,row) ->
-                id to EvidenceCanonicalFact(row.accountId,row.direction,row.amountMinor,row.occurredAtEpochMs,
-                    row.transactionCode,row.sourceKind)
-            })
-            ids.mapNotNull { id ->
-                rowsById[id]?.let { row ->
+            fun queryIds(batchLimit: Int, batchOffset: Int): List<Long> {
+                val args = buildList {
+                    add(namePattern); add(phonePattern)
+                    if (fromEpochMs != null) add(fromEpochMs.toString())
+                    if (throughEpochMs != null) add(throughEpochMs.toString())
+                    add(batchLimit.toString()); add(batchOffset.toString())
+                }.toTypedArray()
+                return database.readableDatabase.rawQuery(
+                    """SELECT t.id FROM transactions t
+                       WHERE (LOWER(COALESCE(t.counterparty,'')) LIKE LOWER(?) ESCAPE '\'
+                          OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(t.counterparty_phone,''),' ',''),'-',''),'+',''),'(',''),')','') LIKE ?)
+                          $sourceClause
+                          $dateClause
+                       ORDER BY t.occurred_at_epoch_ms DESC, t.id DESC LIMIT ? OFFSET ?""",
+                    args
+                ).use { c -> buildList { while (c.moveToNext()) add(c.getLong(0)) } }
+            }
+            val candidates = mutableListOf<ReceivableHistoryCandidate>()
+            var cursor = offset
+            var reachedEnd = false
+            while (candidates.size < limit && !reachedEnd) {
+                val ids = queryIds(50,cursor)
+                if (ids.isEmpty()) break
+                val batchStart = cursor
+                cursor += ids.size
+                if (ids.size < 50) reachedEnd = true
+                val rowsById = ids.mapNotNull { id -> transactions.getById(id)?.let { id to it } }.toMap()
+                val evidenceByTransaction = EvidenceJournalStore.sourcesFor(app,rowsById.map { (id,row) ->
+                    id to EvidenceCanonicalFact(row.accountId,row.direction,row.amountMinor,row.occurredAtEpochMs,
+                        row.transactionCode,row.sourceKind)
+                })
+                for ((index,id) in ids.withIndex()) {
+                    val row = rowsById[id] ?: continue
                     val linkedSources = evidenceByTransaction[id].orEmpty().filterNot { it.needsReview }.map { it.sourceKind }
                     val isStatement = row.sourceKind.equals("statement_import",true) || "STATEMENT" in linkedSources
                     val isMessage = row.sourceKind.contains("sms",true) || row.sourceKind.contains("notification",true) ||
+                        row.sourceKind.contains("historical_financial_message",true) ||
                         "SMS" in linkedSources || "NOTIFICATION" in linkedSources
                     val matchesSource = when (sourceFilter) {
                         ReceivableHistorySourceFilter.ALL -> true
                         ReceivableHistorySourceFilter.MESSAGES -> isMessage
                         ReceivableHistorySourceFilter.STATEMENTS -> isStatement
                     }
-                    if (!matchesSource) return@let null
+                    if (!matchesSource) continue
                     val sourceLabel = when {
                         isStatement && isMessage -> "Messages · Statements"
                         isStatement -> "Statements"
                         isMessage -> "Messages"
-                        else -> "Imported history"
+                        else -> "Activity record"
                     }
                     val kind = if (row.direction == "EXPENSE") "LENT" else "REPAID"
-                    ReceivableHistoryCandidate(row, ReceivableHistoryPolicy.match(name,phone,row.counterparty,row.counterpartyPhone),
+                    candidates += ReceivableHistoryCandidate(row,
+                        ReceivableHistoryPolicy.match(name,phone,row.counterparty,row.counterpartyPhone),
                         journal.linkProblem(row.id,kind,row.amountMinor), id in excluded,
                         accounts[row.accountId] ?: "Imported account",sourceLabel)
+                    if (candidates.size == limit) {
+                        cursor = batchStart + index + 1
+                        break
+                    }
                 }
             }
+            val hasMore = candidates.size == limit && queryIds(1,cursor).isNotEmpty()
+            ReceivableHistoryPage(candidates,cursor.takeIf { hasMore })
         }
 
     fun exclusions(personId: String): Set<Long> = synchronized(CanonicalStoreLock.monitor) {
