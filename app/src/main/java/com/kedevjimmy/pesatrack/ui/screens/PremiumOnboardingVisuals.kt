@@ -6,13 +6,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.Image
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.painter.BitmapPainter
-import androidx.compose.ui.res.imageResource
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.res.painterResource
 import com.kedevjimmy.pesatrack.R
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -235,27 +230,40 @@ internal fun PremiumRangeOption(
     }
 }
 
-/** Art is cropped directly from the two approved reference mockups, not a generic icon substitute. */
+/**
+ * The approved onboarding artwork is a pair of standalone, high-resolution
+ * illustrations with real alpha transparency. Never crop/stretch a screenshot
+ * sprite here. These drawables are packaged offline in drawable-nodpi.
+ *
+ * Only this hero is raster artwork. Headings, financial-feature copy,
+ * consent, Android permission flow, and navigation stay as real Compose UI.
+ */
 @Composable
 internal fun ApprovedReferenceHero(
     privacy: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val dark = MaterialTheme.colorScheme.background.luminance() < .45f
-    val source = ImageBitmap.imageResource(id = R.drawable.onboarding_art_sprite)
-    val x = if (privacy) 192 else 0
-    val y = if (dark) 0 else 99
-    val width = if (privacy) 179 else 192
-    val height = if (privacy) 66 else 99
-    val painter = androidx.compose.runtime.remember(source, x, y) {
-        BitmapPainter(source, srcOffset = IntOffset(x, y), srcSize = IntSize(width, height))
+    val illustration = if (privacy) {
+        R.drawable.onboarding_privacy_hero
+    } else {
+        R.drawable.onboarding_welcome_hero
     }
-    Image(
-        painter = painter,
-        contentDescription = if (privacy)
-            "Financial messages are protected on this phone, with links to M-Pesa and bank services"
-        else "M-Pesa and Equity Bank example transactions beside a phone showing a money chart",
-        contentScale = ContentScale.FillBounds,
-        modifier = modifier.fillMaxWidth().height(if (privacy) 115.dp else 169.dp)
-    )
+    val description = if (privacy) {
+        "Illustration of protected financial messages on a phone connected to wallet and bank services"
+    } else {
+        "Illustration of a financial dashboard phone with example M-Pesa and Equity Bank transaction cards"
+    }
+    val height = if (privacy) 164.dp else 206.dp
+
+    Box(
+        modifier = modifier.fillMaxWidth().height(height),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(id = illustration),
+            contentDescription = description,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Fit
+        )
+    }
 }
