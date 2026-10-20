@@ -14,12 +14,14 @@ from decimal import Decimal, InvalidOperation
 import io
 import json
 import re
+import time
 
 from mpesa_wallet_reconcile import reconcile
 
 MAX_PAGES = 160
 MAX_BYTES = 8 * 1024 * 1024
 MAX_ROWS = 5000
+MAX_REVIEW_SECONDS = 120.0
 TABLE_SETTINGS = {
     "vertical_strategy": "lines", "horizontal_strategy": "lines",
     "snap_tolerance": 3, "join_tolerance": 3, "intersection_tolerance": 3
@@ -75,6 +77,38 @@ def _date(value):
     raise ValueError("unsupported_source_datetime")
 
 
+def _extract_table_grid_once(page, rectangles):
+    """Assign page characters to table cells in one pass, then extract cell text.
+
+    Cropping every cell scans the entire page character list repeatedly. The
+    physical ownership check below still rejects glyphs that cross a cell.
+    """
+    if not rectangles or not rectangles[0]:
+        return None
+    columns = len(rectangles[0])
+    if any(len(row) != columns or any(cell is None for cell in row)
+           for row in rectangles):
+        return None
+    xs = [rectangles[0][0][0]] + [rect[2] for rect in rectangles[0]]
+    ys = [row[0][1] for row in rectangles] + [rectangles[-1][0][3]]
+    if (len(xs) != columns + 1 or len(ys) != len(rectangles) + 1 or
+            any(a >= b for a, b in zip(xs, xs[1:])) or
+            any(a >= b for a, b in zip(ys, ys[1:]))):
+        return None
+    slots = [[[] for _ in range(columns)] for _ in rectangles]
+    for char in page.chars:
+        center_x = (char["x0"] + char["x1"]) / 2
+        center_y = (char["top"] + char["bottom"]) / 2
+        if xs[0] <= center_x < xs[-1] and ys[0] <= center_y < ys[-1]:
+            row = bisect_right(ys, center_y) - 1
+            col = bisect_right(xs, center_x) - 1
+            if 0 <= row < len(rectangles) and 0 <= col < columns:
+                slots[row][col].append(char)
+    from pdfplumber.utils import extract_text
+    values = [[(extract_text(cell, x_tolerance=1.5, y_tolerance=3) or "").strip()
+               for cell in row] for row in slots]
+    return values, slots
+
 def _validate_source_chars(page, values, rectangles):
     """Each nonblank source glyph belongs to its exact 7-column physical cell."""
     if not rectangles:
@@ -121,27 +155,65 @@ def _physical_rows(page):
         raw = [list(row.cells) for row in table.rows]
         if any(len(row) != 7 or any(c is None for c in row) for row in raw):
             continue
-        header_rows = []
-        for i, row in enumerate(raw):
-            names = tuple(_norm(_cell(page, rect)) for rect in row)
-            if names == HEADERS:
-                header_rows.append(i)
+        fast = _extract_table_grid_once(page, raw)
+        extracted = fast[0] if fast is not None else [
+            [_cell(page, rect) for rect in row] for row in raw]
+
+        def find_header(cells):
+            return [i for i, row in enumerate(cells)
+                    if tuple(_norm(cell) for cell in row) == HEADERS]
+
+        header_rows = find_header(extracted)
+        # Keep the established crop-based path as a compatibility fallback for
+        # unusual table geometry or text ordering. Normal tables avoid thousands
+        # of whole-page scans, while ambiguous layouts retain the old behavior.
+        if fast is not None and len(header_rows) != 1:
+            extracted = [[_cell(page, rect) for rect in row] for row in raw]
+            header_rows = find_header(extracted)
         if len(header_rows) != 1:
             continue
         start = header_rows[0] + 1
         rectangles = raw[start:]
         if not rectangles:
             continue
-        values = [[_cell(page, rect) for rect in row] for row in rectangles]
+        values = extracted[start:]
         if any(not row[0].strip() or not RECEIPT.fullmatch(
                 _compact(row[0])) for row in values):
-            continue
-        matches.append((values, rectangles))
+            if fast is None:
+                continue
+            extracted = [[_cell(page, rect) for rect in row] for row in raw]
+            header_rows = find_header(extracted)
+            if len(header_rows) != 1:
+                continue
+            start = header_rows[0] + 1
+            rectangles = raw[start:]
+            values = extracted[start:]
+            if not rectangles or any(not row[0].strip() or not RECEIPT.fullmatch(
+                    _compact(row[0])) for row in values):
+                continue
+        try:
+            source_chars = _validate_source_chars(page, values, rectangles)
+        except ValueError:
+            if fast is None:
+                raise
+            # The prior crop path is authoritative for text extraction; it is
+            # retained for any grid where the optimized extraction differs.
+            extracted = [[_cell(page, rect) for rect in row] for row in raw]
+            header_rows = find_header(extracted)
+            if len(header_rows) != 1:
+                continue
+            start = header_rows[0] + 1
+            rectangles = raw[start:]
+            values = extracted[start:]
+            if not rectangles or any(not row[0].strip() or not RECEIPT.fullmatch(
+                    _compact(row[0])) for row in values):
+                continue
+            source_chars = _validate_source_chars(page, values, rectangles)
+        matches.append((values, rectangles, source_chars))
     if len(matches) != 1:
         raise ValueError("physical_seven_column_table_not_unique")
-    values, rectangles = matches[0]
-    return values, _validate_source_chars(page, values, rectangles)
-
+    values, rectangles, source_chars = matches[0]
+    return values, source_chars
 
 def _summary(page):
     """Independently read Safaricom's physical three-column summary table."""
@@ -181,18 +253,28 @@ def _summary(page):
 
 def extract_bytes(raw: bytes, password: str | None = None):
     import pdfplumber
+    deadline = time.monotonic() + MAX_REVIEW_SECONDS
+
+    def require_time_budget():
+        if time.monotonic() >= deadline:
+            raise ValueError('local_review_timeout')
 
     if not isinstance(raw, bytes) or not 0 < len(raw) <= MAX_BYTES or not raw.startswith(b"%PDF-"):
         raise ValueError("invalid_or_oversize_pdf")
+    require_time_budget()
     parsed = []
     source_chars = 0
-    with pdfplumber.open(io.BytesIO(raw), password=password or "") as document:
+    with pdfplumber.open(io.BytesIO(raw), password=password or '') as document:
+        require_time_budget()
         pages = len(document.pages)
         if pages < 1 or pages > MAX_PAGES:
             raise ValueError("unsupported_document_page_count")
         categories, official = _summary(document.pages[0])
+        require_time_budget()
         for page_no, page in enumerate(document.pages, 1):
+            require_time_budget()
             grid, chars = _physical_rows(page)
+            require_time_budget()
             source_chars += chars
             for row_num, cells in enumerate(grid, 1):
                 if len(parsed) >= MAX_ROWS:
@@ -227,7 +309,9 @@ def extract_bytes(raw: bytes, password: str | None = None):
     withdrawn = sum((-r["delta"] for r in parsed if r["delta"] < 0), Decimal(0))
     if (paid, withdrawn) != official:
         raise ValueError("detailed_totals_mismatch_official_summary")
+    require_time_budget()
     financial = reconcile(parsed)
+    require_time_budget()
 
     lines = [{
         "page": r["page"], "row": r["row"], "reference": r["receipt"],
@@ -272,6 +356,7 @@ def inspect_pdf(base64_pdf: str, password: str = "") -> str:
             "source_timestamp_order", "unknown_zero_informational_event",
             "wallet_chain_ambiguous_or_disconnected", "invalid_or_oversize_pdf",
             "source_row_limit", "ambiguous_cash_leg", "invalid_source_row_semantics",
+            'local_review_timeout',
             "informational_balance_mismatch", "crossing_physical_cell",
         }
         category = str(exc) if isinstance(exc, ValueError) and str(exc) in allowed else "unsupported_or_unverified_pdf"

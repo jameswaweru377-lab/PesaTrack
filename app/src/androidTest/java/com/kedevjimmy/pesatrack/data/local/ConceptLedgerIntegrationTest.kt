@@ -55,6 +55,34 @@ class ConceptLedgerIntegrationTest {
         assertTrue(BillSchedules(context).upcomingThisMonth().none {it.rule.id==rent.id})
     }
 
+    @Test fun oneExplicitPaymentCannotSatisfyTwoBillsWithTheSameMerchant() {
+        val rent=RuleStore.get(context).save("Rent","Example",TransactionCategory.RENT,MoneyDirection.EXPENSE,preset=RulePreset.OTHER_RECURRING,plannedAmountMinor=1000000)
+        val school=RuleStore.get(context).save("School fees","Example",TransactionCategory.OTHER,MoneyDirection.EXPENSE,preset=RulePreset.OTHER_RECURRING,plannedAmountMinor=1000000)
+        BillSchedules(context).save(rent.id,5,false)
+        BillSchedules(context).save(school.id,5,false)
+        insert("SCHOOL-PAYMENT",1000000,school,MoneyDirection.EXPENSE,TransactionCategory.OTHER)
+
+        val bills=BillSchedules(context).list().associateBy {it.rule.id}
+        assertEquals(1000000L,bills[rent.id]!!.remainingMinor)
+        assertEquals(0L,bills[rent.id]!!.paidMinor)
+        assertEquals(0L,bills[school.id]!!.remainingMinor)
+        assertEquals(1000000L,bills[school.id]!!.paidMinor)
+    }
+
+    @Test fun oneUnassignedLegacyPaymentCannotSatisfyTwoBillsWithTheSameMerchant() {
+        val rent=RuleStore.get(context).save("Rent","Example",TransactionCategory.RENT,MoneyDirection.EXPENSE,preset=RulePreset.OTHER_RECURRING,plannedAmountMinor=1000000)
+        val school=RuleStore.get(context).save("School fees","Example",TransactionCategory.OTHER,MoneyDirection.EXPENSE,preset=RulePreset.OTHER_RECURRING,plannedAmountMinor=1000000)
+        BillSchedules(context).save(rent.id,5,false)
+        BillSchedules(context).save(school.id,5,false)
+        insert("UNASSIGNED-SHARED-PAYMENT",1000000,null,MoneyDirection.EXPENSE,TransactionCategory.OTHER)
+
+        val bills=BillSchedules(context).list().associateBy {it.rule.id}
+        assertEquals(1000000L,bills[rent.id]!!.remainingMinor)
+        assertEquals(0L,bills[rent.id]!!.paidMinor)
+        assertEquals(1000000L,bills[school.id]!!.remainingMinor)
+        assertEquals(0L,bills[school.id]!!.paidMinor)
+    }
+
     @Test fun weeklyBillUsesOnlyOccurrencesInsideCurrentMonth() {
         val rule=RuleStore.get(context).save("Weekly service","Service",TransactionCategory.OTHER,MoneyDirection.EXPENSE,preset=RulePreset.OTHER_RECURRING,plannedAmountMinor=10000)
         BillSchedules(context).saveSchedule(rule.id,BillCadence.WEEKLY,dueDayOfWeek=Calendar.MONDAY,enabled=false)

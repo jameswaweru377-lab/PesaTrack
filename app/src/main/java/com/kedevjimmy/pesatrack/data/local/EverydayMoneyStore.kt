@@ -72,14 +72,28 @@ class EverydayMoneyStore(context:Context) {
  data class Preview(val row:StatementRow,val duplicate:Boolean,val possibleMatch:Boolean=false)
  fun preview(accountId:String,rows:List<StatementRow>):List<Preview> = synchronized(CanonicalStoreLock.monitor) {
   requireOwned(accountId);StatementCsv.validateRows(rows)
-  val existing=transactions.transactionsBetween(rows.minOfOrNull {it.date} ?: 0, (rows.maxOfOrNull {it.date} ?: 0)+2*86400000L)
+  val rangeStart=Calendar.getInstance().apply {
+   timeInMillis=rows.minOfOrNull {it.date} ?: 0
+   set(Calendar.HOUR_OF_DAY,0);set(Calendar.MINUTE,0);set(Calendar.SECOND,0);set(Calendar.MILLISECOND,0)
+  }
+  val rangeEnd=Calendar.getInstance().apply {
+   timeInMillis=rows.maxOfOrNull {it.date} ?: 0
+   set(Calendar.HOUR_OF_DAY,0);set(Calendar.MINUTE,0);set(Calendar.SECOND,0);set(Calendar.MILLISECOND,0)
+   add(Calendar.DAY_OF_MONTH,1)
+  }
+  val existing=transactions.transactionsBetween(rangeStart.timeInMillis,rangeEnd.timeInMillis)
+  val matchIndex=StatementImportMatchIndex.from(existing.map { row ->
+   StatementImportMatchIndex.ExistingLeg(
+    accountId=row.accountId,amountMinor=row.amountMinor,direction=row.direction,
+    occurredAtEpochMs=row.occurredAtEpochMs,reference=row.transactionCode
+   )
+  })
   val seen=hashSetOf<String>()
   rows.map {r->
    // Shared event references can contain separate payment, fee or
    // financing legs. A code-only match cannot prove a duplicate cash leg.
-   val linked=r.reference?.let {transactions.getByTransactionCode(it)}
-   val codeMatch=linked!=null && exactReferenceLeg(linked,accountId,r)
-   val match=existing.any {e->e.accountId==accountId && e.amountMinor==kotlin.math.abs(r.signedMinor) && ((r.signedMinor>0 && e.direction==MoneyDirection.INCOME.name)||(r.signedMinor<0 && e.direction in setOf(MoneyDirection.EXPENSE.name,MoneyDirection.TRANSFER.name))) && sameDay(e.occurredAtEpochMs,r.date)}
+   val codeMatch=matchIndex.hasExactReference(accountId,r)
+   val match=matchIndex.hasPossibleMatch(accountId,r)
    val key=importKey(accountId,r);val prior=database.readableDatabase.rawQuery("SELECT 1 FROM statement_import_entries WHERE import_key = ?",arrayOf(key)).use {it.moveToFirst()}
    Preview(r,prior||codeMatch||!seen.add(key),match && !codeMatch)
   }

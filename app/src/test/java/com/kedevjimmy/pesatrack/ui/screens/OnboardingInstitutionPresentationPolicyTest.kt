@@ -4,12 +4,41 @@ import com.kedevjimmy.pesatrack.domain.interpretation.AccountOwnershipHint
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountNature
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 import com.kedevjimmy.pesatrack.domain.model.AccountType
+import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnostic
+import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticCode
+import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseRoute
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OnboardingInstitutionPresentationPolicyTest {
+    @Test fun repeatedImportObservationsDoNotInflateInstitutionMessageCount() {
+        val original = diagnostic(
+            title = "EQUITY",
+            receivedAt = 1_800_000_000_000L,
+            shapeId = "shape-1"
+        )
+
+        assertEquals(
+            2,
+            OnboardingInstitutionPresentationPolicy.uniqueObservationCount(
+                listOf(original, original.copy(), diagnostic("EQUITY", 1_800_000_001_000L, "shape-1"))
+            )
+        )
+    }
+
+    @Test fun observationsWithoutStableShapeIdentityAreNotCollapsed() {
+        val diagnostic = diagnostic("EQUITY", 1_800_000_000_000L, null)
+
+        assertEquals(
+            2,
+            OnboardingInstitutionPresentationPolicy.uniqueObservationCount(
+                listOf(diagnostic, diagnostic.copy())
+            )
+        )
+    }
+
     @Test fun topFiveAreRankedByObservedMessageCountAndNeverIncludeSafaricomProducts() {
         val candidates = listOf(
             source("Equity Bank", "KENYAN_BANK_EQUITY", 9),
@@ -50,4 +79,25 @@ class OnboardingInstitutionPresentationPolicyTest {
         )
         return DetectedSetupSource(name, if (product) "Savings" else "Bank", messageCount, reference)
     }
+
+    private fun diagnostic(
+        title: String,
+        receivedAt: Long,
+        shapeId: String?
+    ) = FinancialIngestionDiagnostic(
+        title = title,
+        sourceDisplayName = null,
+        sourceType = "Bank",
+        eventLabel = "Financial message",
+        sourcePackage = null,
+        sourceKind = "historical_sms",
+        receivedAtEpochMs = receivedAt,
+        code = FinancialIngestionDiagnosticCode.LINKED_OBSERVATION,
+        insertedTransactions = 0,
+        insertedFinancialEvents = 0,
+        pendingReviewEvents = 0,
+        linkedTransactionId = 1L,
+        parseRoute = MessageParseRoute.TEMPLATE,
+        messageShapeId = shapeId
+    )
 }

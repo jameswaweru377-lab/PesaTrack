@@ -116,7 +116,7 @@ private fun readStatement(c:Context,uri:Uri):String {
       Text("01 · Source account",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
      }
      Text("Select the account that appears on your statement.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     ChoiceField("Account",accounts.firstOrNull{it.id==accountId}?.name ?: "Choose account",accounts.map {it.id to it.name},!busy){if(accountId!=it){invalidatePreview();accountId=it}}
+     ChoiceField("Account",accounts.firstOrNull{it.id==accountId}?.name ?: "Choose account",accounts.map {it.id to it.name},!busy&&stagedPdf==null&&sourcePdfUri==null){if(accountId!=it){invalidatePreview();accountId=it}}
      if(accountId.isEmpty()) Text("Choose a confirmed account before reviewing transactions.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
    }
@@ -217,6 +217,27 @@ private fun readStatement(c:Context,uri:Uri):String {
       },modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
       Text("Save complete PDF to Statement Activity")
      }
+     OutlinedButton(
+      enabled=!busy&&ready.proof.totalsVerified&&ready.proof.cashRows>0,
+      onClick={
+       try {
+        val activityRows=StatementPdfActivityPolicy.toActivityRows(ready.lines,ready.proof)
+        previewSource=null;preview=emptyList();dateResult=null;selected.clear()
+        dateError=null;error=null
+        customDates=false
+        rows=activityRows
+        done="Review verified cash movements below. They will remain unclassified until you confirm them in Activity."
+       } catch(e:Exception) {
+        error=e.message ?: "These PDF rows could not be prepared for Activity review."
+       }
+      },
+      modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)
+     ) { Text("Review cash movements in Activity") }
+     Text(
+      "Only selected cash movements go to Activity. They remain unclassified for review; informational rows stay in the statement archive.",
+      style=MaterialTheme.typography.bodySmall,
+      color=MaterialTheme.colorScheme.onSurfaceVariant
+     )
     }
    }
   }}
@@ -251,8 +272,10 @@ private fun readStatement(c:Context,uri:Uri):String {
     val chosen=preview.mapIndexedNotNull {i,p->if(selected[i]==true&&!p.duplicate)p.row else null}
     importing=true;error=null
     scope.launch{try{
+     val expectedAccountType=accounts.firstOrNull{it.id==source.accountId}?.type
+       ?:error("Choose a confirmed account and review the statement again.")
      val count=withContext(Dispatchers.IO){
-      store.importRows(source.accountId,StatementImportDates.requireReviewed(source,reviewed,chosen))
+      store.importRows(source.accountId,StatementImportDates.requireReviewed(source,reviewed,chosen),expectedAccountType)
      }
      onChanged();done="Added $count entries. Confirm them in Activity.";rows=emptyList();previewSource=null;dateResult=null;preview=emptyList();selected.clear()
     }catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "Could not finish import. Check Activity before retrying."}finally{importing=false}}

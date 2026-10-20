@@ -481,7 +481,10 @@ fun PesaTrackApp(
 
         composable("statement-activity") {
             // Read-only PDF statement archive. Never invokes SMS imports or account updates.
-            StatementActivityDialog(onDismiss = { navController.popBackStack() })
+            StatementActivityDialog(
+                onDismiss = { navController.popBackStack() },
+                onTabSelected = ::navigateToTab
+            )
         }
 
         composable("reports") {
