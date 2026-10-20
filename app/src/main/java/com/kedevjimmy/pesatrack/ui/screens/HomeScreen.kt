@@ -205,8 +205,7 @@ fun HomeScreen(
     onReportsClick: () -> Unit = {},
     stateCache: HomeScreenCache? = null
 ) {
-    var homeActionsExpanded by remember { mutableStateOf(false) }
-    var spendingExplanationExpanded by remember { mutableStateOf(false) }
+    var homeMoneyToolsExpanded by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val cycleStore = remember { PayCycleStore.get(context) }
     val transactionStore = remember { TransactionStore.get(context) }
@@ -1380,55 +1379,6 @@ fun HomeScreen(
                 )
             }
         }
-        item(key="b-accounts-pair") {
-            Row(Modifier.fillMaxWidth(),
-                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                HomeBTile(
-                    "Debts & loans",
-                    activeDebtOutstandingMinor?.let(::formatMoney)?:"Amount unavailable",
-                    activeDebtAccounts.size.toString()+
-                        if(activeDebtAccounts.size==1)" active debt" else " active debts",
-                    androidx.compose.material.icons.Icons.Rounded.AccountBalance,
-                    androidx.compose.ui.graphics.Color(0xFFB7A4FF),
-                    onClick=onDebtsClick,modifier=Modifier.weight(1f)
-                )
-                HomeBTile(
-                    "Upcoming bills",
-                    if(upcomingBills.isEmpty())"None due"
-                    else upcomingBills.size.toString() + " due",
-                    if(upcomingBills.isEmpty())"Nothing due this month"
-                    else "View due dates",
-                    androidx.compose.material.icons.Icons.Rounded.CalendarMonth,
-                    androidx.compose.ui.graphics.Color(0xFFFFC55C),
-                    onClick=onBillsClick,modifier=Modifier.weight(1f)
-                )
-            }
-        }
-        item(key="b-tools-pair") {
-            Row(Modifier.fillMaxWidth(),
-                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                HomeBTile(
-                    "Investments",
-                    "Value unavailable",
-                    observedPositions?.size?.let { n ->
-                        n.toString()+if(n==1)" observed position" else " observed positions"
-                    }?:"Checking records",
-                    androidx.compose.material.icons.Icons.Rounded.TrendingUp,
-                    androidx.compose.ui.graphics.Color(0xFF42E5D2),
-                    onClick={showInvestments=true},modifier=Modifier.weight(1f)
-                )
-                HomeBTile(
-                    "Enter salary",
-                    if(cycleSnapshot.cycle==null)"Set up pay"
-                    else "Pay cycle active",
-                    if(cycleSnapshot.pendingSalary!=null)
-                        "Salary needs confirmation" else "Review salary details",
-                    androidx.compose.material.icons.Icons.Rounded.Paid,
-                    androidx.compose.ui.graphics.Color(0xFF39BDF5),
-                    onClick=onSalaryClick,modifier=Modifier.weight(1f)
-                )
-            }
-        }
         if(cycleSnapshot.pendingSalary != null) item(key="b-confirm-salary") {
             PendingSalaryCard(
                 candidate=requireNotNull(cycleSnapshot.pendingSalary),
@@ -1445,6 +1395,12 @@ fun HomeScreen(
         if(cycleSnapshot.unexplainedFundingGapMinor > 0L) item(key="b-gap") {
             FundingGapCard(cycleSnapshot.unexplainedFundingGapMinor)
         }
+        item(key="b-upcoming-bills") {
+            HomeUpcomingBillsCard(
+                bills=upcomingBills,
+                onBillsClick=onBillsClick
+            )
+        }
         item(key="b-recent") {
             HomeBRecent(
                 rows=monthTransactions,
@@ -1453,6 +1409,52 @@ fun HomeScreen(
                 onOpen=onTransactionClick,
                 onAll=onActivityClick
             )
+        }
+        item(key="b-tools-disclosure") {
+            TextButton(
+                onClick={homeMoneyToolsExpanded = !homeMoneyToolsExpanded},
+                modifier=Modifier.fillMaxWidth()
+            ) {
+                Text(if(homeMoneyToolsExpanded) "Hide shortcuts" else "More money tools")
+            }
+        }
+        if(homeMoneyToolsExpanded) {
+            item(key="b-debt-tool") {
+                HomeBTile(
+                    "Debts & loans",
+                    activeDebtOutstandingMinor?.let(::formatMoney)?:"Amount unavailable",
+                    activeDebtAccounts.size.toString()+
+                        if(activeDebtAccounts.size==1)" active debt" else " active debts",
+                    androidx.compose.material.icons.Icons.Rounded.AccountBalance,
+                    androidx.compose.ui.graphics.Color(0xFFB7A4FF),
+                    onClick=onDebtsClick,
+                    modifier=Modifier.fillMaxWidth()
+                )
+            }
+            item(key="b-tools-pair") {
+                Row(Modifier.fillMaxWidth(),
+                    horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    HomeBTile(
+                        "Investments",
+                        "Value unavailable",
+                        observedPositions?.size?.let { n ->
+                            n.toString()+if(n==1)" observed position" else " observed positions"
+                        }?:"Checking records",
+                        androidx.compose.material.icons.Icons.Rounded.TrendingUp,
+                        androidx.compose.ui.graphics.Color(0xFF42E5D2),
+                        onClick={showInvestments=true},modifier=Modifier.weight(1f)
+                    )
+                    HomeBTile(
+                        "Enter salary",
+                        if(cycleSnapshot.cycle==null)"Set up pay"
+                        else "Pay cycle active",
+                        "Review salary details",
+                        androidx.compose.material.icons.Icons.Rounded.Paid,
+                        androidx.compose.ui.graphics.Color(0xFF39BDF5),
+                        onClick=onSalaryClick,modifier=Modifier.weight(1f)
+                    )
+                }
+            }
         }
     }
 }
