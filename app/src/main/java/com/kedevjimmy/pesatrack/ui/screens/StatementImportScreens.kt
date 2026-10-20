@@ -56,6 +56,8 @@ private fun readStatement(c:Context,uri:Uri):String {
  var sourcePdfPassword by remember {mutableStateOf("")}
  var stagedPdf by remember {mutableStateOf<OfflineMpesaPdfReader.Prepared?>(null)}
  var statementPdfApproved by remember {mutableStateOf(false)}
+ // This constraint belongs to the current rows; changing accounts must not clear it.
+ var activityRowsRequireAccountType by remember {mutableStateOf<AccountType?>(null)}
  val zoneId=rememberSaveable {TimeZone.getDefault().id}
  val today=remember {StatementImportDates.day(System.currentTimeMillis(),zoneId)}
  var customDates by rememberSaveable {mutableStateOf(false)}
@@ -72,12 +74,17 @@ private fun readStatement(c:Context,uri:Uri):String {
  val selected=remember {mutableStateMapOf<Int,Boolean>()};var error by remember {mutableStateOf<String?>(null)};var dateError by remember {mutableStateOf<String?>(null)};var done by remember {mutableStateOf<String?>(null)}
  fun invalidatePreview() {stagedPdf=null;statementPdfApproved=false;previewSource=null;preview=emptyList();dateResult=null;selected.clear();error=null;dateError=null;done=null}
  LaunchedEffect(Unit){try{accounts=withContext(Dispatchers.IO){store.ownedAccounts()}.filter {if(statementOnly)it.type==AccountType.MOBILE_WALLET else it.type==AccountType.BANK||it.type==AccountType.MOBILE_WALLET}}catch(e:CancellationException){throw e}catch(e:Exception){error="Could not load accounts."}}
- LaunchedEffect(selection){
+  LaunchedEffect(selection,activityRowsRequireAccountType){
   val source=selection
   previewSource=null;preview=emptyList();dateResult=null;selected.clear();dateError=null
   try {
    StatementImportDates.validateRange(source.range,System.currentTimeMillis(),source.zoneId)
    if(source.rows.isNotEmpty() && source.accountId.isNotEmpty()) {
+     activityRowsRequireAccountType?.let {requiredType->
+      require(accounts.any{it.id==source.accountId&&it.type==requiredType}) {
+       "M-Pesa statement movements must use a confirmed mobile wallet account."
+      }
+     }
     preparing=source
     val (dates,checked)=withContext(Dispatchers.IO) {
      val dates=StatementImportDates.select(source)
@@ -93,6 +100,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  }
  val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->
   if(uri!=null&&!reading&&!importing&&preparing==null){
+    activityRowsRequireAccountType=null
    reading=true;invalidatePreview();rows=emptyList()
    scope.launch {
     try{rows=withContext(Dispatchers.IO){StatementCsv.parse(readStatement(c,uri),TimeZone.getTimeZone(zoneId))}}
@@ -218,10 +226,13 @@ private fun readStatement(c:Context,uri:Uri):String {
       Text("Save complete PDF to Statement Activity")
      }
      OutlinedButton(
-      enabled=!busy&&ready.proof.totalsVerified&&ready.proof.cashRows>0,
+       enabled=!busy&&ready.proof.totalsVerified&&ready.proof.cashRows>0&&accounts.any{it.id==accountId&&it.type==AccountType.MOBILE_WALLET},
       onClick={
        try {
-        val activityRows=StatementPdfActivityPolicy.toActivityRows(ready.lines,ready.proof)
+         val accountType=accounts.firstOrNull{it.id==accountId}?.type
+          ?:error("Choose a confirmed mobile wallet account first.")
+         val activityRows=StatementPdfActivityPolicy.toActivityRows(ready.lines,ready.proof,accountType)
+         activityRowsRequireAccountType=AccountType.MOBILE_WALLET
         previewSource=null;preview=emptyList();dateResult=null;selected.clear()
         dateError=null;error=null
         customDates=false
@@ -272,14 +283,16 @@ private fun readStatement(c:Context,uri:Uri):String {
     val chosen=preview.mapIndexedNotNull {i,p->if(selected[i]==true&&!p.duplicate)p.row else null}
     importing=true;error=null
     scope.launch{try{
-     val expectedAccountType=accounts.firstOrNull{it.id==source.accountId}?.type
+      val expectedAccountType=activityRowsRequireAccountType
+        ?:accounts.firstOrNull{it.id==source.accountId}?.type
        ?:error("Choose a confirmed account and review the statement again.")
      val count=withContext(Dispatchers.IO){
       store.importRows(source.accountId,StatementImportDates.requireReviewed(source,reviewed,chosen),expectedAccountType)
      }
-     onChanged();done="Added $count entries. Confirm them in Activity.";rows=emptyList();previewSource=null;dateResult=null;preview=emptyList();selected.clear()
+      onChanged();done="Added $count entries. Confirm them in Activity.";rows=emptyList();activityRowsRequireAccountType=null;previewSource=null;dateResult=null;preview=emptyList();selected.clear()
     }catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "Could not finish import. Check Activity before retrying."}finally{importing=false}}
-   },enabled=!busy&&dateError==null&&previewSource==selection&&selected.values.any{it},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text("Import ${selected.values.count{it}} entries")}}
+     },enabled=!busy&&dateError==null&&previewSource==selection&&selected.values.any{it}&&
+      (activityRowsRequireAccountType==null||accounts.any{it.id==selection.accountId&&it.type==activityRowsRequireAccountType}),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text("Import ${selected.values.count{it}} entries")}}
    items(preview.size,key={it}){i->
     val p=preview[i]
     PesaCard {

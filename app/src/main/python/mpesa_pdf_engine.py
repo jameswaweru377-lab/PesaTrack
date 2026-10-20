@@ -146,7 +146,19 @@ def _validate_source_chars(page, values, rectangles):
     return count
 
 
-def _physical_rows(page):
+def _crop_grid(page, rectangles, require_time_budget):
+    """Retain the crop-based compatibility path without bypassing the deadline."""
+    extracted = []
+    for row in rectangles:
+        cells = []
+        for rect in row:
+            require_time_budget()
+            cells.append(_cell(page, rect))
+        extracted.append(cells)
+    return extracted
+
+
+def _physical_rows(page, require_time_budget):
     """Require exactly one physically evidenced detailed table per page."""
     matches = []
     for table in page.find_tables(table_settings=TABLE_SETTINGS):
@@ -156,8 +168,8 @@ def _physical_rows(page):
         if any(len(row) != 7 or any(c is None for c in row) for row in raw):
             continue
         fast = _extract_table_grid_once(page, raw)
-        extracted = fast[0] if fast is not None else [
-            [_cell(page, rect) for rect in row] for row in raw]
+        extracted = fast[0] if fast is not None else _crop_grid(
+            page, raw, require_time_budget)
 
         def find_header(cells):
             return [i for i, row in enumerate(cells)
@@ -168,7 +180,7 @@ def _physical_rows(page):
         # unusual table geometry or text ordering. Normal tables avoid thousands
         # of whole-page scans, while ambiguous layouts retain the old behavior.
         if fast is not None and len(header_rows) != 1:
-            extracted = [[_cell(page, rect) for rect in row] for row in raw]
+            extracted = _crop_grid(page, raw, require_time_budget)
             header_rows = find_header(extracted)
         if len(header_rows) != 1:
             continue
@@ -181,7 +193,7 @@ def _physical_rows(page):
                 _compact(row[0])) for row in values):
             if fast is None:
                 continue
-            extracted = [[_cell(page, rect) for rect in row] for row in raw]
+            extracted = _crop_grid(page, raw, require_time_budget)
             header_rows = find_header(extracted)
             if len(header_rows) != 1:
                 continue
@@ -198,7 +210,7 @@ def _physical_rows(page):
                 raise
             # The prior crop path is authoritative for text extraction; it is
             # retained for any grid where the optimized extraction differs.
-            extracted = [[_cell(page, rect) for rect in row] for row in raw]
+            extracted = _crop_grid(page, raw, require_time_budget)
             header_rows = find_header(extracted)
             if len(header_rows) != 1:
                 continue
@@ -273,7 +285,7 @@ def extract_bytes(raw: bytes, password: str | None = None):
         require_time_budget()
         for page_no, page in enumerate(document.pages, 1):
             require_time_budget()
-            grid, chars = _physical_rows(page)
+            grid, chars = _physical_rows(page, require_time_budget)
             require_time_budget()
             source_chars += chars
             for row_num, cells in enumerate(grid, 1):

@@ -87,6 +87,36 @@ class OfflineMpesaPdfTest(unittest.TestCase):
         self.assertEqual("ready_for_separate_activity_review", result["status"])
         self.assertEqual(4, len(result["lines"]))
 
+    def test_crop_fallback_checks_deadline_between_cells(self):
+        import mpesa_pdf_engine
+
+        original_grid = mpesa_pdf_engine._extract_table_grid_once
+        original_cell = mpesa_pdf_engine._cell
+        now = [0.0]
+        calls = 0
+
+        def altered_header(page, rectangles):
+            result = original_grid(page, rectangles)
+            if result is not None and result[0]:
+                result[0][0][0] = "UNEXPECTED"
+            return result
+
+        def expire_after_first_fallback_cell(page, rect):
+            nonlocal calls
+            calls += 1
+            value = original_cell(page, rect)
+            if calls == 19:  # 18 summary cells, then one detailed-table cell
+                now[0] = mpesa_pdf_engine.MAX_REVIEW_SECONDS + 1
+            return value
+
+        with patch.object(mpesa_pdf_engine.time, "monotonic", lambda: now[0]), \
+                patch.object(mpesa_pdf_engine, "_extract_table_grid_once", altered_header), \
+                patch.object(mpesa_pdf_engine, "_cell", expire_after_first_fallback_cell):
+            with self.assertRaisesRegex(ValueError, "local_review_timeout"):
+                extract_bytes(draw_pdf())
+
+        self.assertEqual(19, calls)
+
     def test_physical_table_and_fuliza_review(self):
         result=extract_bytes(draw_pdf())
         self.assertEqual("ready_for_separate_activity_review",result["status"])

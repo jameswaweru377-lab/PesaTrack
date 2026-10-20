@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.domain.everyday
 
+import com.kedevjimmy.pesatrack.domain.model.AccountType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -31,7 +32,8 @@ class StatementPdfActivityPolicyTest {
 
         val result = StatementPdfActivityPolicy.toActivityRows(
             lines,
-            StatementActivityProof(receiptRows = 3, cashRows = 2, totalsVerified = true)
+            StatementActivityProof(receiptRows = 3, cashRows = 2, totalsVerified = true),
+            AccountType.MOBILE_WALLET
         )
 
         assertEquals(
@@ -47,7 +49,8 @@ class StatementPdfActivityPolicyTest {
         assertThrows(IllegalArgumentException::class.java) {
             StatementPdfActivityPolicy.toActivityRows(
                 listOf(line(1, paidIn = 100L)),
-                StatementActivityProof(receiptRows = 1, cashRows = 1, totalsVerified = false)
+                StatementActivityProof(receiptRows = 1, cashRows = 1, totalsVerified = false),
+                AccountType.MOBILE_WALLET
             )
         }
     }
@@ -57,7 +60,19 @@ class StatementPdfActivityPolicyTest {
         assertThrows(IllegalArgumentException::class.java) {
             StatementPdfActivityPolicy.toActivityRows(
                 listOf(line(1, paidIn = 100L), line(2)),
-                StatementActivityProof(receiptRows = 1, cashRows = 1, totalsVerified = true)
+                StatementActivityProof(receiptRows = 1, cashRows = 1, totalsVerified = true),
+                AccountType.MOBILE_WALLET
+            )
+        }
+    }
+
+    @Test
+    fun mpesaCashRowsCannotBePreparedForABankAccount() {
+        assertThrows(IllegalArgumentException::class.java) {
+            StatementPdfActivityPolicy.toActivityRows(
+                listOf(line(1, paidIn = 100L)),
+                StatementActivityProof(receiptRows = 1, cashRows = 1, totalsVerified = true),
+                AccountType.BANK
             )
         }
     }
