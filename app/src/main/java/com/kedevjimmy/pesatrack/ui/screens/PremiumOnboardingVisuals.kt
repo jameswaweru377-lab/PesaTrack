@@ -243,10 +243,10 @@ internal fun ApprovedReferenceHero(
 ) {
     val dark = MaterialTheme.colorScheme.background.luminance() < .45f
     val source = ImageBitmap.imageResource(id = R.drawable.onboarding_art_sprite)
-    val x = if (privacy) 225 else 0
-    val y = if (dark) 0 else 117
-    val width = if (privacy) 210 else 225
-    val height = if (privacy) 78 else 117
+    val x = if (privacy) 192 else 0
+    val y = if (dark) 0 else 99
+    val width = if (privacy) 179 else 192
+    val height = if (privacy) 66 else 99
     val painter = androidx.compose.runtime.remember(source, x, y) {
         BitmapPainter(source, srcOffset = IntOffset(x, y), srcSize = IntSize(width, height))
     }
@@ -256,6 +256,6 @@ internal fun ApprovedReferenceHero(
             "Financial messages are protected on this phone, with links to M-Pesa and bank services"
         else "M-Pesa and Equity Bank example transactions beside a phone showing a money chart",
         contentScale = ContentScale.FillBounds,
-        modifier = modifier.fillMaxWidth().height(if (privacy) 122.dp else 175.dp)
+        modifier = modifier.fillMaxWidth().height(if (privacy) 115.dp else 169.dp)
     )
 }
