@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /** Approved third mockup: centered disclosure, compact cards, consent above actions, large detail sheet. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ApprovedPrivacyConsentPage(
     accepted: Boolean,
