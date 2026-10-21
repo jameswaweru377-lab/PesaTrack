@@ -30,4 +30,31 @@ class ReceivableHistoryPolicyTest {
     @Test fun malformedPhonesNeverBecomeStrongMatches() {
         assertNotEquals(HistoryMatchKind.PHONE, ReceivableHistoryPolicy.match("Norman", "1234567", "Other", "1234567").kind)
     }
+    @Test fun archivedPhoneCanBeRecoveredFromFormattedStatementDescription() {
+        assertEquals("254712345678", ReceivableHistoryPolicy.phoneInStatementDescription(
+            "Send Money to Norman Mwangi 0712 345678"))
+        assertEquals("254712345678", ReceivableHistoryPolicy.phoneInStatementDescription(
+            "Funds from Norman Mwangi +254 712 345 678"))
+        assertNull(ReceivableHistoryPolicy.phoneInStatementDescription("PAYBILL 123456789 REF123"))
+    }
+
+    @Test fun freeTextPhoneCannotAuthorizeBulkLoanSelection() {
+        val inferred = ReceivableHistoryPolicy.matchStatementDescription(
+            "Norman Mwangi", "0712345678", "Send Money to Norman Mwangi +254712345678")
+        assertEquals(HistoryMatchKind.PHONE, inferred.kind)
+        assertFalse(inferred.bulkEligible)
+        val conflict = ReceivableHistoryPolicy.matchStatementDescription(
+            "Norman Mwangi", "0712345678", "Send Money to Norman Mwangi 0798765432")
+        assertEquals(HistoryMatchKind.CONFLICT, conflict.kind)
+        assertFalse(conflict.bulkEligible)
+    }
+
+    @Test fun ambiguousFreeTextPhoneNumbersDoNotCreateVerifiedIdentity() {
+        val sample = "Transfer 0712345678 from 0798765432"
+        assertNull(ReceivableHistoryPolicy.phoneInStatementDescription(sample))
+        val unverified = ReceivableHistoryPolicy.matchStatementDescription(
+            "Norman", "0712345678", sample)
+        assertFalse(unverified.bulkEligible)
+    }
+
 }
