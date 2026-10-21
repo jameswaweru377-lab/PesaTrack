@@ -42,7 +42,7 @@ import java.nio.charset.CodingErrorAction
  val c=LocalContext.current
  val revision by LedgerUpdateBus.state.collectAsState()
  var savedParts by remember(row.id) {mutableStateOf<List<MoneyPart>>(emptyList())}
- LaunchedEffect(row.id,revision.revision) {try {savedParts=withContext(Dispatchers.IO){EverydayMoneyStore(c).allocations(row.id)}} catch(e:CancellationException){throw e} catch(e:Exception){android.util.Log.e("PesaTrackScreens","Could not load split",e)}}
+ LaunchedEffect(row.id,revision.revision) {try {savedParts=withContext(Dispatchers.IO){EverydayMoneyStore(c).allocations(row.id)}} catch(e:CancellationException){throw e} catch(e:Exception){android.util.Log.e("PesaTrackScreens", "Could not load split")}}
  if(savedParts.isEmpty())return
  var open by rememberSaveable(row.id){mutableStateOf(false)}
  OutlinedButton(onClick={open=true},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.CallSplit,null);Spacer(Modifier.width(8.dp));Text("Edit saved category split (${savedParts.size} categories)")}
