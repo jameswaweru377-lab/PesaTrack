@@ -696,7 +696,7 @@ fun ActivityScreen(
                 fontWeight = FontWeight.Bold
             )
             Text(
-                "Your money, in context.",
+                "Track and manage all your transactions.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -821,15 +821,15 @@ fun ActivityScreen(
             when (selectedFilter) {
                 "Owed to me" -> receivableLinks[item.id]?.let { it.active && it.kind == "LENT" } == true
                 "Repayments" -> receivableLinks[item.id]?.let { it.active && it.kind == "REPAID" } == true
-                "Reviews" ->
+                "Needs Review" ->
                     item.reviewState ==
                         ReviewState.NEEDS_REVIEW.name
                 "Pending" ->
                     item.reviewState == ReviewState.NEEDS_REVIEW.name &&
                         item.direction == MoneyDirection.TRANSFER.name
-                "Spending" ->
+                "Money Out" ->
                     item.direction == MoneyDirection.EXPENSE.name
-                "Income" ->
+                "Money In" ->
                     item.direction == MoneyDirection.INCOME.name
                 "Transfers" ->
                     item.direction == MoneyDirection.TRANSFER.name &&
@@ -909,12 +909,12 @@ fun ActivityScreen(
             item {
                 Column(Modifier.padding(bottom = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
-                        "Activity",
+                        "Activities",
                         style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        "Your money, in context.",
+                        "Track and manage all your transactions.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1011,7 +1011,7 @@ fun ActivityScreen(
                                     Box(contentAlignment = Alignment.CenterStart) {
                                         if (searchQuery.isEmpty()) {
                                             Text(
-                                                "Search transactions",
+                                                "Search transactions, merchants...",
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = colors.onSurfaceVariant
                                             )
