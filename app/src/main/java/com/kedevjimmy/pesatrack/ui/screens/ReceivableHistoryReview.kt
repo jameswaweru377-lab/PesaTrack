@@ -48,6 +48,8 @@ internal fun ReceivableHistoryReview(
     var personMenu by remember { mutableStateOf(false) }
     var rows by remember { mutableStateOf<List<ReceivableHistoryCandidate>>(emptyList()) }
     var archivedRows by remember { mutableStateOf<List<StatementActivityStore.ReceivableArchiveMatch>>(emptyList()) }
+    var importCandidate by remember { mutableStateOf<StatementActivityStore.ReceivableArchiveMatch?>(null) }
+    var importNotice by remember { mutableStateOf<String?>(null) }
     var archiveNextOffset by remember { mutableStateOf<Int?>(null) }
     var archiveLoading by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Map<Long,ReceivableHistorySelection>>(emptyMap()) }
@@ -193,6 +195,7 @@ internal fun ReceivableHistoryReview(
                     style = MaterialTheme.typography.bodySmall)
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (error != null) Text(error.orEmpty(),color = MaterialTheme.colorScheme.error)
+                importNotice?.let { Text(it,color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 LazyColumn(Modifier.weight(1f).testTag("receivable-history-list"),verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (!confirming) {
                         item {
@@ -326,7 +329,7 @@ internal fun ReceivableHistoryReview(
                                     Text("Saved PDF statement matches",
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold)
-                                    Text("These are original statement rows, not additional spending or confirmed loans. Some may already exist in Activity or overlap another statement. Review the source and import the movement into Activity before linking a debt.",
+                                    Text("Original PDF rows are not confirmed loans. Only verified movements can be imported into Activity after duplicate checks and your confirmation. Overlapping records may already exist.",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
@@ -345,9 +348,19 @@ internal fun ReceivableHistoryReview(
                                                     style = MaterialTheme.typography.bodySmall)
                                                 Text(receivableMoney(kotlin.math.abs(archived.signedMinor)) +
                                                     if (archived.signedMinor < 0) " sent" else " received")
-                                                Text("Read-only evidence · Import to Activity for loan/repayment confirmation",
+                                                Text("Evidence only · No loan created automatically",
                                                     style = MaterialTheme.typography.bodySmall,
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                if (archived.totalsVerified) {
+                                                    OutlinedButton(
+                                                        enabled = !busy,
+                                                        onClick = { importCandidate = archived }
+                                                    ) { Text("Review for Activity import") }
+                                                } else {
+                                                    Text("Unverified source: cannot import into Activity.",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = MaterialTheme.colorScheme.error)
+                                                }
                                             }
                                         }
                                 }
@@ -442,4 +455,51 @@ internal fun ReceivableHistoryReview(
             }
         }
     }
+
+    val selectedPdf = importCandidate
+    if (selectedPdf != null) {
+        AlertDialog(
+            onDismissRequest = { if (!busy) importCandidate = null },
+            title = { Text("Import one verified statement movement?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Text(selectedPdf.description, fontWeight = FontWeight.SemiBold)
+                    Text(receivableMoney(kotlin.math.abs(selectedPdf.signedMinor)) +
+                        (if (selectedPdf.signedMinor < 0) " sent" else " received"))
+                    Text("Only this verified cash movement will be imported into Activity after duplicate checks. This does not create a loan or classify spending. Review and confirm any debt separately.")
+                    Text("If a similar Activity movement exists, the import is blocked.",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                Button(enabled = !busy && selectedPdf.totalsVerified, onClick = {
+                    busy = true
+                    error = null
+                    scope.launch {
+                        var imported = false
+                        try {
+                            val added = withContext(Dispatchers.IO) {
+                                EverydayMoneyStore(context).importVerifiedReceivableMovement(selectedPdf)
+                            }
+                            imported = added == 1
+                            importCandidate = null
+                            importNotice = if (imported) "Imported one movement into Activity for review. Search and confirm it below." else
+                                "That movement is already recorded. No duplicate was created."
+                        } catch (cancelled: CancellationException) { throw cancelled }
+                        catch (failure: IllegalArgumentException) {
+                            importNotice = failure.message?.take(200) ?: "Import blocked. Review Activity first."
+                            importCandidate = null
+                        } catch (_: Exception) {
+                            error = "Could not safely import this statement movement. No debt was created."
+                        } finally { busy = false }
+                        if (imported) load(0,true)
+                    }
+                }) { Text(if (busy) "Checking…" else "Import to Activity") }
+            },
+            dismissButton = {
+                TextButton(enabled = !busy,onClick = { importCandidate = null }) { Text("Cancel") }
+            }
+        )
+    }
+
 }
