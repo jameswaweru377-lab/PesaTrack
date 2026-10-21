@@ -325,9 +325,8 @@ internal fun ReceivableHistoryReview(
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
-                                items(archivedRows,key = { "archive:" + it.key }) { archived ->
-                                    val relevant = if (showRepayments) archived.signedMinor > 0L else archived.signedMinor < 0L
-                                    if (relevant) {
+                                items(archivedRows.filter { if (showRepayments) it.signedMinor > 0L else it.signedMinor < 0L },
+                                    key = { "archive:" + it.key }) { archived ->
                                         Card(Modifier.fillMaxWidth()) {
                                             Column(Modifier.padding(12.dp),
                                                 verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -346,7 +345,6 @@ internal fun ReceivableHistoryReview(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
                                         }
-                                    }
                                 }
                                 if (archiveNextOffset != null) item {
                                     TextButton(
@@ -354,7 +352,7 @@ internal fun ReceivableHistoryReview(
                                         onClick = {
                                             if (!archiveLoading) {
                                                 val start = archiveNextOffset ?: return@TextButton
-                                                archiveLoading = true
+                                                archiveLoading = true; busy = true
                                                 scope.launch {
                                                     try {
                                                         val pageResult = withContext(Dispatchers.IO) {
@@ -365,7 +363,7 @@ internal fun ReceivableHistoryReview(
                                                         archiveNextOffset = pageResult.nextOffset
                                                     } catch (cancelled: CancellationException) { throw cancelled }
                                                     catch (_: Exception) { error = "Could not load more PDF statement matches." }
-                                                    finally { archiveLoading = false }
+                                                    finally { archiveLoading = false; busy = false }
                                                 }
                                             }
                                         }
