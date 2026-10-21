@@ -1525,7 +1525,7 @@ fun HomeScreen(
         item(key = "reference-attention") {
             val uncategorized = chosenActivity?.trustedTransactions?.count {
                 it.reviewState != ReviewState.EXCLUDED.name &&
-                    categoryStore.canonicalId(it.category) == "UNCATEGORIZED"
+                    categoryStore.canonicalId(it.category) in setOf("UNCATEGORIZED", "OTHER")
             } ?: 0
             ReferenceHomeAttention(uncategorized, onAttentionClick)
         }
