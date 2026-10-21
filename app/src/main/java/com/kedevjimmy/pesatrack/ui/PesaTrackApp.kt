@@ -9,6 +9,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.platform.LocalContext
+import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
+import com.kedevjimmy.pesatrack.ui.screens.monthStart
+import com.kedevjimmy.pesatrack.ui.screens.readActivityCoreForMonth
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
@@ -136,6 +145,42 @@ fun PesaTrackApp(
         }
 
     val currentEntry by navController.currentBackStackEntryAsState()
+    // Warm Activity only after Home has settled at the current ledger revision.
+    // The prefetch is cancelled when leaving Home, and all SQL is off the UI
+    // thread. A stale or interrupted prefetch is never used for financial totals.
+    val appContext = LocalContext.current.applicationContext
+    val warmupRevision by LedgerUpdateBus.state.collectAsState()
+    LaunchedEffect(currentEntry?.destination?.route, setupComplete, warmupRevision.revision) {
+        if (!setupComplete || currentEntry?.destination?.route != MainTab.HOME.route)
+            return@LaunchedEffect
+        val revision = warmupRevision.revision
+        // Wait for the Home money picture to finish before competing for the
+        // shared ledger lock. Stop watching if the screen is too slow or fails.
+        for (attempt in 0 until 24) {
+            if (homeScreenCache.revision == revision && homeScreenCache.data != null) break
+            delay(200L)
+        }
+        if (homeScreenCache.revision != revision || homeScreenCache.data == null)
+            return@LaunchedEffect
+        val month = activityScreenCache.selectedMonthEpochMs ?: monthStart(System.currentTimeMillis())
+        if (activityScreenCache.coreFor(revision, month) != null ||
+            (activityScreenCache.revision == revision &&
+                activityScreenCache.selectedMonthEpochMs == month &&
+                activityScreenCache.data != null)) return@LaunchedEffect
+        try {
+            val loaded = withContext(Dispatchers.IO) {
+                readActivityCoreForMonth(appContext, month)
+            }
+            if (LedgerUpdateBus.state.value.revision == revision)
+                activityScreenCache.saveCore(revision, month, loaded)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            // Preloading is best-effort; Activity retains its ordinary loader.
+        }
+    }
+
+
     LaunchedEffect(currentEntry?.destination?.route, setupComplete) {
         onWelcomeVisibilityChange((currentEntry?.destination?.route ?: startDestination) == "onboarding")
     }
