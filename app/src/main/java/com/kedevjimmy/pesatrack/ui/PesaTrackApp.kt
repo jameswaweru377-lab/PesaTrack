@@ -228,7 +228,9 @@ fun PesaTrackApp(
         }
 
         composable(MainTab.HOME.route) {
-            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
+                onNotificationsClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
+                onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
                 currentTab = MainTab.HOME,
                 onTabSelected = ::navigateToTab
             ) { padding ->
