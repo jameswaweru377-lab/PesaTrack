@@ -117,8 +117,11 @@ jobs:
             cat "$report"
           fi
 
+      - name: Prepare offline PDF contract test dependencies
+        run: python3 -m pip install --disable-pip-version-check "pdfplumber==0.11.9" "reportlab==4.4.9"
+
       - name: Python lab contract tests
-        run: python3 -m unittest discover -s tools/python_lab -p 'test_*.py' -v
+        run: PYTHONPATH="$PWD/app/src/main/python:$PWD" python3 -m unittest discover -s tools/python_lab -p 'test_*.py' -v
 
       - name: Evaluate reviewed fixtures against actual Kotlin outputs
         env:
