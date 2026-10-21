@@ -246,7 +246,7 @@ fun AccountsScreen(
         if (elapsed > 400L) android.util.Log.i("PesaTrackPerf", "Accounts refresh took ${elapsed}ms")
         } catch (cancelled: CancellationException) { throw cancelled
         } catch (failure: Exception) {
-            android.util.Log.e("PesaTrackAccounts", "Accounts could not load", failure)
+            android.util.Log.e("PesaTrackAccounts", "Accounts could not load")
             accountsError = true
         } finally { accountsLoading = false }
     }
@@ -465,7 +465,7 @@ fun DebtsScreen(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            android.util.Log.e("PesaTrackDebts", "Debt could not load", failure)
+            android.util.Log.e("PesaTrackDebts", "Debt could not load")
             debtsError = true
         } finally {
             debtsLoading = false
