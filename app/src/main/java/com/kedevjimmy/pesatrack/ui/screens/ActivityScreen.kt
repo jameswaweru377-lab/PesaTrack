@@ -893,7 +893,7 @@ fun ActivityScreen(
     Column(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(MaterialTheme.colorScheme.background)
+            .background(Brush.verticalGradient(listOf(Color(0xFFF2F1FF), Color(0xFFEAF3FF), Color(0xFFF7F7FF))))
     ) {
         LazyColumn(
             state = activityListState,
@@ -944,20 +944,6 @@ fun ActivityScreen(
                 Text("Activity could not load")
                 Text("Showing your last successfully loaded activity.")
                 TextButton(onClick = { refresh() }) { Text("Try again") }
-            }
-            item(key = "activity-period-overview") {
-                Box(Modifier.padding(bottom = 10.dp)) {
-                    ActivityReferenceSummary(
-                        monthLabel = selectedMonthLabel,
-                        filter = selectedFilter,
-                        transactions = (displaySnapshot ?: snapshot).transactions
-                            .filter { it.reviewState != ReviewState.EXCLUDED.name },
-                        categoryName = { categoryStore.labelFor(it) },
-                        accountName = { id -> accountsById[id]?.name ?: "Account" },
-                        onMonth = { payCycleMode = false; showMonthPicker = true },
-                        onAnalytics = { showDetailedSummary = !showDetailedSummary }
-                    )
-                }
             }
             item(key = "premium-search") {
                 val colors = MaterialTheme.colorScheme
@@ -1016,6 +1002,20 @@ fun ActivityScreen(
                     ActivityCompactFilters(selectedFilter,currentReviewCount) {
                         selectedFilter = it
                     }
+                }
+            }
+            item(key = "activity-period-overview") {
+                Box(Modifier.padding(bottom = 10.dp)) {
+                    ActivityReferenceSummary(
+                        monthLabel = selectedMonthLabel,
+                        filter = selectedFilter,
+                        transactions = (displaySnapshot ?: snapshot).transactions
+                            .filter { it.reviewState != ReviewState.EXCLUDED.name },
+                        categoryName = { categoryStore.labelFor(it) },
+                        accountName = { id -> accountsById[id]?.name ?: "Account" },
+                        onMonth = { payCycleMode = false; showMonthPicker = true },
+                        onAnalytics = { showDetailedSummary = !showDetailedSummary }
+                    )
                 }
             }
             item(key = "activity-attention-card") {
@@ -1435,7 +1435,7 @@ fun ActivityScreen(
             (if(payCycleMode) listOf(ActivityMonthBucket(
                 monthStartEpochMs=chosenCycle?.startEpochMs ?: selectedMonthEpochMs,
                 transactionCount=displaySnapshot?.transactions?.size ?: 0))
-              else monthBuckets).forEach { bucket ->
+              else monthBuckets.filter { it.monthStartEpochMs == selectedMonthEpochMs }).forEach { bucket ->
                 val isExpanded = if(payCycleMode) true else expandedMonthEpochMs == bucket.monthStartEpochMs
 
                 item(
