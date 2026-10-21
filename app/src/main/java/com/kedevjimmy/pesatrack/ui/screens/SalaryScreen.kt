@@ -114,7 +114,7 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}, onPayc
             loadReceipts(rule)
         } catch (cancelled: CancellationException) { throw cancelled
         } catch (error: Exception) {
-            android.util.Log.e("PesaTrackSalary", "Could not load salary", error)
+            android.util.Log.e("PesaTrackSalary", "Could not load salary")
             message = "Couldn't load salary. Reopen this page to retry."; failure = true
         } finally { ready = true }
     }
@@ -127,7 +127,7 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}, onPayc
             } catch (cancelled: CancellationException) { throw cancelled
             } catch (error: IllegalArgumentException) { message = error.message ?: "Please check your entry."; failure = true
             } catch (error: Exception) {
-                android.util.Log.e("PesaTrackSalary", "Could not update salary", error)
+                android.util.Log.e("PesaTrackSalary", "Could not update salary")
                 message = "Couldn't save this change. Please try again."; failure = true
             } finally { busy = false }
         }

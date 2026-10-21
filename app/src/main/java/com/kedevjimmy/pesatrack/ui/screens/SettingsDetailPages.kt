@@ -84,7 +84,7 @@ internal fun AppearancePage(padding: PaddingValues, mode: ThemeMode, change: (Th
     }
 }
 @Composable
-internal fun PrivacyPage(padding: PaddingValues, back: () -> Unit, access: () -> Unit) {
+internal fun PrivacyPage(padding: PaddingValues, back: () -> Unit, access: () -> Unit, manageStatements: () -> Unit) {
     val context = LocalContext.current
     val prefs = remember { EntityEnrichmentPreferences.get(context) }
     var lookup by remember { mutableStateOf(prefs.isOnlineLookupEnabled()) }
@@ -92,6 +92,7 @@ internal fun PrivacyPage(padding: PaddingValues, back: () -> Unit, access: () ->
     EverydayPage("Privacy", padding, back) {
         item { Text("Saved on this phone", style = MaterialTheme.typography.titleMedium); Text("Your transactions stay on this phone. You choose which money messages PesaTrack can read.") }
         item { EverydayRow(Icons.Rounded.Message, "Manage message access", "See permissions and stop access", access) }
+        item { EverydayRow(Icons.Rounded.Inventory2, "Manage saved statements", "Review and delete individual saved PDF statement archives", manageStatements) }
         item { ChoiceSwitch("Help identify businesses online", "Optional. A cleaned business name may be sent to look it up. Full messages, amounts, balances, transaction codes and phone or account numbers are not sent.", lookup) { lookup = it; prefs.setOnlineLookupEnabled(it) } }
         item { TextButton(onClick = { details = !details }) { Text(if (details) "Hide privacy details" else "More privacy details") } }
         if (details) {

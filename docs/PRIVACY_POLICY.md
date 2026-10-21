@@ -73,6 +73,15 @@ PesaTrack provides an optional app lock and passphrase-encrypted backup/restore.
 
 Applicable Kenyan data-protection law may provide rights to be informed, access, correct, object to or request deletion of personal information. Before public distribution, the operator must publish an accessible private privacy contact with verified controller identity and assess ODPC registration requirements. Removing an app does not delete any separately exported copies under your control.
 
+## Managing saved PDF statement archives
+
+In **Settings → Privacy → Manage saved statements**, you can delete one independently
+saved PDF statement archive at a time after reviewing a confirmation. The deletion
+removes that archive's row history and per-row statement category labels. It does
+**not** delete canonical Activity transactions, debts confirmed from Activity,
+shared merchant-category rules, source PDFs outside the app, or backups exported
+elsewhere. Remove external copies separately if desired.
+
 ## Changes to this policy
 
 Material privacy changes should be reflected in this document before a public release that uses them.

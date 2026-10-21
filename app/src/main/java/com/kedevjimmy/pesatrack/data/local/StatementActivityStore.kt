@@ -333,6 +333,50 @@ class StatementActivityStore(context: Context) {
         } finally { helper.close() }
     }
 
+    /**
+     * Delete exactly one user-approved PDF archive source, including its original
+     * lines and per-row category corrections (foreign-key CASCADE). Existing
+     * canonical Activity entries, debts, original PDFs and user exports are
+     * intentionally NOT modified. Saved cross-statement merchant rules remain.
+     *
+     * Optimistic equality check prevents deletion of a changed/stale selection.
+     */
+    fun deleteSavedStatement(expected: Batch): Boolean {
+        require(expected.id.matches(Regex("[a-f0-9]{64}"))) {
+            "Select a valid saved statement."
+        }
+        val helper = Db(app)
+        try {
+            val db = helper.writableDatabase
+            db.beginTransaction()
+            try {
+                val actual = db.rawQuery(
+                    """SELECT id,account_id,recorded_at,row_count,movement_count,
+                              informational_count,paid_in_minor,paid_out_minor,totals_verified
+                       FROM statement_batches WHERE id=? LIMIT 1""".trimIndent(),
+                    arrayOf(expected.id)
+                ).use { c ->
+                    if (!c.moveToFirst()) null else Batch(
+                        c.getString(0),c.getString(1),c.getLong(2),c.getInt(3),
+                        c.getInt(4),c.getInt(5),c.getLong(6),c.getLong(7),c.getInt(8)==1
+                    )
+                }
+                if (actual != expected) return false
+                val deleted = db.delete(
+                    "statement_batches",
+                    "id=? AND account_id=? AND recorded_at=? AND row_count=?",
+                    arrayOf(expected.id,expected.accountId,expected.recordedAt.toString(),
+                        expected.rows.toString())
+                )
+                if (deleted != 1) return false
+                db.setTransactionSuccessful()
+                return true
+            } finally {
+                db.endTransaction()
+            }
+        } finally { helper.close() }
+    }
+
     fun batches(): List<Batch> {
         val helper = Db(app)
         try {

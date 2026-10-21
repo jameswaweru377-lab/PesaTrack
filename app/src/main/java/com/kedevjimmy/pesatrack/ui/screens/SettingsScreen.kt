@@ -28,12 +28,13 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
     var lock by remember { mutableStateOf(false) }
     var backup by remember { mutableStateOf(false) }
     val back = { page = "settings" }
-    BackHandler(enabled = page != "settings", onBack = back)
+    BackHandler(enabled = page != "settings", onBack = { if (page == "archive_files") page = "privacy" else back() })
     if (lock) AppLockSettingsSheet(onDismiss = { lock = false }, onChanged = {})
     if (backup) BackupRestoreSheet(onDismiss = { backup = false })
     when (page) {
         "appearance" -> AppearancePage(scaffoldPadding, themeMode, onThemeModeChange, back)
-        "privacy" -> PrivacyPage(scaffoldPadding, back, { page = "access" })
+        "privacy" -> PrivacyPage(scaffoldPadding, back, { page = "access" }, { page = "archive_files" })
+        "archive_files" -> StatementArchivePrivacyPage(scaffoldPadding, { page = "privacy" })
         "terms" -> LegalInformationPage(scaffoldPadding, back, LegalNotice.TERMS)
         "legal_privacy" -> LegalInformationPage(scaffoldPadding, back, LegalNotice.PRIVACY)
         "financial_notice" -> LegalInformationPage(scaffoldPadding, back, LegalNotice.FINANCIAL)

@@ -40,6 +40,23 @@ backups use a separate mechanism and must not be confused with SQLite encryption
 Any encryption-at-rest migration needs independent backup, restore and lossless
 migration tests before it can be rolled out.
 
+## Phase 1 safeguards and verification
+
+- Importing saved M-Pesa PDFs validates the 8 MB file-size boundary and PDF header
+  before passing bytes to the offline Python reader. A header check rejects obvious
+  renamed/unexpected formats, but is **not** malware scanning or PDF authenticity.
+- Android CI executes `python3 tools/security_scan.py` before compilation, enforcing
+  a two-argument sanitized Log policy, manifest invariants, and the offline
+  parser's upfront file-admission hook. Synthetic unit tests guard the scanner.
+- Settings → Privacy → Manage saved statements offers per-document deletion only.
+  The selected archive and its row-specific labels are removed atomically,
+  leaving canonical Activity transactions, confirmed loans, cross-statement rules
+  and user-controlled backups unmodified.
+- Dependabot groups routine minor/patch version updates monthly to reduce CI
+  churn. Security advisories and vulnerability coverage depend on the GitHub
+  repository's enabled security features; these controls do not prove all
+  dependencies free of known vulnerabilities.
+
 ## Safe diagnostic logging
 
 Log generic failure categories only for financial-message ingestion, transaction

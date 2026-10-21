@@ -96,7 +96,7 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
             accountTypes = loadedAccountTypes
         } catch (cancelled: CancellationException) { throw cancelled
         } catch (exception: Exception) {
-            android.util.Log.e("PesaTrackActivity", "Could not load salary cycle", exception)
+            android.util.Log.e("PesaTrackActivity", "Could not load salary cycle")
             error = "Couldn't load this pay cycle. Please retry."
         } finally { loading = false }
     }

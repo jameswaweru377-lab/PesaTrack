@@ -3,17 +3,23 @@ updates:
   - package-ecosystem: "gradle"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
+      interval: "monthly"
+    open-pull-requests-limit: 2
+    labels: ["dependencies", "security-review"]
+    groups:
+      safe-gradle-updates:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+        patterns: ["*"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
+      interval: "monthly"
+    open-pull-requests-limit: 2
+    labels: ["dependencies", "security-review"]
+    groups:
+      safe-workflow-updates:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+        patterns: ["*"]

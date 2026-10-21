@@ -53,7 +53,7 @@ class PrivacyReminderSettingsUiTest {
     }
 
     @Test fun privacyDisclosesSharingBeforeOptInAndExpandsDetails() {
-        compose.setContent { MaterialTheme { PrivacyPage(PaddingValues(), {}, {}) } }
+        compose.setContent { MaterialTheme { PrivacyPage(PaddingValues(), {}, {}, {}) } }
         compose.onNodeWithText("Optional. A cleaned business name may be sent to look it up. Full messages, amounts, balances, transaction codes and phone or account numbers are not sent.").assertIsDisplayed()
         compose.onNode(isToggleable()).assertIsOff()
         compose.onNodeWithText("Voice entry").assertDoesNotExist()
