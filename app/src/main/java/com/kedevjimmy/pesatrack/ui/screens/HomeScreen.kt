@@ -156,9 +156,47 @@ data class HomeLoadedState(
         MoneyPictureHealth
 )
 
+internal data class HomeHistorySnapshots(
+    val selected: ActivityLedgerSnapshot?,
+    val previousAligned: ActivityLedgerSnapshot
+)
+
 class HomeScreenCache {
     var data: HomeLoadedState? = null
     var revision: Long = -1L
+    private var positionsRevision: Long = -1L
+    private var positions: List<com.kedevjimmy.pesatrack.data.local.ObservedInvestmentPosition>? = null
+    private var historyRevision: Long = -1L
+    private var historyOffset: Int? = null
+    private var historyDayKey: Int = -1
+    private var history: HomeHistorySnapshots? = null
+
+    @Synchronized
+    fun investmentsFor(revision: Long):
+        List<com.kedevjimmy.pesatrack.data.local.ObservedInvestmentPosition>? =
+        positions?.takeIf { positionsRevision == revision }
+
+    @Synchronized
+    fun saveInvestments(revision: Long,
+        value: List<com.kedevjimmy.pesatrack.data.local.ObservedInvestmentPosition>) {
+        positionsRevision = revision
+        positions = value
+    }
+
+    @Synchronized
+    internal fun historyFor(revision: Long, monthOffset: Int, dayKey: Int):
+        HomeHistorySnapshots? =
+        history?.takeIf { historyRevision == revision &&
+            historyOffset == monthOffset && historyDayKey == dayKey }
+
+    @Synchronized
+    internal fun saveHistory(revision: Long, monthOffset: Int, dayKey: Int,
+        value: HomeHistorySnapshots) {
+        historyRevision = revision
+        historyOffset = monthOffset
+        historyDayKey = dayKey
+        history = value
+    }
 }
 
 private fun emptyPayCycleSnapshot() =
@@ -696,7 +734,7 @@ fun HomeScreen(
     // Design B uses the confirmed local ledger; no remote score provider.
     val investmentStore = remember { com.kedevjimmy.pesatrack.data.local.InvestmentStore.get(context) }
     var observedPositions by remember {
-        mutableStateOf<List<com.kedevjimmy.pesatrack.data.local.ObservedInvestmentPosition>?>(null)
+        mutableStateOf(stateCache?.investmentsFor(ledgerUpdateState.revision))
     }
     var showInvestments by remember { mutableStateOf(false) }
     var showHomeHealthInfo by remember { mutableStateOf(false) }
@@ -709,17 +747,51 @@ fun HomeScreen(
     var showNetFlowExplanation by remember { mutableStateOf(false) }
     var showHomeMonthPicker by remember { mutableStateOf(false) }
     var selectedHomeMonthOffset by remember { mutableStateOf(0) }
-    var pastMonthSnapshot by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
-    var priorAlignedSnapshot by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
-    var finishedMonthOffset by remember { mutableStateOf<Int?>(null) }
+    val historyDayKey = remember {
+        java.util.Calendar.getInstance().run {
+            get(java.util.Calendar.YEAR) * 1000 + get(java.util.Calendar.DAY_OF_YEAR)
+        }
+    }
+    val cachedHistory = remember(stateCache, ledgerUpdateState.revision, historyDayKey) {
+        stateCache?.historyFor(ledgerUpdateState.revision, 0, historyDayKey)
+    }
+    var pastMonthSnapshot by remember {
+        mutableStateOf<ActivityLedgerSnapshot?>(cachedHistory?.selected)
+    }
+    var priorAlignedSnapshot by remember {
+        mutableStateOf<ActivityLedgerSnapshot?>(cachedHistory?.previousAligned)
+    }
+    var finishedMonthOffset by remember {
+        mutableStateOf<Int?>(if (cachedHistory != null) 0 else null)
+    }
     var historicalLoadFailed by remember { mutableStateOf(false) }
     LaunchedEffect(ledgerUpdateState.revision) {
-        observedPositions = try {
-            withContext(Dispatchers.IO) { investmentStore.observedPositions() }
+        val revision = ledgerUpdateState.revision
+        val existing = stateCache?.investmentsFor(revision)
+        if (existing != null) {
+            observedPositions = existing
+            return@LaunchedEffect
+        }
+        try {
+            val loaded = withContext(Dispatchers.IO) { investmentStore.observedPositions() }
+            if (LedgerUpdateBus.state.value.revision == revision) {
+                observedPositions = loaded
+                stateCache?.saveInvestments(revision, loaded)
+            }
         } catch (cancelled: CancellationException) { throw cancelled }
-        catch (_: Exception) { null }
+        catch (_: Exception) { observedPositions = null }
     }
-    LaunchedEffect(selectedHomeMonthOffset, ledgerUpdateState.revision) {
+    LaunchedEffect(selectedHomeMonthOffset, ledgerUpdateState.revision, historyDayKey) {
+        val requestedRevision = ledgerUpdateState.revision
+        val requestedOffset = selectedHomeMonthOffset
+        val cached = stateCache?.historyFor(requestedRevision, requestedOffset, historyDayKey)
+        if (cached != null) {
+            pastMonthSnapshot = cached.selected
+            priorAlignedSnapshot = cached.previousAligned
+            finishedMonthOffset = requestedOffset
+            historicalLoadFailed = false
+            return@LaunchedEffect
+        }
         finishedMonthOffset = null
         historicalLoadFailed = false
         try {
@@ -761,9 +833,13 @@ fun HomeScreen(
                 )
                 selected to previous
             }
+            if (LedgerUpdateBus.state.value.revision != requestedRevision ||
+                selectedHomeMonthOffset != requestedOffset) return@LaunchedEffect
             pastMonthSnapshot = historical.first
             priorAlignedSnapshot = historical.second
-            finishedMonthOffset = selectedHomeMonthOffset
+            finishedMonthOffset = requestedOffset
+            stateCache?.saveHistory(requestedRevision, requestedOffset, historyDayKey,
+                HomeHistorySnapshots(historical.first, historical.second))
         } catch (cancelled: CancellationException) { throw cancelled }
         catch (_: Exception) {
             pastMonthSnapshot = null
