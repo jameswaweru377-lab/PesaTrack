@@ -332,7 +332,7 @@ fun ReportsInsightsScreen(
 
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
         } catch (failure: Exception) {
-            android.util.Log.e("PesaTrackScreens", "Could not load screen", failure)
+            android.util.Log.e("PesaTrackScreens", "Could not load screen")
             loadError = "Couldn't load this page. Your saved data is unchanged."
         }
     }
@@ -798,7 +798,7 @@ private fun LegacyBillsRemindersScreen(
 
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
         } catch (failure: Exception) {
-            android.util.Log.e("PesaTrackScreens", "Could not load screen", failure)
+            android.util.Log.e("PesaTrackScreens", "Could not load screen")
             loadError = "Couldn't load this page. Your saved data is unchanged."
         }
     }
@@ -1248,7 +1248,7 @@ private fun LegacySavingGoalsScreen(
 
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
         } catch (failure: Exception) {
-            android.util.Log.e("PesaTrackScreens", "Could not load screen", failure)
+            android.util.Log.e("PesaTrackScreens", "Could not load screen")
             loadError = "Couldn't load this page. Your saved data is unchanged."
         }
     }
@@ -1533,7 +1533,7 @@ fun AccountDetailsScreen(
 
         } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled
         } catch (failure: Exception) {
-            android.util.Log.e("PesaTrackScreens", "Could not load screen", failure)
+            android.util.Log.e("PesaTrackScreens", "Could not load screen")
             loadError = "Couldn't load this page. Your saved data is unchanged."
         }
     }
