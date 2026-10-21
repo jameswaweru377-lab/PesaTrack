@@ -1436,7 +1436,8 @@ fun HomeScreen(
         (budgetLeft.toDouble() / monthlyBudgetTotalMinor.toDouble()).toFloat().coerceIn(0f, 1f)
     else null
     val upcomingReferenceItems = buildList {
-        upcomingBills.sortedBy { it.nextDueEpochMs ?: Long.MAX_VALUE }.take(2).forEach { bill ->
+        upcomingBills.sortedBy { it.nextDueEpochMs ?: Long.MAX_VALUE }
+            .take(if (salaryRule != null) 1 else 2).forEach { bill ->
             val days = bill.nextDueEpochMs?.let {
                 java.util.concurrent.TimeUnit.MILLISECONDS.toDays(
                     (it - System.currentTimeMillis()).coerceAtLeast(0L)
@@ -1522,7 +1523,11 @@ fun HomeScreen(
             )
         }
         item(key = "reference-attention") {
-            ReferenceHomeAttention(needsAttentionCount, onAttentionClick)
+            val uncategorized = chosenActivity?.trustedTransactions?.count {
+                it.reviewState != ReviewState.EXCLUDED.name &&
+                    categoryStore.canonicalId(it.category) == "UNCATEGORIZED"
+            } ?: 0
+            ReferenceHomeAttention(uncategorized, onAttentionClick)
         }
         item(key = "reference-upcoming") {
             ReferenceHomeUpcoming(upcomingReferenceItems, onBillsClick)
