@@ -190,6 +190,22 @@ class ActivityScreenCache {
     var selectedMonthEpochMs: Long? = null
     var data: ActivityScreenData? = null
     var revision: Long = -1L
+
+    private var coreRevision: Long = -1L
+    private var coreMonth: Long? = null
+    private var core: ActivityCoreData? = null
+
+    /** A completed ledger snapshot is only valid at its source revision and month. */
+    @Synchronized
+    fun coreFor(revision: Long, month: Long): ActivityCoreData? =
+        core?.takeIf { coreRevision == revision && coreMonth == month }
+
+    @Synchronized
+    fun saveCore(revision: Long, month: Long, loaded: ActivityCoreData) {
+        coreRevision = revision
+        coreMonth = month
+        core = loaded
+    }
 }
 
 private fun emptyActivityLedgerSnapshot(): ActivityLedgerSnapshot =
@@ -252,20 +268,16 @@ fun ActivityScreen(
     val currentMonthEpochMs = remember {
         monthStart(System.currentTimeMillis())
     }
-    val warmData =
-        remember(stateCache, ledgerUpdateState.revision) {
-            // Only a snapshot from the current ledger revision can skip a
-            // new read. After imports or account changes, never present an
-            // outdated Activity cache as if it were up to date.
-            stateCache?.takeIf {
-                it.revision == ledgerUpdateState.revision
-            }?.data
-        }
-    val warmMonth =
-        remember(stateCache) {
-            stateCache?.selectedMonthEpochMs
-                ?: currentMonthEpochMs
-        }
+    val warmMonth = remember(stateCache) {
+        stateCache?.selectedMonthEpochMs ?: currentMonthEpochMs
+    }
+    val warmData = remember(stateCache, ledgerUpdateState.revision) {
+        stateCache?.takeIf { it.revision == ledgerUpdateState.revision &&
+            it.selectedMonthEpochMs == warmMonth }?.data
+    }
+    val warmedCore = remember(stateCache, ledgerUpdateState.revision, warmMonth) {
+        stateCache?.coreFor(ledgerUpdateState.revision, warmMonth)
+    }
 
     var selectedMonthEpochMs by rememberSaveable {
         mutableStateOf(warmMonth)
@@ -275,7 +287,7 @@ fun ActivityScreen(
     }
     var monthBuckets by remember {
         mutableStateOf(
-            warmData?.monthBuckets
+            warmData?.monthBuckets ?: warmedCore?.monthBuckets
                 ?: listOf(
                     ActivityMonthBucket(
                         monthStartEpochMs =
@@ -287,18 +299,18 @@ fun ActivityScreen(
     }
     var snapshot by remember {
         mutableStateOf(
-            warmData?.snapshot
+            warmData?.snapshot ?: warmedCore?.snapshot
                 ?: emptyActivityLedgerSnapshot()
         )
     }
     var previousSnapshot by remember {
         mutableStateOf(
-            warmData?.previousSnapshot
+            warmData?.previousSnapshot ?: warmedCore?.previousSnapshot
                 ?: emptyActivityLedgerSnapshot()
         )
     }
     var activityError by remember { mutableStateOf(false) }
-    var loadedMonthEpochMs by remember { mutableStateOf<Long?>(if (warmData != null) warmMonth else null) }
+    var loadedMonthEpochMs by remember { mutableStateOf<Long?>(if (warmData != null || warmedCore != null) warmMonth else null) }
     var globalOverview by remember {
         mutableStateOf(
             warmData?.globalOverview
@@ -395,13 +407,13 @@ fun ActivityScreen(
     }
     var accountsById by remember {
         mutableStateOf<Map<String, MoneyAccount>>(
-            warmData?.accountsById
+            warmData?.accountsById ?: warmedCore?.accountsById
                 ?: emptyMap()
         )
     }
     var confirmedAccountIds by remember {
         mutableStateOf<Set<String>>(
-            warmData?.confirmedAccountIds
+            warmData?.confirmedAccountIds ?: warmedCore?.confirmedAccountIds
                 ?: emptySet()
         )
     }
@@ -438,62 +450,8 @@ fun ActivityScreen(
         mutableStateOf<String?>(null)
     }
 
-    suspend fun loadActivityCoreData(
-        monthEpochMs: Long
-    ): ActivityCoreData =
-        withContext(Dispatchers.IO) {
-            val existing =
-                store.activityMonths()
-                    .toMutableList()
-            if (
-                existing.none {
-                    it.monthStartEpochMs ==
-                        currentMonthEpochMs
-                }
-            ) {
-                existing.add(
-                    0,
-                    ActivityMonthBucket(
-                        monthStartEpochMs =
-                            currentMonthEpochMs,
-                        transactionCount = 0
-                    )
-                )
-            }
-
-            ActivityCoreData(
-                monthBuckets =
-                    existing.sortedByDescending {
-                        it.monthStartEpochMs
-                    },
-                snapshot =
-                    store.activitySnapshot(
-                        nowEpochMs =
-                            monthEpochMs
-                    ),
-                previousSnapshot =
-                    store.activitySnapshot(
-                        nowEpochMs =
-                            shiftMonth(
-                                monthEpochMs,
-                                -1
-                            ),
-                        performMaintenance =
-                            false
-                    ),
-                accountsById =
-                    accountStore
-                        .listAccounts(
-                            enabledOnly = false
-                        )
-                        .associateBy {
-                            it.id
-                        },
-                confirmedAccountIds =
-                    financialStore
-                        .confirmedAccountIds()
-            )
-        }
+    suspend fun loadActivityCoreData(monthEpochMs: Long): ActivityCoreData =
+        readActivityCoreForMonth(context, monthEpochMs)
 
     suspend fun loadActivitySupplementalData():
         ActivitySupplementalData =
@@ -606,10 +564,12 @@ fun ActivityScreen(
         activityError = false
         val started = android.os.SystemClock.elapsedRealtime()
         try {
-        val core =
-            loadActivityCoreData(
-                requestedMonth
-            )
+        val requestedRevision = LedgerUpdateBus.state.value.revision
+        val core = stateCache?.coreFor(requestedRevision, requestedMonth)
+            ?: loadActivityCoreData(requestedMonth)
+        // An import can finish during a background query; never publish stale cash data.
+        if (LedgerUpdateBus.state.value.revision != requestedRevision) return
+        stateCache?.saveCore(requestedRevision, requestedMonth, core)
         if (
             selectedMonthEpochMs !=
             requestedMonth
@@ -629,8 +589,8 @@ fun ActivityScreen(
         val supplemental =
             loadActivitySupplementalData()
         if (
-            selectedMonthEpochMs !=
-            requestedMonth
+            selectedMonthEpochMs != requestedMonth ||
+            LedgerUpdateBus.state.value.revision != requestedRevision
         ) {
             return
         }
