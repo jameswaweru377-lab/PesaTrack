@@ -913,7 +913,7 @@ fun BillsRemindersScreen(
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            android.util.Log.e("PesaTrackScreens", "Could not load bills", failure)
+            android.util.Log.e("PesaTrackScreens", "Could not load bills")
             loadError = "Couldn't load this page. Your saved data is unchanged."
         }
     }
