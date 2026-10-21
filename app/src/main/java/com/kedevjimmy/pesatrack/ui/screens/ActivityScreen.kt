@@ -4139,6 +4139,14 @@ private fun ActivityRow(
         else -> categoryName
     }
     val pillColor = HomeReferencePalette.purple
+    val iconTone = when {
+        direction == MoneyDirection.INCOME -> "green"
+        direction == MoneyDirection.TRANSFER -> "violet"
+        categoryName.contains("food", true) || categoryName.contains("dining", true) -> "amber"
+        categoryName.contains("shop", true) || categoryName.contains("grocer", true) -> "red"
+        categoryName.contains("utilit", true) || categoryName.contains("internet", true) -> "blue"
+        else -> "violet"
+    }
     val amountColor = when {
         refund || direction == MoneyDirection.INCOME ||
             item.type == MpesaTransactionType.REVERSAL.name -> HomeReferencePalette.green
@@ -4174,7 +4182,7 @@ private fun ActivityRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Box {
-                    MerchantBadge(item = item, categoryId = categoryId, tone = "violet")
+                    MerchantBadge(item = item, categoryId = categoryId, tone = iconTone)
                     if (needsReview) {
                         Surface(
                             modifier = Modifier.align(Alignment.BottomEnd).size(8.dp),
@@ -4190,58 +4198,42 @@ private fun ActivityRow(
                 ) {
                     Text(
                         name,
-                        style = MaterialTheme.typography.bodyMedium,
+                        fontSize = 15.sp,
+                        color = HomeReferencePalette.ink,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Text(
-                            SimpleDateFormat("HH:mm",
-                                androidx.compose.ui.platform.LocalConfiguration.current.locales[0])
-                                .format(Date(item.occurredAtEpochMs)),
+                            if (needsReview) "Needs Review" else if (refund) "Refund" else
+                                if (direction == MoneyDirection.TRANSFER) "Own transfer" else categoryName,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                        Text("·", style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            source,
-                            modifier = Modifier.weight(1f, fill = false),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = HomeReferencePalette.muted,
                             maxLines = 1,
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
-                        Surface(
-                            shape = RoundedCornerShape(9.dp),
-                            color = pillColor.copy(alpha = .13f)
-                        ) {
-                            Text(
-                                pill,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                                    .widthIn(max = 96.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontSize = 10.sp,
-                                lineHeight = 12.sp,
-                                color = pillColor,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                            )
-                        }
+                        Text("•", style = MaterialTheme.typography.labelSmall,
+                            color = HomeReferencePalette.muted)
+                        Text(
+                            SimpleDateFormat("h:mm a", Locale.getDefault())
+                                .format(Date(item.occurredAtEpochMs)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = HomeReferencePalette.muted,
+                            maxLines = 1
+                        )
                     }
                 }
                 Text(
                     amountLabel(item, direction),
                     color = amountColor,
                     fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.labelMedium,
+                    fontSize = 14.sp,
                     maxLines = 1,
-                    modifier = Modifier.widthIn(max = 118.dp)
+                    modifier = Modifier.widthIn(max = 125.dp)
                 )
                 Icon(
                     Icons.Rounded.ChevronRight,
