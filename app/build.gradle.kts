@@ -196,7 +196,7 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     // Local JVM HTTP tests need actual JSON behavior instead of Android's null-returning stubs.
-    testImplementation("org.json:json:20260719")
+    testImplementation("org.json:json:20260814")
 
     androidTestImplementation("androidx.test:core-ktx:1.7.0")
     androidTestImplementation("androidx.test.ext:junit-ktx:1.3.0")
