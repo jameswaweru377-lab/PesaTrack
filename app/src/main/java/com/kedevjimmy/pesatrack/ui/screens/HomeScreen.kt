@@ -1533,7 +1533,7 @@ fun HomeScreen(
             ReferenceHomeAttention(uncategorized, onAttentionClick)
         }
         item(key = "reference-upcoming") {
-            ReferenceHomeUpcoming(upcomingReferenceItems, onBillsClick)
+            ReferenceHomeUpcoming(upcomingReferenceItems, onBillsClick, onSalaryClick)
         }
         item(key = "reference-recent-activity") {
             ReferenceHomeRecent(
