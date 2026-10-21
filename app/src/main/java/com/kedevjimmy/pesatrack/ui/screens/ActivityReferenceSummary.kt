@@ -34,6 +34,13 @@ import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import java.text.NumberFormat
 import java.util.Locale
 
+/** A non-zero share smaller than one percent must never display as zero. */
+internal fun activityShareLabel(part: Long, total: Long): String {
+    if (total <= 0L || part <= 0L) return "0%"
+    val pct = part.toDouble() / total.toDouble() * 100.0
+    return if (pct < 1.0) "<1%" else "${kotlin.math.round(pct).toInt()}%"
+}
+
 internal data class ActivityReferenceSegment(val label: String, val minor: Long, val color: Color)
 
 private val chartColors = listOf(
@@ -107,7 +114,8 @@ internal fun ActivityReferenceSummary(
     val segments = remember(transactions, filter, categoryName, accountName, possibleDuplicateIds) {
         activityReferenceSegments(transactions, filter, categoryName, accountName, possibleDuplicateIds)
     }
-    val total = segments.fold(0.0) { sum, segment -> sum + segment.minor.toDouble() }
+    val totalMinor = segments.fold(0L) { sum, segment -> if (Long.MAX_VALUE - sum < segment.minor) Long.MAX_VALUE else sum + segment.minor }
+    val total = totalMinor.toDouble()
     val center = if (filter == "Needs Review") total.toLong().toString()
         else "KES " + NumberFormat.getIntegerInstance(Locale.US).format((total / 100.0).toLong())
     val caption = when (filter) {
@@ -166,11 +174,11 @@ internal fun ActivityReferenceSummary(
                 }
                 Spacer(Modifier.height(7.dp))
                 Row(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp),
-                    horizontalArrangement = Arrangement.spacedBy(13.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 155.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(Modifier.weight(.95f).aspectRatio(1f), contentAlignment = Alignment.Center) {
+                    Box(Modifier.weight(1.04f).aspectRatio(1f), contentAlignment = Alignment.Center) {
                         Canvas(Modifier.fillMaxSize()) {
                             val width = 19.dp.toPx()
                             val inset = width / 2f + 3.dp.toPx()
@@ -188,21 +196,21 @@ internal fun ActivityReferenceSummary(
                                         drawArc(s.color, position + 1.2f,
                                             (degrees - 2.4f).coerceAtLeast(.2f),
                                             false, Offset(inset, inset), diameter,
-                                            style = Stroke(width = width, cap = StrokeCap.Butt))
+                                            style = Stroke(width = width, cap = StrokeCap.Round))
                                     }
                                     position += degrees
                                 }
                             }
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(center, fontSize = if (center.length > 11) 13.sp else 18.sp,
+                            Text(center, fontSize = if (center.length > 11) 14.sp else 19.sp,
                                 fontWeight = FontWeight.ExtraBold, color = ink,
                                 maxLines = 1)
                             Text(caption, fontSize = 12.sp, color = muted,
                                 maxLines = 2, lineHeight = 14.sp)
                         }
                     }
-                    Column(Modifier.weight(1.55f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(Modifier.weight(1.46f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         if (segments.isEmpty()) {
                             Text("No matching transactions", color = muted, fontSize = 12.sp)
                         }
@@ -214,15 +222,14 @@ internal fun ActivityReferenceSummary(
                             ) {
                                 Box(Modifier.size(9.dp).background(segment.color, CircleShape))
                                 Text(segment.label, Modifier.weight(1f),
-                                    fontSize = 11.sp, color = ink, maxLines = 1,
+                                    fontSize = 12.sp, color = ink, maxLines = 1,
                                     overflow = TextOverflow.Ellipsis)
                                 val formatted = if (filter == "Needs Review") segment.minor.toString()
                                     else "KES " + NumberFormat.getIntegerInstance(Locale.US)
                                         .format(segment.minor / 100L)
-                                Text(formatted, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                                Text(formatted, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                                     color = ink, maxLines = 1)
-                                Text(if (total > 0.0) "${(segment.minor.toDouble() / total * 100).toInt()}%"
-                                    else "0%", fontSize = 10.sp, color = muted)
+                                Text(activityShareLabel(segment.minor, totalMinor), fontSize = 11.sp, color = muted)
                             }
                             if (index < segments.lastIndex) {
                                 HorizontalDivider(color = HomeReferencePalette.line.copy(alpha = .65f))

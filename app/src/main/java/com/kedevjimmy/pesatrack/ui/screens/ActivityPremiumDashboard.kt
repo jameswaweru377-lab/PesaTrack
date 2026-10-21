@@ -5,6 +5,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -355,10 +360,16 @@ internal fun ActivityCompactFilters(selected: String, count: Int, onSelect: (Str
     val tabs = listOf("All", "Money In", "Money Out", "Transfers", "Needs Review")
     val violet = androidx.compose.ui.graphics.Color(0xFF5800F7)
     val deepPurple = androidx.compose.ui.graphics.Color(0xFF3210CB)
+    val rowState = rememberLazyListState()
+    LaunchedEffect(selected) {
+        val index = tabs.indexOf(selected)
+        if (index >= 0) rowState.animateScrollToItem(index)
+    }
     LazyRow(
+        state = rowState,
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        contentPadding = PaddingValues(vertical = 2.dp)
+        contentPadding = PaddingValues(start = 0.dp, top = 2.dp, end = 20.dp, bottom = 2.dp)
     ) {
         items(tabs.size) { index ->
             val tab = tabs[index]
@@ -388,14 +399,14 @@ internal fun ActivityCompactFilters(selected: String, count: Int, onSelect: (Str
                         .then(if (active) Modifier.background(
                             androidx.compose.ui.graphics.Brush.verticalGradient(listOf(violet, deepPurple))
                         ) else Modifier)
-                        .heightIn(min = 48.dp)
-                        .padding(horizontal = 13.dp),
+                        .heightIn(min = 44.dp)
+                        .padding(horizontal = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     if (symbol != null) {
                         Surface(
-                            modifier = Modifier.size(27.dp),
+                            modifier = Modifier.size(23.dp),
                             shape = CircleShape,
                             color = if (active) androidx.compose.ui.graphics.Color.White.copy(alpha = .17f)
                                 else accent.copy(alpha = .12f)
@@ -403,7 +414,7 @@ internal fun ActivityCompactFilters(selected: String, count: Int, onSelect: (Str
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
                                     symbol, contentDescription = null,
-                                    modifier = Modifier.size(19.dp),
+                                    modifier = Modifier.size(17.dp),
                                     tint = if (active && tab != "Needs Review") androidx.compose.ui.graphics.Color.White else accent
                                 )
                             }
@@ -411,7 +422,7 @@ internal fun ActivityCompactFilters(selected: String, count: Int, onSelect: (Str
                     }
                     Text(
                         tab,
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
                         color = if (active) androidx.compose.ui.graphics.Color.White
                             else androidx.compose.ui.graphics.Color(0xFF0C104B),
