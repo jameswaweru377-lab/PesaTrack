@@ -910,8 +910,10 @@ fun ActivityScreen(
                 Column(Modifier.padding(bottom = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
                         "Activities",
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 32.sp,
+                        lineHeight = 37.sp,
+                        color = HomeReferencePalette.ink,
+                        fontWeight = FontWeight.ExtraBold
                     )
                     Text(
                         "Track and manage all your transactions.",
@@ -951,10 +953,10 @@ fun ActivityScreen(
                     verticalAlignment=Alignment.CenterVertically,
                     horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                     Surface(
-                        modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        color = colors.background,
-                        border = BorderStroke(1.dp, colors.outlineVariant)
+                        modifier = Modifier.weight(1f).heightIn(min = 52.dp),
+                        shape = RoundedCornerShape(19.dp),
+                        color = Color.White.copy(alpha = .88f),
+                        border = BorderStroke(1.dp, Color.White)
                     ) {
                         Row(
                             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
@@ -993,7 +995,7 @@ fun ActivityScreen(
                     }
                     IconButton(onClick = { showExtraFilters = !showExtraFilters },
                         modifier = Modifier.size(48.dp)) {
-                        Icon(Icons.Rounded.Tune,"More filters")
+                        Icon(Icons.Rounded.Tune,"More filters", tint = HomeReferencePalette.purple)
                     }
                 }
             }
@@ -1038,7 +1040,7 @@ fun ActivityScreen(
             }
             if(showExtraFilters) item(key = "additional-filters") {
                 LazyRow(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
-                    listOf("Spending","Income","Owed to me","Repayments").forEach { name ->
+                    listOf("Money Out","Money In","Owed to me","Repayments").forEach { name ->
                         item(key=name) {
                             FilterChip(selected=selectedFilter==name,
                                 onClick={selectedFilter=name},
