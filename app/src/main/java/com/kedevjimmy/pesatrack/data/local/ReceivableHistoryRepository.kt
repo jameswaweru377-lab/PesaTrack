@@ -82,6 +82,7 @@ class ReceivableHistoryRepository(context: Context) {
                        WHERE (LOWER(COALESCE(t.counterparty,'')) LIKE LOWER(?) ESCAPE '\'
                           OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(t.counterparty_phone,''),' ',''),'-',''),'+',''),'(',''),')','') LIKE ?
                           ${if (embeddedStatementPhone != null) "OR (t.source_kind='statement_import' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(t.counterparty,''),' ',''),'-',''),'+',''),'(',''),')',''),'.','') LIKE ?)" else ""})
+                          )
                           $sourceClause
                           $dateClause
                        ORDER BY t.occurred_at_epoch_ms DESC, t.id DESC LIMIT ? OFFSET ?""",
