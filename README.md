@@ -89,7 +89,9 @@ The public enrichment Worker is rate limited, and provider credentials remain se
 - [Current engineering state](CURRENT_STATE.md)
 - [Security policy](SECURITY.md)
 - [Contributing rules](CONTRIBUTING.md)
-- [Privacy policy source](docs/PRIVACY_POLICY.md)
+- [Privacy policy source — pre-release review](docs/PRIVACY_POLICY.md)
+- [Terms of Service — pre-release draft](docs/TERMS_OF_SERVICE_DRAFT.md)
+- [Legal, ODPC and SMS permission release gate](docs/LEGAL_RELEASE_GATE.md)
 - [Google Play release checklist](docs/PLAY_RELEASE_CHECKLIST.md)
 - [Signed release process](docs/RELEASE_PROCESS.md)
 
@@ -108,6 +110,6 @@ See [CURRENT_STATE.md](CURRENT_STATE.md) for the source-of-truth engineering sna
 
 ## Owed to me history review
 
-Personal receivables use a separate local journal. Find in transactions searches imported M-Pesa and bank history by name or phone. Loans and possible repayments require explicit user confirmation; gifts/not-loan decisions are remembered per person. Bulk selection includes only eligible displayed outgoing rows and all selected records are previewed before an atomic save. Shared bills preserve the user's remaining expense category and fees; original cash movements are never duplicated. Activity exposes Owed to me/Repayments filters and debt labels. Schema 37 adds personal_receivable_review_exclusions; encrypted backups from schema 34–36 are bridged with missing tables empty.
+Personal receivables use a separate local journal. Find in transactions searches imported M-Pesa and bank Activity history by name or phone. Separately saved PDF statement archive matches are visible as read-only evidence; they do not create a cash movement or a debt unless the user follows the controlled Activity import and individual loan review flow. Loans and possible repayments require explicit user confirmation; gifts/not-loan decisions are remembered per person. Bulk selection includes only eligible displayed outgoing rows and all selected records are previewed before an atomic save. Shared bills preserve the user's remaining expense category and fees; original cash movements are never duplicated. Activity exposes Owed to me/Repayments filters and debt labels. Schema 37 adds personal_receivable_review_exclusions; encrypted backups from schema 34–36 are bridged with missing tables empty.
 
 Implementation verification is tracked in the history-review PR. Android instrumentation and device acceptance remain unrun unless explicitly requested. Build/lint/unit evidence does not prove physical-device migration or user journeys.

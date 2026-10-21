@@ -162,16 +162,14 @@ object RecentSmsCatchUp {
                 ) {
                     Log.w(
                         "PesaTrackSmsSync",
-                        "Recent SMS catch-up lost permission.",
-                        security
+                        "Recent SMS catch-up lost permission."
                     )
                 } catch (
                     failure: Exception
                 ) {
                     Log.e(
                         "PesaTrackSmsSync",
-                        "Recent SMS catch-up failed.",
-                        failure
+                        "Recent SMS catch-up failed; message contents not logged."
                     )
                 } finally {
                     LedgerUpdateBus
