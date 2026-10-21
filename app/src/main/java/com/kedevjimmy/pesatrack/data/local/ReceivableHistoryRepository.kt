@@ -48,6 +48,7 @@ class ReceivableHistoryRepository(context: Context) {
             val digits = clean.filter(Char::isDigit)
             val normalized = ReceivableHistoryPolicy.normalizedPhone(clean)
             val phonePattern = "%" + (normalized?.takeLast(9) ?: digits.takeIf { it.length >= 4 } ?: "__no_phone_match__") + "%"
+            val embeddedStatementPhone = normalized?.takeLast(9)?.let { "%$it%" }
             val accounts = AccountStore.get(app).listAccounts(enabledOnly = false).associate { it.id to it.name }
             val excluded = if (personId == null) emptySet() else exclusions(personId)
             val sourceClause = when (sourceFilter) {
@@ -71,6 +72,7 @@ class ReceivableHistoryRepository(context: Context) {
             fun queryIds(batchLimit: Int, batchOffset: Int): List<Long> {
                 val args = buildList {
                     add(namePattern); add(phonePattern)
+                    if (embeddedStatementPhone != null) add(embeddedStatementPhone)
                     if (fromEpochMs != null) add(fromEpochMs.toString())
                     if (throughEpochMs != null) add(throughEpochMs.toString())
                     add(batchLimit.toString()); add(batchOffset.toString())
@@ -78,7 +80,8 @@ class ReceivableHistoryRepository(context: Context) {
                 return database.readableDatabase.rawQuery(
                     """SELECT t.id FROM transactions t
                        WHERE (LOWER(COALESCE(t.counterparty,'')) LIKE LOWER(?) ESCAPE '\'
-                          OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(t.counterparty_phone,''),' ',''),'-',''),'+',''),'(',''),')','') LIKE ?)
+                          OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(t.counterparty_phone,''),' ',''),'-',''),'+',''),'(',''),')','') LIKE ?
+                          ${if (embeddedStatementPhone != null) "OR (t.source_kind='statement_import' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(t.counterparty,''),' ',''),'-',''),'+',''),'(',''),')',''),'.','') LIKE ?)" else ""})
                           $sourceClause
                           $dateClause
                        ORDER BY t.occurred_at_epoch_ms DESC, t.id DESC LIMIT ? OFFSET ?""",
@@ -120,7 +123,9 @@ class ReceivableHistoryRepository(context: Context) {
                     }
                     val kind = if (row.direction == "EXPENSE") "LENT" else "REPAID"
                     candidates += ReceivableHistoryCandidate(row,
-                        ReceivableHistoryPolicy.match(name,phone,row.counterparty,row.counterpartyPhone),
+                        if (isStatement && row.counterpartyPhone.isNullOrBlank())
+                            ReceivableHistoryPolicy.matchStatementDescription(name,phone,row.counterparty)
+                        else ReceivableHistoryPolicy.match(name,phone,row.counterparty,row.counterpartyPhone),
                         journal.linkProblem(row.id,kind,row.amountMinor), id in excluded,
                         accounts[row.accountId] ?: "Imported account",sourceLabel)
                     if (candidates.size == limit) {
