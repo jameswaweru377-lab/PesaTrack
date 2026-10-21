@@ -56,7 +56,7 @@ internal fun ReferenceHomeHeader(onNotifications: () -> Unit, onProfile: () -> U
     val p = HomeReferencePalette
     Row(
         Modifier.fillMaxWidth().background(p.canvas)
-            .padding(horizontal = 18.dp, vertical = 8.dp).height(49.dp),
+            .padding(horizontal = 18.dp).height(48.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         PesaLogoMark(size = 30.dp)
@@ -218,7 +218,7 @@ internal fun ReferenceHomeHero(amount: String, month: String, onMonth: () -> Uni
 private fun ReferenceSurface(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Surface(modifier = modifier.fillMaxWidth(), color = Color.White,
         shape = RoundedCornerShape(18.dp), shadowElevation = 1.dp) {
-        Column(Modifier.padding(14.dp), content = content)
+        Column(Modifier.padding(horizontal = 13.dp, vertical = 11.dp), content = content)
     }
 }
 
@@ -236,7 +236,7 @@ internal fun ReferenceHomeMonth(
             Text(range, fontSize = 11.sp, color = p.muted,
                 modifier = Modifier.clickable { onMonth() })
         }
-        Spacer(Modifier.height(13.dp))
+        Spacer(Modifier.height(11.dp))
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.Top) {
             @Composable fun RowScope.metric(icon: ImageVector, label: String, amount: String,
                                             foot: String, tint: Color, bg: Color,
@@ -296,7 +296,7 @@ internal fun ReferenceHomeAttention(count: Int, onClick: () -> Unit) {
             Spacer(Modifier.width(11.dp))
             Column(Modifier.weight(1f)) {
                 Text("Needs attention", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = p.ink)
-                Text(if (count > 0) "$count transactions need review" else "All transactions reviewed",
+                Text(if (count > 0) "$count transactions need categories" else "No categories need attention",
                     fontSize = 11.sp, color = p.muted)
             }
             Icon(Icons.Rounded.ChevronRight, "Review transactions", Modifier.size(20.dp),
@@ -318,7 +318,7 @@ internal fun ReferenceHomeUpcoming(items: List<ReferenceUpcomingEntry>, onSeeAll
             Text("See all", fontSize = 12.sp, fontWeight = FontWeight.Medium,
                 color = p.violet, modifier = Modifier.clickable(onClick = onSeeAll))
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val shown = items.take(2)
             for (index in 0..1) {
@@ -326,7 +326,7 @@ internal fun ReferenceHomeUpcoming(items: List<ReferenceUpcomingEntry>, onSeeAll
                 val salary = entry?.isSalary ?: (index == 1)
                 val tint = if (salary) Color(0xFF078B77) else p.purple
                 val bg = if (salary) Color(0xFFECFBF7) else Color(0xFFF5F2FF)
-                Surface(onClick = onSeeAll, modifier = Modifier.weight(1f).height(54.dp),
+                Surface(onClick = onSeeAll, modifier = Modifier.weight(1f).height(53.dp),
                     color = bg, shape = RoundedCornerShape(12.dp)) {
                     Row(Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
@@ -407,7 +407,7 @@ internal fun ReferenceHomeRecent(
                     Triple(Icons.Rounded.ShoppingCart, Color(0xFFDB1D55), Color(0xFFFFE0E8))
                 else -> Triple(Icons.Rounded.PhoneAndroid, p.purple, Color(0xFFF0E9FF))
             }
-            Row(Modifier.fillMaxWidth().heightIn(min = 43.dp).clickable { onOpen(transaction.id) }
+            Row(Modifier.fillMaxWidth().heightIn(min = 41.dp).clickable { onOpen(transaction.id) }
                 .padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Surface(Modifier.size(37.dp), shape = RoundedCornerShape(12.dp), color = bubble) {
                     Box(contentAlignment = Alignment.Center) {
