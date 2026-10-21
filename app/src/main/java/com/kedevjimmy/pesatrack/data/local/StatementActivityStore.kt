@@ -293,6 +293,46 @@ class StatementActivityStore(context: Context) {
         }
     }
 
+
+    /**
+     * Re-read an exact source row at the moment the user explicitly requests an
+     * Activity import. An unverified/stale PDF source can never promote itself
+     * into a canonical financial transaction.
+     */
+    fun verifiedMovementForActivity(
+        shown: ReceivableArchiveMatch
+    ): com.kedevjimmy.pesatrack.domain.everyday.StatementRow {
+        require(shown.batchId.matches(Regex("[a-f0-9]{64}")) && shown.lineNumber >= 0)
+        val helper = Db(app)
+        try {
+            val actual = helper.readableDatabase.rawQuery(
+                """SELECT s.batch_id,s.line_number,b.account_id,s.reference,s.description,
+                          s.occurred_at,s.paid_in_minor,s.withdrawn_minor,b.totals_verified
+                   FROM statement_activity_lines s JOIN statement_batches b
+                     ON b.id=s.batch_id
+                   WHERE s.batch_id=? AND s.line_number=? LIMIT 1""".trimIndent(),
+                arrayOf(shown.batchId,shown.lineNumber.toString())
+            ).use { cursor ->
+                if (!cursor.moveToFirst()) null else ReceivableArchiveMatch(
+                    cursor.getString(0),cursor.getInt(1),cursor.getString(2),
+                    cursor.getString(3),cursor.getString(4),cursor.getLong(5),
+                    Math.subtractExact(cursor.getLong(6),cursor.getLong(7)),
+                    cursor.getInt(8) == 1
+                )
+            }
+            require(actual == shown) { "The PDF statement row changed. Search again." }
+            require(actual.totalsVerified && actual.signedMinor != 0L) {
+                "This PDF movement is not verified for Activity import."
+            }
+            return com.kedevjimmy.pesatrack.domain.everyday.StatementRow(
+                date = actual.occurredAt,
+                description = actual.description,
+                signedMinor = actual.signedMinor,
+                reference = actual.reference
+            )
+        } finally { helper.close() }
+    }
+
     fun batches(): List<Batch> {
         val helper = Db(app)
         try {
