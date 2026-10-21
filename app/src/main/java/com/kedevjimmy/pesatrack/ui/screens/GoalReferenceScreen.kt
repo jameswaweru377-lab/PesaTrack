@@ -908,7 +908,7 @@ fun SavingGoalsScreen(
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            android.util.Log.e("PesaTrackScreens", "Could not load goals", failure)
+            android.util.Log.e("PesaTrackScreens", "Could not load goals")
             loadError = "Couldn't load this page. Your saved data is unchanged."
         }
     }
