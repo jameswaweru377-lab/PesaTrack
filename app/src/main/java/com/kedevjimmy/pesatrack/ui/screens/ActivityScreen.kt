@@ -15,7 +15,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -893,7 +897,24 @@ fun ActivityScreen(
     Column(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(Brush.verticalGradient(listOf(Color(0xFFF2F1FF), Color(0xFFEAF3FF), Color(0xFFF7F7FF))))
+            .background(HomeReferencePalette.canvas)
+            .drawBehind {
+                val w = size.width
+                val h = size.height
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(Color(0xFFB9B2FF).copy(alpha = .40f), Color.Transparent),
+                        center = Offset(0f, 0f), radius = w * .95f),
+                    center = Offset(0f, 0f), radius = w * .95f
+                )
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(Color(0xFF90D1FF).copy(alpha = .47f),
+                            Color(0xFFADBDFF).copy(alpha = .20f), Color.Transparent),
+                        center = Offset(w * 1.07f, h * .08f), radius = w * .84f),
+                    center = Offset(w * 1.07f, h * .08f), radius = w * .84f
+                )
+            }
     ) {
         LazyColumn(
             state = activityListState,
@@ -993,9 +1014,17 @@ fun ActivityScreen(
                             )
                         }
                     }
-                    IconButton(onClick = { showExtraFilters = !showExtraFilters },
-                        modifier = Modifier.size(48.dp)) {
-                        Icon(Icons.Rounded.Tune,"More filters", tint = HomeReferencePalette.purple)
+                    Surface(
+                        onClick = { showExtraFilters = !showExtraFilters },
+                        modifier = Modifier.size(50.dp),
+                        shape = RoundedCornerShape(17.dp),
+                        color = Color.White,
+                        shadowElevation = 2.dp
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.FilterAlt, "Advanced filters",
+                                modifier = Modifier.size(23.dp), tint = HomeReferencePalette.purple)
+                        }
                     }
                 }
             }
@@ -1440,30 +1469,6 @@ fun ActivityScreen(
                 transactionCount=displaySnapshot?.transactions?.size ?: 0))
               else monthBuckets.filter { it.monthStartEpochMs == selectedMonthEpochMs }).forEach { bucket ->
                 val isExpanded = if(payCycleMode) true else expandedMonthEpochMs == bucket.monthStartEpochMs
-
-                item(
-                    key =
-                        "month-" +
-                            bucket.monthStartEpochMs
-                ) {
-                    ActivityMonthSectionHeader(
-                        monthLabel = if(payCycleMode) periodLabel else monthLabel(bucket.monthStartEpochMs),
-                        transactionCount = if(payCycleMode) filtered.size else bucket.transactionCount,
-                        expanded = isExpanded,
-                        onClick = {
-                            if (payCycleMode) { /* salary period stays expanded */ }
-                            else if (isExpanded) {
-                                expandedMonthEpochMs =
-                                    null
-                            } else {
-                                selectMonth(
-                                    bucket
-                                        .monthStartEpochMs
-                                )
-                            }
-                        }
-                    )
-                }
 
                 if (isExpanded) {
                     if (selectedFinancialSource != null) {
@@ -4182,7 +4187,7 @@ private fun ActivityRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Box {
-                    MerchantBadge(item = item, categoryId = categoryId, tone = iconTone)
+                    ActivityReferenceMerchantIcon(categoryId = categoryId, direction = direction, tone = iconTone)
                     if (needsReview) {
                         Surface(
                             modifier = Modifier.align(Alignment.BottomEnd).size(8.dp),
@@ -4254,3 +4259,35 @@ private fun ActivityRow(
     }
 }
 
+
+@Composable
+private fun ActivityReferenceMerchantIcon(
+    categoryId: String,
+    direction: MoneyDirection,
+    tone: String
+) {
+    val icon = when {
+        direction == MoneyDirection.TRANSFER -> Icons.Rounded.SyncAlt
+        direction == MoneyDirection.INCOME -> Icons.Rounded.AccountBalanceWallet
+        categoryId.contains("GROCER", true) || categoryId.contains("SHOP", true) ->
+            Icons.Rounded.ShoppingCart
+        categoryId.contains("RENT", true) || categoryId.contains("HOUS", true) ->
+            Icons.Rounded.Home
+        categoryId.contains("EAT", true) || categoryId.contains("FOOD", true) ->
+            Icons.Rounded.Restaurant
+        categoryId.contains("ELECT", true) -> Icons.Rounded.Bolt
+        categoryId.contains("INTERNET", true) -> Icons.Rounded.Wifi
+        categoryId.contains("PHONE", true) -> Icons.Rounded.PhoneAndroid
+        else -> Icons.AutoMirrored.Rounded.HelpOutline
+    }
+    Surface(
+        modifier = Modifier.size(42.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = pesaToneContainer(tone)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null,
+                modifier = Modifier.size(22.dp), tint = pesaToneContent(tone))
+        }
+    }
+}
