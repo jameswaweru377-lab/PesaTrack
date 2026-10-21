@@ -144,4 +144,61 @@ class StatementArchiveReceivableSearchTest {
         assertEquals(2,archive.searchForReceivables("Sample Borrower").rows.size)
     }
 
+    @Test fun v3ArchiveMigratesToChronologicalIndexWithoutChangingSavedMoneyOrLabels() {
+        val before = archive.searchForReceivables("Sample Borrower").rows
+        val existing = archive.batches().single()
+        context.openOrCreateDatabase("pesatrack_statement_activity.db", Context.MODE_PRIVATE, null).use { db ->
+            db.insertOrThrow("statement_category_labels", null, ContentValues().apply {
+                put("batch_id", batchId);put("page_number", 1);put("row_number", 1)
+                put("category_id", "FOOD")
+            })
+            // Model an existing installed v3 archive. The only v4 migration
+            // must add the index, not rewrite the PDF rows or category labels.
+            db.execSQL("DROP INDEX statement_lines_recent_global")
+            db.version = 3
+        }
+
+        val after = archive.searchForReceivables("Sample Borrower").rows
+        assertEquals(before, after)
+        assertEquals(existing, archive.batches().single())
+
+        context.openOrCreateDatabase("pesatrack_statement_activity.db", Context.MODE_PRIVATE, null).use { db ->
+            assertEquals(4, db.version)
+            db.rawQuery("PRAGMA index_list('statement_activity_lines')", null).use { c ->
+                var found = false
+                while (c.moveToNext()) {
+                    if (c.getString(1) == "statement_lines_recent_global") found = true
+                }
+                assertTrue("Global chronological index should survive the migration", found)
+            }
+            db.rawQuery("SELECT category_id FROM statement_category_labels WHERE batch_id=?", arrayOf(batchId)).use { c ->
+                assertTrue(c.moveToFirst())
+                assertEquals("FOOD", c.getString(0))
+            }
+        }
+    }
+
+    @Test fun chronologicalIndexSupportsQueryPlanWithoutChangingMatchOrdering() {
+        val rows = archive.searchForReceivables("Sample Borrower", limit=1)
+        assertEquals(1, rows.rows.size)
+        assertEquals(-12000L, rows.rows.single().signedMinor)
+        context.openOrCreateDatabase("pesatrack_statement_activity.db",Context.MODE_PRIVATE,null).use { db ->
+            val query = """
+                EXPLAIN QUERY PLAN
+                SELECT s.batch_id,s.line_number FROM statement_activity_lines s
+                JOIN statement_batches b ON b.id=s.batch_id
+                WHERE (s.paid_in_minor > 0 OR s.withdrawn_minor > 0)
+                    AND s.description LIKE ? ESCAPE '!'
+                ORDER BY s.occurred_at DESC,s.batch_id,s.line_number LIMIT ? OFFSET ?
+            """.trimIndent()
+            db.rawQuery(query,arrayOf("%Sample%Borrower%","25","0")).use { c ->
+                val plans = mutableListOf<String>()
+                while (c.moveToNext()) plans += c.getString(3)
+                assertTrue("PDF search should have an indexed chronological scan: $plans",
+                    plans.any { it.contains("statement_lines_recent_global") })
+            }
+        }
+    }
+
+
 }

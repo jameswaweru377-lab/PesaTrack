@@ -37,7 +37,7 @@ class StatementActivityStore(context: Context) {
     data class SaveResult(val added: Boolean, val batchId: String)
 
     private class Db(context: Context) :
-        SQLiteOpenHelper(context, "pesatrack_statement_activity.db", null, 3) {
+        SQLiteOpenHelper(context, "pesatrack_statement_activity.db", null, 4) {
         override fun onConfigure(db: SQLiteDatabase) {
             super.onConfigure(db)
             db.setForeignKeyConstraintsEnabled(true)
@@ -74,6 +74,7 @@ class StatementActivityStore(context: Context) {
                 )""".trimIndent()
             )
             db.execSQL("CREATE INDEX statement_lines_time ON statement_activity_lines(batch_id, occurred_at DESC)")
+            createGlobalHistoryIndex(db)
             createCategoryTables(db)
         }
 
@@ -95,14 +96,27 @@ class StatementActivityStore(context: Context) {
             """.trimIndent())
         }
 
+        /**
+         * A chronological index spanning every saved PDF, not just one batch.
+         * The Owed to Me archive search sorts by occurred_at before paging.
+         * Keeping this as a separate index does not change any statement rows.
+         */
+        private fun createGlobalHistoryIndex(db: SQLiteDatabase) {
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS statement_lines_recent_global " +
+                    "ON statement_activity_lines(occurred_at DESC, batch_id, line_number)"
+            )
+        }
+
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-            require(oldVersion in 1..2 && newVersion == 3) {
+            require(oldVersion in 1..3 && newVersion == 4) {
                 "Statement Activity requires a lossless migration."
             }
             if (oldVersion < 2) {
                 db.execSQL("ALTER TABLE statement_activity_lines ADD COLUMN source_cells_json TEXT NOT NULL DEFAULT '[]'")
             }
             if (oldVersion < 3) createCategoryTables(db)
+            if (oldVersion < 4) createGlobalHistoryIndex(db)
         }
     }
 
