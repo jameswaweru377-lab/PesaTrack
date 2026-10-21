@@ -325,7 +325,11 @@ internal data class ReferenceUpcomingEntry(val title: String, val whenText: Stri
                                            val amount: String, val isSalary: Boolean)
 
 @Composable
-internal fun ReferenceHomeUpcoming(items: List<ReferenceUpcomingEntry>, onSeeAll: () -> Unit) {
+internal fun ReferenceHomeUpcoming(
+    items: List<ReferenceUpcomingEntry>,
+    onSeeAll: () -> Unit,
+    onSalary: () -> Unit = onSeeAll
+) {
     val p = HomeReferencePalette
     ReferenceSurface {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -342,7 +346,8 @@ internal fun ReferenceHomeUpcoming(items: List<ReferenceUpcomingEntry>, onSeeAll
                 val salary = entry?.isSalary ?: (index == 1)
                 val tint = if (salary) Color(0xFF078B77) else p.purple
                 val bg = if (salary) Color(0xFFECFBF7) else Color(0xFFF5F2FF)
-                Surface(onClick = onSeeAll, modifier = Modifier.weight(1f).height(53.dp),
+                Surface(onClick = if (salary) onSalary else onSeeAll,
+                    modifier = Modifier.weight(1f).height(53.dp),
                     color = bg, shape = RoundedCornerShape(12.dp)) {
                     Row(Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
@@ -357,7 +362,7 @@ internal fun ReferenceHomeUpcoming(items: List<ReferenceUpcomingEntry>, onSeeAll
                             Text(entry?.title ?: if (salary) "Salary" else "Bills",
                                 fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = p.ink,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(entry?.whenText ?: "Not scheduled", fontSize = 9.sp,
+                            Text(entry?.whenText ?: if (salary) "Add salary" else "Not scheduled", fontSize = 9.sp,
                                 color = p.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         if (entry != null) {
