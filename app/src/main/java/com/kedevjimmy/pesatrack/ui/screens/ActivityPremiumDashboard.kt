@@ -2,6 +2,9 @@ package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -348,32 +351,72 @@ private fun MetricColumn(
     }
 }
 @Composable
-internal fun ActivityCompactFilters(selected:String,count:Int,onSelect:(String)->Unit) {
-    val colors = MaterialTheme.colorScheme
-    val brand = colors.primary
-    Surface(shape=RoundedCornerShape(17.dp),color=MaterialTheme.colorScheme.surface,
-        border=BorderStroke(1.dp,colors.outlineVariant)) {
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-            listOf("All","Reviews","Pending","Transfers").forEach { tab ->
-                val active=selected==tab
-                Surface(onClick={onSelect(tab)},modifier=Modifier.weight(1f).heightIn(min=48.dp),
-                    shape=RoundedCornerShape(15.dp),
-                    color=if(active)brand else colors.surface,
-                    border=if(active)BorderStroke(1.dp,brand) else null) {
-                    Box(contentAlignment=Alignment.Center) {
-                        Row(verticalAlignment=Alignment.CenterVertically,
-                            horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                            Text(tab,style=MaterialTheme.typography.labelMedium,maxLines=1,
-                                color=if(active)colors.onPrimary else colors.onSurfaceVariant,
-                                fontWeight=if(active)FontWeight.Bold else FontWeight.Normal)
-                            if(tab=="Reviews" && count>0) {
-                                Surface(shape=CircleShape,color=brand) {
-                                    Text(count.toString(),Modifier.padding(horizontal=5.dp,vertical=1.dp),
-                                        style=MaterialTheme.typography.labelSmall,color=colors.onPrimary)
-                                }
+internal fun ActivityCompactFilters(selected: String, count: Int, onSelect: (String) -> Unit) {
+    val tabs = listOf("All", "Money In", "Money Out", "Transfers", "Needs Review")
+    val violet = androidx.compose.ui.graphics.Color(0xFF5800F7)
+    val deepPurple = androidx.compose.ui.graphics.Color(0xFF3210CB)
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        contentPadding = PaddingValues(vertical = 2.dp)
+    ) {
+        items(tabs.size) { index ->
+            val tab = tabs[index]
+            val active = selected == tab
+            val symbol = when (tab) {
+                "Money In" -> Icons.Rounded.ArrowUpward
+                "Money Out" -> Icons.Rounded.ArrowDownward
+                "Transfers" -> Icons.Rounded.SyncAlt
+                "Needs Review" -> Icons.Rounded.PriorityHigh
+                else -> null
+            }
+            val accent = when (tab) {
+                "Money In" -> androidx.compose.ui.graphics.Color(0xFF0DBA7F)
+                "Money Out" -> androidx.compose.ui.graphics.Color(0xFFFF2775)
+                "Needs Review" -> androidx.compose.ui.graphics.Color(0xFFFF7512)
+                else -> violet
+            }
+            Surface(
+                onClick = { onSelect(tab) },
+                shape = RoundedCornerShape(17.dp),
+                color = if (active) violet else androidx.compose.ui.graphics.Color.White.copy(alpha = .85f),
+                shadowElevation = if (active) 3.dp else 0.dp,
+                border = if (active) null else BorderStroke(1.dp, androidx.compose.ui.graphics.Color.White)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .then(if (active) Modifier.background(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(listOf(violet, deepPurple))
+                        ) else Modifier)
+                        .heightIn(min = 48.dp)
+                        .padding(horizontal = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    if (symbol != null) {
+                        Surface(
+                            modifier = Modifier.size(27.dp),
+                            shape = CircleShape,
+                            color = if (active) androidx.compose.ui.graphics.Color.White.copy(alpha = .17f)
+                                else accent.copy(alpha = .12f)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    symbol, contentDescription = null,
+                                    modifier = Modifier.size(19.dp),
+                                    tint = if (active && tab != "Needs Review") androidx.compose.ui.graphics.Color.White else accent
+                                )
                             }
                         }
                     }
+                    Text(
+                        tab,
+                        fontSize = 13.sp,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                        color = if (active) androidx.compose.ui.graphics.Color.White
+                            else androidx.compose.ui.graphics.Color(0xFF0C104B),
+                        maxLines = 1
+                    )
                 }
             }
         }
