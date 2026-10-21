@@ -1015,6 +1015,7 @@ fun ActivityScreen(
                             .filter { it.reviewState != ReviewState.EXCLUDED.name },
                         categoryName = { categoryStore.labelFor(it) },
                         accountName = { id -> accountsById[id]?.name ?: "Account" },
+                        possibleDuplicateIds = possibleDuplicateIds,
                         onMonth = { payCycleMode = false; showMonthPicker = true },
                         onAnalytics = { showDetailedSummary = !showDetailedSummary }
                     )
