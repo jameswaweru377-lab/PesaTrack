@@ -45,7 +45,8 @@ internal fun activityReferenceSegments(
     transactions: List<StoredTransaction>,
     selected: String,
     categoryName: (String) -> String,
-    accountName: (String?) -> String
+    accountName: (String?) -> String,
+    possibleDuplicateIds: Set<Long>
 ): List<ActivityReferenceSegment> {
     val eligible = transactions.filter { item ->
         item.reviewState != ReviewState.EXCLUDED.name &&
@@ -53,7 +54,8 @@ internal fun activityReferenceSegments(
                 "Money In" -> item.direction == MoneyDirection.INCOME.name
                 "Transfers" -> item.direction == MoneyDirection.TRANSFER.name &&
                     item.relationType != TransactionStore.RELATION_REFUND
-                "Needs Review" -> item.reviewState == ReviewState.NEEDS_REVIEW.name
+                "Needs Review" -> item.reviewState == ReviewState.NEEDS_REVIEW.name ||
+                    item.id in possibleDuplicateIds
                 else -> item.direction == MoneyDirection.EXPENSE.name &&
                     item.relationType != TransactionStore.RELATION_REFUND
             }
@@ -61,7 +63,14 @@ internal fun activityReferenceSegments(
     val grouped = eligible.groupBy { item ->
         when (selected) {
             "Transfers" -> accountName(item.accountId) + " → " + accountName(item.linkedAccountId)
-            "Needs Review" -> if (item.category.isBlank()) "Uncategorized" else "Needs review"
+            "Needs Review" -> when {
+                item.id in possibleDuplicateIds -> "Possible Duplicate"
+                item.direction == MoneyDirection.TRANSFER.name -> "Ambiguous Transfer"
+                item.category.isBlank() || categoryName(item.category).contains("uncategor", true) ->
+                    "Uncategorized"
+                item.accountId == null -> "Needs Account Match"
+                else -> "Needs Category"
+            }
             else -> categoryName(item.category).ifBlank { "Uncategorized" }
         }
     }
@@ -89,13 +98,14 @@ internal fun ActivityReferenceSummary(
     transactions: List<StoredTransaction>,
     categoryName: (String) -> String,
     accountName: (String?) -> String,
+    possibleDuplicateIds: Set<Long>,
     onMonth: () -> Unit,
     onAnalytics: () -> Unit
 ) {
     val ink = HomeReferencePalette.ink
     val muted = HomeReferencePalette.muted
-    val segments = remember(transactions, filter, categoryName, accountName) {
-        activityReferenceSegments(transactions, filter, categoryName, accountName)
+    val segments = remember(transactions, filter, categoryName, accountName, possibleDuplicateIds) {
+        activityReferenceSegments(transactions, filter, categoryName, accountName, possibleDuplicateIds)
     }
     val total = segments.fold(0.0) { sum, segment -> sum + segment.minor.toDouble() }
     val center = if (filter == "Needs Review") total.toLong().toString()
