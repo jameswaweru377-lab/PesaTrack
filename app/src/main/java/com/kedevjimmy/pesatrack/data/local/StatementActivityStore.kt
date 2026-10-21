@@ -200,6 +200,99 @@ class StatementActivityStore(context: Context) {
         }
     }
 
+
+    /** A verified PDF movement that lives only in the separate statement archive.
+     * Search results are read-only evidence, not ledger transactions or debt events.
+     */
+    data class ReceivableArchiveMatch(
+        val batchId: String,
+        val lineNumber: Int,
+        val accountId: String,
+        val reference: String,
+        val description: String,
+        val occurredAt: Long,
+        val signedMinor: Long,
+        val totalsVerified: Boolean
+    ) {
+        val key: String get() = "$batchId:$lineNumber"
+    }
+
+    data class ReceivableArchivePage(val rows: List<ReceivableArchiveMatch>, val nextOffset: Int?)
+
+    /**
+     * Bounded direct search of saved PDF Statement Activity, including rows that
+     * were NOT separately imported to the canonical transaction ledger.
+     * Does not infer a loan, create a ledger transaction, or link debt.
+     */
+    fun searchForReceivables(
+        query: String,
+        limit: Int = 25,
+        offset: Int = 0,
+        fromEpochMs: Long? = null,
+        throughEpochMs: Long? = null
+    ): ReceivableArchivePage {
+        require(query.trim().length in 2..100)
+        require(limit in 1..50 && offset in 0..250_000)
+        require(fromEpochMs == null || throughEpochMs == null || fromEpochMs <= throughEpochMs)
+        val clean = query.trim()
+        fun escaped(value: String) = value.replace("!", "!!").replace("%", "!%").replace("_", "!_")
+        val tokens = clean.split(Regex("[\\s\\p{Z}]+")).filter(String::isNotBlank)
+        val namePattern = "%" + tokens.joinToString("%") { escaped(it) } + "%"
+        val numeric = clean.filter(Char::isDigit)
+        val phone = com.kedevjimmy.pesatrack.domain.receivables.ReceivableHistoryPolicy
+            .normalizedPhone(clean)?.takeLast(9)
+            ?: numeric.takeIf { it.length >= 4 }?.takeLast(9)
+        val phoneClause = if (phone != null) {
+            " OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(s.description,' ',''),'-',''),'+',''),'(',''),')',''),'.','') LIKE ?"
+        } else ""
+        val dates = buildString {
+            if (fromEpochMs != null) append(" AND s.occurred_at >= ?")
+            if (throughEpochMs != null) append(" AND s.occurred_at <= ?")
+        }
+        val args = buildList {
+            add(namePattern)
+            if (phone != null) add("%$phone%")
+            if (fromEpochMs != null) add(fromEpochMs.toString())
+            if (throughEpochMs != null) add(throughEpochMs.toString())
+            add((limit + 1).toString())
+            add(offset.toString())
+        }.toTypedArray()
+        val helper = Db(app)
+        try {
+            val result = helper.readableDatabase.rawQuery(
+                """SELECT s.batch_id, s.line_number, b.account_id, s.reference, s.description,
+                      s.occurred_at, s.paid_in_minor, s.withdrawn_minor, b.totals_verified
+                   FROM statement_activity_lines s
+                   JOIN statement_batches b ON b.id=s.batch_id
+                   WHERE (s.paid_in_minor > 0 OR s.withdrawn_minor > 0)
+                     AND (s.description LIKE ? ESCAPE '!'$phoneClause)
+                     $dates
+                   ORDER BY s.occurred_at DESC, s.batch_id, s.line_number
+                   LIMIT ? OFFSET ?""".trimIndent(),
+                args
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        add(ReceivableArchiveMatch(
+                            batchId = cursor.getString(0),
+                            lineNumber = cursor.getInt(1),
+                            accountId = cursor.getString(2),
+                            reference = cursor.getString(3),
+                            description = cursor.getString(4),
+                            occurredAt = cursor.getLong(5),
+                            signedMinor = Math.subtractExact(cursor.getLong(6), cursor.getLong(7)),
+                            totalsVerified = cursor.getInt(8) != 0
+                        ))
+                    }
+                }
+            }
+            return ReceivableArchivePage(result.take(limit),
+                (offset + limit).takeIf { result.size > limit })
+        } finally {
+            helper.close()
+        }
+    }
+
     fun batches(): List<Batch> {
         val helper = Db(app)
         try {
