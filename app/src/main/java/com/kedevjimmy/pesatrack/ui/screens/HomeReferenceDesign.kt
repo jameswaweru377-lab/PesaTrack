@@ -21,6 +21,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -179,7 +182,9 @@ internal fun ReferenceHomeHero(amount: String, month: String, onMonth: () -> Uni
                         tint = Color.White, modifier = Modifier.size(22.dp))
                 }
             }
-            Text(if (visible) amount else "••••••", fontSize = 31.sp, lineHeight = 35.sp,
+            Text(if (visible) amount else "••••••",
+                fontSize = if (amount.length > 16) 23.sp else if (amount.length > 12) 27.sp else 31.sp,
+                lineHeight = 35.sp,
                 letterSpacing = (-1.2).sp, color = Color.White, fontWeight = FontWeight.ExtraBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(Modifier.clickable(onClick = onMonth).padding(top = 1.dp),
@@ -254,8 +259,19 @@ internal fun ReferenceHomeMonth(
                     }
                     Text(amount, fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.ExtraBold,
                         color = tint, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(foot, fontSize = 10.sp, color = p.muted,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        buildAnnotatedString {
+                            val lastSpace = foot.lastIndexOf(' ')
+                            if (foot.startsWith("vs ") && lastSpace > 0) {
+                                append(foot.substring(0, lastSpace + 1))
+                                withStyle(SpanStyle(color = tint, fontWeight = FontWeight.SemiBold)) {
+                                    append(foot.substring(lastSpace + 1))
+                                }
+                            } else append(foot)
+                        },
+                        fontSize = 10.sp, color = p.muted,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
                     if (progress != null) {
                         Box(Modifier.fillMaxWidth().padding(end = 3.dp, top = 2.dp)
                             .height(7.dp).clip(CircleShape).background(Color(0xFFE6E7F1))) {
