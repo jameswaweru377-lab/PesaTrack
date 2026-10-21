@@ -78,6 +78,7 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
             }
             item { SettingsGroup {
                 SettingsCompactRow(Icons.Rounded.Security, "Privacy", "Your data and your choices") { page = "privacy" }
+                SettingsCompactRow(Icons.Rounded.Info, "Privacy Policy", "Pre-release policy and personal-data rights") { page = "legal_privacy" }
                 SettingsCompactRow(Icons.Rounded.Message, "Money message access", "SMS history and bank-app updates") { page = "access" }
                 SettingsCompactRow(Icons.Rounded.Lock, "App lock", "Protect PesaTrack with a PIN") { lock = true }
                 SettingsCompactRow(Icons.Rounded.Backup, "Backup & restore", "Encrypted backup stored where you choose") { backup = true }
@@ -89,7 +90,6 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
                 SettingsCompactRow(Icons.Rounded.Tune, "Automatic sorting", "Salary, regular payments and transfers", onSmartRulesClick)
                 SettingsCompactRow(Icons.Rounded.HelpOutline, "Help", "Answers and troubleshooting") { page = "help" }
                 SettingsCompactRow(Icons.Rounded.Info, "Terms of Service", "Pre-release draft · Your responsibilities and rights") { page = "terms" }
-                SettingsCompactRow(Icons.Rounded.Security, "Privacy Policy", "Pre-release draft · What PesaTrack processes") { page = "legal_privacy" }
                 SettingsCompactRow(Icons.Rounded.Info, "Financial information notice", "Accuracy, debt evidence and financial decisions") { page = "financial_notice" }
                 SettingsCompactRow(Icons.Rounded.Info, "About PesaTrack", "App information") { page = "about" }
             } }
