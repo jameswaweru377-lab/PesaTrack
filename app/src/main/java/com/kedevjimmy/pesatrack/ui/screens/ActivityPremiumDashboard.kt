@@ -369,7 +369,7 @@ internal fun ActivityCompactFilters(selected: String, count: Int, onSelect: (Str
         state = rowState,
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        contentPadding = PaddingValues(vertical = 2.dp, end = 20.dp)
+        contentPadding = PaddingValues(start = 0.dp, top = 2.dp, end = 20.dp, bottom = 2.dp)
     ) {
         items(tabs.size) { index ->
             val tab = tabs[index]
