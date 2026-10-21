@@ -38,6 +38,7 @@ internal fun ReceivableHistoryReview(
     val locale = LocalConfiguration.current.locales[0]
     val repository = remember { ReceivableHistoryRepository(context) }
     val journal = remember { PersonalReceivableStore(context) }
+    val archiveStore = remember { StatementActivityStore(context) }
     val scope = rememberCoroutineScope()
     var personId by remember { mutableStateOf(initialPersonId) }
     var name by remember { mutableStateOf(initialName) }
@@ -46,6 +47,9 @@ internal fun ReceivableHistoryReview(
     var people by remember { mutableStateOf<List<ReceivablePerson>>(emptyList()) }
     var personMenu by remember { mutableStateOf(false) }
     var rows by remember { mutableStateOf<List<ReceivableHistoryCandidate>>(emptyList()) }
+    var archivedRows by remember { mutableStateOf<List<StatementActivityStore.ReceivableArchiveMatch>>(emptyList()) }
+    var archiveNextOffset by remember { mutableStateOf<Int?>(null) }
+    var archiveLoading by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Map<Long,ReceivableHistorySelection>>(emptyMap()) }
     var gifts by remember { mutableStateOf<Map<Long,StoredTransaction>>(emptyMap()) }
     var amountInputs by remember { mutableStateOf<Map<Long,String>>(emptyMap()) }
@@ -80,7 +84,8 @@ internal fun ReceivableHistoryReview(
     LaunchedEffect(revision.revision) { preview = null; confirming = false }
 
     fun resetChoices() {
-        rows = emptyList(); selected = emptyMap(); gifts = emptyMap()
+        rows = emptyList(); archivedRows = emptyList(); archiveNextOffset = null
+        selected = emptyMap(); gifts = emptyMap()
         amountInputs = emptyMap(); searched = false; preview = null; confirming = false
         nextOffset = null; previousOffsets = emptyList(); offset = 0; pageNumber = 1
     }
@@ -104,9 +109,15 @@ internal fun ReceivableHistoryReview(
         scope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    repository.searchPage(sessionQuery,personId,sessionName,sessionPhone,50,page,sourceFilter,dateFrom,dateThrough)
+                    val canonical = repository.searchPage(sessionQuery,personId,sessionName,sessionPhone,50,page,sourceFilter,dateFrom,dateThrough)
+                    val archived = if (sourceFilter != ReceivableHistorySourceFilter.MESSAGES) {
+                        archiveStore.searchForReceivables(sessionQuery,25,0,dateFrom,dateThrough)
+                    } else StatementActivityStore.ReceivableArchivePage(emptyList(),null)
+                    canonical to archived
                 }
-                rows = result.candidates; nextOffset = result.nextOffset; searched = true
+                rows = result.first.candidates; nextOffset = result.first.nextOffset
+                archivedRows = result.second.rows; archiveNextOffset = result.second.nextOffset
+                searched = true
                 if (navigate) {
                     if (page > offset) { previousOffsets = previousOffsets + offset; pageNumber++ }
                     else if (page < offset) { previousOffsets = previousOffsets.dropLast(1); pageNumber = (pageNumber - 1).coerceAtLeast(1) }
@@ -173,7 +184,7 @@ internal fun ReceivableHistoryReview(
                         modifier = Modifier.weight(1f),fontWeight = FontWeight.Bold)
                     TextButton(enabled = !busy,onClick = onDismiss) { Text("Close") }
                 }
-                Text("Review imported transactions on this phone. Nothing changes until you confirm.",
+                Text("Review imported transactions and saved statement evidence. Nothing changes until you confirm.",
                     style = MaterialTheme.typography.bodySmall)
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (error != null) Text(error.orEmpty(),color = MaterialTheme.colorScheme.error)
@@ -238,7 +249,7 @@ internal fun ReceivableHistoryReview(
                         }
                         if (searched) {
                             item {
-                                Text("Search covers imported history. Statement files must be imported into Activity first; similar names can belong to different people.",
+                                Text("Activity transactions can be linked after review. PDF-only statement records appear separately as read-only evidence; import the movement into Activity before linking a loan. Similar names can belong to different people.",
                                     style = MaterialTheme.typography.bodySmall)
                                     Text(if (dateFrom == null && dateThrough == null) "All imported dates" else "Filtered by the selected dates",
                                     style = MaterialTheme.typography.labelSmall)
@@ -261,7 +272,7 @@ internal fun ReceivableHistoryReview(
                             }
                             val visible = rows.filter { if (showRepayments) it.row.direction == "INCOME" else it.row.direction != "INCOME" }
                             if (visible.isEmpty()) item {
-                                Text(if (rows.isEmpty()) "No matching imported transactions. Import a statement or message history in Activity, then search again."
+                                Text(if (rows.isEmpty() && archivedRows.isEmpty()) "No matching records. Import financial messages or a PDF statement, then search again."
                                     else "No records in this section on this page.")
                             }
                             items(visible,key = { it.row.id }) { candidate ->
@@ -303,6 +314,62 @@ internal fun ReceivableHistoryReview(
                                             }
                                         }
                                     }
+                                }
+                            }
+                            if (archivedRows.isNotEmpty()) {
+                                item {
+                                    Text("Saved PDF statement matches",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold)
+                                    Text("These are original statement rows, not additional spending or confirmed loans. Some may already exist in Activity or overlap another statement. Review the source and import the movement into Activity before linking a debt.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                items(archivedRows,key = { "archive:" + it.key }) { archived ->
+                                    val relevant = if (showRepayments) archived.signedMinor > 0L else archived.signedMinor < 0L
+                                    if (relevant) {
+                                        Card(Modifier.fillMaxWidth()) {
+                                            Column(Modifier.padding(12.dp),
+                                                verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                                Text(archived.description, fontWeight = FontWeight.SemiBold)
+                                                Text("PDF statement archive · " +
+                                                    (if (archived.totalsVerified) "File totals verified" else "File totals not independently verified"),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.primary)
+                                                Text(SimpleDateFormat("d MMM yyyy",locale).format(archived.occurredAt) +
+                                                    " · Reference " + archived.reference,
+                                                    style = MaterialTheme.typography.bodySmall)
+                                                Text(receivableMoney(kotlin.math.abs(archived.signedMinor)) +
+                                                    if (archived.signedMinor < 0) " sent" else " received")
+                                                Text("Read-only evidence · Import to Activity for loan/repayment confirmation",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            }
+                                        }
+                                    }
+                                }
+                                if (archiveNextOffset != null) item {
+                                    TextButton(
+                                        enabled = !busy && !archiveLoading,
+                                        onClick = {
+                                            if (!archiveLoading) {
+                                                val start = archiveNextOffset ?: return@TextButton
+                                                archiveLoading = true
+                                                scope.launch {
+                                                    try {
+                                                        val pageResult = withContext(Dispatchers.IO) {
+                                                            archiveStore.searchForReceivables(
+                                                                sessionQuery,25,start,dateFrom,dateThrough)
+                                                        }
+                                                        archivedRows = (archivedRows + pageResult.rows).distinctBy { it.key }
+                                                        archiveNextOffset = pageResult.nextOffset
+                                                    } catch (cancelled: CancellationException) { throw cancelled }
+                                                    catch (_: Exception) { error = "Could not load more PDF statement matches." }
+                                                    finally { archiveLoading = false }
+                                                }
+                                            }
+                                        }
+                                    ) { Text(if (archiveLoading) "Loading statement matches…" else "More statement matches") }
                                 }
                             }
                             item {
