@@ -4040,7 +4040,7 @@ private fun ActivityDateHeader(
                 fontSize = 18.sp, fontWeight = FontWeight.Bold,
                 color = HomeReferencePalette.ink)
             Text(
-                SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(dayEpochMs)),
+                SimpleDateFormat("dd MMM yyyy", androidx.compose.ui.platform.LocalConfiguration.current.locales[0]).format(Date(dayEpochMs)),
                 fontSize = 12.sp, color = HomeReferencePalette.muted
             )
         }
@@ -4219,7 +4219,7 @@ private fun ActivityRow(
                         Text("•", style = MaterialTheme.typography.labelSmall,
                             color = HomeReferencePalette.muted)
                         Text(
-                            SimpleDateFormat("h:mm a", Locale.getDefault())
+                            SimpleDateFormat("h:mm a", androidx.compose.ui.platform.LocalConfiguration.current.locales[0])
                                 .format(Date(item.occurredAtEpochMs)),
                             style = MaterialTheme.typography.labelSmall,
                             color = HomeReferencePalette.muted,
