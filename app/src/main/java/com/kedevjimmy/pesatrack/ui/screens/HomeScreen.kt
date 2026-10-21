@@ -1430,14 +1430,17 @@ fun HomeScreen(
     fun comparisonLabel(delta: Int?): String = if (delta == null) "vs $priorMonthName —"
         else "vs $priorMonthName " + (if (delta > 0) "+" else "") + "$delta%"
     val budgetLeft = if (monthlyBudgetTotalMinor != null && monthlyBudgetSpentMinor != null)
-        (monthlyBudgetTotalMinor - monthlyBudgetSpentMinor).coerceAtLeast(0L) else null
+        CheckedMoney.orNull {
+            CheckedMoney.subtract(monthlyBudgetTotalMinor, monthlyBudgetSpentMinor)
+        }?.coerceAtLeast(0L) else null
     val progressLeft = if (monthlyBudgetTotalMinor != null &&
         monthlyBudgetTotalMinor > 0 && budgetLeft != null)
         (budgetLeft.toDouble() / monthlyBudgetTotalMinor.toDouble()).toFloat().coerceIn(0f, 1f)
     else null
+    val pendingSalaryRule = salaryRule
     val upcomingReferenceItems = buildList {
         upcomingBills.sortedBy { it.nextDueEpochMs ?: Long.MAX_VALUE }
-            .take(if (salaryRule != null) 1 else 2).forEach { bill ->
+            .take(if (pendingSalaryRule != null) 1 else 2).forEach { bill ->
             val days = bill.nextDueEpochMs?.let {
                 java.util.concurrent.TimeUnit.MILLISECONDS.toDays(
                     (it - System.currentTimeMillis()).coerceAtLeast(0L)
@@ -1452,16 +1455,16 @@ fun HomeScreen(
                 isSalary = false
             ))
         }
-        if (salaryRule != null) {
-            val salaryDay = salaryRule.payWindowStartDay
+        if (pendingSalaryRule != null) {
+            val salaryDay = pendingSalaryRule.payWindowStartDay
             val nextPay = salaryDay?.let { target ->
                 Calendar.getInstance().apply {
-                    set(Calendar.DAY_OF_MONTH, target.coerceAtMost(getActualMaximum(Calendar.DAY_OF_MONTH)))
+                    set(Calendar.DAY_OF_MONTH, target.coerceIn(1, getActualMaximum(Calendar.DAY_OF_MONTH)))
                     set(Calendar.HOUR_OF_DAY, 0)
                     set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0)
                     if (timeInMillis < System.currentTimeMillis()) {
                         add(Calendar.MONTH, 1)
-                        set(Calendar.DAY_OF_MONTH, target.coerceAtMost(getActualMaximum(Calendar.DAY_OF_MONTH)))
+                        set(Calendar.DAY_OF_MONTH, target.coerceIn(1, getActualMaximum(Calendar.DAY_OF_MONTH)))
                     }
                 }
             }
@@ -1474,7 +1477,7 @@ fun HomeScreen(
                 title = "Salary",
                 whenText = salaryDays?.let { "In $it " + if (it == 1L) "day" else "days" }
                     ?: "Expected pay",
-                amount = salaryRule.plannedAmountMinor?.let(::formatMoney)
+                amount = pendingSalaryRule.plannedAmountMinor?.let(::formatMoney)
                     ?: "Not set",
                 isSalary = true
             ))
