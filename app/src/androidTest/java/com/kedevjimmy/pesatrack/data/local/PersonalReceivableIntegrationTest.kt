@@ -308,6 +308,22 @@ class PersonalReceivableIntegrationTest {
         assertEquals(1,repo.search("Sample Borrower",null,"Sample Borrower",null,2,2).size)
     }
 
+    @Test fun phoneInsideImportedStatementDescriptionIsSearchableButRequiresIndividualReview() {
+        val id = transaction(970, 25000L, "EXPENSE")
+        db.update("transactions",ContentValues().apply {
+            put("source_kind","statement_import")
+            put("counterparty","Send Money to Sample Borrower 0712 000000")
+            putNull("counterparty_phone")
+        },"id = ?",arrayOf(id.toString()))
+        val result = ReceivableHistoryRepository(context).search(
+            "0712000000",null,"Sample Borrower","0712000000",
+            sourceFilter = ReceivableHistorySourceFilter.STATEMENTS)
+        val row = result.single { it.row.id == id }
+        assertEquals(com.kedevjimmy.pesatrack.domain.receivables.HistoryMatchKind.PHONE,row.match.kind)
+        assertFalse(row.match.bulkEligible)
+        assertEquals("Statements",row.sourceLabel)
+    }
+
     @Test fun statementAndMessageHistoryCanBeFilteredWithoutCreatingDuplicateRows() {
         val statementId = transaction(133, 80000, "EXPENSE")
         val messageId = transaction(134, 30000, "EXPENSE")
