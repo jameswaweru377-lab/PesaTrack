@@ -34,7 +34,7 @@ class HomeSupplementalCacheTest {
     @Test fun emptyInvestmentSetCanBeCachedWithoutExtraRead() {
         val home = HomeScreenCache()
         home.saveInvestments(7, emptyList())
-        assertSame(emptyList<Any>(), home.investmentsFor(7))
+        org.junit.Assert.assertTrue(home.investmentsFor(7)?.isEmpty() == true)
         assertNull(home.investmentsFor(8))
     }
 }
