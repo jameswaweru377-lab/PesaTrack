@@ -98,7 +98,7 @@ class ReceivableHistoryRepository(context: Context) {
                 val batchStart = cursor
                 cursor += ids.size
                 if (ids.size < 50) reachedEnd = true
-                val rowsById = ids.mapNotNull { id -> transactions.getById(id)?.let { id to it } }.toMap()
+                val rowsById = transactions.getByIds(ids)
                 val evidenceByTransaction = EvidenceJournalStore.sourcesFor(app,rowsById.map { (id,row) ->
                     id to EvidenceCanonicalFact(row.accountId,row.direction,row.amountMinor,row.occurredAtEpochMs,
                         row.transactionCode,row.sourceKind)
