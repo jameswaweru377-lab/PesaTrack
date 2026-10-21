@@ -18,6 +18,8 @@ This checklist must be completed **before a public store release or legally bind
 - [ ] Verify on-device Android speech recognition is required, or update voice privacy notices if fallback to an online recognizer is ever introduced.
 
 ## Security and financial accuracy
+- [ ] Validate single-statement deletion and restore/reimport behaviour on a real Android device; ensure external backups are handled explicitly.
+- [ ] Enable and review GitHub Dependabot alerts/security updates and secret scanning where available. The offline build policy scanner is not a full dependency vulnerability scanner.
 - [ ] Conduct threat modeling for unencrypted local SQLite primary/statement databases. Document Android sandbox limitations; consider a carefully tested migration strategy for encryption at rest **without risking existing finance or backup data**.
 - [ ] Test backup encryption, restore, failed import recovery, secure PIN verification, inactivity lock and protected recovery surfaces.
 - [ ] Audit exception strings, analytics/crash reports and debug logging to exclude names, amounts, account numbers, SMS text and PDF contents.
