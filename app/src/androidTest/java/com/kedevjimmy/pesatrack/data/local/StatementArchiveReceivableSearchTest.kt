@@ -109,4 +109,38 @@ class StatementArchiveReceivableSearchTest {
         assertTrue(rejected)
     }
 
+    @Test fun deletingOneApprovedArchiveCascadesRowsAndLabelsButRetainsSharedRules() {
+        val chosen = archive.batches().single()
+        context.openOrCreateDatabase("pesatrack_statement_activity.db",Context.MODE_PRIVATE,null).use { db ->
+            db.insertOrThrow("statement_category_labels",null,ContentValues().apply {
+                put("batch_id",batchId);put("page_number",1);put("row_number",1)
+                put("category_id","FOOD")
+            })
+            db.insertOrThrow("statement_category_rules",null,ContentValues().apply {
+                put("exact_merchant_key","fictional-shop");put("category_id","FOOD")
+            })
+        }
+        assertTrue(archive.deleteSavedStatement(chosen))
+        assertTrue(archive.batches().isEmpty())
+        assertTrue(archive.searchForReceivables("Sample Borrower").rows.isEmpty())
+        context.openOrCreateDatabase("pesatrack_statement_activity.db",Context.MODE_PRIVATE,null).use { db ->
+            db.rawQuery("SELECT COUNT(*) FROM statement_activity_lines",null).use { c ->
+                assertTrue(c.moveToFirst());assertEquals(0,c.getInt(0))
+            }
+            db.rawQuery("SELECT COUNT(*) FROM statement_category_labels",null).use { c ->
+                assertTrue(c.moveToFirst());assertEquals(0,c.getInt(0))
+            }
+            db.rawQuery("SELECT COUNT(*) FROM statement_category_rules",null).use { c ->
+                assertTrue(c.moveToFirst());assertEquals(1,c.getInt(0))
+            }
+        }
+    }
+
+    @Test fun staleArchiveDeletionIsRejectedWithoutChangingSavedStatement() {
+        val current = archive.batches().single()
+        assertFalse(archive.deleteSavedStatement(current.copy(rows=current.rows + 1)))
+        assertEquals(current,archive.batches().single())
+        assertEquals(2,archive.searchForReceivables("Sample Borrower").rows.size)
+    }
+
 }
