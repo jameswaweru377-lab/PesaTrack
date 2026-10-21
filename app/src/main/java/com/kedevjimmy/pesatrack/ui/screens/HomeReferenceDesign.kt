@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -57,6 +58,7 @@ internal object HomeReferencePalette {
 @Composable
 internal fun ReferenceHomeHeader(onNotifications: () -> Unit, onProfile: () -> Unit, profileInitial: String) {
     val p = HomeReferencePalette
+    val locale = LocalConfiguration.current.locales[0]
     Row(
         Modifier.fillMaxWidth().background(p.canvas)
             .padding(horizontal = 18.dp).height(48.dp),
@@ -80,7 +82,7 @@ internal fun ReferenceHomeHeader(onNotifications: () -> Unit, onProfile: () -> U
         Surface(onClick = onProfile, modifier = Modifier.size(40.dp), shape = CircleShape,
             color = Color(0xFFE9E4FF)) {
             Box(contentAlignment = Alignment.Center) {
-                Text(profileInitial.ifBlank { "J" }.take(1).uppercase(Locale.getDefault()),
+                Text(profileInitial.ifBlank { "J" }.take(1).uppercase(locale),
                     fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = p.ink)
             }
         }
@@ -377,7 +379,7 @@ internal fun ReferenceHomeUpcoming(
     }
 }
 
-private fun referenceDate(epochMs: Long, now: Long): String {
+private fun referenceDate(epochMs: Long, now: Long, locale: Locale): String {
     val start = Calendar.getInstance().apply {
         timeInMillis = now
         set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
@@ -387,11 +389,11 @@ private fun referenceDate(epochMs: Long, now: Long): String {
         timeInMillis = start
         add(Calendar.DAY_OF_YEAR, -1)
     }.timeInMillis
-    val time = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(epochMs))
+    val time = SimpleDateFormat("h:mm a", locale).format(Date(epochMs))
     return when {
         epochMs >= start -> "Today, $time"
         epochMs >= calendarYesterday -> "Yesterday, $time"
-        else -> SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(epochMs))
+        else -> SimpleDateFormat("d MMM yyyy", locale).format(Date(epochMs))
     }
 }
 
@@ -402,6 +404,7 @@ internal fun ReferenceHomeRecent(
 ) {
     val p = HomeReferencePalette
     val now = remember { System.currentTimeMillis() }
+    val locale = LocalConfiguration.current.locales[0]
     ReferenceSurface {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Recent activity", fontSize = 16.sp, fontWeight = FontWeight.Bold,
@@ -417,7 +420,7 @@ internal fun ReferenceHomeRecent(
         rows.take(4).forEachIndexed { i, transaction ->
             val title = transaction.counterparty?.takeIf { it.isNotBlank() }
                 ?: if (transaction.direction == MoneyDirection.INCOME.name) "Income" else "M-Pesa Transfer"
-            val lower = title.lowercase(Locale.getDefault())
+            val lower = title.lowercase(locale)
             val isIncome = transaction.direction == MoneyDirection.INCOME.name
             val (icon, tint, bubble) = when {
                 isIncome || lower.contains("salary") ->
@@ -439,7 +442,7 @@ internal fun ReferenceHomeRecent(
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(title, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = p.ink,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(referenceDate(transaction.occurredAtEpochMs, now),
+                    Text(referenceDate(transaction.occurredAtEpochMs, now, locale),
                         fontSize = 10.sp, color = p.muted, maxLines = 1)
                 }
                 Text((if (isIncome) "+ " else if (transaction.direction == MoneyDirection.EXPENSE.name) "− " else "") +
