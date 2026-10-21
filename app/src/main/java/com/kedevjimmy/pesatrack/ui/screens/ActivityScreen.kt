@@ -4024,43 +4024,22 @@ private fun ActivityDateHeader(
     dayEpochMs: Long,
     transactions: List<StoredTransaction>
 ) {
-    val expenseTotal = CheckedMoney.orNull {
-        transactions
-            .filter {
-                it.direction == MoneyDirection.EXPENSE.name &&
-                    it.relationType != TransactionStore.RELATION_REFUND
-            }
-            .checkedMoneySumOf { CheckedMoney.add(it.amountMinor, it.feeMinor) }
-    }
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-        shape = RoundedCornerShape(topStart = 17.dp, topEnd = 17.dp,
-            bottomStart = 3.dp, bottomEnd = 3.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(.7.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = .47f))
+        modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+        shape = RoundedCornerShape(topStart = 19.dp, topEnd = 19.dp),
+        color = Color.White
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 14.dp, top = 12.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            Text(dayLabel(dayEpochMs), modifier = Modifier.weight(1f),
+                fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                color = HomeReferencePalette.ink)
             Text(
-                dayLabel(dayEpochMs), modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+                SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(dayEpochMs)),
+                fontSize = 12.sp, color = HomeReferencePalette.muted
             )
-            if (expenseTotal == null || expenseTotal > 0L) {
-                Text(
-                    expenseTotal?.let(::formatActivityMoney) ?: "Total unavailable",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    modifier = Modifier.semantics {
-                        stateDescription = "Recorded spending for this day"
-                    }
-                )
-            }
         }
     }
 }
@@ -4156,12 +4135,12 @@ private fun ActivityRow(
         direction == MoneyDirection.TRANSFER -> "Transfer"
         else -> categoryName
     }
-    val pillColor = MaterialTheme.colorScheme.primary
+    val pillColor = HomeReferencePalette.purple
     val amountColor = when {
         refund || direction == MoneyDirection.INCOME ||
-            item.type == MpesaTransactionType.REVERSAL.name -> MaterialTheme.colorScheme.primary
-        direction == MoneyDirection.EXPENSE -> Color(0xFFFF6285)
-        direction == MoneyDirection.TRANSFER -> MaterialTheme.colorScheme.onSurface
+            item.type == MpesaTransactionType.REVERSAL.name -> HomeReferencePalette.green
+        direction == MoneyDirection.EXPENSE -> HomeReferencePalette.ink
+        direction == MoneyDirection.TRANSFER -> HomeReferencePalette.ink
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     val name = financialActivityDisplayName(
@@ -4176,24 +4155,17 @@ private fun ActivityRow(
         accountName = accountName,
         linkedAccountName = linkedAccountName
     ) ?: "Source unknown"
-    val dayShape = when (position) {
-        ActivityGroupPosition.ONLY -> RoundedCornerShape(
-            topStart = 2.dp, topEnd = 2.dp, bottomStart = 17.dp, bottomEnd = 17.dp
-        )
-        ActivityGroupPosition.FIRST, ActivityGroupPosition.MIDDLE ->
-            RoundedCornerShape(2.dp)
-        ActivityGroupPosition.LAST -> RoundedCornerShape(
-            topStart = 2.dp, topEnd = 2.dp, bottomStart = 17.dp, bottomEnd = 17.dp
-        )
-    }
+    val dayShape = if (position == ActivityGroupPosition.LAST || position == ActivityGroupPosition.ONLY)
+        RoundedCornerShape(bottomStart = 19.dp, bottomEnd = 19.dp)
+    else RoundedCornerShape(0.dp)
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = dayShape,
-        color = MaterialTheme.colorScheme.surface
+        color = Color.White
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 67.dp)
+                modifier = Modifier.fillMaxWidth().heightIn(min = 68.dp)
                     .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
