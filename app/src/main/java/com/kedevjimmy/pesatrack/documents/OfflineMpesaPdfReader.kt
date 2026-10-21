@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Base64
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
+import com.kedevjimmy.pesatrack.domain.evidence.OfflinePdfAdmission
 import com.kedevjimmy.pesatrack.domain.everyday.StatementActivityLine
 import com.kedevjimmy.pesatrack.domain.everyday.StatementActivityProof
 import java.io.ByteArrayOutputStream
@@ -19,7 +20,7 @@ import org.json.JSONObject
  * isolated Statement Activity journal after explicit user approval.
  */
 object OfflineMpesaPdfReader {
-    private const val MAX_PDF_BYTES = 8 * 1024 * 1024
+    private const val MAX_PDF_BYTES = OfflinePdfAdmission.MAX_INPUT_BYTES
 
     data class Prepared(
         val lines: List<StatementActivityLine>,
@@ -47,7 +48,7 @@ object OfflineMpesaPdfReader {
                 output.write(chunk, 0, n)
             }
             val data = output.toByteArray()
-            require(data.isNotEmpty()) { "The PDF file is empty." }
+            OfflinePdfAdmission.requireSupportedFile(data)
             return data
         }
         error("Could not open the selected PDF.")
