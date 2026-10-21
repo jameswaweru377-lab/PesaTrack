@@ -813,7 +813,7 @@ fun ActivityScreen(
         if (item.reviewState == ReviewState.EXCLUDED.name) {
             return@filter false
         }
-        if (item.id in possibleDuplicateIds) {
+        if (item.id in possibleDuplicateIds && selectedFilter != "Needs Review") {
             return@filter false
         }
 
@@ -822,8 +822,8 @@ fun ActivityScreen(
                 "Owed to me" -> receivableLinks[item.id]?.let { it.active && it.kind == "LENT" } == true
                 "Repayments" -> receivableLinks[item.id]?.let { it.active && it.kind == "REPAID" } == true
                 "Needs Review" ->
-                    item.reviewState ==
-                        ReviewState.NEEDS_REVIEW.name
+                    item.reviewState == ReviewState.NEEDS_REVIEW.name ||
+                        item.id in possibleDuplicateIds
                 "Pending" ->
                     item.reviewState == ReviewState.NEEDS_REVIEW.name &&
                         item.direction == MoneyDirection.TRANSFER.name
@@ -934,13 +934,7 @@ fun ActivityScreen(
                         .size +
                     identityReviewCount
 
-            if (needsAttentionCount > 0) item {
-                Box(Modifier.padding(bottom = 10.dp)) {
-                    ActivityAttentionHero(needsAttentionCount) {
-                        selectedGlobalQueue = if(selectedGlobalQueue == "Attention") null else "Attention"
-                    }
-                }
-            }
+
 
             // Own-account review remains accessible but does not push the
             // transaction search further down on every visit.
@@ -951,30 +945,19 @@ fun ActivityScreen(
                 Text("Showing your last successfully loaded activity.")
                 TextButton(onClick = { refresh() }) { Text("Try again") }
             }
-            item(key = "premium-period-selectors") {
-                Box(Modifier.padding(bottom = 8.dp)) { ActivityPeriodSelectors(
-                    monthLabel = selectedMonthLabel,
-                    cycleLabel = chosenCycle?.let { monthLabel(it.startEpochMs) + " cycle" }
-                        ?: "Add salary",
-                    salaryMode = payCycleMode,
-                    onMonth = { payCycleMode = false; showMonthPicker = true },
-                    onCycle = { showCyclePicker = true }
-                ) }
-            }
-            item(key = "premium-period-money") {
-                val badge = if (payCycleMode) {
-                    if (chosenCycle == null) "No salary cycle"
-                    else if(chosenCycle.endEpochMs == null) "Cycle in progress"
-                    else "Completed cycle"
-                } else monthDaysRemaining(selectedMonthEpochMs, System.currentTimeMillis())
-                    ?.let { it.toString() + " days left" } ?: "Past month"
-                Box(Modifier.padding(bottom = 8.dp)) { ActivityPremiumMoneyHero(
-                    periodLabel = periodLabel,
-                    snapshot = if(periodReady) displaySnapshot else null,
-                    previous = displayPrevious,
-                    badge = badge, waiting = !periodReady,
-                    onExplain = { explainNetFlow = true }
-                ) }
+            item(key = "activity-period-overview") {
+                Box(Modifier.padding(bottom = 10.dp)) {
+                    ActivityReferenceSummary(
+                        monthLabel = selectedMonthLabel,
+                        filter = selectedFilter,
+                        transactions = (displaySnapshot ?: snapshot).transactions
+                            .filter { it.reviewState != ReviewState.EXCLUDED.name },
+                        categoryName = { categoryStore.labelFor(it) },
+                        accountName = { id -> accountsById[id]?.name ?: "Account" },
+                        onMonth = { payCycleMode = false; showMonthPicker = true },
+                        onAnalytics = { showDetailedSummary = !showDetailedSummary }
+                    )
+                }
             }
             item(key = "premium-search") {
                 val colors = MaterialTheme.colorScheme
@@ -1035,7 +1018,19 @@ fun ActivityScreen(
                     }
                 }
             }
-            item(key = "activity-tools") {
+            item(key = "activity-attention-card") {
+                Box(Modifier.padding(bottom = 10.dp)) {
+                    ActivityReferenceAttention(
+                        count = needsAttentionCount,
+                        transfer = selectedFilter == "Transfers",
+                        onClick = {
+                            selectedGlobalQueue = "Attention"
+                            selectedFilter = "Needs Review"
+                        }
+                    )
+                }
+            }
+            if (showExtraFilters) item(key = "activity-tools") {
                 ActivityToolsDisclosure(
                     onChanged = { refresh() },
                     onPaycheckClick = onPaycheckClick
