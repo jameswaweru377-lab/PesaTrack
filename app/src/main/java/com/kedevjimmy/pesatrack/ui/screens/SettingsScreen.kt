@@ -88,9 +88,9 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
             item { SettingsGroup {
                 SettingsCompactRow(Icons.Rounded.Tune, "Automatic sorting", "Salary, regular payments and transfers", onSmartRulesClick)
                 SettingsCompactRow(Icons.Rounded.HelpOutline, "Help", "Answers and troubleshooting") { page = "help" }
-                SettingsCompactRow(Icons.Rounded.Gavel, "Terms of Service", "Pre-release draft · Your responsibilities and rights") { page = "terms" }
-                SettingsCompactRow(Icons.Rounded.PrivacyTip, "Privacy Policy", "Pre-release draft · What PesaTrack processes") { page = "legal_privacy" }
-                SettingsCompactRow(Icons.Rounded.FactCheck, "Financial information notice", "Accuracy, debt evidence and financial decisions") { page = "financial_notice" }
+                SettingsCompactRow(Icons.Rounded.Info, "Terms of Service", "Pre-release draft · Your responsibilities and rights") { page = "terms" }
+                SettingsCompactRow(Icons.Rounded.Security, "Privacy Policy", "Pre-release draft · What PesaTrack processes") { page = "legal_privacy" }
+                SettingsCompactRow(Icons.Rounded.Assessment, "Financial information notice", "Accuracy, debt evidence and financial decisions") { page = "financial_notice" }
                 SettingsCompactRow(Icons.Rounded.Info, "About PesaTrack", "App information") { page = "about" }
             } }
             item { Text("Each setting opens a focused page. Sensitive actions explain what changes before you confirm.",
