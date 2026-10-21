@@ -235,7 +235,7 @@ class StatementActivityStore(context: Context) {
         require(limit in 1..50 && offset in 0..250_000)
         require(fromEpochMs == null || throughEpochMs == null || fromEpochMs <= throughEpochMs)
         val clean = query.trim()
-        fun escaped(value: String) = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        fun escaped(value: String) = value.replace("!", "!!").replace("%", "!%").replace("_", "!_")
         val tokens = clean.split(Regex("[\\s\\p{Z}]+")).filter(String::isNotBlank)
         val namePattern = "%" + tokens.joinToString("%") { escaped(it) } + "%"
         val numeric = clean.filter(Char::isDigit)
@@ -265,7 +265,7 @@ class StatementActivityStore(context: Context) {
                    FROM statement_activity_lines s
                    JOIN statement_batches b ON b.id=s.batch_id
                    WHERE (s.paid_in_minor > 0 OR s.withdrawn_minor > 0)
-                     AND (s.description LIKE ? ESCAPE '\\'$phoneClause)
+                     AND (s.description LIKE ? ESCAPE '!'$phoneClause)
                      $dates
                    ORDER BY s.occurred_at DESC, s.batch_id, s.line_number
                    LIMIT ? OFFSET ?""".trimIndent(),
