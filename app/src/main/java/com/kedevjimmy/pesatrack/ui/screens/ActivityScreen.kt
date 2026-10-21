@@ -654,7 +654,7 @@ fun ActivityScreen(
             throw cancelled
         } catch (failure: Exception) {
             if (selectedMonthEpochMs == requestedMonth) {
-                android.util.Log.e("PesaTrackActivity", "Activity could not load", failure)
+                android.util.Log.e("PesaTrackActivity", "Activity failed to load; no transaction details logged.")
                 activityError = true
             }
         }
