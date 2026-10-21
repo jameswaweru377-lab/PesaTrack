@@ -99,7 +99,8 @@ class EverydayMoneyStore(context:Context) {
   }
  }
  /** Entire selected import either commits or rolls back; recheck duplicates inside the lock. */
- fun importRows(accountId:String,rows:List<StatementRow>,expectedAccountType:AccountType?=null):Int = synchronized(CanonicalStoreLock.monitor) {
+ fun importRows(accountId:String,rows:List<StatementRow>,expectedAccountType:AccountType?=null,
+                rejectPossibleMatches:Boolean=false):Int = synchronized(CanonicalStoreLock.monitor) {
   val account=requireOwned(accountId)
   require(expectedAccountType==null || account.type==expectedAccountType){"The statement account changed. Choose the correct account and review again."}
   require(rows.isNotEmpty());StatementCsv.validateRows(rows)
@@ -107,6 +108,9 @@ class EverydayMoneyStore(context:Context) {
   try {
    preview(accountId,rows).forEach { item ->
     val r=item.row;val key=importKey(accountId,r)
+    require(!rejectPossibleMatches || !item.possibleMatch || item.duplicate) {
+     "A similar Activity movement exists. Review and reconcile it before importing this PDF row."
+    }
     var target:Long?=null
     var linkReason="REFERENCE"
     if(!item.duplicate) {
@@ -133,6 +137,23 @@ class EverydayMoneyStore(context:Context) {
     EvidenceJournalStore.observe(db,"STATEMENT",accountId,key,accountId,r.signedMinor,r.date,r.reference,target,linkReason)
    };db.setTransactionSuccessful()
   }finally{db.endTransaction()};LedgerUpdateBus.notifyChanged();count
+ }
+
+ /**
+  * Explicit one-row import from independently verified PDF evidence.
+  * A duplicate or possible match blocks promotion to avoid another cash leg.
+  * Does not create or confirm any personal loan.
+  */
+ fun importVerifiedReceivableMovement(
+  shown: StatementActivityStore.ReceivableArchiveMatch
+ ): Int = synchronized(CanonicalStoreLock.monitor) {
+  val source = StatementActivityStore(app).verifiedMovementForActivity(shown)
+  val check = preview(shown.accountId,listOf(source)).single()
+  require(!check.duplicate) { "This movement is already in Activity. Search for it above." }
+  require(!check.possibleMatch) {
+   "A possible matching Activity movement exists. Review it before importing."
+  }
+  importRows(shown.accountId,listOf(source),AccountType.MOBILE_WALLET,rejectPossibleMatches=true)
  }
  fun saveObservedBalance(accountId:String,balance:Long,expected:Long?):Unit=synchronized(CanonicalStoreLock.monitor) {
   val account=requireOwned(accountId);require(balance>=0 || account.type==AccountType.BANK){"Balance cannot be below zero for this account."}
