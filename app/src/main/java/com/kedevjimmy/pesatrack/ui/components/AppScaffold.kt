@@ -57,10 +57,10 @@ fun AppScaffold(
             .getString("profile_name", "J").orEmpty().trim().take(1).ifBlank { "J" }
     }
     Scaffold(
-        containerColor = if (currentTab == MainTab.HOME) HomeReferencePalette.canvas
+        containerColor = if (currentTab == MainTab.HOME || currentTab == MainTab.ACTIVITY) HomeReferencePalette.canvas
             else MaterialTheme.colorScheme.background,
         topBar = {
-            if (currentTab == MainTab.HOME) {
+            if (currentTab == MainTab.HOME || currentTab == MainTab.ACTIVITY) {
                 Surface(modifier = Modifier.statusBarsPadding(), color = HomeReferencePalette.canvas) {
                     ReferenceHomeHeader(
                         onNotifications = onNotificationsClick,
@@ -81,7 +81,7 @@ fun AppScaffold(
             }
         },
         bottomBar = {
-            if (currentTab == MainTab.HOME) {
+            if (currentTab == MainTab.HOME || currentTab == MainTab.ACTIVITY) {
                 Surface(
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
                     color = Color.White
