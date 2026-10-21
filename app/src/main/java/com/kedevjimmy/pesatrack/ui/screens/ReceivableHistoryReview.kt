@@ -126,7 +126,7 @@ internal fun ReceivableHistoryReview(
                 }
                 offset = page
                 if (personId == null && name.isBlank()) {
-                    result.candidates.firstNotNullOfOrNull {
+                    result.first.candidates.firstNotNullOfOrNull {
                         it.row.counterparty?.takeIf { candidate ->
                             candidate.isNotBlank() && ReceivableHistoryPolicy.normalizedPhone(candidate) == null
                         }
