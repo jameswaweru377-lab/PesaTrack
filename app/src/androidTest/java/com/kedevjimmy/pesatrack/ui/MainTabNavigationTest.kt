@@ -28,7 +28,7 @@ class MainTabNavigationTest {
         }
 
         compose.waitUntil(15_000L) {
-            compose.onAllNodes(hasText("Account balances"))
+            compose.onAllNodes(hasText("Available after commitments"))
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
@@ -46,7 +46,7 @@ class MainTabNavigationTest {
         ).performClick()
 
         compose.waitUntil(15_000L) {
-            compose.onAllNodes(hasText("Account balances"))
+            compose.onAllNodes(hasText("Available after commitments"))
                 .fetchSemanticsNodes().isNotEmpty()
         }
 

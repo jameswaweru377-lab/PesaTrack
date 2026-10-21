@@ -1294,8 +1294,8 @@ fun HomeScreen(
         )
     )
     val monthTransactions = if (selectedHomeMonthOffset == 0)
-        recentCanonicalTransactions.take(3)
-    else selectedTrusted.sortedByDescending { it.occurredAtEpochMs }.take(3)
+        recentCanonicalTransactions.take(4)
+    else selectedTrusted.sortedByDescending { it.occurredAtEpochMs }.take(4)
     if(showHomeMonthPicker) AlertDialog(
         onDismissRequest={showHomeMonthPicker=false},
         title={Text("Choose month")},
@@ -1410,150 +1410,138 @@ fun HomeScreen(
         onDismiss={showInvestments=false}
     )
 
+
+    // The reference screenshot defines the public Home presentation. Use the
+    // current ledger values rather than installing its illustrative April 2025
+    // balances into a live personal-finance app.
+    val monthName = SimpleDateFormat("MMMM yyyy", homeConfigurationLocale)
+        .format(selectedCalendar.time)
+    val priorMonthName = Calendar.getInstance().apply {
+        timeInMillis = selectedCalendar.timeInMillis
+        add(Calendar.MONTH, -1)
+    }.let { SimpleDateFormat("MMM", homeConfigurationLocale).format(it.time) }
+    val monthLastDay = selectedCalendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+    val monthRange = "1 – $monthLastDay " +
+        SimpleDateFormat("MMM yyyy", homeConfigurationLocale).format(selectedCalendar.time)
+    val incomingDelta = if (priorActivity != null && selectedMoneyIn != null)
+        periodPercentChange(selectedMoneyIn, priorActivity.summary.incomeMinor) else null
+    val outgoingDelta = if (comparablePriorSpending != null && selectedSpending != null)
+        periodPercentChange(selectedSpending, comparablePriorSpending) else null
+    fun comparisonLabel(delta: Int?): String = if (delta == null) "vs $priorMonthName —"
+        else "vs $priorMonthName " + (if (delta > 0) "+" else "") + "$delta%"
+    val budgetLeft = if (monthlyBudgetTotalMinor != null && monthlyBudgetSpentMinor != null)
+        CheckedMoney.orNull {
+            CheckedMoney.subtract(monthlyBudgetTotalMinor, monthlyBudgetSpentMinor)
+        }?.coerceAtLeast(0L) else null
+    val progressLeft = if (monthlyBudgetTotalMinor != null &&
+        monthlyBudgetTotalMinor > 0 && budgetLeft != null)
+        (budgetLeft.toDouble() / monthlyBudgetTotalMinor.toDouble()).toFloat().coerceIn(0f, 1f)
+    else null
+    val pendingSalaryRule = salaryRule
+    val upcomingReferenceItems = buildList {
+        upcomingBills.sortedBy { it.nextDueEpochMs ?: Long.MAX_VALUE }
+            .take(if (pendingSalaryRule != null) 1 else 2).forEach { bill ->
+            val days = bill.nextDueEpochMs?.let {
+                java.util.concurrent.TimeUnit.MILLISECONDS.toDays(
+                    (it - System.currentTimeMillis()).coerceAtLeast(0L)
+                )
+            }
+            add(ReferenceUpcomingEntry(
+                title = bill.rule.displayLabel?.takeIf(String::isNotBlank)
+                    ?: bill.rule.name.ifBlank { "Upcoming bill" },
+                whenText = days?.let { "Due in $it " + if (it == 1L) "day" else "days" }
+                    ?: "Upcoming",
+                amount = formatMoney(bill.remainingMinor),
+                isSalary = false
+            ))
+        }
+        if (pendingSalaryRule != null) {
+            val salaryDay = pendingSalaryRule.payWindowStartDay
+            val nextPay = salaryDay?.let { target ->
+                Calendar.getInstance().apply {
+                    set(Calendar.DAY_OF_MONTH, target.coerceIn(1, getActualMaximum(Calendar.DAY_OF_MONTH)))
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0)
+                    if (timeInMillis < System.currentTimeMillis()) {
+                        add(Calendar.MONTH, 1)
+                        set(Calendar.DAY_OF_MONTH, target.coerceIn(1, getActualMaximum(Calendar.DAY_OF_MONTH)))
+                    }
+                }
+            }
+            val salaryDays = nextPay?.let {
+                java.util.concurrent.TimeUnit.MILLISECONDS.toDays(
+                    (it.timeInMillis - System.currentTimeMillis()).coerceAtLeast(0L)
+                )
+            }
+            add(ReferenceUpcomingEntry(
+                title = "Salary",
+                whenText = salaryDays?.let { "In $it " + if (it == 1L) "day" else "days" }
+                    ?: "Expected pay",
+                amount = pendingSalaryRule.plannedAmountMinor?.let(::formatMoney)
+                    ?: "Not set",
+                isSalary = true
+            ))
+        }
+    }.sortedWith(compareBy<ReferenceUpcomingEntry> { !it.isSalary })
     LazyColumn(
         modifier = Modifier.padding(scaffoldPadding)
-            .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(horizontal=13.dp,vertical=11.dp),
-        verticalArrangement = Arrangement.spacedBy(11.dp)
+            .background(HomeReferencePalette.canvas),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
-        item(key="b-greeting") {
-            HomeBGreeting(
-                preferences.getString("profile_name","").orEmpty()
+        item(key = "reference-greeting") {
+            ReferenceHomeGreeting(
+                preferences.getString("profile_name", "").orEmpty()
                     .trim().split(Regex("\\s+")).firstOrNull().orEmpty()
             )
         }
-        if(homeError) item(key="b-error") {
-            Text("Showing the most recently recorded money data.",
-                color=MaterialTheme.colorScheme.error,
-                style=MaterialTheme.typography.bodySmall)
-            TextButton(onClick={refresh()}){Text("Retry")}
+        if (homeError) item(key = "reference-error") {
+            Text("Showing the most recently saved money data.",
+                color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { refresh() }) { Text("Retry") }
         }
-        item(key="b-health") {
-            HomeBHealth(financialHealth) { showHomeHealthInfo=true }
-        }
-        item(key="b-money") {
-            HomeBMonthly(
-                isCurrent=selectedHomeMonthOffset==0,
-                month=SimpleDateFormat("MMMM yyyy",homeConfigurationLocale)
-                    .format(selectedCalendar.time),
-                daysLeft=daysRemaining,
-                moneyIn=selectedMoneyIn?.let(::formatMoney)?:"Updating…",
-                moneyOut=selectedSpending?.let(::formatMoney)?:"Updating…",
-                netFlow=selectedNetFlow?.let(::formatMoney)?:"Unavailable",
-                negative=(selectedNetFlow?:0L)<0L,
-                inComparison=if(priorActivity==null || selectedMoneyIn==null)
-                    null else periodPercentChange(selectedMoneyIn,
-                        priorActivity.summary.incomeMinor),
-                outComparison=if(comparablePriorSpending==null || selectedSpending==null)
-                    null else periodPercentChange(selectedSpending,
-                        comparablePriorSpending),
-                progress=if(selectedMoneyIn==null || selectedSpending==null)null
-                    else netFlowRingProgress(selectedMoneyIn,selectedSpending),
-                onExplain={showNetFlowExplanation=true},
-                onChooseMonth={showHomeMonthPicker=true}
+        item(key = "reference-hero") {
+            ReferenceHomeHero(
+                amount = if (selectedHomeMonthOffset == 0 && cycleSnapshot.cycle != null)
+                    planningAvailability?.availableMinor?.let(::formatMoney)
+                        ?: "Unavailable"
+                else "Unavailable",
+                month = monthName,
+                onMonth = { showHomeMonthPicker = true },
+                onPlan = onPlanClick,
+                onAccounts = onAccountsClick
             )
         }
-        if(historicalLoadFailed && selectedHomeMonthOffset != 0) item {
-            Text("This month could not be loaded. No figures were estimated.",
-                style=MaterialTheme.typography.bodySmall,
-                color=MaterialTheme.colorScheme.error)
-        }
-        if (selectedHomeMonthOffset == 0 && needsAttentionCount > 0) {
-            item(key = "b-attention-insight") {
-                HomeBInsight(
-                    needsAttentionCount.toString() +
-                        " transactions or relationships need review.",
-                    onClick = onAttentionClick,
-                    actionNeeded = true
-                )
-            }
-        } else if (selectedHomeMonthOffset == 0 &&
-            !recordedSpendingInsight.isNullOrBlank()
-        ) {
-            item(key = "b-insight") {
-                HomeBInsight(
-                    recordedSpendingInsight.orEmpty(),
-                    onClick = onActivityClick,
-                    actionNeeded = false
-                )
-            }
-        }
-        if(cycleSnapshot.pendingSalary != null) item(key="b-confirm-salary") {
-            PendingSalaryCard(
-                candidate=requireNotNull(cycleSnapshot.pendingSalary),
-                onStartCycle={
-                    cycleStore.confirmNewCycle(requireNotNull(cycleSnapshot.pendingSalary).transactionId)
-                    refresh()
-                },
-                onKeepAsIncome={
-                    cycleStore.keepAsAdditionalIncome(requireNotNull(cycleSnapshot.pendingSalary).transactionId)
-                    refresh()
-                }
+        item(key = "reference-this-month") {
+            ReferenceHomeMonth(
+                range = monthRange,
+                income = selectedMoneyIn?.let(::formatMoney) ?: "Unavailable",
+                spending = selectedSpending?.let(::formatMoney) ?: "Unavailable",
+                budgetLeft = budgetLeft?.let(::formatMoney) ?: "Not set",
+                budgetTotal = monthlyBudgetTotalMinor?.let { "of " + formatMoney(it) } ?: "No budget set",
+                incomeVsPrior = comparisonLabel(incomingDelta),
+                spendingVsPrior = comparisonLabel(outgoingDelta),
+                budgetProgress = progressLeft,
+                onMonth = { showHomeMonthPicker = true }
             )
         }
-        if(cycleSnapshot.unexplainedFundingGapMinor > 0L) item(key="b-gap") {
-            FundingGapCard(cycleSnapshot.unexplainedFundingGapMinor)
+        item(key = "reference-attention") {
+            val uncategorized = chosenActivity?.trustedTransactions?.count {
+                it.reviewState != ReviewState.EXCLUDED.name &&
+                    categoryStore.canonicalId(it.category) in setOf("UNCATEGORIZED", "OTHER")
+            } ?: 0
+            ReferenceHomeAttention(uncategorized, onAttentionClick)
         }
-        item(key="b-upcoming-bills") {
-            HomeUpcomingBillsCard(
-                bills=upcomingBills,
-                onBillsClick=onBillsClick
+        item(key = "reference-upcoming") {
+            ReferenceHomeUpcoming(upcomingReferenceItems, onBillsClick, onSalaryClick)
+        }
+        item(key = "reference-recent-activity") {
+            ReferenceHomeRecent(
+                rows = monthTransactions,
+                money = { formatMoney(it) },
+                onOpen = onTransactionClick,
+                onSeeAll = onActivityClick
             )
-        }
-        item(key="b-recent") {
-            HomeBRecent(
-                rows=monthTransactions,
-                category={categoryStore.labelFor(it)},
-                money={formatMoney(it)},
-                onOpen=onTransactionClick,
-                onAll=onActivityClick
-            )
-        }
-        item(key="b-tools-disclosure") {
-            TextButton(
-                onClick={homeMoneyToolsExpanded = !homeMoneyToolsExpanded},
-                modifier=Modifier.fillMaxWidth()
-            ) {
-                Text(if(homeMoneyToolsExpanded) "Hide shortcuts" else "More money tools")
-            }
-        }
-        if(homeMoneyToolsExpanded) {
-            item(key="b-debt-tool") {
-                HomeBTile(
-                    "Debts & loans",
-                    activeDebtOutstandingMinor?.let(::formatMoney)?:"Amount unavailable",
-                    activeDebtAccounts.size.toString()+
-                        if(activeDebtAccounts.size==1)" active debt" else " active debts",
-                    androidx.compose.material.icons.Icons.Rounded.AccountBalance,
-                    androidx.compose.ui.graphics.Color(0xFFB7A4FF),
-                    onClick=onDebtsClick,
-                    modifier=Modifier.fillMaxWidth()
-                )
-            }
-            item(key="b-tools-pair") {
-                Row(Modifier.fillMaxWidth(),
-                    horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                    HomeBTile(
-                        "Investments",
-                        "Value unavailable",
-                        observedPositions?.size?.let { n ->
-                            n.toString()+if(n==1)" observed position" else " observed positions"
-                        }?:"Checking records",
-                        androidx.compose.material.icons.Icons.Rounded.TrendingUp,
-                        androidx.compose.ui.graphics.Color(0xFF42E5D2),
-                        onClick={showInvestments=true},modifier=Modifier.weight(1f)
-                    )
-                    HomeBTile(
-                        "Enter salary",
-                        if(cycleSnapshot.cycle==null)"Set up pay"
-                        else "Pay cycle active",
-                        "Review salary details",
-                        androidx.compose.material.icons.Icons.Rounded.Paid,
-                        androidx.compose.ui.graphics.Color(0xFF39BDF5),
-                        onClick=onSalaryClick,modifier=Modifier.weight(1f)
-                    )
-                }
-            }
         }
     }
 }

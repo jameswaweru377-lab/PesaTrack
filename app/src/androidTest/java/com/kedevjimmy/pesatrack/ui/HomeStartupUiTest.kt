@@ -38,7 +38,7 @@ class HomeStartupUiTest {
 
     @Test fun emptyHistoryLoadsHomeWithoutStayingOnSpinner() {
         showHome()
-        waitForText("Account balances")
+        waitForText("Available after commitments")
         compose.onNodeWithText("Preparing your money picture").assertDoesNotExist()
     }
 
@@ -54,26 +54,23 @@ class HomeStartupUiTest {
         compose.onNodeWithText("Preparing your money picture").assertDoesNotExist()
         db.execSQL(createTransactions)
         compose.onNodeWithText("Try again").performClick()
-        waitForText("Account balances")
+        waitForText("Available after commitments")
         compose.onNodeWithText("Your money picture could not load").assertDoesNotExist()
     }
 
-    @Test fun homeShowsBillDetailsAndKeepsSecondaryToolsCollapsed() {
+    @Test fun homeUsesApprovedSectionsAndDoesNotExposeOldShortcuts() {
         showHome()
-        waitForText("Still due this month")
-
-        val list = compose.onNode(hasScrollAction())
-        list.performScrollToNode(hasText("Still due this month"))
-        compose.onNodeWithText("Nothing else is due this month.").assertExists()
-        list.performScrollToNode(hasText("More money tools"))
-        compose.onNodeWithText("Investments").assertDoesNotExist()
-        compose.onNodeWithText("Debts & loans").assertDoesNotExist()
-
-        compose.onNodeWithText("More money tools").performClick()
-        compose.onNodeWithText("Investments").assertExists()
-        compose.onNodeWithText("Debts & loans").assertExists()
+        waitForText("Available after commitments")
+        val list = compose.onNode(hasScrollToIndexAction())
+        list.performScrollToNode(hasText("This month"))
+        compose.onNodeWithText("Money in").assertExists()
+        compose.onNodeWithText("Money out").assertExists()
+        compose.onNodeWithText("Budget left").assertExists()
+        list.performScrollToNode(hasText("Upcoming"))
+        compose.onNodeWithText("Upcoming").assertExists()
+        compose.onNodeWithText("Recent activity").assertExists()
+        compose.onNodeWithText("More money tools").assertDoesNotExist()
     }
-
 
     @Test fun partialLoanKeepsCashOutflowButProjectsPersonalSpending() {
         val now = System.currentTimeMillis()
@@ -115,18 +112,14 @@ class HomeStartupUiTest {
         assertEquals(160_000L, transactions.getById(payment.id)!!.amountMinor)
         assertEquals(838_000L, PayCycleStore.get(context).snapshot().availableToLiveMinor)
         showHome()
-        waitForText("After planned payments")
-        val list = compose.onNode(hasScrollToIndexAction())
-        list.performScrollToNode(hasText("Spent today"))
-        compose.onNode(hasText("KES 820") and hasParent(hasAnyChild(hasText("Spent today")))).assertExists()
-        list.performScrollToNode(hasText("Monthly plan"))
-        compose.onNodeWithText("KES 820 of KES 2,000 used").assertExists()
-        list.performScrollToNode(hasText("Where money went"))
-        compose.onNodeWithText("KES 820 this month").assertExists()
-        val category = CategoryStore.get(context).labelFor(TransactionCategory.EATING_OUT.name)
-        list.performScrollToNode(hasText(category))
-        compose.onNode(hasText("KES 820") and hasAnyAncestor(hasAnyChild(hasText(category))))
-            .assertExists()
+        waitForText("Available after commitments")
+        // The reference Home shows actual cash movements and budget availability;
+        // the old category breakdown is no longer visible in the approved image.
+        compose.onNodeWithText("Money in").assertExists()
+        compose.onNodeWithText("Money out").assertExists()
+        compose.onNodeWithText("Budget left").assertExists()
+        assertEquals(160_000L, transactions.getById(payment.id)!!.amountMinor)
+        assertEquals(838_000L, PayCycleStore.get(context).snapshot().availableToLiveMinor)
     }
 
     private fun showHome() {

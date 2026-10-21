@@ -16,6 +16,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.ui.screens.ActivityMoneyActions
+import com.kedevjimmy.pesatrack.ui.screens.ReferenceHomeBottomBar
+import com.kedevjimmy.pesatrack.ui.screens.ReferenceHomeHeader
+import com.kedevjimmy.pesatrack.ui.screens.HomeReferencePalette
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
 enum class MainTab(
     val route: String,
@@ -42,13 +47,28 @@ fun AppScaffold(
     onTabSelected: (MainTab) -> Unit,
     onProfileClick: () -> Unit = {},
     onPaycheckClick: () -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit
 ) {
     var toolsOpen by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val profileInitial = remember(context) {
+        context.getSharedPreferences("pesatrack_preferences", android.content.Context.MODE_PRIVATE)
+            .getString("profile_name", "J").orEmpty().trim().take(1).ifBlank { "J" }
+    }
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = if (currentTab == MainTab.HOME) HomeReferencePalette.canvas
+            else MaterialTheme.colorScheme.background,
         topBar = {
-            if (currentTab != null) {
+            if (currentTab == MainTab.HOME) {
+                Surface(modifier = Modifier.statusBarsPadding(), color = HomeReferencePalette.canvas) {
+                    ReferenceHomeHeader(
+                        onNotifications = onNotificationsClick,
+                        onProfile = onProfileClick,
+                        profileInitial = profileInitial
+                    )
+                }
+            } else if (currentTab != null) {
                 Surface(
                     modifier = Modifier.statusBarsPadding(),
                     color = MaterialTheme.colorScheme.background
@@ -61,7 +81,14 @@ fun AppScaffold(
             }
         },
         bottomBar = {
-            Surface(
+            if (currentTab == MainTab.HOME) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
+                    color = Color.White
+                ) {
+                    ReferenceHomeBottomBar(currentTab, onTabSelected)
+                }
+            } else Surface(
                 modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 0.dp
