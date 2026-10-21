@@ -9,7 +9,7 @@ class OfflinePdfAdmissionTest {
     }
 
     @Test fun rejectsRenamedTextAndTruncatedDocuments() {
-        for (value in listOf("".toByteArray(), "PK\\x03\\x04".toByteArray(),
+        for (value in listOf("".toByteArray(), "ZIP archive".toByteArray(),
             "%PDF".toByteArray(), "HTML document".toByteArray())) {
             assertThrows(IllegalArgumentException::class.java) {
                 OfflinePdfAdmission.requireSupportedFile(value)
