@@ -1032,6 +1032,24 @@ class TransactionStore private constructor(context: Context) {
         }
     }
 
+    /** Read one bounded receivable-search page with a single SQLite cursor. */
+    fun getByIds(ids: List<Long>): Map<Long, StoredTransaction> = synchronized(CanonicalStoreLock.monitor) {
+        if (ids.isEmpty()) return@synchronized emptyMap()
+        require(ids.size <= 50 && ids.all { it > 0L })
+        val placeholders = List(ids.size) { "?" }.joinToString(",")
+        database.readableDatabase.rawQuery(
+            BASE_SELECT + " WHERE id IN ($placeholders)",
+            ids.map(Long::toString).toTypedArray()
+        ).use { cursor ->
+            buildMap {
+                while (cursor.moveToNext()) {
+                    val row = cursor.toStoredTransaction()
+                    put(row.id, row)
+                }
+            }
+        }
+    }
+
     fun findByTransactionCode(
         transactionCode: String
     ): StoredTransaction? = synchronized(CanonicalStoreLock.monitor) {

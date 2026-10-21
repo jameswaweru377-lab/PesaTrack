@@ -105,14 +105,19 @@ internal fun ReceivableHistoryReview(
             }
             sessionQuery = query
         }
+        val existingArchived = archivedRows
+        val existingArchiveOffset = archiveNextOffset
         busy = true; error = null
         scope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
                     val canonical = repository.searchPage(sessionQuery,personId,sessionName,sessionPhone,50,page,sourceFilter,dateFrom,dateThrough)
-                    val archived = if (sourceFilter != ReceivableHistorySourceFilter.MESSAGES) {
-                        archiveStore.searchForReceivables(sessionQuery,25,0,dateFrom,dateThrough)
-                    } else StatementActivityStore.ReceivableArchivePage(emptyList(),null)
+                    val archived = when {
+                        page != 0 -> StatementActivityStore.ReceivableArchivePage(existingArchived,existingArchiveOffset)
+                        sourceFilter == ReceivableHistorySourceFilter.MESSAGES ->
+                            StatementActivityStore.ReceivableArchivePage(emptyList(),null)
+                        else -> archiveStore.searchForReceivables(sessionQuery,25,0,dateFrom,dateThrough)
+                    }
                     canonical to archived
                 }
                 rows = result.first.candidates; nextOffset = result.first.nextOffset

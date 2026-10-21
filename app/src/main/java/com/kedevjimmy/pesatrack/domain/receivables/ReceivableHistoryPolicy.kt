@@ -27,6 +27,29 @@ object ReceivableHistoryPolicy {
         }
         return if (national.length == 9 && national.first() in "17") "254" + national else null
     }
+    /**
+     * Statement-import transaction descriptions can contain a formatted Kenyan
+     * mobile number, but that is weaker evidence than an explicitly parsed phone.
+     * Never enable bulk loan selection using an extracted free-text number.
+     */
+    fun phoneInStatementDescription(description: String?): String? {
+        val source = description?.take(300).orEmpty()
+        val phonePattern = Regex("""(?<!\d)(?:\+?254|0)[\s().-]*[17](?:[\s().-]*\d){8}(?!\d)""")
+        val matches = phonePattern.findAll(source)
+            .mapNotNull { match -> normalizedPhone(match.value.filter { it.isDigit() || it == '+' }) }
+            .distinct().take(2).toList()
+        return matches.singleOrNull()
+    }
+
+    fun matchStatementDescription(
+        name: String, phone: String?, description: String?
+    ): HistoryMatch {
+        val inferred = phoneInStatementDescription(description)
+        val result = match(name, phone, description, inferred)
+        // The number came from a PDF description, not a verified identity field.
+        return if (result.kind == HistoryMatchKind.PHONE) result.copy(bulkEligible = false) else result
+    }
+
     fun match(name: String, phone: String?, counterparty: String?, counterpartyPhone: String?): HistoryMatch {
         val expectedPhone = normalizedPhone(phone)
         val actualPhone = normalizedPhone(counterpartyPhone)
