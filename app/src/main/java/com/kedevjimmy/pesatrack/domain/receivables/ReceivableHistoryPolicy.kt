@@ -34,7 +34,7 @@ object ReceivableHistoryPolicy {
      */
     fun phoneInStatementDescription(description: String?): String? {
         val source = description?.take(300).orEmpty()
-        val phonePattern = Regex("""(?<!\d)(?:\+?254|0)?[17](?:[\s().-]*\d){8}(?!\d)""")
+        val phonePattern = Regex("""(?<!\d)(?:\+?254|0)[17](?:[\s().-]*\d){8}(?!\d)""")
         val matches = phonePattern.findAll(source)
             .mapNotNull { match -> normalizedPhone(match.value.filter { it.isDigit() || it == '+' }) }
             .distinct().take(2).toList()
