@@ -649,7 +649,7 @@ fun HomeScreen(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                android.util.Log.e("PesaTrackHome", "Home data could not be loaded", failure)
+                android.util.Log.e("PesaTrackHome", "Home data failed to load; no transaction details logged.")
                 homeError = true
             } finally {
                 homeLoading = false
