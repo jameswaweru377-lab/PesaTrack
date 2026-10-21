@@ -83,4 +83,30 @@ class StatementArchiveReceivableSearchTest {
         assertNull(second.nextOffset)
         assertTrue(archive.searchForReceivables("%_").rows.isEmpty())
     }
+    @Test fun onlyExactVerifiedUnmodifiedCashRowCanBePromoted() {
+        val original = archive.searchForReceivables("Sample Borrower").rows.first()
+        val checked = archive.verifiedMovementForActivity(original)
+        assertEquals(original.description,checked.description)
+        assertEquals(original.signedMinor,checked.signedMinor)
+        assertEquals(original.reference,checked.reference)
+
+        val stale = original.copy(description="Changed statement row")
+        var rejected = false
+        try { archive.verifiedMovementForActivity(stale) }
+        catch (_: IllegalArgumentException) { rejected = true }
+        assertTrue(rejected)
+    }
+
+    @Test fun unverifiedSavedPdfCannotPromoteMovementIntoActivity() {
+        val original = archive.searchForReceivables("Sample Borrower").rows.first()
+        context.openOrCreateDatabase("pesatrack_statement_activity.db",Context.MODE_PRIVATE,null).use { db ->
+            db.update("statement_batches",ContentValues().apply { put("totals_verified",0) },
+                "id=?",arrayOf(batchId))
+        }
+        var rejected = false
+        try { archive.verifiedMovementForActivity(original.copy(totalsVerified=false)) }
+        catch (_: IllegalArgumentException) { rejected = true }
+        assertTrue(rejected)
+    }
+
 }
