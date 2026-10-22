@@ -771,7 +771,7 @@ private fun PlanMetric(
     modifier: Modifier
 ) {
     PesaCard(modifier) {
-        Column(Modifier.padding(14.dp)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             IconBubble(
                 when (label) {
                     "Saved" -> Icons.Rounded.Savings
@@ -779,13 +779,13 @@ private fun PlanMetric(
                     "Starting funds" -> Icons.Rounded.AccountBalanceWallet
                     else -> Icons.Rounded.Paid
                 },
-                size = 36.dp,
+                size = 30.dp,
                 background = pesaToneContainer(tone),
                 tint = pesaToneContent(tone)
             )
             Text(
                 label,
-                modifier = Modifier.padding(top = 9.dp),
+                modifier = Modifier.padding(top = 5.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
