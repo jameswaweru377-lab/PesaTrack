@@ -129,34 +129,7 @@ fun ConceptBrandLockup(
 ) {
     val foreground = if (light) Color.White else MaterialTheme.colorScheme.onBackground
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(54.dp)
-                .background(
-                    brush = Brush.verticalGradient(
-                        listOf(Color(0xFFA69CFF), Color(0xFF5B55E7))
-                    ),
-                    shape = RoundedCornerShape(14.dp)
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                Icons.Rounded.AccountBalanceWallet,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(28.dp)
-            )
-            Icon(
-                Icons.Rounded.Eco,
-                contentDescription = null,
-                tint = Color(0xFF55E6D1),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = 8.dp, y = (-7).dp)
-                    .size(27.dp)
-                    .rotate(-22f)
-            )
-        }
+        PesaLogoMark(size = 54.dp)
         Text(
             "PesaTrack",
             modifier = Modifier.padding(top = 8.dp),

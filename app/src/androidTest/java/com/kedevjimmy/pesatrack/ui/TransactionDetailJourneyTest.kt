@@ -62,6 +62,8 @@ class TransactionDetailJourneyTest {
         val payment = payment()
         compose.setContent { PesaTrackTheme { TransactionDetailScreen(PaddingValues(), payment.id, {}) } }
         val list = compose.onNodeWithTag("transaction-details-list")
+        list.performScrollToNode(hasText("Transaction facts"))
+        compose.onNodeWithText("Transaction facts").performClick()
         list.performScrollToNode(hasText("Total outflow"))
         compose.onNodeWithText("KES 2,023.00").assertIsDisplayed()
         compose.onNodeWithText("Balance unknown").assertIsDisplayed()
@@ -69,6 +71,7 @@ class TransactionDetailJourneyTest {
         compose.onNodeWithText("Change").performClick()
         compose.onNodeWithText("Add category").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Transport", useUnmergedTree = true).performScrollTo().performClick()
+        compose.onNodeWithText("Save Category").performClick()
         compose.waitUntil(5000) {
             TransactionStore.get(context).getById(payment.id)?.category ==
                 CategoryStore.get(context).canonicalId(TransactionCategory.TRANSPORT.name)
@@ -82,23 +85,27 @@ class TransactionDetailJourneyTest {
         assertEquals(2300L, TransactionStore.get(context).getById(payment.id)!!.feeMinor)
     }
 
+    private fun selectSpecialTreatment(label: String) {
+        val list = compose.onNodeWithTag("transaction-details-list")
+        list.performScrollToNode(hasText("No, choose a different category"))
+        compose.onNodeWithText("No, choose a different category").performClick()
+        compose.onNodeWithTag("category-selection-list").performScrollToNode(hasText(label))
+        compose.onNodeWithText(label).performClick()
+    }
+
     @Test fun transferCorrectionRequiresConfirmationAndDoesNotAlterAmount() {
         val payment = payment()
         val store = TransactionStore.get(context)
-        compose.setContent {
-            PesaTrackTheme {
-                TransactionDetailScreen(PaddingValues(), payment.id, {})
-            }
-        }
-        val list = compose.onNodeWithTag("transaction-details-list")
-        list.performScrollToNode(hasTestTag("transaction-corrections"))
-        compose.onNodeWithText("Mark as own-account transfer").performClick()
+        compose.setContent { PesaTrackTheme {
+            TransactionDetailScreen(PaddingValues(), payment.id, {})
+        } }
+        selectSpecialTreatment("Mark as own-account transfer")
         compose.onNodeWithText("Mark as own-account transfer?").assertIsDisplayed()
         assertEquals(MoneyDirection.EXPENSE.name, store.getById(payment.id)!!.direction)
         compose.onNodeWithText("Cancel").performClick()
         assertEquals(MoneyDirection.EXPENSE.name, store.getById(payment.id)!!.direction)
 
-        compose.onNodeWithText("Mark as own-account transfer").performClick()
+        selectSpecialTreatment("Mark as own-account transfer")
         compose.onNodeWithText("Mark as transfer").performClick()
         compose.waitUntil(5_000L) {
             store.getById(payment.id)?.direction == MoneyDirection.TRANSFER.name
@@ -112,14 +119,10 @@ class TransactionDetailJourneyTest {
     @Test fun exclusionWarningExplainsActivityImpactAndCancelIsSafe() {
         val payment = payment()
         val store = TransactionStore.get(context)
-        compose.setContent {
-            PesaTrackTheme {
-                TransactionDetailScreen(PaddingValues(), payment.id, {})
-            }
-        }
-        val list = compose.onNodeWithTag("transaction-details-list")
-        list.performScrollToNode(hasTestTag("transaction-corrections"))
-        compose.onNodeWithText("Exclude from tracked activity").performClick()
+        compose.setContent { PesaTrackTheme {
+            TransactionDetailScreen(PaddingValues(), payment.id, {})
+        } }
+        selectSpecialTreatment("Exclude from tracked activity")
         compose.onNodeWithText("Exclude from tracked activity?").assertIsDisplayed()
         compose.onNodeWithText(
             "This is more than excluding a budget category.", substring = true
@@ -127,12 +130,43 @@ class TransactionDetailJourneyTest {
         compose.onNodeWithText("Cancel").performClick()
         assertEquals(ReviewState.USER_CLASSIFIED.name, store.getById(payment.id)!!.reviewState)
 
-        compose.onNodeWithText("Exclude from tracked activity").performClick()
+        selectSpecialTreatment("Exclude from tracked activity")
         compose.onNodeWithText("Exclude entry").performClick()
         compose.waitUntil(5_000L) {
             store.getById(payment.id)?.reviewState == ReviewState.EXCLUDED.name
         }
         assertEquals(200_000L, store.getById(payment.id)!!.amountMinor)
+    }
+
+    @Test fun transactionFactsAreCollapsedUntilUserExpandsThem() {
+        val payment = payment()
+        compose.setContent { PesaTrackTheme {
+            TransactionDetailScreen(PaddingValues(), payment.id, {})
+        } }
+        compose.onNodeWithTag("transaction-facts-approved").assertDoesNotExist()
+        val list = compose.onNodeWithTag("transaction-details-list")
+        list.performScrollToNode(hasText("Transaction facts"))
+        compose.onNodeWithText("Transaction facts").performClick()
+        list.performScrollToNode(hasTestTag("transaction-facts-approved"))
+        compose.onNodeWithTag("transaction-facts-approved").assertExists()
+    }
+
+    @Test fun merchantHistoryRemainsAvailableAfterRemovingCorrectionsCard() {
+        val payment = payment()
+        compose.setContent { PesaTrackTheme {
+            TransactionDetailScreen(PaddingValues(), payment.id, {})
+        } }
+        val list = compose.onNodeWithTag("transaction-details-list")
+        list.performScrollToNode(hasTestTag("transaction-merchant-history-card"))
+        compose.onNodeWithText("Merchant history").performClick()
+        compose.onNodeWithText("No other recent transactions with this merchant.").assertIsDisplayed()
+        compose.onNodeWithText("Done").performClick()
+        compose.onNodeWithText("View M-Pesa").assertDoesNotExist()
+        compose.onNodeWithText("Hide additional actions").assertDoesNotExist()
+        list.performScrollToNode(hasTestTag("remember-category-action"))
+        compose.onNodeWithText("Remember category in Activity and Statements").assertIsDisplayed()
+        compose.onNodeWithTag("record-money-lent").assertDoesNotExist()
+        compose.onNodeWithTag("record-shared-bill").assertDoesNotExist()
     }
 
     @Test fun originalMessageExpandsAndReferenceCopiesInDarkTheme() {

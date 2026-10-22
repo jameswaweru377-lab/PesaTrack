@@ -130,10 +130,10 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf(
                     runCatching {
                         ThemeMode.valueOf(
-                            preferences.getString("theme_mode", ThemeMode.SYSTEM.name)
-                                ?: ThemeMode.SYSTEM.name
+                            preferences.getString("theme_mode", ThemeMode.LIGHT.name)
+                                ?: ThemeMode.LIGHT.name
                         )
-                    }.getOrDefault(ThemeMode.SYSTEM)
+                    }.getOrDefault(ThemeMode.LIGHT)
                 )
             }
             var setupComplete by remember {
@@ -156,14 +156,14 @@ class MainActivity : ComponentActivity() {
             }
 
             androidx.compose.runtime.SideEffect {
-                val darkSurface = useDark || showLaunchSplash || (appLocked && appLockManager.isEnabled()) || welcomeVisible
+                val darkSurface = useDark || (appLocked && appLockManager.isEnabled()) || (!showLaunchSplash && welcomeVisible)
                 val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
                 controller.isAppearanceLightStatusBars = !darkSurface
                 controller.isAppearanceLightNavigationBars = !darkSurface
             }
             PesaTrackTheme(darkTheme = useDark) {
                 if (showLaunchSplash) {
-                    StartupSplashScreen()
+                    StartupSplashScreen(darkTheme = useDark)
                 } else if (
                     appLocked &&
                     appLockManager.isEnabled()

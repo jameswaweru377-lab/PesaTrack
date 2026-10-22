@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.*
@@ -20,6 +21,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
+import com.kedevjimmy.pesatrack.data.local.CategoryStore
+import androidx.compose.ui.platform.LocalContext
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
@@ -68,7 +71,8 @@ internal fun TransactionDetailFacts(
     accountLabel: String,
     note: String,
     onAccount: (() -> Unit)?,
-    onNote: () -> Unit
+    onNote: () -> Unit,
+    onCategory: () -> Unit = {}
 ) {
     val direction = runCatching { MoneyDirection.valueOf(item.direction) }
         .getOrDefault(MoneyDirection.NEUTRAL)
@@ -80,11 +84,11 @@ internal fun TransactionDetailFacts(
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val clipboard = LocalClipboardManager.current
     val payee = transactionFactsPayee(item.counterparty)
+    val categoryLabel = CategoryStore.get(LocalContext.current).labelFor(item.category)
     val reference = item.transactionCode?.trim()?.takeIf { it.isNotBlank() }
     val recordedNote = note.trim()
-    PesaCard(Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp)
+    Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 5.dp)
                 .testTag("transaction-facts-approved"),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
@@ -111,18 +115,59 @@ internal fun TransactionDetailFacts(
             )
             TransactionFactSeparator()
             TransactionFactVisualRow(
-                icon = Icons.Rounded.CalendarMonth,
-                title = "Date & time",
-                help = "When this transaction happened.",
-                value = transactionFactsDate(item.occurredAtEpochMs, locale)
+                icon = Icons.Rounded.ReceiptLong,
+                title = "Category",
+                help = "How this transaction is categorized.",
+                value = categoryLabel,
+                onClick = onCategory,
+                showChevron = true
             )
             TransactionFactSeparator()
             TransactionFactVisualRow(
                 icon = Icons.Rounded.SwapHoriz,
-                title = "Transaction type",
-                help = "Nature of this transaction.",
-                value = transactionFactsKind(item.type, item.relationType),
+                title = "Type",
+                help = "Transaction direction.",
+                value = when (direction) {
+                    MoneyDirection.EXPENSE -> "Money out"
+                    MoneyDirection.INCOME -> "Money in"
+                    MoneyDirection.TRANSFER -> "Transfer"
+                    else -> "Recorded"
+                },
                 valueTone = TransactionFactValueTone.ACCENT
+            )
+            TransactionFactSeparator()
+            TransactionFactVisualRow(
+                icon = Icons.Rounded.CalendarMonth,
+                title = "Date",
+                help = "When this transaction happened.",
+                value = SimpleDateFormat("d MMM yyyy", locale).format(Date(item.occurredAtEpochMs))
+            )
+            TransactionFactSeparator()
+            TransactionFactVisualRow(
+                icon = Icons.Rounded.Schedule,
+                title = "Time",
+                help = "Time of the transaction.",
+                value = SimpleDateFormat("HH:mm", locale).format(Date(item.occurredAtEpochMs))
+            )
+            TransactionFactSeparator()
+            TransactionFactVisualRow(
+                icon = Icons.Rounded.ReceiptLong,
+                title = "Source",
+                help = "Where this transaction was recorded.",
+                value = if (item.sourceKind.isBlank()) "Source unknown"
+                    else when (item.sourceKind.uppercase(Locale.ROOT)) {
+                        "SMS", "NOTIFICATION" -> "Recorded financial message"
+                        "STATEMENT" -> "Statement record"
+                        "MANUAL" -> "Manual entry"
+                        else -> item.sourceKind.replace('_', ' ').lowercase()
+                    }
+            )
+            TransactionFactSeparator()
+            TransactionFactVisualRow(
+                icon = Icons.Rounded.Info,
+                title = "Transaction kind",
+                help = "Recorded source transaction type.",
+                value = transactionFactsKind(item.type, item.relationType)
             )
             TransactionFactSeparator()
             TransactionFactVisualRow(
@@ -188,7 +233,6 @@ internal fun TransactionDetailFacts(
                 valueTone = TransactionFactValueTone.ACCENT
             )
         }
-    }
 }
 
 private enum class TransactionFactValueTone { NORMAL, ACCENT, EMPHASIS }
@@ -213,16 +257,19 @@ private fun TransactionFactVisualRow(
     showCopy: Boolean = false,
     valueTone: TransactionFactValueTone = TransactionFactValueTone.NORMAL
 ) {
-    val tint = when (valueTone) {
-        TransactionFactValueTone.NORMAL -> MaterialTheme.colorScheme.primary
-        TransactionFactValueTone.ACCENT -> MaterialTheme.colorScheme.tertiary
-        TransactionFactValueTone.EMPHASIS -> MaterialTheme.colorScheme.error
+    val tint = when {
+        valueTone == TransactionFactValueTone.EMPHASIS || title == "Type" -> Color(0xFFE61965)
+        title == "Category" -> Color(0xFF008D73)
+        title == "Date" || title == "Account" -> Color(0xFF5D00EB)
+        title == "Time" || title == "Merchant / Payee" -> Color(0xFF276BEA)
+        title == "Source" -> Color(0xFFE87115)
+        else -> MaterialTheme.colorScheme.primary
     }
     Row(
         modifier = Modifier.fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .heightIn(min = 58.dp)
-            .padding(horizontal = 4.dp, vertical = 7.dp),
+            .heightIn(min = 56.dp)
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -238,11 +285,11 @@ private fun TransactionFactVisualRow(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 title, fontWeight = FontWeight.Medium,
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodyMedium
             )
             Text(
                 help, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 10.sp, lineHeight = 12.sp,
+                fontSize = 11.sp, lineHeight = 14.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )

@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Switch
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.EvidenceJournalStore
@@ -96,6 +97,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PersonalLearningStore
@@ -395,10 +397,8 @@ fun TransactionDetailScreen(
     var correctionError by remember(transactionId) { mutableStateOf<String?>(null) }
     var correctionResult by remember(transactionId) { mutableStateOf<String?>(null) }
     var messageExpanded by remember(transactionId) { mutableStateOf(false) }
-    var factsExpanded by remember(transactionId) { mutableStateOf(true) }
-    var evidenceExpanded by remember(transactionId) { mutableStateOf(true) }
-    var correctionsExpanded by remember(transactionId) { mutableStateOf(true) }
-    var advancedExpanded by remember(transactionId) { mutableStateOf(false) }
+    var factsExpanded by remember(transactionId) { mutableStateOf(false) }
+    var evidenceExpanded by remember(transactionId) { mutableStateOf(false) }
     var sharedBillCategory by remember(transactionId) { mutableStateOf(false) }
     var messageEvidence by remember(transactionId) { mutableStateOf<TransactionMessageEvidenceResult?>(null) }
     var evidenceRefresh by remember(transactionId) { mutableStateOf(0) }
@@ -553,6 +553,12 @@ fun TransactionDetailScreen(
             },
             onMoneyLent = { openPersonalLedger(shared = false) },
             onSharedBill = { openPersonalLedger(shared = true) },
+            onCorrection = { action ->
+                showCategoryPicker = false
+                correctionError = null
+                pendingCorrection = action
+            },
+            allowCorrections = !confirmedTransfer,
             allowSpecial = receivableLinks[current.id] == null
         )
     }
@@ -764,10 +770,16 @@ fun TransactionDetailScreen(
             ?: categoryStore.labelFor(categoryStore.canonicalId(it.category))
     } ?: "Needs review"
 
+    val detailBackground = if (com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme())
+        Brush.verticalGradient(listOf(MaterialTheme.colorScheme.background,
+            MaterialTheme.colorScheme.background))
+    else Brush.linearGradient(listOf(
+        Color(0xFFF3F0FF), Color(0xFFF7F7FF), Color(0xFFEDF6FF)
+    ))
     LazyColumn(
         modifier = Modifier.testTag("transaction-details-list")
             .padding(scaffoldPadding)
-            .background(MaterialTheme.colorScheme.background),
+            .background(detailBackground),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -785,11 +797,9 @@ fun TransactionDetailScreen(
                 category = categoryLabel,
                 account = accountLabel,
                 onBack = onBack,
-                onMore = { advancedExpanded = !advancedExpanded }
+                onChooseCategory = { showCategoryPicker = true },
+                onAddNote = { showAnnotationDialog = true }
             )
-        }
-        item(key = "transaction-verified") {
-            TransactionVerificationStatus(current, receiptLinked)
         }
         if (current.fulizaFinancedMinor > 0L) {
             item { FulizaFundingCard(current) }
@@ -827,7 +837,8 @@ fun TransactionDetailScreen(
                     accountLabel = accountLabel,
                     note = annotation.note,
                     onAccount = current.accountId?.let { id -> { onAccountClick(id) } },
-                    onNote = { showAnnotationDialog = true }
+                    onNote = { showAnnotationDialog = true },
+                    onCategory = { showCategoryPicker = true }
                 )
             }
         }
@@ -883,92 +894,31 @@ fun TransactionDetailScreen(
                 }
             }
         }
-        if (!confirmedTransfer) {
-            item(key = "transaction-correction-actions") {
-                RedesignDetailAccordion(
-                    title = "Corrections",
-                    icon = Icons.Rounded.Edit,
-                    expanded = correctionsExpanded,
-                    onToggle = { correctionsExpanded = !correctionsExpanded }
-                ) {
-                    Column(Modifier.testTag("transaction-corrections"),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Review the original message before changing the financial meaning.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        correctionResult?.let {
-                            Text(it, color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.bodySmall)
-                        }
-                        if (current.counterparty.isNullOrBlank() &&
-                            !current.evidenceLabel.isNullOrBlank()) {
-                            ActionRow(Icons.Rounded.CheckCircle, "Use suggested identity",
-                                onClick = {
-                                    pendingCorrection = TransactionCorrectionAction.ACCEPT_IDENTITY
-                                })
-                        }
-                        if (current.relationType == TransactionStore.RELATION_REFUND) {
-                            ActionRow(Icons.Rounded.SwapHoriz, "This was not a refund",
-                                onClick = {
-                                    pendingCorrection = TransactionCorrectionAction.REMOVE_REFUND_LINK
-                                })
-                        } else if (current.relationType == null &&
-                            current.direction != MoneyDirection.TRANSFER.name &&
-                            current.reviewState != ReviewState.EXCLUDED.name) {
-                            ActionRow(Icons.Rounded.SwapHoriz, "Mark as own-account transfer",
-                                onClick = {
-                                    pendingCorrection = TransactionCorrectionAction.MARK_OWN_TRANSFER
-                                })
-                        }
-                        if (current.reviewState != ReviewState.EXCLUDED.name) {
-                            ActionRow(Icons.Rounded.Block, "Exclude from tracked activity",
-                                tintError = true, onClick = {
-                                    pendingCorrection = TransactionCorrectionAction.EXCLUDE_ENTRY
-                                })
-                        }
-                        TextButton(onClick = { showCategoryPicker = true }) {
-                            Text("Suggest a category correction")
-                        }
-                    }
-                }
-            }
+        item(key = "transaction-merchant-history") {
+            TransactionMerchantHistoryCard(
+                onClick = { showMerchantHistory = true }
+            )
         }
-        item(key = "transaction-more-actions") {
-            OutlinedButton(onClick = { advancedExpanded = !advancedExpanded },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp)) {
-                Icon(if (advancedExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.MoreHoriz, null)
-                Spacer(Modifier.width(8.dp))
-                Text(if (advancedExpanded) "Hide additional actions" else "More transaction actions")
-            }
-        }
-        if (advancedExpanded) {
-            if (confirmedTransfer) item {
-                OwnedTransferUndoAction(current.id, onChanged = { refresh() })
-            }
-            if (!confirmedTransfer) {
-                item { SplitPaymentAction(current, onChanged = { refresh() }) }
-                item { PersonalReceivableTransactionAction(current, onChanged = { refresh() }) }
-            }
-            item {
-                TransactionQuickActions(
-                    merchant = current.counterparty ?: pretty(current.type),
-                    annotation = annotation,
-                    accountLabel = accountLabel,
-                    hasAccount = current.accountId != null,
-                    onMerchantHistory = { showMerchantHistory = true },
-                    onAnnotation = { showAnnotationDialog = true },
-                    onAccount = { current.accountId?.let(onAccountClick) }
-                )
-            }
-            if (current.reviewState == ReviewState.USER_CLASSIFIED.name &&
+if (current.reviewState == ReviewState.USER_CLASSIFIED.name &&
                 current.direction == MoneyDirection.EXPENSE.name &&
                 current.ruleId == null && current.relationType == null &&
                 !confirmedTransfer && canLearnIdentity(current) &&
                 PersonalLearningPolicy.isLearnableCategory(
                     categoryStore.canonicalId(current.category), MoneyDirection.EXPENSE
                 ) && personalLearningStore.preferenceFor(current) == null) {
-                item {
-                    Button(enabled = !learningBusy, onClick = {
+                item(key = "transaction-remember-category") {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("remember-category-action"),
+                        color = Color(0xFF5D00EB),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .background(Brush.horizontalGradient(listOf(
+                                    Color(0xFF7042FA), Color(0xFF5B00DE)
+                                )))
+                                .clickable(enabled = !learningBusy, onClick = {
                         val original = current
                         learningBusy = true
                         scope.launch {
@@ -989,9 +939,44 @@ fun TransactionDetailScreen(
                             catch (_: Exception) { learningError = "Could not check category matches." }
                             finally { learningBusy = false }
                         }
-                    }) { Text("Remember category in Activity and Statements") }
+                                })
+                                .heightIn(min = 54.dp)
+                                .padding(horizontal = 17.dp, vertical = 13.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(11.dp)
+                        ) {
+                            Surface(shape = RoundedCornerShape(12.dp),
+                                color = Color.White.copy(alpha = .18f),
+                                modifier = Modifier.size(35.dp)) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Rounded.CheckCircle, null,
+                                        Modifier.size(19.dp), tint = Color.White)
+                                }
+                            }
+                            Text("Remember category in Activity and Statements",
+                                modifier = Modifier.weight(1f),
+                                fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
+                                color = Color.White)
+                            Icon(Icons.Rounded.ChevronRight, null, tint = Color.White)
+                        }
+                    }
                 }
             }
+        // Existing situational actions remain accessible without an extra toggle.
+        if (confirmedTransfer) {
+            item(key = "transaction-transfer-undo") {
+                OwnedTransferUndoAction(current.id, onChanged = { refresh() })
+            }
+        } else {
+            item(key = "transaction-existing-split") {
+                SplitPaymentAction(current, onChanged = { refresh() })
+            }
+            item(key = "transaction-existing-debt") {
+                PersonalReceivableTransactionAction(
+                    current, onChanged = { refresh() }, showCreateActions = false
+                )
+            }
+        }
             if (appliedRule != null) {
                 item {
                     TextButton(onClick = {
@@ -1008,6 +993,8 @@ fun TransactionDetailScreen(
                     }) { Text("Use suggested " + categoryStore.labelFor(suggestion.categoryId)) }
                 }
             }
+        correctionResult?.let { message ->
+            item { Text(message, color = MaterialTheme.colorScheme.primary) }
         }
         learnedMessage?.let { message ->
             item { Text(message, color = MaterialTheme.colorScheme.primary) }
@@ -2211,19 +2198,40 @@ private fun categoryVisual(
     }
 
 @Composable
-private fun TransactionQuickActions(
-    merchant: String,
-    annotation: TransactionAnnotation,
-    accountLabel: String,
-    hasAccount: Boolean,
-    onMerchantHistory: () -> Unit,
-    onAnnotation: () -> Unit,
-    onAccount: () -> Unit
-) {
-    PesaCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-            ActionRow(Icons.Rounded.AccountCircle, "Merchant history", onClick = onMerchantHistory)
-            if (hasAccount) ActionRow(Icons.Rounded.Paid, "View $accountLabel", onClick = onAccount)
+private fun TransactionMerchantHistoryCard(onClick: () -> Unit) {
+    val ink = Color(0xFF0B103A)
+    val muted = Color(0xFF626B98)
+    val purple = Color(0xFF6231DA)
+    Surface(
+        modifier = Modifier.fillMaxWidth()
+            .testTag("transaction-merchant-history-card")
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(21.dp),
+        color = if (com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme())
+            MaterialTheme.colorScheme.surface else Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE9E5F5))
+    ) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 61.dp)
+            .padding(horizontal = 13.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Surface(Modifier.size(35.dp), color = Color(0xFFEEE5FF),
+                shape = RoundedCornerShape(13.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.ShoppingBag, null,
+                        Modifier.size(19.dp), tint = purple)
+                }
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Merchant history", fontWeight = FontWeight.Bold, fontSize = 16.sp,
+                    color = if (com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme())
+                        MaterialTheme.colorScheme.onSurface else ink)
+                Text("View previous transactions",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = muted)
+            }
+            Icon(Icons.Rounded.ChevronRight, "Open merchant history",
+                Modifier.size(22.dp), tint = Color(0xFF777B9F))
         }
     }
 }
@@ -2551,6 +2559,8 @@ private fun MerchantHistoryDialog(
         },
         text = {
             Column(
+                modifier = Modifier.heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement =
                     Arrangement.spacedBy(
                         8.dp

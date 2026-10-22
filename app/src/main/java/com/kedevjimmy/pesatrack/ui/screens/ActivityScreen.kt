@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Work
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.automirrored.rounded.CallReceived
 import androidx.compose.material.icons.rounded.ChevronLeft
@@ -932,8 +933,8 @@ fun ActivityScreen(
                 Column(Modifier.padding(bottom = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
                         "Activities",
-                        fontSize = 32.sp,
-                        lineHeight = 37.sp,
+                        fontSize = 27.sp,
+                        lineHeight = 32.sp,
                         color = HomeReferencePalette.ink,
                         fontWeight = FontWeight.ExtraBold
                     )
@@ -4056,7 +4057,7 @@ private fun ActivityDateHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(dayLabel(dayEpochMs), modifier = Modifier.weight(1f),
-                fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                fontSize = 16.sp, fontWeight = FontWeight.Bold,
                 color = HomeReferencePalette.ink)
             Text(
                 SimpleDateFormat("dd MMM yyyy", androidx.compose.ui.platform.LocalConfiguration.current.locales[0]).format(Date(dayEpochMs)),
@@ -4159,11 +4160,18 @@ private fun ActivityRow(
     }
     val pillColor = HomeReferencePalette.purple
     val iconTone = when {
-        direction == MoneyDirection.INCOME -> "green"
+        direction == MoneyDirection.INCOME -> "blue"
         direction == MoneyDirection.TRANSFER -> "violet"
-        categoryId.contains("EATING", true) || categoryId.contains("FOOD", true) -> "amber"
+        categoryId.contains("EATING", true) || categoryId.contains("FOOD", true) ||
+            categoryId.contains("DIN", true) -> "amber"
         categoryId.contains("SHOP", true) || categoryId.contains("GROCER", true) -> "red"
-        categoryId.contains("ELECT", true) || categoryId.contains("INTERNET", true) -> "blue"
+        categoryId.contains("RENT", true) || categoryId.contains("HOUS", true) -> "green"
+        categoryId.contains("ELECT", true) || categoryId.contains("INTERNET", true) ||
+            categoryId.contains("UTIL", true) -> "blue"
+        categoryId.contains("HEALTH", true) || categoryId.contains("MEDIC", true) -> "red"
+        categoryId.contains("TRANSPORT", true) || categoryId.contains("FUEL", true) -> "blue"
+        categoryId.contains("EDUC", true) || categoryId.contains("INVEST", true) -> "violet"
+        categoryId.contains("UNCATEG", true) || categoryId.contains("OTHER", true) -> "neutral"
         else -> "violet"
     }
     val amountColor = when {
@@ -4195,8 +4203,8 @@ private fun ActivityRow(
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 68.dp)
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                    .padding(horizontal = 11.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -4213,7 +4221,7 @@ private fun ActivityRow(
                 }
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
                         name,
@@ -4264,7 +4272,7 @@ private fun ActivityRow(
             if (position == ActivityGroupPosition.FIRST ||
                 position == ActivityGroupPosition.MIDDLE) {
                 HorizontalDivider(
-                    modifier = Modifier.padding(start = 58.dp, end = 10.dp),
+                    modifier = Modifier.padding(start = 54.dp, end = 10.dp),
                     thickness = .5.dp,
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .42f)
                 )
@@ -4282,7 +4290,7 @@ private fun ActivityReferenceMerchantIcon(
 ) {
     val icon = when {
         direction == MoneyDirection.TRANSFER -> Icons.Rounded.SyncAlt
-        direction == MoneyDirection.INCOME -> Icons.Rounded.AccountBalanceWallet
+        direction == MoneyDirection.INCOME -> Icons.Rounded.Work
         categoryId.contains("GROCER", true) || categoryId.contains("SHOP", true) ->
             Icons.Rounded.ShoppingCart
         categoryId.contains("RENT", true) || categoryId.contains("HOUS", true) ->
@@ -4294,12 +4302,14 @@ private fun ActivityReferenceMerchantIcon(
         categoryId.contains("PHONE", true) -> Icons.Rounded.PhoneAndroid
         else -> Icons.AutoMirrored.Rounded.HelpOutline
     }
-    val dark = androidx.compose.foundation.isSystemInDarkTheme()
+    // Follow PesaTrack's selected theme, not the Android system theme.
+    val dark = com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme()
     val background = when (tone) {
         "green" -> Color(0xFFDFF9EF)
         "red" -> Color(0xFFFFE7EF)
         "amber" -> Color(0xFFFFECDD)
         "blue" -> Color(0xFFE2EDFF)
+        "neutral" -> Color(0xFFF0F1F7)
         else -> Color(0xFFECE6FF)
     }
     val foreground = when (tone) {
@@ -4307,16 +4317,17 @@ private fun ActivityReferenceMerchantIcon(
         "red" -> Color(0xFFF22567)
         "amber" -> Color(0xFFFF7115)
         "blue" -> Color(0xFF185EFF)
-        else -> Color(0xFF6832E9)
+        "neutral" -> Color(0xFF737892)
+        else -> Color(0xFF5F0FE9)
     }
     Surface(
-        modifier = Modifier.size(42.dp),
-        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.size(36.dp),
+        shape = RoundedCornerShape(12.dp),
         color = if (dark) MaterialTheme.colorScheme.surfaceContainerHigh else background
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null,
-                modifier = Modifier.size(22.dp), tint = if (dark) MaterialTheme.colorScheme.onSurface else foreground)
+                modifier = Modifier.size(20.dp), tint = if (dark) MaterialTheme.colorScheme.onSurface else foreground)
         }
     }
 }

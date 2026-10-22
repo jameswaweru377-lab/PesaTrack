@@ -1,0 +1,12 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Launcher-specific surface; PesaTrack's actual brand mark stays transparent. -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#F7F7FF"/>
+            <corners android:radius="25dp"/>
+        </shape>
+    </item>
+    <item android:drawable="@drawable/ic_pesatrack_logo"
+        android:left="7dp" android:top="7dp"
+        android:right="7dp" android:bottom="7dp"/>
+</layer-list>
