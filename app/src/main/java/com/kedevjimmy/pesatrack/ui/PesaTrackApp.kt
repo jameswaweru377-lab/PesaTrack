@@ -501,7 +501,7 @@ fun PesaTrackApp(
                     scaffoldPadding = padding,
                     onCalendar = { navController.popBackStack() },
                     onSalaryClick = { navController.navigate("salary") },
-                    onTransactionClick = { id -> navController.navigate("transaction-detail/$" + "id") }
+                    onTransactionClick = { id -> navController.navigate("transaction-detail/" + id) }
                 )
             }
         }
