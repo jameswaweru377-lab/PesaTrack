@@ -499,7 +499,7 @@ private fun GoalReferenceCard(
                         modifier = Modifier.weight(1f).height(7.dp)
                             .clip(RoundedCornerShape(50.dp)),
                         color = barColor, trackColor = Color(0xFFEBE7F8))
-                    Text("$" + "percent%", fontWeight = FontWeight.Bold,
+                    Text(percent.toString() + "%", fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.labelSmall)
                 }
                 model.targetDateEpochMs?.let {
