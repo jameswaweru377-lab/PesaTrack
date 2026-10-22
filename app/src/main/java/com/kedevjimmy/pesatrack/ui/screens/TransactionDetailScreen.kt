@@ -396,9 +396,8 @@ fun TransactionDetailScreen(
     var correctionError by remember(transactionId) { mutableStateOf<String?>(null) }
     var correctionResult by remember(transactionId) { mutableStateOf<String?>(null) }
     var messageExpanded by remember(transactionId) { mutableStateOf(false) }
-    var factsExpanded by remember(transactionId) { mutableStateOf(true) }
+    var factsExpanded by remember(transactionId) { mutableStateOf(false) }
     var evidenceExpanded by remember(transactionId) { mutableStateOf(true) }
-    var advancedExpanded by remember(transactionId) { mutableStateOf(false) }
     var sharedBillCategory by remember(transactionId) { mutableStateOf(false) }
     var messageEvidence by remember(transactionId) { mutableStateOf<TransactionMessageEvidenceResult?>(null) }
     var evidenceRefresh by remember(transactionId) { mutableStateOf(0) }
@@ -797,7 +796,8 @@ fun TransactionDetailScreen(
                 category = categoryLabel,
                 account = accountLabel,
                 onBack = onBack,
-                onMore = { advancedExpanded = !advancedExpanded }
+                onChooseCategory = { showCategoryPicker = true },
+                onAddNote = { showAnnotationDialog = true }
             )
         }
         if (current.fulizaFinancedMinor > 0L) {
@@ -893,42 +893,31 @@ fun TransactionDetailScreen(
                 }
             }
         }
-        item(key = "transaction-more-actions") {
-            OutlinedButton(onClick = { advancedExpanded = !advancedExpanded },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp)) {
-                Icon(if (advancedExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.MoreHoriz, null)
-                Spacer(Modifier.width(8.dp))
-                Text(if (advancedExpanded) "Hide additional actions" else "More transaction actions")
-            }
+        item(key = "transaction-merchant-history") {
+            TransactionMerchantHistoryCard(
+                onClick = { showMerchantHistory = true }
+            )
         }
-        if (advancedExpanded) {
-            if (confirmedTransfer) item {
-                OwnedTransferUndoAction(current.id, onChanged = { refresh() })
-            }
-            if (!confirmedTransfer) {
-                item { SplitPaymentAction(current, onChanged = { refresh() }) }
-                item { PersonalReceivableTransactionAction(current, onChanged = { refresh() }, showCreateActions = false) }
-            }
-            item {
-                TransactionQuickActions(
-                    merchant = current.counterparty ?: pretty(current.type),
-                    annotation = annotation,
-                    accountLabel = accountLabel,
-                    hasAccount = current.accountId != null,
-                    onMerchantHistory = { showMerchantHistory = true },
-                    onAnnotation = { showAnnotationDialog = true },
-                    onAccount = { current.accountId?.let(onAccountClick) }
-                )
-            }
-            if (current.reviewState == ReviewState.USER_CLASSIFIED.name &&
+if (current.reviewState == ReviewState.USER_CLASSIFIED.name &&
                 current.direction == MoneyDirection.EXPENSE.name &&
                 current.ruleId == null && current.relationType == null &&
                 !confirmedTransfer && canLearnIdentity(current) &&
                 PersonalLearningPolicy.isLearnableCategory(
                     categoryStore.canonicalId(current.category), MoneyDirection.EXPENSE
                 ) && personalLearningStore.preferenceFor(current) == null) {
-                item {
-                    Button(enabled = !learningBusy, onClick = {
+                item(key = "transaction-remember-category") {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth()
+                            .testTag("remember-category-action"),
+                        color = Color(0xFF5D00EB),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .background(Brush.horizontalGradient(listOf(
+                                    Color(0xFF7042FA), Color(0xFF5B00DE)
+                                )))
+                                .clickable(enabled = !learningBusy, onClick = {
                         val original = current
                         learningBusy = true
                         scope.launch {
@@ -949,9 +938,44 @@ fun TransactionDetailScreen(
                             catch (_: Exception) { learningError = "Could not check category matches." }
                             finally { learningBusy = false }
                         }
-                    }) { Text("Remember category in Activity and Statements") }
+                                })
+                                .heightIn(min = 54.dp)
+                                .padding(horizontal = 17.dp, vertical = 13.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(11.dp)
+                        ) {
+                            Surface(shape = RoundedCornerShape(12.dp),
+                                color = Color.White.copy(alpha = .18f),
+                                modifier = Modifier.size(37.dp)) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Rounded.BookmarkAdd, null,
+                                        Modifier.size(21.dp), tint = Color.White)
+                                }
+                            }
+                            Text("Remember category in Activity and Statements",
+                                modifier = Modifier.weight(1f),
+                                fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
+                                color = Color.White)
+                            Icon(Icons.Rounded.ChevronRight, null, tint = Color.White)
+                        }
+                    }
                 }
             }
+        // Existing situational actions remain accessible without an extra toggle.
+        if (confirmedTransfer) {
+            item(key = "transaction-transfer-undo") {
+                OwnedTransferUndoAction(current.id, onChanged = { refresh() })
+            }
+        } else {
+            item(key = "transaction-existing-split") {
+                SplitPaymentAction(current, onChanged = { refresh() })
+            }
+            item(key = "transaction-existing-debt") {
+                PersonalReceivableTransactionAction(
+                    current, onChanged = { refresh() }, showCreateActions = false
+                )
+            }
+        }
             if (appliedRule != null) {
                 item {
                     TextButton(onClick = {
@@ -968,7 +992,6 @@ fun TransactionDetailScreen(
                     }) { Text("Use suggested " + categoryStore.labelFor(suggestion.categoryId)) }
                 }
             }
-        }
         correctionResult?.let { message ->
             item { Text(message, color = MaterialTheme.colorScheme.primary) }
         }
@@ -2174,19 +2197,40 @@ private fun categoryVisual(
     }
 
 @Composable
-private fun TransactionQuickActions(
-    merchant: String,
-    annotation: TransactionAnnotation,
-    accountLabel: String,
-    hasAccount: Boolean,
-    onMerchantHistory: () -> Unit,
-    onAnnotation: () -> Unit,
-    onAccount: () -> Unit
-) {
-    PesaCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-            ActionRow(Icons.Rounded.AccountCircle, "Merchant history", onClick = onMerchantHistory)
-            if (hasAccount) ActionRow(Icons.Rounded.Paid, "View $accountLabel", onClick = onAccount)
+private fun TransactionMerchantHistoryCard(onClick: () -> Unit) {
+    val ink = Color(0xFF0B103A)
+    val muted = Color(0xFF626B98)
+    val purple = Color(0xFF6231DA)
+    Surface(
+        modifier = Modifier.fillMaxWidth()
+            .testTag("transaction-merchant-history-card")
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(21.dp),
+        color = if (com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme())
+            MaterialTheme.colorScheme.surface else Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE9E5F5))
+    ) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 66.dp)
+            .padding(horizontal = 16.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Surface(Modifier.size(42.dp), color = Color(0xFFEEE5FF),
+                shape = RoundedCornerShape(13.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Storefront, null,
+                        Modifier.size(24.dp), tint = purple)
+                }
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Merchant history", fontWeight = FontWeight.Bold, fontSize = 16.sp,
+                    color = if (com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme())
+                        MaterialTheme.colorScheme.onSurface else ink)
+                Text("View previous transactions",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = muted)
+            }
+            Icon(Icons.Rounded.ChevronRight, "Open merchant history",
+                Modifier.size(22.dp), tint = Color(0xFF777B9F))
         }
     }
 }

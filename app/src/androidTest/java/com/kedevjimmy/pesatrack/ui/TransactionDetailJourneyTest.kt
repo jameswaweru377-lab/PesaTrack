@@ -136,19 +136,33 @@ class TransactionDetailJourneyTest {
         assertEquals(200_000L, store.getById(payment.id)!!.amountMinor)
     }
 
+    @Test fun transactionFactsAreCollapsedUntilUserExpandsThem() {
+        val payment = payment()
+        compose.setContent { PesaTrackTheme {
+            TransactionDetailScreen(PaddingValues(), payment.id, {})
+        } }
+        compose.onNodeWithTag("transaction-facts-approved").assertDoesNotExist()
+        val list = compose.onNodeWithTag("transaction-details-list")
+        list.performScrollToNode(hasText("Transaction facts"))
+        compose.onNodeWithText("Transaction facts").performClick()
+        list.performScrollToNode(hasTestTag("transaction-facts-approved"))
+        compose.onNodeWithTag("transaction-facts-approved").assertExists()
+    }
+
     @Test fun merchantHistoryRemainsAvailableAfterRemovingCorrectionsCard() {
         val payment = payment()
         compose.setContent { PesaTrackTheme {
             TransactionDetailScreen(PaddingValues(), payment.id, {})
         } }
         val list = compose.onNodeWithTag("transaction-details-list")
-        list.performScrollToNode(hasText("More transaction actions"))
-        compose.onNodeWithText("More transaction actions").performClick()
-        list.performScrollToNode(hasText("Merchant history"))
+        list.performScrollToNode(hasTestTag("transaction-merchant-history-card"))
         compose.onNodeWithText("Merchant history").performClick()
         compose.onNodeWithText("No other recent transactions with this merchant.").assertIsDisplayed()
         compose.onNodeWithText("Done").performClick()
-        list.performScrollToNode(hasText("More transaction actions"))
+        compose.onNodeWithText("View M-Pesa").assertDoesNotExist()
+        compose.onNodeWithText("Hide additional actions").assertDoesNotExist()
+        list.performScrollToNode(hasTestTag("remember-category-action"))
+        compose.onNodeWithText("Remember category in Activity and Statements").assertIsDisplayed()
         compose.onNodeWithTag("record-money-lent").assertDoesNotExist()
         compose.onNodeWithTag("record-shared-bill").assertDoesNotExist()
     }

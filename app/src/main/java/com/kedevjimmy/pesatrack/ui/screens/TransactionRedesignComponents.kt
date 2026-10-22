@@ -75,8 +75,10 @@ internal fun TransactionRedesignHeader(
     category: String,
     account: String,
     onBack: () -> Unit,
-    onMore: () -> Unit
+    onChooseCategory: () -> Unit,
+    onAddNote: () -> Unit
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val outgoing = item.direction == MoneyDirection.EXPENSE.name
     val transfer = item.direction == MoneyDirection.TRANSFER.name
@@ -93,8 +95,23 @@ internal fun TransactionRedesignHeader(
             }
             Text("Transaction Details", modifier = Modifier.weight(1f),
                 fontSize = 20.sp, fontWeight = FontWeight.Bold, color = foreground)
-            IconButton(onClick = onMore) {
-                Icon(Icons.Rounded.MoreHoriz, "More transaction actions", tint = foreground)
+            Box {
+                IconButton(onClick = { menuExpanded = true }) {
+                    Icon(Icons.Rounded.MoreHoriz, "Transaction menu", tint = foreground)
+                }
+                DropdownMenu(expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Choose category") },
+                        leadingIcon = { Icon(Icons.Rounded.Label, null) },
+                        onClick = { menuExpanded = false; onChooseCategory() }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Add note or receipt") },
+                        leadingIcon = { Icon(Icons.Rounded.EditNote, null) },
+                        onClick = { menuExpanded = false; onAddNote() }
+                    )
+                }
             }
         }
         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp),
