@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.*
@@ -21,6 +22,7 @@ import com.kedevjimmy.pesatrack.ui.screens.ReferenceHomeHeader
 import com.kedevjimmy.pesatrack.ui.screens.HomeReferencePalette
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 
 enum class MainTab(
     val route: String,
@@ -61,7 +63,18 @@ fun AppScaffold(
             else MaterialTheme.colorScheme.background,
         topBar = {
             if (currentTab == MainTab.HOME || currentTab == MainTab.ACTIVITY) {
-                Surface(modifier = Modifier.statusBarsPadding(), color = HomeReferencePalette.canvas) {
+                Box(
+                    modifier = Modifier.statusBarsPadding()
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(
+                                    Color(0xFFF4F1FF),
+                                    HomeReferencePalette.canvas,
+                                    Color(0xFFEDF6FF)
+                                )
+                            )
+                        )
+                ) {
                     ReferenceHomeHeader(
                         onNotifications = onNotificationsClick,
                         onProfile = onProfileClick,

@@ -169,7 +169,7 @@ internal fun ActivityReferenceSummary(
                     radius = size.width * .48f, center = Offset(0f, size.height)
                 )
             }
-            Column(Modifier.padding(start = 15.dp, end = 14.dp, top = 12.dp, bottom = 14.dp)) {
+            Column(Modifier.padding(start = 15.dp, end = 14.dp, top = 9.dp, bottom = 10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Row(
                         modifier = Modifier.weight(1f).clickable(onClick = onMonth),
@@ -185,13 +185,13 @@ internal fun ActivityReferenceSummary(
                         border = BorderStroke(1.dp, Color(0xFFE1D7FF))
                     ) {
                         Icon(Icons.Rounded.BarChart, "Detailed Activity breakdown",
-                            modifier = Modifier.padding(9.dp).size(20.dp),
+                            modifier = Modifier.padding(6.dp).size(20.dp),
                             tint = HomeReferencePalette.purple)
                     }
                 }
-                Spacer(Modifier.height(7.dp))
+                Spacer(Modifier.height(1.dp))
                 Row(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 155.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 128.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -271,11 +271,6 @@ internal fun ActivityReferenceSummary(
                             }
                         }
                     }
-                }
-                if (showCents) {
-                    Text("Amounts include cents for exact reconciliation.",
-                        fontSize = 10.sp, color = muted,
-                        modifier = Modifier.padding(top = 4.dp))
                 }
             }
         }

@@ -60,7 +60,7 @@ internal fun ReferenceHomeHeader(onNotifications: () -> Unit, onProfile: () -> U
     val p = HomeReferencePalette
     val locale = LocalConfiguration.current.locales[0]
     Row(
-        Modifier.fillMaxWidth().background(p.canvas)
+        Modifier.fillMaxWidth()
             .padding(horizontal = 18.dp).height(48.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

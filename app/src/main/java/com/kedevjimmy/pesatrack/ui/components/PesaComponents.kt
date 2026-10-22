@@ -81,31 +81,13 @@ fun BrandWordmark(
     ) {
         PesaLogoMark(size = if (compact) 36.dp else 44.dp)
         Column {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
-                Text(
-                    "Pesa",
-                    style = if (compact) {
-                        MaterialTheme.typography.titleLarge
-                    } else {
-                        MaterialTheme.typography.headlineMedium
-                    },
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "Track",
-                    style = if (compact) {
-                        MaterialTheme.typography.titleLarge
-                    } else {
-                        MaterialTheme.typography.headlineMedium
-                    },
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            Text(
+                "PesaTrack",
+                style = if (compact) MaterialTheme.typography.titleLarge
+                        else MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.ExtraBold
+            )
             if (!compact) {
                 Text(
                     "Your money. A calmer tomorrow.",
