@@ -138,7 +138,7 @@ internal fun ActivityReferenceSummary(
     val caption = when (filter) {
         "Money In" -> "received"
         "Transfers" -> "moved"
-        "Needs Review" -> "items need review"
+        "Needs Review" -> "to review this month"
         else -> "spent"
     }
 
@@ -304,7 +304,7 @@ internal fun ActivityReferenceAttention(
                     else if (count > 0) "Needs attention" else "Nothing needs attention",
                     fontSize = 15.sp, fontWeight = FontWeight.Bold, color = HomeReferencePalette.ink)
                 Text(if (transfer) "These are internal transfers and not counted as income or expenses."
-                    else "$count transactions need review",
+                    else "$count review items across all periods",
                     fontSize = 12.sp, lineHeight = 16.sp,
                     color = HomeReferencePalette.muted, maxLines = 2)
             }
