@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -363,13 +364,22 @@ internal fun ActivityCompactFilters(selected: String, count: Int, onSelect: (Str
     val rowState = rememberLazyListState()
     LaunchedEffect(selected) {
         val index = tabs.indexOf(selected)
-        if (index >= 0) rowState.animateScrollToItem(index)
+        if (index < 0) return@LaunchedEffect
+        // Bring the chosen pill on screen, then center it as far as the
+        // available scroll range permits. No neighboring label is truncated.
+        rowState.animateScrollToItem(index)
+        val layout = rowState.layoutInfo
+        layout.visibleItemsInfo.firstOrNull { it.index == index }?.let { item ->
+            val midpoint = (layout.viewportStartOffset + layout.viewportEndOffset) / 2f
+            val selectedMidpoint = item.offset + item.size / 2f
+            rowState.animateScrollBy(selectedMidpoint - midpoint)
+        }
     }
     LazyRow(
         state = rowState,
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        contentPadding = PaddingValues(start = 0.dp, top = 2.dp, end = 20.dp, bottom = 2.dp)
+        contentPadding = PaddingValues(start = 10.dp, top = 2.dp, end = 36.dp, bottom = 2.dp)
     ) {
         items(tabs.size) { index ->
             val tab = tabs[index]
@@ -415,7 +425,7 @@ internal fun ActivityCompactFilters(selected: String, count: Int, onSelect: (Str
                                 Icon(
                                     symbol, contentDescription = null,
                                     modifier = Modifier.size(17.dp),
-                                    tint = if (active && tab != "Needs Review") androidx.compose.ui.graphics.Color.White else accent
+                                    tint = if (active) androidx.compose.ui.graphics.Color.White else accent
                                 )
                             }
                         }
