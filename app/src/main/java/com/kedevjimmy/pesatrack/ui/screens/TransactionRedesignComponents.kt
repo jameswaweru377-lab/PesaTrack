@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -439,6 +440,46 @@ private fun CategoryReferenceTile(
  * changes: canonical category saving, optional learning, custom categories,
  * money lending and shared-bill actions retain their existing callbacks.
  */
+@Composable
+private fun CategoryTreatmentAction(
+    title: String,
+    description: String,
+    icon: ImageVector,
+    destructive: Boolean = false,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val ink = if (destructive) Color(0xFFBF3451) else Color(0xFF302278)
+    val background = if (destructive) Color(0xFFFFF5F7) else Color.White
+    Surface(
+        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = background,
+        border = BorderStroke(1.dp,
+            if (destructive) Color(0xFFF3D6DD) else Color(0xFFE7E1F4))
+    ) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 53.dp)
+                .padding(horizontal = 11.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(11.dp)
+        ) {
+            Surface(Modifier.size(35.dp), color = ink.copy(alpha = .09f),
+                shape = RoundedCornerShape(10.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(icon, null, Modifier.size(21.dp), tint = ink)
+                }
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, color = ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Text(description, fontSize = 11.sp, lineHeight = 14.sp,
+                    color = Color(0xFF626B98))
+            }
+            Icon(Icons.Rounded.ChevronRight, null, Modifier.size(18.dp), tint = ink)
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TransactionCategoryChooser(
@@ -449,6 +490,8 @@ internal fun TransactionCategoryChooser(
     onSave: (String, Boolean) -> Unit,
     onMoneyLent: () -> Unit,
     onSharedBill: () -> Unit,
+    onCorrection: (TransactionCorrectionAction) -> Unit = {},
+    allowCorrections: Boolean = false,
     allowSpecial: Boolean = true
 ) {
     val context = LocalContext.current
@@ -556,7 +599,7 @@ internal fun TransactionCategoryChooser(
                     }
                 }
             }
-            LazyColumn(Modifier.weight(1f),
+            LazyColumn(Modifier.weight(1f).testTag("category-selection-list"),
                 contentPadding = PaddingValues(start = 19.dp, end = 19.dp, top = 14.dp, bottom = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(11.dp)) {
                 if (query.isBlank() && suggested.isNotEmpty()) {
@@ -610,16 +653,69 @@ internal fun TransactionCategoryChooser(
                         Text("Add category")
                     }
                 }
-                if (allowSpecial && canMakePersonalDebtLink(item)) {
+                // These are alternative ledger treatments, not regular spending
+                // categories. Keep them visually apart from selectable tiles.
+                if (query.isBlank() && allowSpecial && canMakePersonalDebtLink(item)) {
                     item {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            OutlinedButton(onClick = onMoneyLent, Modifier.weight(1f)) {
-                                Text("Money lent", fontSize = 12.sp)
-                            }
-                            OutlinedButton(onClick = onSharedBill, Modifier.weight(1f)) {
-                                Text("Shared bill", fontSize = 12.sp)
-                            }
+                        Text("Other ways to classify", color = ink, fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold)
+                    }
+                    item {
+                        CategoryTreatmentAction(
+                            "Money lent", "Record money someone owes you",
+                            Icons.Rounded.VolunteerActivism, enabled = !busy,
+                            onClick = onMoneyLent)
+                    }
+                    item {
+                        CategoryTreatmentAction(
+                            "Shared bill", "Record your share and money others owe",
+                            Icons.Rounded.Groups, enabled = !busy,
+                            onClick = onSharedBill)
+                    }
+                }
+                if (query.isBlank() && allowCorrections) {
+                    val acceptIdentity = item.counterparty.isNullOrBlank() &&
+                        !item.evidenceLabel.isNullOrBlank()
+                    val refundLink = item.relationType == "REFUND"
+                    val canOwnTransfer = item.relationType == null &&
+                        item.direction != MoneyDirection.TRANSFER.name &&
+                        item.reviewState != ReviewState.EXCLUDED.name
+                    val canExclude = item.reviewState != ReviewState.EXCLUDED.name
+                    if (acceptIdentity || refundLink || canOwnTransfer || canExclude) {
+                        item {
+                            HorizontalDivider(color = Color(0xFFEAE8F4))
+                            Spacer(Modifier.height(7.dp))
+                            Text("Transaction treatment", color = ink, fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold)
+                            Text("These changes affect how this entry is understood or counted. A confirmation is required.",
+                                color = muted, fontSize = 11.sp, lineHeight = 15.sp)
                         }
+                    }
+                    if (acceptIdentity) item {
+                        CategoryTreatmentAction(
+                            "Use suggested identity", "Confirm the name from the original message",
+                            Icons.Rounded.CheckCircle, enabled = !busy,
+                            onClick = { onCorrection(TransactionCorrectionAction.ACCEPT_IDENTITY) })
+                    }
+                    if (refundLink) item {
+                        CategoryTreatmentAction(
+                            "This was not a refund", "Remove its existing refund relationship",
+                            Icons.Rounded.LinkOff, enabled = !busy,
+                            onClick = { onCorrection(TransactionCorrectionAction.REMOVE_REFUND_LINK) })
+                    }
+                    if (canOwnTransfer) item {
+                        CategoryTreatmentAction(
+                            "Mark as own-account transfer",
+                            "Only for movements between accounts you own",
+                            Icons.Rounded.SwapHoriz, enabled = !busy,
+                            onClick = { onCorrection(TransactionCorrectionAction.MARK_OWN_TRANSFER) })
+                    }
+                    if (canExclude) item {
+                        CategoryTreatmentAction(
+                            "Exclude from tracked activity",
+                            "Remove from Activity totals; not just a category change",
+                            Icons.Rounded.Block, destructive = true, enabled = !busy,
+                            onClick = { onCorrection(TransactionCorrectionAction.EXCLUDE_ENTRY) })
                     }
                 }
             }
