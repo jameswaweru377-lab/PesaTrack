@@ -68,6 +68,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -343,8 +344,8 @@ fun ActivityScreen(
                 ?: emptyList()
         )
     }
-    var selectedFilter by remember {
-        mutableStateOf("All")
+    var selectedFilter by rememberSaveable {
+        mutableStateOf(if (openNeedsAttention) "Needs Review" else "All")
     }
     var cycles by remember { mutableStateOf<List<com.kedevjimmy.pesatrack.data.local.PayCycle>>(emptyList()) }
     var cycleSelection by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -903,14 +904,14 @@ fun ActivityScreen(
                 val h = size.height
                 drawCircle(
                     brush = Brush.radialGradient(
-                        listOf(Color(0xFFB9B2FF).copy(alpha = .40f), Color.Transparent),
+                        listOf(Color(0xFFB9B2FF).copy(alpha = .24f), Color.Transparent),
                         center = Offset(0f, 0f), radius = w * .95f),
                     center = Offset(0f, 0f), radius = w * .95f
                 )
                 drawCircle(
                     brush = Brush.radialGradient(
-                        listOf(Color(0xFF90D1FF).copy(alpha = .47f),
-                            Color(0xFFADBDFF).copy(alpha = .20f), Color.Transparent),
+                        listOf(Color(0xFF90D1FF).copy(alpha = .29f),
+                            Color(0xFFADBDFF).copy(alpha = .12f), Color.Transparent),
                         center = Offset(w * 1.07f, h * .08f), radius = w * .84f),
                     center = Offset(w * 1.07f, h * .08f), radius = w * .84f
                 )
@@ -1031,7 +1032,10 @@ fun ActivityScreen(
             item(key = "premium-filters") {
                 Box(Modifier.padding(bottom = 8.dp)) {
                     ActivityCompactFilters(selectedFilter,currentReviewCount) {
-                        selectedFilter = it
+                        if (selectedFilter != it) {
+                            selectedFilter = it
+                            selectedGlobalQueue = if (it == "Needs Review") "Attention" else null
+                        }
                     }
                 }
             }
@@ -1085,8 +1089,8 @@ fun ActivityScreen(
             }
 
             if (
-                selectedGlobalQueue ==
-                "Attention"
+                selectedFilter == "Needs Review" &&
+                selectedGlobalQueue == "Attention"
             ) {
                 if (needsAttentionCount == 0) {
                     item {
@@ -1859,7 +1863,17 @@ private fun FinancialAccountDiscoveryCard(
             accountsById = accountsById
         )
 
-    PesaCard {
+    val dark = androidx.compose.foundation.isSystemInDarkTheme()
+    val surfaceColor = if (dark) MaterialTheme.colorScheme.surfaceContainer else Color.White
+    val titleColor = if (dark) MaterialTheme.colorScheme.onSurface else HomeReferencePalette.ink
+    val supportingColor = if (dark) MaterialTheme.colorScheme.onSurfaceVariant else HomeReferencePalette.muted
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 9.dp),
+        shape = RoundedCornerShape(21.dp),
+        color = surfaceColor,
+        border = BorderStroke(1.dp, if (dark) MaterialTheme.colorScheme.outlineVariant else Color(0xFFE9E2FF)),
+        shadowElevation = if (dark) 0.dp else 1.dp
+    ) {
         Column(
             modifier =
                 Modifier.padding(15.dp),
@@ -1870,16 +1884,13 @@ private fun FinancialAccountDiscoveryCard(
                 verticalAlignment =
                     Alignment.CenterVertically
             ) {
-                IconBubble(
-                    icon =
-                        Icons.Rounded
-                            .AccountBalance,
-                    size = 44.dp,
-                    background =
-                        pesaToneContainer("violet"),
-                    tint =
-                        pesaToneContent("violet")
-                )
+                Surface(modifier = Modifier.size(44.dp), shape = RoundedCornerShape(14.dp),
+                    color = if (dark) MaterialTheme.colorScheme.primaryContainer else Color(0xFFEDE6FF)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.AccountBalance, null, Modifier.size(23.dp),
+                            tint = if (dark) MaterialTheme.colorScheme.onPrimaryContainer else HomeReferencePalette.purple)
+                    }
+                }
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -1887,18 +1898,22 @@ private fun FinancialAccountDiscoveryCard(
                 ) {
                     Text(
                         "Is this your account?",
-                        style =
-                            MaterialTheme.typography
-                                .titleMedium
+                        style = MaterialTheme.typography.titleMedium,
+                        color = titleColor
                     )
                     Text(
                         displayName,
-                        style =
-                            MaterialTheme.typography
-                                .titleLarge
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = titleColor
                     )
                 }
-                SmallStatusPill("Review")
+                Surface(shape = RoundedCornerShape(15.dp),
+                    color = if (dark) MaterialTheme.colorScheme.primaryContainer else Color(0xFFF2EAFF)) {
+                    Text("Review", Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (dark) MaterialTheme.colorScheme.onPrimaryContainer else HomeReferencePalette.purple)
+                }
             }
 
             Text(
@@ -1907,8 +1922,7 @@ private fun FinancialAccountDiscoveryCard(
                     MaterialTheme.typography
                         .bodyMedium,
                 color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
+                    supportingColor
             )
             Text(
                 ownershipEvidenceLabel(
@@ -1918,8 +1932,7 @@ private fun FinancialAccountDiscoveryCard(
                     MaterialTheme.typography
                         .bodySmall,
                 color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
+                    supportingColor
             )
 
             if (remainingCount > 0) {
@@ -1945,8 +1958,9 @@ private fun FinancialAccountDiscoveryCard(
 
             Button(
                 onClick = onReview,
-                modifier =
-                    Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(15.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = if (dark) MaterialTheme.colorScheme.primary else HomeReferencePalette.purple)
             ) {
                 Text("Review account")
             }
@@ -4147,9 +4161,9 @@ private fun ActivityRow(
     val iconTone = when {
         direction == MoneyDirection.INCOME -> "green"
         direction == MoneyDirection.TRANSFER -> "violet"
-        categoryName.contains("food", true) || categoryName.contains("dining", true) -> "amber"
-        categoryName.contains("shop", true) || categoryName.contains("grocer", true) -> "red"
-        categoryName.contains("utilit", true) || categoryName.contains("internet", true) -> "blue"
+        categoryId.contains("EATING", true) || categoryId.contains("FOOD", true) -> "amber"
+        categoryId.contains("SHOP", true) || categoryId.contains("GROCER", true) -> "red"
+        categoryId.contains("ELECT", true) || categoryId.contains("INTERNET", true) -> "blue"
         else -> "violet"
     }
     val amountColor = when {
@@ -4280,14 +4294,29 @@ private fun ActivityReferenceMerchantIcon(
         categoryId.contains("PHONE", true) -> Icons.Rounded.PhoneAndroid
         else -> Icons.AutoMirrored.Rounded.HelpOutline
     }
+    val dark = androidx.compose.foundation.isSystemInDarkTheme()
+    val background = when (tone) {
+        "green" -> Color(0xFFDFF9EF)
+        "red" -> Color(0xFFFFE7EF)
+        "amber" -> Color(0xFFFFECDD)
+        "blue" -> Color(0xFFE2EDFF)
+        else -> Color(0xFFECE6FF)
+    }
+    val foreground = when (tone) {
+        "green" -> Color(0xFF07825A)
+        "red" -> Color(0xFFF22567)
+        "amber" -> Color(0xFFFF7115)
+        "blue" -> Color(0xFF185EFF)
+        else -> Color(0xFF6832E9)
+    }
     Surface(
         modifier = Modifier.size(42.dp),
         shape = RoundedCornerShape(14.dp),
-        color = pesaToneContainer(tone)
+        color = if (dark) MaterialTheme.colorScheme.surfaceContainerHigh else background
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null,
-                modifier = Modifier.size(22.dp), tint = pesaToneContent(tone))
+                modifier = Modifier.size(22.dp), tint = if (dark) MaterialTheme.colorScheme.onSurface else foreground)
         }
     }
 }
