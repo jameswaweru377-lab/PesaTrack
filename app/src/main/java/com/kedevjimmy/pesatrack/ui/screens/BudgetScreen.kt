@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -61,8 +62,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.BudgetReadRepository
@@ -381,9 +384,10 @@ pendingBudgetRemoval?.let { candidate ->
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                 }
                 Column(Modifier.weight(1f)) {
-                    Text("Budgets", style = MaterialTheme.typography.headlineMedium)
+                    Text("Budgets", style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold)
                     Text(
-                        "Choose a limit. Activity tracks your spending.",
+                        "Plan your spending and stay on track.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -392,118 +396,45 @@ pendingBudgetRemoval?.let { candidate ->
         }
 
         item {
-            PesaCard {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        if (budgets.isEmpty()) "Create your first budget" else "Add another budget",
-                        style = if (budgets.isEmpty()) MaterialTheme.typography.titleLarge
-                            else MaterialTheme.typography.titleMedium
-                    )
-                    if (budgets.isEmpty()) {
-                        Text(
-                            "Choose a category, then set its spending limit.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+            Surface(shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(java.text.SimpleDateFormat("MMMM yyyy", androidx.compose.ui.platform.LocalConfiguration.current.locales[0])
+                        .format(java.util.Date()), modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold)
+                    Text("Current month",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
 
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                categoryExpanded = !categoryExpanded
-                            },
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(
-                                horizontal = 14.dp,
-                                vertical = 13.dp
-                            ),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Rounded.Add,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                "Choose a category",
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(start = 10.dp),
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Icon(
-                                if (categoryExpanded) {
-                                    Icons.Rounded.ExpandLess
-                                } else {
-                                    Icons.Rounded.ExpandMore
-                                },
-                                contentDescription = if (categoryExpanded) {
-                                    "Collapse categories"
-                                } else {
-                                    "Expand categories"
-                                },
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    if (categoryExpanded) {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "Categories",
-                                    modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                OutlinedButton(
-                                    onClick = {
-                                        showAddCategory = true
-                                    },
-                                    shape = RoundedCornerShape(999.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Rounded.Add,
-                                        contentDescription = null
-                                    )
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("New")
-                                }
-                            }
-
-                            categories.chunked(2).forEach { rowOptions ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement =
-                                        Arrangement.spacedBy(10.dp)
-                                ) {
-                                    rowOptions.forEach { category ->
-                                        BudgetCategoryTile(
-                                            category = category,
-                                            selected = false,
-                                            modifier = Modifier.weight(1f),
-                                            onClick = {
-                                                selectCategory(category)
-                                            }
-                                        )
-                                    }
-                                    if (rowOptions.size == 1) {
-                                        Spacer(Modifier.weight(1f))
-                                    }
-                                }
-                            }
+        item {
+            val limit = budgets.sumOf { it.limitMinor.coerceAtLeast(0L) }
+            val used = budgets.sumOf { (trackedByCategory[it.categoryId] ?: 0L).coerceAtLeast(0L) }
+            val remaining = (limit - used).coerceAtLeast(0L)
+            val fraction = if (limit > 0L) (used.toFloat() / limit.toFloat()).coerceIn(0f,1f) else 0f
+            VibrantPlanSurface {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(13.dp)) {
+                    VibrantRing(fraction, valueLabel = "${(fraction * 100).toInt()}%",
+                        subtitle = "limit used")
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("Spending limit", color = PlanVibrant.muted,
+                            style = MaterialTheme.typography.labelSmall)
+                        Text(formatBudgetMoney(limit), fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium)
+                        Text("Spent  " + formatBudgetMoney(used),
+                            color = PlanVibrant.pink, style = MaterialTheme.typography.bodySmall)
+                        Text("Remaining  " + formatBudgetMoney(remaining),
+                            color = PlanVibrant.mint, style = MaterialTheme.typography.bodySmall)
+                        if (used > limit && limit > 0L) {
+                            Text("Over limit by " + formatBudgetMoney(used - limit),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
@@ -512,7 +443,7 @@ pendingBudgetRemoval?.let { candidate ->
 
         item {
             Text(
-                "Your budgets",
+                "Category budgets",
                 style = MaterialTheme.typography.titleLarge
             )
         }
@@ -570,6 +501,132 @@ pendingBudgetRemoval?.let { candidate ->
                 )
             }
         }
+        item {
+            VibrantActionButton("+ Add budget", onClick = {
+                categoryExpanded = !categoryExpanded
+            })
+        }
+        if (categoryExpanded || budgets.isEmpty()) {
+            item {
+                PesaCard {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            if (budgets.isEmpty()) "Create your first budget" else "Add another budget",
+                            style = if (budgets.isEmpty()) MaterialTheme.typography.titleLarge
+                                else MaterialTheme.typography.titleMedium
+                        )
+                        if (budgets.isEmpty()) {
+                            Text(
+                                "Choose a category, then set its spending limit.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+    
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    categoryExpanded = !categoryExpanded
+                                },
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(
+                                    horizontal = 14.dp,
+                                    vertical = 13.dp
+                                ),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Add,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    "Choose a category",
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(start = 10.dp),
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Icon(
+                                    if (categoryExpanded) {
+                                        Icons.Rounded.ExpandLess
+                                    } else {
+                                        Icons.Rounded.ExpandMore
+                                    },
+                                    contentDescription = if (categoryExpanded) {
+                                        "Collapse categories"
+                                    } else {
+                                        "Expand categories"
+                                    },
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+    
+                        if (categoryExpanded) {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "Categories",
+                                        modifier = Modifier.weight(1f),
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    OutlinedButton(
+                                        onClick = {
+                                            showAddCategory = true
+                                        },
+                                        shape = RoundedCornerShape(999.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Rounded.Add,
+                                            contentDescription = null
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("New")
+                                    }
+                                }
+    
+                                categories.chunked(2).forEach { rowOptions ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement =
+                                            Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        rowOptions.forEach { category ->
+                                            BudgetCategoryTile(
+                                                category = category,
+                                                selected = false,
+                                                modifier = Modifier.weight(1f),
+                                                onClick = {
+                                                    selectCategory(category)
+                                                }
+                                            )
+                                        }
+                                        if (rowOptions.size == 1) {
+                                            Spacer(Modifier.weight(1f))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+    
+            }
     }
 }
 
@@ -715,78 +772,52 @@ private fun BudgetEditorSheet(
 
 @Composable
 private fun ExistingBudgetRow(
-    budget: MonthlyBudget,
-    categoryLabel: String,
-    spentMinor: Long,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
+    budget: MonthlyBudget, categoryLabel: String, spentMinor: Long,
+    onEdit: () -> Unit, onDelete: () -> Unit
 ) {
-    val remaining = (budget.limitMinor - spentMinor).coerceAtLeast(0L)
-    val progress = if (budget.limitMinor <= 0L) {
-        0f
-    } else {
-        spentMinor.toFloat() / budget.limitMinor.toFloat()
+    val ratio = if (budget.limitMinor > 0L)
+        (spentMinor.toFloat() / budget.limitMinor.toFloat()).coerceIn(0f,1f) else 0f
+    val over = spentMinor > budget.limitMinor
+    val tone = when {
+        over || ratio >= .9f -> "pink"
+        budget.categoryId.contains("RENT") || budget.categoryId.contains("HOUSE") -> "mint"
+        budget.categoryId.contains("FOOD") || budget.categoryId.contains("EATING") -> "orange"
+        else -> "blue"
     }
-
-    PesaCard {
-        Column(
-            modifier = Modifier.padding(15.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    categoryLabel,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    formatBudgetMoney(budget.limitMinor) + " limit",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+    val (_, color) = planVibrantTone(tone)
+    VibrantPlanSurface {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            VibrantPlanIcon(categoryIcon(budget.categoryId), tone, size = 43)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(categoryLabel, Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text("${(ratio * 100).toInt()}%" + if(over) "+" else "",
+                        style = MaterialTheme.typography.labelMedium, color = color,
+                        fontWeight = FontWeight.Bold)
+                }
+                Text(formatBudgetMoney(spentMinor) + " / " + formatBudgetMoney(budget.limitMinor),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LinearProgressIndicator(progress = { ratio },
+                    modifier = Modifier.fillMaxWidth().height(7.dp),
+                    color = color, trackColor = Color(0xFFECE8FA),
+                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round)
+                if (over) Text("Over limit by " + formatBudgetMoney(spentMinor - budget.limitMinor),
+                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
             }
-
-            Text(
-                "Spent " + formatBudgetMoney(spentMinor),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            LinearProgressIndicator(
-                progress = { progress.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Text(
-                if (spentMinor > budget.limitMinor) {
-                    formatBudgetMoney(
-                        spentMinor - budget.limitMinor
-                    ) + " over budget"
-                } else {
-                    formatBudgetMoney(remaining) + " remaining"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (spentMinor > budget.limitMinor) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                }
-            )
-
-            if (budget.limitMinor > budget.baseLimitMinor) Text("Includes " + formatBudgetMoney(budget.limitMinor - budget.baseLimitMinor) + " carried forward", style = MaterialTheme.typography.bodySmall)
-            BudgetTimingAction(budget)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = onEdit,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Edit")
-                }
-                TextButton(
-                    onClick = onDelete,
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                ) {
-                    Text("Remove", color = MaterialTheme.colorScheme.error)
-                }
+        }
+        if (budget.limitMinor > budget.baseLimitMinor) {
+            Text("Includes " + formatBudgetMoney(budget.limitMinor - budget.baseLimitMinor) + " carried forward",
+                style = MaterialTheme.typography.labelSmall)
+        }
+        BudgetTimingAction(budget)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onEdit, modifier = Modifier.weight(1f)) { Text("Edit") }
+            TextButton(onClick = onDelete,
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                Text("Remove", color = MaterialTheme.colorScheme.error)
             }
         }
     }

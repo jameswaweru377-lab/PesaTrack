@@ -147,40 +147,12 @@ private fun billDueLabel(
 
 @Composable
 private fun BillsPageHeader(onBack: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onBack) {
-            Icon(
-                Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = "Back"
-            )
+            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
         }
-        Column(Modifier.weight(1f)) {
-            Text(
-                "Bills & Reminders",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.ExtraBold
-            )
-            Text(
-                "Stay on top of your payments",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Surface(
-            modifier = Modifier.size(42.dp),
-            shape = RoundedCornerShape(14.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    Icons.Rounded.CalendarMonth,
-                    contentDescription = null
-                )
-            }
-        }
+        VibrantPlanPageTitle("Bills", "Keep track of your upcoming bills.",
+            Modifier.weight(1f))
     }
 }
 
@@ -227,10 +199,10 @@ private fun BillMonthSelector(
         Surface(
             modifier = Modifier.clickable { expanded = true },
             shape = RoundedCornerShape(50.dp),
-            color = Color.White.copy(alpha = .06f),
+            color = Color(0xFFF4F0FF),
             border = androidx.compose.foundation.BorderStroke(
                 1.dp,
-                Color.White.copy(alpha = .14f)
+                Color(0xFFE5DFF9)
             )
         ) {
             Row(
@@ -245,13 +217,13 @@ private fun BillMonthSelector(
                             .format(billMonth(monthOffset).time)
                     },
                     style = MaterialTheme.typography.labelMedium,
-                    color = Color.White
+                    color = PlanVibrant.ink
                 )
                 Icon(
                     Icons.Rounded.KeyboardArrowDown,
                     contentDescription = null,
                     modifier = Modifier.padding(start = 3.dp).size(17.dp),
-                    tint = Color.White
+                    tint = PlanVibrant.violet
                 )
             }
         }
@@ -291,83 +263,31 @@ private fun BillMonthSelector(
 
 @Composable
 private fun BillsHero(
-    bills: List<ScheduledBill>,
-    monthOffset: Int,
-    onMonthSelected: (Int) -> Unit
+    bills: List<ScheduledBill>, monthOffset: Int, onMonthSelected: (Int) -> Unit
 ) {
-    val dueBills = bills.filter { it.remainingMinor > 0L }
-    val amount = dueBills.sumOf { it.remainingMinor }
-    val earliest = dueBills.mapNotNull { it.nextDueEpochMs }.minOrNull()
-    val days = earliest?.let {
-        TimeUnit.MILLISECONDS.toDays(
-            it - System.currentTimeMillis()
-        ).coerceAtLeast(0L)
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        color = Color(0xFF111827),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            Color(0xFF433BB8)
-        )
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.Top) {
-                Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Rounded.EventNote,
-                            contentDescription = null,
-                            modifier = Modifier.size(22.dp),
-                            tint = Color(0xFF55E6D1)
-                        )
-                        Text(
-                            if (monthOffset == 0) {
-                                "Upcoming Bills This Month"
-                            } else {
-                                "Upcoming Bills"
-                            },
-                            modifier = Modifier.padding(start = 8.dp),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = .78f)
-                        )
-                    }
-                    Text(
-                        billMoney(amount),
-                        modifier = Modifier.padding(top = 7.dp),
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White
-                    )
-                    Text(
-                        buildString {
-                            append(dueBills.size)
-                            append(
-                                if (dueBills.size == 1) {
-                                    " bill left"
-                                } else {
-                                    " bills left"
-                                }
-                            )
-                            days?.let {
-                                append("  •  Due in ")
-                                append(it)
-                                append(if (it == 1L) " day" else " days")
-                            }
-                        },
-                        modifier = Modifier.padding(top = 4.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = .74f)
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    BillMonthSelector(monthOffset, onMonthSelected)
-                    Spacer(Modifier.height(8.dp))
-                    if (dueBills.isNotEmpty()) BillHeroBars()
-                }
+    val due = bills.filter { it.remainingMinor > 0L }
+    val total = due.sumOf { it.remainingMinor }
+    val earliest = due.mapNotNull { it.nextDueEpochMs }.minOrNull()
+    val days = earliest?.let { java.util.concurrent.TimeUnit.MILLISECONDS.toDays(
+        it - System.currentTimeMillis()) }
+    VibrantPlanSurface {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(13.dp)) {
+            VibrantPlanIcon(Icons.Rounded.EventNote, "orange", size = 55)
+            Column(Modifier.weight(1f)) {
+                Text("Upcoming commitments", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(billMoney(total), style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold)
+                Text(if(due.isEmpty()) "No outstanding bills"
+                    else if (days != null) {
+                        if (days < 0) "Overdue commitments need attention"
+                        else "Next due in " + days + if(days == 1L) " day" else " days"
+                    } else "${due.size} commitments pending",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            BillMonthSelector(monthOffset, onMonthSelected)
         }
     }
 }
@@ -449,11 +369,11 @@ private fun BillWeekStrip(
                     Surface(
                         modifier = Modifier.weight(1f).height(72.dp),
                         shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        color = if (selected) PlanVibrant.violet
+                            else MaterialTheme.colorScheme.surfaceVariant,
                         border = if (selected) {
                             androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                Color(0xFF55E6D1)
+                                1.dp, PlanVibrant.violet
                             )
                         } else null
                     ) {
@@ -466,13 +386,14 @@ private fun BillWeekStrip(
                                     .format(day.time)
                                     .take(3),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 day.get(Calendar.DAY_OF_MONTH).toString(),
                                 modifier = Modifier.padding(top = 3.dp),
                                 style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface
                             )
                             if (dayBills.isNotEmpty()) {
                                 Row(
@@ -620,126 +541,30 @@ private fun BillCalendarSheet(
 }
 
 @Composable
-private fun BillReferenceRow(
-    bill: ScheduledBill,
-    locale: Locale,
-    onClick: () -> Unit
-) {
+private fun BillReferenceRow(bill: ScheduledBill, locale: Locale, onClick: () -> Unit) {
     val visual = billVisual(bill)
     val status = billStatus(bill)
     val planned = bill.rule.plannedAmountMinor ?: bill.expectedMinor
-
-    PesaCard(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                modifier = Modifier.size(52.dp),
-                shape = RoundedCornerShape(15.dp),
-                color = visual.color.copy(alpha = .12f)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        visual.icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(29.dp),
-                        tint = visual.color
-                    )
-                }
+    val tone = if (status.second == "red") "pink" else if (status.second == "green") "mint" else "blue"
+    VibrantPlanSurface(modifier = Modifier.clickable(onClick = onClick)) {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            VibrantPlanIcon(visual.icon, tone, size = 44)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(bill.rule.displayLabel ?: bill.rule.name,
+                    fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(billDueLabel(bill, locale),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall)
+                Text(status.first, style = MaterialTheme.typography.labelSmall,
+                    color = if(status.second == "red") PlanVibrant.pink
+                    else if(status.second == "green") PlanVibrant.mint else PlanVibrant.orange)
             }
-            Column(
-                modifier = Modifier.weight(1f).padding(start = 11.dp)
-            ) {
-                Text(
-                    bill.rule.displayLabel ?: bill.rule.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    billMoney(planned),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Row(
-                    modifier = Modifier.padding(top = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Rounded.CalendarMonth,
-                        null,
-                        Modifier.size(15.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        billDueLabel(bill, locale),
-                        modifier = Modifier.padding(start = 5.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (
-                            status.first == "Due Soon" ||
-                            status.first == "Overdue"
-                        ) {
-                            pesaToneContent("red")
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(7.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(50.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        MaterialTheme.colorScheme.outline
-                    )
-                ) {
-                    Text(
-                        "Recurring · " +
-                            when (bill.cadence) {
-                                BillCadence.MONTHLY -> "Monthly"
-                                BillCadence.WEEKLY -> "Weekly"
-                            },
-                        modifier = Modifier.padding(
-                            horizontal = 8.dp,
-                            vertical = 5.dp
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(50.dp),
-                    color = pesaToneContainer(if (status.second == "red") "red" else if (status.second == "green") "green" else "amber")
-                ) {
-                    Text(
-                        status.first,
-                        modifier = Modifier.padding(
-                            horizontal = 9.dp,
-                            vertical = 5.dp
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = pesaToneContent(if (status.second == "red") "red" else if (status.second == "green") "green" else "amber")
-                    )
-                }
-            }
-            Icon(
-                Icons.AutoMirrored.Rounded.ArrowForward,
-                null,
-                Modifier.padding(start = 6.dp).size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text(billMoney(planned), style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold)
+            Icon(Icons.AutoMirrored.Rounded.ArrowForward, "Edit bill", Modifier.size(19.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -971,7 +796,6 @@ fun BillsRemindersScreen(
     ) {
         item { ConceptLoadError(loadError) { retryLoad++ } }
         item { BillsPageHeader(onBack) }
-        item { SuggestedBillsPanel() }
         if (incompleteBills.isNotEmpty()) item {
             PesaCard {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1012,6 +836,7 @@ fun BillsRemindersScreen(
                 onOpenCalendar = { showCalendar = true }
             )
         }
+        item { SuggestedBillsPanel() }
         item {
             OutlinedButton(
                 onClick = {
@@ -1038,7 +863,7 @@ fun BillsRemindersScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Bills (" + bills.size + ")",
+                    "Upcoming bills (" + bills.size + ")",
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
@@ -1115,6 +940,12 @@ fun BillsRemindersScreen(
             }
         }
 
+        item {
+            VibrantActionButton("+ Add bill", onClick = {
+                editingBill = null
+                billEditor = true
+            })
+        }
         if (bills.isNotEmpty()) {
             item {
                 BillReminderCard(schedules)
