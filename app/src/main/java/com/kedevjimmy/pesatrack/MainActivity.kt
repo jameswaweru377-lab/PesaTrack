@@ -156,7 +156,7 @@ class MainActivity : ComponentActivity() {
             }
 
             androidx.compose.runtime.SideEffect {
-                val darkSurface = useDark || (appLocked && appLockManager.isEnabled()) || welcomeVisible
+                val darkSurface = useDark || (appLocked && appLockManager.isEnabled()) || (!showLaunchSplash && welcomeVisible)
                 val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
                 controller.isAppearanceLightStatusBars = !darkSurface
                 controller.isAppearanceLightNavigationBars = !darkSurface
