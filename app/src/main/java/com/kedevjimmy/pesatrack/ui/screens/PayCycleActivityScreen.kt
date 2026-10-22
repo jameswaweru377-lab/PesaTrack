@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -21,10 +22,13 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
 import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
@@ -104,12 +108,13 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
     val index = cycles.indexOf(selected)
     LazyColumn(Modifier.fillMaxSize().padding(scaffoldPadding), contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { SpendingPeriodSelector(true, onCalendar, {}) }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onCalendar) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back to Plan")
+                }
                 Column(Modifier.weight(1f)) {
-                    Text("This pay cycle", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("From one salary receipt to the next", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    VibrantPlanPageTitle("Pay cycle", "Track your salary cycle and plan ahead.")
                 }
                 IconButton(onClick = { showHelp = true }) { Icon(Icons.Rounded.Info, "How pay cycles work") }
             }
@@ -152,56 +157,25 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                             CheckedMoney.negate(savedMinor), CheckedMoney.negate(investedMinor), CheckedMoney.negate(debtMinor)) }
 
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        ConceptEmeraldHero(
-                            title = "Cycle surplus",
-                            amount = surplus?.let(::salaryMoney) ?: "Amount unavailable",
-                            subtitle = "After spending, fees, savings, investments and debt repayments",
-                            artwork = false,
-                            eyebrow = if (selected.endEpochMs == null) "Current pay cycle" else "Completed pay cycle",
-                            footer = if (ledger.summary.needsReviewCount > 0) {
-                                "${ledger.summary.needsReviewCount} pending reviews are excluded from totals"
-                            } else {
-                                "Transfers between your own accounts stay separate"
-                            }
+                        VibrantCycleHero(
+                            salary = salaryMoney(selected.openingIncomeMinor),
+                            spent = salaryMoney(ledger.summary.spentMinor),
+                            saved = savedMinor?.let(::salaryMoney) ?: "Unavailable",
+                            surplus = surplus?.let(::salaryMoney) ?: "Unavailable",
+                            salaryMinor = selected.openingIncomeMinor,
+                            spentMinor = ledger.summary.spentMinor,
+                            savedMinor = savedMinor,
+                            onSalaryClick = onSalaryClick
                         )
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            ConceptMetricTile(
-                                Icons.Rounded.SouthWest,
-                                "Money in",
-                                salaryMoney(ledger.summary.incomeMinor),
-                                Modifier.weight(1f),
-                                true
-                            )
-                            ConceptMetricTile(
-                                Icons.Rounded.NorthEast,
-                                "Spent",
-                                salaryMoney(ledger.summary.spentMinor),
-                                Modifier.weight(1f),
-                                false
-                            )
+                        if (ledger.summary.needsReviewCount > 0) {
+                            Text("${ledger.summary.needsReviewCount} pending reviews are excluded from totals",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            ConceptMetricTile(
-                                Icons.Rounded.Savings,
-                                "Saved",
-                                savedMinor?.let(::salaryMoney) ?: "Amount unavailable",
-                                Modifier.weight(1f),
-                                true
-                            )
-                            ConceptMetricTile(
-                                Icons.Rounded.TrendingUp,
-                                "Invested",
-                                investedMinor?.let(::salaryMoney) ?: "Amount unavailable",
-                                Modifier.weight(1f),
-                                true
-                            )
-                        }
+                        Text("Invested " + (investedMinor?.let(::salaryMoney) ?: "Unavailable")
+                            + "  •  Debt repayments " + (debtMinor?.let(::salaryMoney) ?: "Unavailable"),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
                             "Fees " + salaryMoney(ledger.summary.feesMinor) +
                                 " • Transfers " + salaryMoney(ledger.summary.transferMinor),
@@ -221,6 +195,7 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                         }
                     }
                 }
+                item { VibrantPlanSectionTitle("Cycle activity") }
                 item {
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf("All", "Spending", "Income", "Transfers").forEach { choice ->
@@ -264,25 +239,87 @@ private fun CycleMetric(label: String, minor: Long, modifier: Modifier) {
 }
 
 @Composable
-private fun CycleTransactionRow(transaction: StoredTransaction, category: String, onClick: () -> Unit) {
+private fun CycleTransactionRow(
+    transaction: StoredTransaction, category: String, onClick: () -> Unit
+) {
     val locale = LocalConfiguration.current.locales[0] ?: Locale.US
-    Surface(Modifier.fillMaxWidth().clickable(onClick = onClick), shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            val income = transaction.direction == "INCOME"
-            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer) {
-                Icon(if (income) Icons.Rounded.SouthWest else if (transaction.direction == "TRANSFER") Icons.Rounded.SwapHoriz else Icons.Rounded.NorthEast,
-                    contentDescription = null, modifier = Modifier.padding(10.dp).size(20.dp), tint = MaterialTheme.colorScheme.primary)
+    val income = transaction.direction == "INCOME"
+    val transfer = transaction.direction == "TRANSFER"
+    val label = transaction.counterparty?.takeIf {
+        it.isNotBlank() && it != transaction.category
+    } ?: category
+    val amount = (if(income) "+" else if(transfer) "" else "−") +
+        salaryMoney(transaction.amountMinor)
+    val detail = category + " · " + SimpleDateFormat("d MMM yyyy",locale)
+        .format(transaction.occurredAtEpochMs) +
+        if(transaction.reviewState == "EXCLUDED") " · Excluded"
+        else if (transaction.reviewState == "NEEDS_REVIEW" ||
+            transaction.cycleCandidateReason != null) " · Needs review" else ""
+    VibrantPlanSurface {
+        VibrantPlanListRow(
+            if(income) Icons.Rounded.SouthWest
+                else if(transfer) Icons.Rounded.SwapHoriz
+                else Icons.Rounded.NorthEast,
+            if(income) "mint" else if(transfer) "violet" else "pink",
+            label, detail, amount, onClick
+        )
+    }
+}
+
+@Composable
+private fun VibrantCycleHero(
+    salary: String, spent: String, saved: String, surplus: String,
+    salaryMinor: Long, spentMinor: Long, savedMinor: Long?,
+    onSalaryClick: () -> Unit
+) {
+    val base = salaryMinor.coerceAtLeast(1L).toFloat()
+    val spending = (spentMinor / base).coerceIn(0f,1f)
+    val savings = ((savedMinor ?: 0L) / base).coerceIn(0f,1f)
+    Surface(shape = RoundedCornerShape(22.dp),
+        modifier = Modifier.fillMaxWidth(), color = PlanVibrant.violet) {
+        Column(Modifier.fillMaxWidth()
+            .background(Brush.linearGradient(listOf(Color(0xFF6B23F8),
+                Color(0xFF3A05C3),Color(0xFF0666DA))))
+            .padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Confirmed salary", color = Color.White.copy(alpha = .83f),
+                        fontSize = 12.sp)
+                    Text(salary, color = Color.White, fontSize = 29.sp,
+                        fontWeight = FontWeight.ExtraBold)
+                }
+                OutlinedButton(onClick = onSalaryClick,
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp, Color.White.copy(alpha = .65f)),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color.White),
+                    contentPadding = PaddingValues(horizontal = 10.dp)) {
+                    Text("Manage salary", fontSize = 11.sp)
+                }
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(transaction.counterparty?.takeIf { it.isNotBlank() && it != transaction.category } ?: category,
-                    style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                Text(category + " · " + SimpleDateFormat("HH:mm", locale).format(transaction.occurredAtEpochMs),
-                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (transaction.reviewState == "EXCLUDED") Text("Excluded", style = MaterialTheme.typography.labelSmall)
-                else if (transaction.reviewState == "NEEDS_REVIEW" || transaction.cycleCandidateReason != null) Text("Needs review", style = MaterialTheme.typography.labelSmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text("Spent", color = Color.White.copy(alpha = .78f), fontSize = 11.sp)
+                    Text(spent, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Saved", color = Color.White.copy(alpha = .78f), fontSize = 11.sp)
+                    Text(saved, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Cycle surplus", color = Color.White.copy(alpha = .78f), fontSize = 11.sp)
+                    Text(surplus, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
             }
-            Text((if (income) "+" else if (transaction.direction == "EXPENSE") "−" else "") + salaryMoney(transaction.amountMinor),
-                style = MaterialTheme.typography.labelLarge, color = if (income) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+            Row(Modifier.fillMaxWidth().height(9.dp)
+                .background(Color.White.copy(alpha = .23f),RoundedCornerShape(50.dp))) {
+                Box(Modifier.fillMaxHeight().fillMaxWidth(spending)
+                    .background(Color(0xFFFF72A4), RoundedCornerShape(50.dp)))
+            }
+            Text("Spent ${(spending*100).toInt()}% of confirmed salary  •  Saved ${(savings*100).toInt()}%",
+                color = Color.White.copy(alpha = .92f), fontSize = 11.sp)
+            Text("Planning figure, not account balance.",
+                color = Color.White.copy(alpha = .84f), fontSize = 11.sp)
         }
     }
 }
