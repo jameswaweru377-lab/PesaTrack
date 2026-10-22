@@ -108,15 +108,18 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
     val index = cycles.indexOf(selected)
     LazyColumn(Modifier.fillMaxSize().padding(scaffoldPadding), contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { SpendingPeriodSelector(true, onCalendar, {}) }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onCalendar) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back to Plan")
+                }
                 Column(Modifier.weight(1f)) {
                     VibrantPlanPageTitle("Pay cycle", "Track your salary cycle and plan ahead.")
                 }
                 IconButton(onClick = { showHelp = true }) { Icon(Icons.Rounded.Info, "How pay cycles work") }
             }
         }
+        item { SpendingPeriodSelector(true, onCalendar, {}) }
         if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         error?.let { item { Text(it); Button(onClick = { retry++ }) { Text("Try again") } } }
         if (!loading && error == null && selected == null) item {

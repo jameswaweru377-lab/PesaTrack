@@ -796,7 +796,6 @@ fun BillsRemindersScreen(
     ) {
         item { ConceptLoadError(loadError) { retryLoad++ } }
         item { BillsPageHeader(onBack) }
-        item { SuggestedBillsPanel() }
         if (incompleteBills.isNotEmpty()) item {
             PesaCard {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -837,6 +836,7 @@ fun BillsRemindersScreen(
                 onOpenCalendar = { showCalendar = true }
             )
         }
+        item { SuggestedBillsPanel() }
         item {
             OutlinedButton(
                 onClick = {

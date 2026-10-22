@@ -396,6 +396,23 @@ pendingBudgetRemoval?.let { candidate ->
         }
 
         item {
+            Surface(shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.getDefault())
+                        .format(java.util.Date()), modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold)
+                    Text("Current month",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
+        item {
             val limit = budgets.sumOf { it.limitMinor.coerceAtLeast(0L) }
             val used = budgets.sumOf { (trackedByCategory[it.categoryId] ?: 0L).coerceAtLeast(0L) }
             val remaining = (limit - used).coerceAtLeast(0L)

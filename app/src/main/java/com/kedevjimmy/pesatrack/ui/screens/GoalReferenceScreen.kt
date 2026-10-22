@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -187,8 +188,14 @@ private fun goalProgressMessage(model: GoalCardModel): String {
 }
 
 @Composable
-private fun GoalPageHeader() {
-    VibrantPlanPageTitle("Goals", "Save for what matters to you.")
+private fun GoalPageHeader(onBack: () -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onBack) {
+            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back to Plan")
+        }
+        VibrantPlanPageTitle("Goals", "Save for what matters to you.",
+            Modifier.weight(1f))
+    }
 }
 
 private fun goalReferenceAsset(
@@ -776,7 +783,7 @@ fun SavingGoalsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { ConceptLoadError(loadError) { retryLoad++ } }
-        item { GoalPageHeader() }
+        item { GoalPageHeader(onBack) }
         item {
             GoalHero(
                 totalSavedMinor = totalSaved,
