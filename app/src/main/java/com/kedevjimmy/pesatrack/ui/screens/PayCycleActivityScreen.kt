@@ -281,46 +281,46 @@ private fun VibrantCycleHero(
         color = MaterialTheme.colorScheme.surface,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(Modifier.fillMaxWidth().padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("Confirmed salary", color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelMedium)
-                    Text(salary, color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
+                    Text("Confirmed salary", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                    Text(salary, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
                 }
-                OutlinedButton(onClick = onSalaryClick,
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
-                    Text("Manage salary", style = MaterialTheme.typography.labelMedium)
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(shape = RoundedCornerShape(50.dp), color = Color(0xFFE2F8EF)) {
+                        Text("Cycle active", modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            color = Color(0xFF147D58), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                    }
+                    OutlinedButton(onClick = onSalaryClick, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp)) {
+                        Text("Manage salary", style = MaterialTheme.typography.labelMedium)
+                    }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Spent", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
-                    Text(spent, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Saved", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
-                    Text(saved, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Cycle surplus", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
-                    Text(surplus, color = if (surplus.startsWith("-")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CycleSummaryMetric("Spent", spent, MaterialTheme.colorScheme.error, Modifier.weight(1f))
+                CycleSummaryMetric("Saved", saved, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+                CycleSummaryMetric("Cycle surplus", surplus,
+                    if (surplus.startsWith("-")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    Modifier.weight(1f))
             }
             Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Row(Modifier.fillMaxWidth().height(8.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(50.dp))) {
-                    Box(Modifier.fillMaxHeight().fillMaxWidth(spending)
-                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(50.dp)))
+                Box(Modifier.fillMaxWidth().height(8.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(50.dp))) {
+                    Box(Modifier.fillMaxHeight().fillMaxWidth(spending).background(PlanVibrant.violet, RoundedCornerShape(50.dp)))
                 }
-                Text("Spent ${(spending * 100).toInt()}% of confirmed salary  •  Saved ${(savings * 100).toInt()}%",
+                Text("Spent " + (spending * 100).toInt() + "% of confirmed salary  •  Saved " + (savings * 100).toInt() + "%",
                     color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             }
-            Text("Planning figure, not account balance.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+            Text("Planning figure, not account balance.", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall)
         }
+    }
+}
+
+@Composable
+private fun CycleSummaryMetric(label: String, amount: String, amountColor: Color, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+        Text(amount, color = amountColor, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 2)
     }
 }
