@@ -263,7 +263,7 @@ fun PlanScreen(
                     if (onSalaryClick != null) VibrantActionButton("Add confirmed salary", onSalaryClick)
                 }
             } else {
-                val period = formatPlanDate(snapshot.cycle.startEpochMs) + " → next salary"
+                val period = snapshot.cycle?.let { formatPlanDate(it.startEpochMs) + " → next salary" } ?: "Current cycle"
                 VibrantPlanHero(
                     period = period,
                     available = formatPlanMoney(planningAvailability.availableMinor),
