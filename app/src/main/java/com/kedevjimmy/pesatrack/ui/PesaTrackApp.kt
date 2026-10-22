@@ -47,6 +47,7 @@ import com.kedevjimmy.pesatrack.ui.screens.MoreScreen
 import com.kedevjimmy.pesatrack.ui.screens.StatementActivityDialog
 import com.kedevjimmy.pesatrack.ui.screens.MpesaConnectionScreen
 import com.kedevjimmy.pesatrack.ui.screens.OnboardingScreen
+import com.kedevjimmy.pesatrack.ui.screens.PayCycleActivityScreen
 import com.kedevjimmy.pesatrack.ui.screens.PlanScreen
 import com.kedevjimmy.pesatrack.ui.screens.ProfileScreen
 import com.kedevjimmy.pesatrack.ui.screens.ReportsInsightsScreen
@@ -483,7 +484,24 @@ fun PesaTrackApp(
                             "salary"
                         )
                     },
-                    onBillsClick = { navController.navigate("bills") }
+                    onBillsClick = { navController.navigate("bills") },
+                    onPayCycleClick = { navController.navigate("pay-cycle") }
+                )
+            }
+        }
+
+        composable("pay-cycle") {
+            AppScaffold(
+                onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
+                onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
+                currentTab = MainTab.PLAN,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                PayCycleActivityScreen(
+                    scaffoldPadding = padding,
+                    onCalendar = { navController.popBackStack() },
+                    onSalaryClick = { navController.navigate("salary") },
+                    onTransactionClick = { id -> navController.navigate("transaction-detail/$" + "id") }
                 )
             }
         }
@@ -557,7 +575,7 @@ fun PesaTrackApp(
 
         composable("bills") {
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
-                currentTab = MainTab.MORE,
+                currentTab = MainTab.PLAN,
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 BillsRemindersScreen(

@@ -106,6 +106,7 @@ fun PlanScreen(
     onGoalsClick: (() -> Unit)? = null,
     onSalaryClick: (() -> Unit)? = null,
     onBillsClick: (() -> Unit)? = null,
+    onPayCycleClick: (() -> Unit)? = null,
     stateCache: PlanScreenCache? = null
 ) {
     val context = LocalContext.current
@@ -248,113 +249,87 @@ fun PlanScreen(
             }
         }
         item {
-            Column {
-                Text("Your plan", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    "A clear next step for your money.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            VibrantPlanPageTitle("Plan", "Make every shilling count.")
         }
 
         item {
             if (snapshot.cycle == null) {
-                PesaCard {
-                    Column(
-                        Modifier.fillMaxWidth().padding(15.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconBubble(
-                                Icons.Rounded.WarningAmber,
-                                size = 42.dp,
-                                background = pesaToneContainer("amber"),
-                                tint = pesaToneContent("amber")
-                            )
-                            Column(Modifier.weight(1f).padding(start = 11.dp)) {
-                                Text("Salary not confirmed yet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    "Confirm a salary you received to build an accurate plan.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-                        if (onSalaryClick != null) {
-                            Button(onClick = onSalaryClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
-                                Icon(Icons.Rounded.Paid, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Add confirmed salary")
-                            }
-                        }
-                    }
+                VibrantPlanSurface {
+                    Text("Start your financial plan", style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold)
+                    Text("Confirm a salary you've received to calculate a reliable plan.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (onSalaryClick != null) VibrantActionButton("Add confirmed salary", onSalaryClick)
                 }
             } else {
-                PlanHero(snapshot = snapshot, planningAvailability = planningAvailability)
+                val period = formatPlanDate(snapshot.cycle.startEpochMs) + " → next salary"
+                VibrantPlanHero(
+                    period = period,
+                    available = formatPlanMoney(planningAvailability.availableMinor),
+                    safeToday = snapshot.safeTodayMinor?.let(::formatPlanMoney) ?: "Learning",
+                    onCycleClick = onPayCycleClick
+                )
             }
         }
-
-        item { SectionHeader("Coming up next") }
         item {
-            val nextBill = upcomingBills.firstOrNull()
-            PesaCard(
-                modifier = if (onBillsClick != null) Modifier.fillMaxWidth().clickable(onClick = onBillsClick) else Modifier.fillMaxWidth()
-            ) {
-                Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconBubble(
-                        Icons.Rounded.CalendarMonth,
-                        size = 42.dp,
-                        background = pesaToneContainer(if (nextBill == null) "green" else "amber"),
-                        tint = pesaToneContent(if (nextBill == null) "green" else "amber")
-                    )
-                    Column(Modifier.weight(1f).padding(start = 11.dp, end = 8.dp)) {
-                        Text(nextBill?.rule?.displayLabel ?: nextBill?.rule?.name ?: "No bills coming up", style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                        Text(
-                            nextBill?.let { planBillDueLabel(it.nextDueEpochMs) } ?: "You’re all clear for now.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+            VibrantPlanSurface {
+                VibrantPlanSectionTitle("Your plan")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    VibrantDestinationTile(Icons.Rounded.BarChart, "Budgets",
+                        if (monthlyBudgets.isEmpty()) "Set your first limit"
+                        else "${monthlyBudgets.size} active budgets", "pink",
+                        onBudgetClick, Modifier.weight(1f))
+                    VibrantDestinationTile(Icons.Rounded.TrackChanges, "Goals",
+                        if (savingsGoals.isEmpty()) "Set your first goal"
+                        else "${savingsGoals.size} savings goals", "mint",
+                        onGoalsClick, Modifier.weight(1f))
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    VibrantDestinationTile(Icons.Rounded.CalendarMonth, "Pay cycle",
+                        if (snapshot.cycle == null) "Awaiting salary"
+                        else "Review cycle", "blue",
+                        onPayCycleClick, Modifier.weight(1f))
+                    VibrantDestinationTile(Icons.Rounded.Repeat, "Bills",
+                        if (upcomingBills.isEmpty()) "No bills due"
+                        else "${upcomingBills.size} upcoming", "orange",
+                        onBillsClick, Modifier.weight(1f))
+                }
+            }
+        }
+        item {
+            VibrantPlanSurface {
+                VibrantPlanSectionTitle("Coming up next", "See all", onBillsClick)
+                if (upcomingBills.isEmpty()) {
+                    Text("No upcoming bills. You're all clear for now.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    upcomingBills.take(2).forEachIndexed { index, bill ->
+                        VibrantPlanListRow(Icons.Rounded.CalendarMonth,
+                            if (index == 0) "orange" else "violet",
+                            bill.rule.displayLabel ?: bill.rule.name,
+                            planBillDueLabel(bill.nextDueEpochMs),
+                            formatPlanMoney(bill.remainingMinor), onBillsClick)
+                        if (index == 0 && upcomingBills.size > 1) {
+                            androidx.compose.material3.HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .6f))
+                        }
                     }
-                    if (nextBill != null) BillAmountPill(formatPlanMoney(nextBill.remainingMinor))
-                    if (onBillsClick != null) Icon(Icons.Rounded.ChevronRight, contentDescription = "Open bills", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
-
-        item { SectionHeader("Go to a plan page") }
-        item {
-            PesaCard {
-                Column(Modifier.padding(horizontal = 14.dp)) {
-                    PlanDestinationRow(
-                        icon = Icons.Rounded.BarChart,
-                        title = "Budget",
-                        subtitle = if (monthlyBudgets.isEmpty()) "Set limits and track spending" else "${monthlyBudgets.size} ${if (monthlyBudgets.size == 1) "budget" else "budgets"} · view progress",
-                        tone = "green",
-                        onClick = onBudgetClick
-                    )
-                    PlanDestinationRow(
-                        icon = Icons.Rounded.Savings,
-                        title = "Goals",
-                        subtitle = if (savingsGoals.isEmpty()) "Track progress toward savings targets" else "${savingsGoals.size} active ${if (savingsGoals.size == 1) "goal" else "goals"} · keep saving",
-                        tone = "blue",
-                        onClick = onGoalsClick
-                    )
-                    PlanDestinationRow(
-                        icon = Icons.Rounded.CalendarMonth,
-                        title = "Pay cycle",
-                        subtitle = if (snapshot.cycle == null) "Add confirmed income and cycle dates" else "Review confirmed income and cycle dates",
-                        tone = "amber",
-                        onClick = onSalaryClick
-                    )
-                    PlanDestinationRow(
-                        icon = Icons.Rounded.Repeat,
-                        title = "Bills & recurring",
-                        subtitle = if (upcomingBills.isEmpty()) "Review upcoming and recurring payments" else "${upcomingBills.size} upcoming · manage payments",
-                        tone = "violet",
-                        onClick = onBillsClick
-                    )
-                }
+        if (snapshot.cycle != null) item {
+            val base = (snapshot.startingFundsMinor + snapshot.additionalIncomeMinor)
+                .coerceAtLeast(1L).toFloat()
+            val spent = (snapshot.spentMinor.toFloat() / base).coerceIn(0f,1f)
+            val saved = (snapshot.savingsMinor.toFloat() / base).coerceIn(0f,1f)
+            VibrantPlanSurface {
+                VibrantPlanSectionTitle("Your progress", "View cycle", onPayCycleClick)
+                VibrantPlanMeter("Cycle spent", "${(spent * 100).toInt()}%",
+                    spent, Icons.Rounded.BarChart, "violet")
+                VibrantPlanMeter("Cycle saved", "${(saved * 100).toInt()}%",
+                    saved, Icons.Rounded.Savings, "mint")
             }
         }
         if (

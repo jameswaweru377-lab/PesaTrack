@@ -188,48 +188,7 @@ private fun goalProgressMessage(model: GoalCardModel): String {
 
 @Composable
 private fun GoalPageHeader() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(
-                "Goals",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.ExtraBold
-            )
-            Text(
-                "Turn your dreams into a plan",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Surface(
-            shape = RoundedCornerShape(50.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("My Goals", style = MaterialTheme.typography.labelMedium)
-                Icon(
-                    Icons.Rounded.KeyboardArrowDown,
-                    contentDescription = null,
-                    modifier = Modifier.padding(start = 4.dp).size(18.dp)
-                )
-            }
-        }
-        Surface(
-            modifier = Modifier.padding(start = 8.dp).size(42.dp),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Notifications, contentDescription = null)
-            }
-        }
-    }
+    VibrantPlanPageTitle("Goals", "Save for what matters to you.")
 }
 
 private fun goalReferenceAsset(
@@ -430,85 +389,34 @@ private fun GoalHeroMetric(
 
 @Composable
 private fun GoalHero(
-    totalSavedMinor: Long,
-    currentMonthMinor: Long,
-    previousMonthMinor: Long,
-    averageProgress: Int,
-    totalTargetMinor: Long
+    totalSavedMinor: Long, currentMonthMinor: Long, previousMonthMinor: Long,
+    averageProgress: Int, totalTargetMinor: Long
 ) {
-    val growthLabel = when {
-        previousMonthMinor > 0L -> {
-            val percent = (
-                (currentMonthMinor - previousMonthMinor) * 100.0 /
-                    previousMonthMinor.toDouble()
-                ).roundToInt()
-            val direction = if (percent >= 0) "↑" else "↓"
-            "$direction ${abs(percent)}% from last month"
+    val progress = if (totalTargetMinor > 0L)
+        (totalSavedMinor.toFloat() / totalTargetMinor.toFloat()).coerceIn(0f,1f) else 0f
+    VibrantPlanSurface {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("Total saved toward goals", style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(goalMoney(totalSavedMinor), style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.ExtraBold)
+                Text("of " + goalMoney(totalTargetMinor), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            VibrantPlanIcon(Icons.Rounded.TrackChanges, "violet", size = 70)
         }
-        currentMonthMinor > 0L -> "New savings this month"
-        else -> "No change this month"
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        color = Color(0xFF111827),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF433BB8))
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            "Total Goal Savings",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = .88f)
-                        )
-                        Icon(
-                            Icons.Rounded.Visibility,
-                            contentDescription = null,
-                            modifier = Modifier.padding(start = 7.dp).size(19.dp),
-                            tint = Color(0xFFA69CFF)
-                        )
-                    }
-                    Text(
-                        goalMoney(totalSavedMinor),
-                        modifier = Modifier.padding(top = 4.dp),
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White
-                    )
-                    Text(
-                        growthLabel,
-                        modifier = Modifier.padding(top = 5.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFF55E6D1)
-                    )
-                }
-                if (totalSavedMinor > 0L) GoalSummaryBars()
-            }
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 13.dp),
-                color = Color.White.copy(alpha = .12f)
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                GoalHeroMetric(
-                    Icons.Rounded.DonutLarge,
-                    "$averageProgress%",
-                    "Average Progress",
-                    Modifier.weight(1f)
-                )
-                GoalHeroMetric(
-                    Icons.Rounded.EmojiEvents,
-                    goalMoney(totalTargetMinor),
-                    "Total Target",
-                    Modifier.weight(1f),
-                    Color(0xFFF4C768)
-                )
-            }
+        LinearProgressIndicator(progress = { progress }, Modifier.fillMaxWidth().height(9.dp)
+            .clip(RoundedCornerShape(50.dp)),
+            color = PlanVibrant.violet, trackColor = Color(0xFFECE8F9))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Goal progress  •  " + (progress * 100).roundToInt() + "%",
+                style = MaterialTheme.typography.labelSmall,
+                color = PlanVibrant.violet)
+            Text("Saved this month  " + goalMoney(currentMonthMinor),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -554,176 +462,55 @@ private fun GoalFilterChip(
 
 @Composable
 private fun GoalReferenceCard(
-    model: GoalCardModel,
-    locale: Locale,
-    onClick: () -> Unit
+    model: GoalCardModel, locale: Locale, onClick: () -> Unit
 ) {
     val percent = (model.progress * 100).roundToInt().coerceIn(0, 100)
-    PesaCard(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+    val tone = when(model.group) {
+        GoalGroup.SAVINGS -> "mint"
+        GoalGroup.LIFESTYLE -> "pink"
+        GoalGroup.FUTURE -> "violet"
+        else -> "blue"
+    }
+    val icon = when {
+        model.title.contains("ps5",true) || model.title.contains("gaming",true) ->
+            Icons.Rounded.SportsEsports
+        model.title.contains("laptop",true) || model.title.contains("phone",true) ->
+            Icons.Rounded.Devices
+        model.title.contains("emergency",true) -> Icons.Rounded.Eco
+        else -> model.group.icon
+    }
+    val (_,barColor) = planVibrantTone(tone)
+    VibrantPlanSurface(
+        modifier = Modifier.clickable(onClick = onClick)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            GoalArtworkTile(model.title, Modifier.size(74.dp))
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 10.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        model.title,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Icon(
-                        Icons.AutoMirrored.Rounded.ArrowForward,
-                        null,
-                        Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 1.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "Target: " + goalMoney(model.targetMinor),
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    model.targetDateEpochMs?.let {
-                        Row(
-                            modifier = Modifier.padding(start = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Rounded.CalendarMonth,
-                                null,
-                                Modifier.size(13.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                goalDate(it, locale),
-                                modifier = Modifier.padding(start = 3.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1
-                            )
-                        }
-                    }
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    LinearProgressIndicator(
-                        progress = { model.progress },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(6.dp)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            VibrantPlanIcon(icon, tone, size = 53)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(model.title, fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(goalMoney(model.savedMinor) + " / " + goalMoney(model.targetMinor),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    LinearProgressIndicator(progress = {model.progress},
+                        modifier = Modifier.weight(1f).height(7.dp)
                             .clip(RoundedCornerShape(50.dp)),
-                        color = Color(0xFF7C6FF2),
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                    Text(
-                        "$percent%",
-                        modifier = Modifier.padding(start = 7.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                        color = barColor, trackColor = Color(0xFFEBE7F8))
+                    Text("$" + "percent%", fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelSmall)
                 }
-
-                Text(
-                    goalMoney(model.savedMinor) + " / " + goalMoney(model.targetMinor),
-                    modifier = Modifier.padding(top = 3.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        modifier = Modifier.weight(.44f),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            modifier = Modifier.size(26.dp),
-                            shape = CircleShape,
-                            color = Color(0xFFF4C768).copy(alpha = .12f)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Rounded.MonetizationOn,
-                                    null,
-                                    Modifier.size(16.dp),
-                                    tint = Color(0xFFF4C768)
-                                )
-                            }
-                        }
-                        Column(Modifier.padding(start = 5.dp)) {
-                            Text(
-                                goalMoney(model.monthlyTargetMinor),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1
-                            )
-                            Text(
-                                "Monthly contribution",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
-                    Surface(
-                        modifier = Modifier.weight(.56f),
-                        shape = RoundedCornerShape(11.dp),
-                        color = Color(0xFF171F31)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 5.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Rounded.AutoAwesome,
-                                null,
-                                Modifier.size(15.dp),
-                                tint = Color(0xFF55E6D1)
-                            )
-                            Text(
-                                goalProgressMessage(model),
-                                modifier = Modifier.padding(start = 5.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
+                model.targetDateEpochMs?.let {
+                    Text("Target: " + goalDate(it, locale),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+            Icon(Icons.Rounded.ChevronRight, contentDescription = "View goal",
+                modifier = Modifier.size(19.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -999,6 +786,7 @@ fun SavingGoalsScreen(
                 totalTargetMinor = totalTarget
             )
         }
+        item { VibrantPlanSectionTitle("Your goals") }
         item {
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1044,49 +832,10 @@ fun SavingGoalsScreen(
         }
 
         item {
-            Button(
-                onClick = {
-                    editingGoal = null
-                    goalEditor = true
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = com.kedevjimmy.pesatrack.ui.theme.AuroraIndigo,
-                    contentColor = Color.White
-                ),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
-            ) {
-                Surface(
-                    modifier = Modifier.size(40.dp),
-                    shape = CircleShape,
-                    color = Color(0xFF55E6D1)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Rounded.Add,
-                            contentDescription = null,
-                            tint = Color(0xFF0A0E19)
-                        )
-                    }
-                }
-                Column(
-                    modifier = Modifier.weight(1f).padding(start = 12.dp),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Text(
-                        "Create Goal",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        "Set a new goal and start saving",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = .76f)
-                    )
-                }
-                Icon(Icons.AutoMirrored.Rounded.ArrowForward, null)
-            }
+            VibrantActionButton("+ New goal", onClick = {
+                editingGoal = null
+                goalEditor = true
+            })
         }
     }
 }
