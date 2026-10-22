@@ -401,7 +401,7 @@ pendingBudgetRemoval?.let { candidate ->
                 modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text(java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.getDefault())
+                    Text(java.text.SimpleDateFormat("MMMM yyyy", androidx.compose.ui.platform.LocalConfiguration.current.locales[0])
                         .format(java.util.Date()), modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold)
