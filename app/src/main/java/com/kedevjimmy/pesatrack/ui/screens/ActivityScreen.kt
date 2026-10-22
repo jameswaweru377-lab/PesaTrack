@@ -4163,6 +4163,7 @@ private fun ActivityRow(
         direction == MoneyDirection.TRANSFER -> "violet"
         categoryId.contains("EATING", true) || categoryId.contains("FOOD", true) -> "amber"
         categoryId.contains("SHOP", true) || categoryId.contains("GROCER", true) -> "red"
+        categoryId.contains("RENT", true) || categoryId.contains("HOUS", true) -> "green"
         categoryId.contains("ELECT", true) || categoryId.contains("INTERNET", true) -> "blue"
         else -> "violet"
     }
@@ -4195,8 +4196,8 @@ private fun ActivityRow(
     ) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 68.dp)
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                    .padding(horizontal = 11.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -4213,7 +4214,7 @@ private fun ActivityRow(
                 }
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
                         name,
@@ -4264,7 +4265,7 @@ private fun ActivityRow(
             if (position == ActivityGroupPosition.FIRST ||
                 position == ActivityGroupPosition.MIDDLE) {
                 HorizontalDivider(
-                    modifier = Modifier.padding(start = 58.dp, end = 10.dp),
+                    modifier = Modifier.padding(start = 54.dp, end = 10.dp),
                     thickness = .5.dp,
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .42f)
                 )
@@ -4294,7 +4295,8 @@ private fun ActivityReferenceMerchantIcon(
         categoryId.contains("PHONE", true) -> Icons.Rounded.PhoneAndroid
         else -> Icons.AutoMirrored.Rounded.HelpOutline
     }
-    val dark = androidx.compose.foundation.isSystemInDarkTheme()
+    // Follow PesaTrack's selected theme, not the Android system theme.
+    val dark = com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme()
     val background = when (tone) {
         "green" -> Color(0xFFDFF9EF)
         "red" -> Color(0xFFFFE7EF)
@@ -4310,13 +4312,13 @@ private fun ActivityReferenceMerchantIcon(
         else -> Color(0xFF6832E9)
     }
     Surface(
-        modifier = Modifier.size(42.dp),
-        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.size(36.dp),
+        shape = RoundedCornerShape(12.dp),
         color = if (dark) MaterialTheme.colorScheme.surfaceContainerHigh else background
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null,
-                modifier = Modifier.size(22.dp), tint = if (dark) MaterialTheme.colorScheme.onSurface else foreground)
+                modifier = Modifier.size(20.dp), tint = if (dark) MaterialTheme.colorScheme.onSurface else foreground)
         }
     }
 }
