@@ -398,7 +398,6 @@ fun TransactionDetailScreen(
     var messageExpanded by remember(transactionId) { mutableStateOf(false) }
     var factsExpanded by remember(transactionId) { mutableStateOf(true) }
     var evidenceExpanded by remember(transactionId) { mutableStateOf(true) }
-    var correctionsExpanded by remember(transactionId) { mutableStateOf(true) }
     var advancedExpanded by remember(transactionId) { mutableStateOf(false) }
     var sharedBillCategory by remember(transactionId) { mutableStateOf(false) }
     var messageEvidence by remember(transactionId) { mutableStateOf<TransactionMessageEvidenceResult?>(null) }
@@ -554,6 +553,12 @@ fun TransactionDetailScreen(
             },
             onMoneyLent = { openPersonalLedger(shared = false) },
             onSharedBill = { openPersonalLedger(shared = true) },
+            onCorrection = { action ->
+                showCategoryPicker = false
+                correctionError = null
+                pendingCorrection = action
+            },
+            allowCorrections = !confirmedTransfer,
             allowSpecial = receivableLinks[current.id] == null
         )
     }
@@ -795,9 +800,6 @@ fun TransactionDetailScreen(
                 onMore = { advancedExpanded = !advancedExpanded }
             )
         }
-        item(key = "transaction-verified") {
-            TransactionVerificationStatus(current, receiptLinked)
-        }
         if (current.fulizaFinancedMinor > 0L) {
             item { FulizaFundingCard(current) }
         }
@@ -891,56 +893,6 @@ fun TransactionDetailScreen(
                 }
             }
         }
-        if (!confirmedTransfer) {
-            item(key = "transaction-correction-actions") {
-                RedesignDetailAccordion(
-                    title = "Corrections",
-                    icon = Icons.Rounded.Edit,
-                    expanded = correctionsExpanded,
-                    onToggle = { correctionsExpanded = !correctionsExpanded }
-                ) {
-                    Column(Modifier.testTag("transaction-corrections"),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Review the original message before changing the financial meaning.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        correctionResult?.let {
-                            Text(it, color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.bodySmall)
-                        }
-                        if (current.counterparty.isNullOrBlank() &&
-                            !current.evidenceLabel.isNullOrBlank()) {
-                            ActionRow(Icons.Rounded.CheckCircle, "Use suggested identity",
-                                onClick = {
-                                    pendingCorrection = TransactionCorrectionAction.ACCEPT_IDENTITY
-                                })
-                        }
-                        if (current.relationType == TransactionStore.RELATION_REFUND) {
-                            ActionRow(Icons.Rounded.SwapHoriz, "This was not a refund",
-                                onClick = {
-                                    pendingCorrection = TransactionCorrectionAction.REMOVE_REFUND_LINK
-                                })
-                        } else if (current.relationType == null &&
-                            current.direction != MoneyDirection.TRANSFER.name &&
-                            current.reviewState != ReviewState.EXCLUDED.name) {
-                            ActionRow(Icons.Rounded.SwapHoriz, "Mark as own-account transfer",
-                                onClick = {
-                                    pendingCorrection = TransactionCorrectionAction.MARK_OWN_TRANSFER
-                                })
-                        }
-                        if (current.reviewState != ReviewState.EXCLUDED.name) {
-                            ActionRow(Icons.Rounded.Block, "Exclude from tracked activity",
-                                tintError = true, onClick = {
-                                    pendingCorrection = TransactionCorrectionAction.EXCLUDE_ENTRY
-                                })
-                        }
-                        TextButton(onClick = { showCategoryPicker = true }) {
-                            Text("Suggest a category correction")
-                        }
-                    }
-                }
-            }
-        }
         item(key = "transaction-more-actions") {
             OutlinedButton(onClick = { advancedExpanded = !advancedExpanded },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 46.dp)) {
@@ -955,7 +907,7 @@ fun TransactionDetailScreen(
             }
             if (!confirmedTransfer) {
                 item { SplitPaymentAction(current, onChanged = { refresh() }) }
-                item { PersonalReceivableTransactionAction(current, onChanged = { refresh() }) }
+                item { PersonalReceivableTransactionAction(current, onChanged = { refresh() }, showCreateActions = false) }
             }
             item {
                 TransactionQuickActions(
@@ -1016,6 +968,9 @@ fun TransactionDetailScreen(
                     }) { Text("Use suggested " + categoryStore.labelFor(suggestion.categoryId)) }
                 }
             }
+        }
+        correctionResult?.let { message ->
+            item { Text(message, color = MaterialTheme.colorScheme.primary) }
         }
         learnedMessage?.let { message ->
             item { Text(message, color = MaterialTheme.colorScheme.primary) }
@@ -2559,6 +2514,8 @@ private fun MerchantHistoryDialog(
         },
         text = {
             Column(
+                modifier = Modifier.heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement =
                     Arrangement.spacedBy(
                         8.dp
