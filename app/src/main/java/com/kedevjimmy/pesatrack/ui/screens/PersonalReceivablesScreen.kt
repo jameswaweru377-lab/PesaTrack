@@ -359,7 +359,7 @@ fun PersonalReceivablesScreen(
 
 /** Transaction Details: user explicitly chooses if a payment was lent or a receipt repaid a loan. */
 @Composable
-internal fun PersonalReceivableTransactionAction(row: StoredTransaction, onChanged: () -> Unit) {
+internal fun PersonalReceivableTransactionAction(row: StoredTransaction, onChanged: () -> Unit, showCreateActions: Boolean = true) {
     if (row.direction !in setOf(MoneyDirection.EXPENSE.name, MoneyDirection.INCOME.name) ||
         row.relationType != null || row.reversalOfCode != null ||
         row.reviewState in setOf(ReviewState.EXCLUDED.name, ReviewState.NEEDS_REVIEW.name)) return
@@ -398,7 +398,7 @@ internal fun PersonalReceivableTransactionAction(row: StoredTransaction, onChang
         if (hasCategorySplit) {
             Text("This payment has a saved category split. Remove it using Edit saved category split before recording a loan or shared bill.",
                 style = MaterialTheme.typography.bodySmall)
-        } else {
+        } else if (showCreateActions) {
             OutlinedButton(onClick = { sharedBill = false; open = true },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("record-money-lent")) {
                 Text(if (row.direction == MoneyDirection.EXPENSE.name) "Money lent" else "Received debt repayment")
