@@ -16,16 +16,22 @@ import com.kedevjimmy.pesatrack.ui.components.ConceptBrandLockup
 import com.kedevjimmy.pesatrack.ui.components.ConceptWalletIllustration
 
 @Composable
-fun StartupSplashScreen() {
+fun StartupSplashScreen(darkTheme: Boolean = false) {
+    val foreground = if (darkTheme) Color.White else Color(0xFF0B103A)
+    val secondary = if (darkTheme) Color.White.copy(alpha = .78f) else Color(0xFF626B98)
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(
+                    if (darkTheme) listOf(
                         Color(0xFF3933A8),
                         Color(0xFF24213F),
                         Color(0xFF111827)
+                    ) else listOf(
+                        Color(0xFFF8F7FF),
+                        Color(0xFFEAF3FF),
+                        Color(0xFFF7F7FF)
                     )
                 )
             )
@@ -40,7 +46,7 @@ fun StartupSplashScreen() {
             Alignment.CenterHorizontally
     ) {
         ConceptBrandLockup(
-            light = true
+            light = darkTheme
         )
 
         Spacer(
@@ -53,7 +59,7 @@ fun StartupSplashScreen() {
                 MaterialTheme
                     .typography
                     .displaySmall,
-            color = Color.White,
+            color = foreground,
             fontWeight =
                 FontWeight.ExtraBold,
             textAlign =
@@ -70,10 +76,7 @@ fun StartupSplashScreen() {
                 MaterialTheme
                     .typography
                     .bodyLarge,
-            color =
-                Color.White.copy(
-                    alpha = .78f
-                ),
+            color = secondary,
             textAlign =
                 TextAlign.Center
         )
