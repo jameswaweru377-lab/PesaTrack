@@ -3,6 +3,9 @@ package com.kedevjimmy.pesatrack.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
@@ -72,73 +76,102 @@ internal fun TransactionRedesignHeader(
     onMore: () -> Unit
 ) {
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
-    val sent = item.direction == MoneyDirection.EXPENSE.name ||
-        item.direction == MoneyDirection.TRANSFER.name
-    val title = item.counterparty?.takeIf(String::isNotBlank)
+    val outgoing = item.direction == MoneyDirection.EXPENSE.name
+    val transfer = item.direction == MoneyDirection.TRANSFER.name
+    val incoming = item.direction == MoneyDirection.INCOME.name
+    val name = item.counterparty?.takeIf(String::isNotBlank)
         ?: item.evidenceLabel?.takeIf(String::isNotBlank) ?: "Transaction"
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val foreground = Color(0xFF0B103A)
+    val muted = Color(0xFF626B98)
+    val violet = Color(0xFF5D00EB)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = foreground)
             }
             Text("Transaction Details", modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold)
+                fontSize = 20.sp, fontWeight = FontWeight.Bold, color = foreground)
             IconButton(onClick = onMore) {
-                Icon(Icons.Rounded.MoreHoriz, contentDescription = "More transaction actions")
+                Icon(Icons.Rounded.MoreHoriz, "More transaction actions", tint = foreground)
             }
         }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(shape = CircleShape, color = deepCard) {
-                Icon(Icons.Rounded.ReceiptLong, null,
-                    modifier = Modifier.padding(12.dp).size(30.dp), tint = teal)
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold, maxLines = 1,
-                    overflow = TextOverflow.Ellipsis)
-                Text(category, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(SimpleDateFormat("d MMM yyyy · HH:mm", locale)
-                    .format(Date(item.occurredAtEpochMs)),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text((if (sent) "− " else if (item.direction == MoneyDirection.INCOME.name) "+ " else "") +
-                    formatTransactionDetailMoney(item.amountMinor),
-                    style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(if (item.reviewState == ReviewState.NEEDS_REVIEW.name) "Needs review"
-                    else if (sent) "Money out" else "Money in",
-                    style = MaterialTheme.typography.labelSmall, color = lilac)
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp),
+            color = Color.White, shadowElevation = 2.dp) {
+            Box(Modifier.background(Brush.linearGradient(listOf(
+                Color(0xFFFFFFFF), Color(0xFFF3F4FF), Color(0xFFF5FEFF)
+            ))).padding(14.dp)) {
+                Row(Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Surface(shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFFDAF9F2), modifier = Modifier.size(58.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.ReceiptLong, null,
+                                Modifier.size(29.dp), tint = Color(0xFF008867))
+                        }
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(name, fontWeight = FontWeight.Bold, fontSize = 17.sp,
+                            color = foreground, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(category, fontSize = 13.sp, color = muted, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis)
+                        Text(SimpleDateFormat("d MMM yyyy · HH:mm", locale)
+                            .format(Date(item.occurredAtEpochMs)), fontSize = 12.sp, color = muted)
+                        Surface(color = Color(0xFFEDEAFF), shape = RoundedCornerShape(50)) {
+                            Text(account, Modifier.padding(horizontal = 9.dp, vertical = 3.dp),
+                                fontSize = 11.sp, color = violet, maxLines = 1)
+                        }
+                    }
+                    Column(horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            (if (outgoing) "− " else if (incoming) "+ " else "") +
+                                formatTransactionDetailMoney(item.amountMinor),
+                            fontSize = 17.sp, fontWeight = FontWeight.Bold, color = foreground,
+                            maxLines = 2
+                        )
+                        val chipText = if (item.reviewState == ReviewState.NEEDS_REVIEW.name)
+                            "Needs review" else if (transfer) "Transfer"
+                            else if (outgoing) "Money out" else if (incoming) "Money in" else "Recorded"
+                        val chipColor = if (outgoing) Color(0xFFDE155B)
+                            else if (incoming) Color(0xFF087E54) else violet
+                        Surface(shape = RoundedCornerShape(50), color = chipColor.copy(alpha = .10f)) {
+                            Text(chipText,
+                                Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                fontSize = 11.sp, fontWeight = FontWeight.Medium, color = chipColor)
+                        }
+                    }
+                }
             }
         }
-        Text("Account: " + account, style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 internal fun TransactionVerificationStatus(item: StoredTransaction, hasReceiptMatch: Boolean) {
     val flagged = item.reviewState == ReviewState.NEEDS_REVIEW.name
-    val text = if (flagged) "Needs your review" else if (hasReceiptMatch)
+    val label = if (flagged) "Needs your review" else if (hasReceiptMatch)
         "Receipt-linked transaction" else "Recorded transaction"
-    val help = if (flagged) "PesaTrack needs confirmation before treating this as final."
+    val help = if (flagged) "Please confirm this record before treating it as final."
         else if (hasReceiptMatch) "A matching source reference is attached to this transaction."
         else "Recorded from the available financial source. No cross-source verification claimed."
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-        color = Color(0xFF0F2A2D),
-        border = BorderStroke(1.dp, teal.copy(alpha = .45f))) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(if (flagged) Icons.Rounded.Info else Icons.Rounded.VerifiedUser,
-                null, Modifier.size(30.dp), tint = teal)
-            Column(Modifier.weight(1f)) {
-                Text(text, color = teal, fontWeight = FontWeight.SemiBold)
-                Text(help, style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFFC1D4D6), maxLines = 2)
+    val accent = if (flagged) Color(0xFFBB6B13) else Color(0xFF007A61)
+    val background = if (flagged) Color(0xFFFFF1DF) else Color(0xFFE5FAF3)
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+        color = background, border = BorderStroke(1.dp, Color.White)) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Surface(Modifier.size(45.dp), shape = RoundedCornerShape(14.dp),
+                color = accent.copy(alpha = .10f)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(if (flagged) Icons.Rounded.Info else Icons.Rounded.VerifiedUser,
+                        null, Modifier.size(27.dp), tint = accent)
+                }
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(label, fontWeight = FontWeight.Bold, color = accent, fontSize = 15.sp)
+                Text(help, fontSize = 12.sp, lineHeight = 17.sp, color = Color(0xFF526886))
             }
         }
     }
@@ -170,49 +203,48 @@ internal fun TransactionDecisionCard(
     onKeep: () -> Unit,
     onChoose: () -> Unit
 ) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp),
-        color = deepCard,
-        border = BorderStroke(1.dp, lilac.copy(alpha = .70f))) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val violet = Color(0xFF5E00EB)
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(21.dp),
+        color = Color(0xFFF4F0FF), border = BorderStroke(1.dp, Color.White),
+        shadowElevation = 1.dp) {
+        Column(Modifier.background(Brush.linearGradient(listOf(
+            Color(0xFFF9F5FF), Color(0xFFF1F1FF), Color(0xFFF8F0FF)
+        ))).padding(13.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PesaRobot()
-                Column(Modifier.weight(1f)) {
+                horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                PesaRobot(Modifier.size(75.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text("Let's keep your spending organized",
-                        color = lilac, style = MaterialTheme.typography.labelMedium)
+                        color = violet, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     Text("How should PesaTrack treat this payment?",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold)
+                        color = Color(0xFF0B103A), fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold, lineHeight = 21.sp)
                     Text("Confirm its meaning before teaching similar payments.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall)
+                        color = Color(0xFF626B98), fontSize = 12.sp, lineHeight = 17.sp)
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 Button(onClick = onKeep, enabled = !isBusy,
-                    modifier = Modifier.weight(1f).heightIn(min = 64.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = teal,
-                        contentColor = baseNavy),
-                    shape = RoundedCornerShape(16.dp)) {
-                    Icon(Icons.Rounded.LocalCafe, null, Modifier.size(20.dp))
+                    modifier = Modifier.weight(1f).heightIn(min = 58.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = violet,
+                        contentColor = Color.White),
+                    shape = RoundedCornerShape(15.dp),
+                    contentPadding = PaddingValues(horizontal = 9.dp, vertical = 8.dp)) {
+                    Icon(Icons.Rounded.CheckCircle, null, Modifier.size(19.dp))
                     Spacer(Modifier.width(6.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("Yes, keep as", style = MaterialTheme.typography.labelSmall)
-                        Text(suggested, fontWeight = FontWeight.Bold,
-                            maxLines = 2, style = MaterialTheme.typography.labelMedium)
-                    }
+                    Text("Yes, keep as\n" + suggested, fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold, lineHeight = 16.sp, maxLines = 3)
                 }
                 OutlinedButton(onClick = onChoose, enabled = !isBusy,
-                    modifier = Modifier.weight(1f).heightIn(min = 64.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, lilac)) {
-                    Icon(Icons.Rounded.Label, null, Modifier.size(20.dp), tint = lilac)
+                    modifier = Modifier.weight(1f).heightIn(min = 58.dp),
+                    border = BorderStroke(1.dp, Color(0xFF9A77FF)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = violet),
+                    shape = RoundedCornerShape(15.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)) {
+                    Icon(Icons.Rounded.Label, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("No, choose a different category",
-                        color = lilac, style = MaterialTheme.typography.labelSmall,
-                        maxLines = 3)
+                    Text("No, choose a different category", fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold, lineHeight = 16.sp, maxLines = 3)
                 }
             }
         }
@@ -228,19 +260,27 @@ internal fun RedesignDetailAccordion(
     supporting: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha=.40f))) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(Modifier.fillMaxWidth().clickable(onClick = onToggle)
-                .heightIn(min=42.dp), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                Icon(icon, null, Modifier.size(21.dp), tint = lilac)
+    val dark = com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme()
+    val surface = if (dark) MaterialTheme.colorScheme.surface else Color.White
+    val ink = if (dark) MaterialTheme.colorScheme.onSurface else Color(0xFF0B103A)
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
+        color = surface, border = BorderStroke(1.dp,
+            if (dark) MaterialTheme.colorScheme.outlineVariant else Color(0xFFF0EFF8))) {
+        Column(Modifier.padding(horizontal = 13.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Row(Modifier.fillMaxWidth().clickable(onClick = onToggle).heightIn(min = 43.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Surface(Modifier.size(35.dp), shape = RoundedCornerShape(11.dp),
+                    color = Color(0xFFEDE3FF)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(icon, null, Modifier.size(19.dp), tint = Color(0xFF7540EC))
+                    }
+                }
                 Column(Modifier.weight(1f)) {
-                    Text(title, fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.titleSmall)
+                    Text(title, fontWeight = FontWeight.Bold, color = ink, fontSize = 16.sp)
                     if (!expanded && !supporting.isNullOrBlank()) {
-                        Text(supporting, style = MaterialTheme.typography.bodySmall,
+                        Text(supporting, fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
@@ -250,7 +290,7 @@ internal fun RedesignDetailAccordion(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (expanded) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=.45f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=.30f))
                 content()
             }
         }
