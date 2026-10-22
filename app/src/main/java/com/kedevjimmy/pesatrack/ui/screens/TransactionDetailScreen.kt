@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Switch
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.EvidenceJournalStore
@@ -764,10 +765,16 @@ fun TransactionDetailScreen(
             ?: categoryStore.labelFor(categoryStore.canonicalId(it.category))
     } ?: "Needs review"
 
+    val detailBackground = if (com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme())
+        Brush.verticalGradient(listOf(MaterialTheme.colorScheme.background,
+            MaterialTheme.colorScheme.background))
+    else Brush.linearGradient(listOf(
+        Color(0xFFF3F0FF), Color(0xFFF7F7FF), Color(0xFFEDF6FF)
+    ))
     LazyColumn(
         modifier = Modifier.testTag("transaction-details-list")
             .padding(scaffoldPadding)
-            .background(MaterialTheme.colorScheme.background),
+            .background(detailBackground),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -827,7 +834,8 @@ fun TransactionDetailScreen(
                     accountLabel = accountLabel,
                     note = annotation.note,
                     onAccount = current.accountId?.let { id -> { onAccountClick(id) } },
-                    onNote = { showAnnotationDialog = true }
+                    onNote = { showAnnotationDialog = true },
+                    onCategory = { showCategoryPicker = true }
                 )
             }
         }
