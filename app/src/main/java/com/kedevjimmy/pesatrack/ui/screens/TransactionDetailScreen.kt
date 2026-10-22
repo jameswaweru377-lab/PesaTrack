@@ -97,6 +97,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PersonalLearningStore
@@ -948,7 +949,7 @@ if (current.reviewState == ReviewState.USER_CLASSIFIED.name &&
                                 color = Color.White.copy(alpha = .18f),
                                 modifier = Modifier.size(37.dp)) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Rounded.BookmarkAdd, null,
+                                    Icon(Icons.Rounded.CheckCircle, null,
                                         Modifier.size(21.dp), tint = Color.White)
                                 }
                             }
@@ -2217,7 +2218,7 @@ private fun TransactionMerchantHistoryCard(onClick: () -> Unit) {
             Surface(Modifier.size(42.dp), color = Color(0xFFEEE5FF),
                 shape = RoundedCornerShape(13.dp)) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Storefront, null,
+                    Icon(Icons.Rounded.ShoppingBag, null,
                         Modifier.size(24.dp), tint = purple)
                 }
             }
