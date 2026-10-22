@@ -58,8 +58,8 @@ internal fun activityKesLabel(minor: Long, showCents: Boolean = false): String {
 internal data class ActivityReferenceSegment(val label: String, val minor: Long, val color: Color)
 
 private val chartColors = listOf(
-    Color(0xFF873AFF), Color(0xFF348BFF), Color(0xFF32CCA2),
-    Color(0xFFFFA05F), Color(0xFFFF68AD)
+    Color(0xFF7220FF), Color(0xFF2586FF), Color(0xFF19CE9D),
+    Color(0xFFFF934F), Color(0xFFF758A5)
 )
 
 internal fun activityReferenceSegments(
@@ -175,7 +175,7 @@ internal fun ActivityReferenceSummary(
                         modifier = Modifier.weight(1f).clickable(onClick = onMonth),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(monthLabel, fontWeight = FontWeight.Bold, fontSize = 19.sp, color = ink)
+                        Text(monthLabel, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = ink)
                         Spacer(Modifier.width(5.dp))
                         Icon(Icons.Rounded.KeyboardArrowDown, "Choose month", Modifier.size(22.dp), tint = ink)
                     }
@@ -196,7 +196,7 @@ internal fun ActivityReferenceSummary(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     BoxWithConstraints(Modifier.weight(1.04f).aspectRatio(1f), contentAlignment = Alignment.Center) {
-                        val innerWidth = (maxWidth - 56.dp).coerceAtLeast(42.dp)
+                        val innerWidth = (maxWidth - 48.dp).coerceAtLeast(42.dp)
                         val innerWidthPx = with(density) { innerWidth.toPx() }
                         fun textFits(value: String, size: androidx.compose.ui.unit.TextUnit): Boolean =
                             textMeasurer.measure(AnnotatedString(value), style = TextStyle(fontSize = size,
@@ -207,23 +207,30 @@ internal fun ActivityReferenceSummary(
                         val numericSize = listOf(17.sp, 16.sp, 14.sp, 12.sp, 10.sp)
                             .firstOrNull { textFits(numericText, it) } ?: 10.sp
                         Canvas(Modifier.fillMaxSize()) {
-                            val width = 19.dp.toPx()
-                            val inset = width / 2f + 3.dp.toPx()
+                            // Chart sweeps always reflect exact ledger shares.
+                            // Avoid rounded caps on tiny slices: they used to overlap.
+                            val strokeWidth = 13.dp.toPx()
+                            val inset = strokeWidth / 2f + 3.dp.toPx()
                             val diameter = Size(size.width - inset * 2, size.height - inset * 2)
-                            if (total <= 0) {
+                            if (total <= 0.0 || segments.isEmpty()) {
                                 drawArc(Color(0xFFE9E9F5), -90f, 360f, false,
                                     Offset(inset, inset), diameter,
-                                    style = Stroke(width = width, cap = StrokeCap.Round))
+                                    style = Stroke(width = strokeWidth, cap = StrokeCap.Butt))
                             } else {
                                 var position = -90f
-                                segments.forEach { s ->
-                                    val share = s.minor.toDouble() / total
-                                    val degrees = 360f * share.toFloat()
+                                segments.forEach { segment ->
+                                    val degrees = (360.0 * segment.minor.toDouble() / total)
+                                        .toFloat().coerceAtLeast(0f)
                                     if (degrees > 0f) {
-                                        drawArc(s.color, position + 1.2f,
-                                            (degrees - 2.4f).coerceAtLeast(.2f),
+                                        val rounded = segments.size > 1 && degrees >= 42f
+                                        val gap = if (segments.size == 1) 0f
+                                            else if (rounded) 13f
+                                            else minOf(2.6f, degrees * .28f)
+                                        drawArc(segment.color, position + gap / 2f,
+                                            (degrees - gap).coerceAtLeast(.12f),
                                             false, Offset(inset, inset), diameter,
-                                            style = Stroke(width = width, cap = StrokeCap.Round))
+                                            style = Stroke(width = strokeWidth,
+                                                cap = if (rounded) StrokeCap.Round else StrokeCap.Butt))
                                     }
                                     position += degrees
                                 }

@@ -398,7 +398,7 @@ fun TransactionDetailScreen(
     var correctionResult by remember(transactionId) { mutableStateOf<String?>(null) }
     var messageExpanded by remember(transactionId) { mutableStateOf(false) }
     var factsExpanded by remember(transactionId) { mutableStateOf(false) }
-    var evidenceExpanded by remember(transactionId) { mutableStateOf(true) }
+    var evidenceExpanded by remember(transactionId) { mutableStateOf(false) }
     var sharedBillCategory by remember(transactionId) { mutableStateOf(false) }
     var messageEvidence by remember(transactionId) { mutableStateOf<TransactionMessageEvidenceResult?>(null) }
     var evidenceRefresh by remember(transactionId) { mutableStateOf(0) }
@@ -947,10 +947,10 @@ if (current.reviewState == ReviewState.USER_CLASSIFIED.name &&
                         ) {
                             Surface(shape = RoundedCornerShape(12.dp),
                                 color = Color.White.copy(alpha = .18f),
-                                modifier = Modifier.size(37.dp)) {
+                                modifier = Modifier.size(35.dp)) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(Icons.Rounded.CheckCircle, null,
-                                        Modifier.size(21.dp), tint = Color.White)
+                                        Modifier.size(19.dp), tint = Color.White)
                                 }
                             }
                             Text("Remember category in Activity and Statements",
@@ -2211,15 +2211,15 @@ private fun TransactionMerchantHistoryCard(onClick: () -> Unit) {
             MaterialTheme.colorScheme.surface else Color.White,
         border = BorderStroke(1.dp, Color(0xFFE9E5F5))
     ) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 66.dp)
-            .padding(horizontal = 16.dp, vertical = 11.dp),
+        Row(Modifier.fillMaxWidth().heightIn(min = 61.dp)
+            .padding(horizontal = 13.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(Modifier.size(42.dp), color = Color(0xFFEEE5FF),
+            Surface(Modifier.size(35.dp), color = Color(0xFFEEE5FF),
                 shape = RoundedCornerShape(13.dp)) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.ShoppingBag, null,
-                        Modifier.size(24.dp), tint = purple)
+                        Modifier.size(19.dp), tint = purple)
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {

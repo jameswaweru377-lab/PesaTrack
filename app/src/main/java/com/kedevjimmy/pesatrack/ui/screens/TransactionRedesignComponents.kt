@@ -228,7 +228,7 @@ internal fun TransactionDecisionCard(
         shadowElevation = 1.dp) {
         Column(Modifier.background(Brush.linearGradient(listOf(
             Color(0xFFF9F5FF), Color(0xFFF1F1FF), Color(0xFFF8F0FF)
-        ))).padding(13.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        ))).padding(13.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 PesaRobot(Modifier.size(75.dp))
@@ -242,28 +242,28 @@ internal fun TransactionDecisionCard(
                         color = Color(0xFF626B98), fontSize = 12.sp, lineHeight = 17.sp)
                 }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onKeep, enabled = !isBusy,
-                    modifier = Modifier.weight(1f).heightIn(min = 58.dp),
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = violet,
                         contentColor = Color.White),
-                    shape = RoundedCornerShape(15.dp),
-                    contentPadding = PaddingValues(horizontal = 9.dp, vertical = 8.dp)) {
-                    Icon(Icons.Rounded.CheckCircle, null, Modifier.size(19.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Yes, keep as\n" + suggested, fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold, lineHeight = 16.sp, maxLines = 3)
+                    shape = RoundedCornerShape(13.dp),
+                    contentPadding = PaddingValues(horizontal = 7.dp, vertical = 5.dp)) {
+                    Icon(Icons.Rounded.CheckCircle, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text("Yes, keep as\n" + suggested, fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold, lineHeight = 14.sp, maxLines = 3)
                 }
                 OutlinedButton(onClick = onChoose, enabled = !isBusy,
-                    modifier = Modifier.weight(1f).heightIn(min = 58.dp),
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     border = BorderStroke(1.dp, Color(0xFF9A77FF)),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = violet),
-                    shape = RoundedCornerShape(15.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)) {
-                    Icon(Icons.Rounded.Label, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("No, choose a different category", fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold, lineHeight = 16.sp, maxLines = 3)
+                    shape = RoundedCornerShape(13.dp),
+                    contentPadding = PaddingValues(horizontal = 7.dp, vertical = 5.dp)) {
+                    Icon(Icons.Rounded.Label, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text("No, choose a different category", fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold, lineHeight = 14.sp, maxLines = 3)
                 }
             }
         }

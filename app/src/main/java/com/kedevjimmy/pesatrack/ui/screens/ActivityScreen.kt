@@ -932,8 +932,8 @@ fun ActivityScreen(
                 Column(Modifier.padding(bottom = 9.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
                         "Activities",
-                        fontSize = 32.sp,
-                        lineHeight = 37.sp,
+                        fontSize = 27.sp,
+                        lineHeight = 32.sp,
                         color = HomeReferencePalette.ink,
                         fontWeight = FontWeight.ExtraBold
                     )
@@ -4056,7 +4056,7 @@ private fun ActivityDateHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(dayLabel(dayEpochMs), modifier = Modifier.weight(1f),
-                fontSize = 18.sp, fontWeight = FontWeight.Bold,
+                fontSize = 16.sp, fontWeight = FontWeight.Bold,
                 color = HomeReferencePalette.ink)
             Text(
                 SimpleDateFormat("dd MMM yyyy", androidx.compose.ui.platform.LocalConfiguration.current.locales[0]).format(Date(dayEpochMs)),
@@ -4159,12 +4159,18 @@ private fun ActivityRow(
     }
     val pillColor = HomeReferencePalette.purple
     val iconTone = when {
-        direction == MoneyDirection.INCOME -> "green"
+        direction == MoneyDirection.INCOME -> "blue"
         direction == MoneyDirection.TRANSFER -> "violet"
-        categoryId.contains("EATING", true) || categoryId.contains("FOOD", true) -> "amber"
+        categoryId.contains("EATING", true) || categoryId.contains("FOOD", true) ||
+            categoryId.contains("DIN", true) -> "amber"
         categoryId.contains("SHOP", true) || categoryId.contains("GROCER", true) -> "red"
         categoryId.contains("RENT", true) || categoryId.contains("HOUS", true) -> "green"
-        categoryId.contains("ELECT", true) || categoryId.contains("INTERNET", true) -> "blue"
+        categoryId.contains("ELECT", true) || categoryId.contains("INTERNET", true) ||
+            categoryId.contains("UTIL", true) -> "blue"
+        categoryId.contains("HEALTH", true) || categoryId.contains("MEDIC", true) -> "red"
+        categoryId.contains("TRANSPORT", true) || categoryId.contains("FUEL", true) -> "blue"
+        categoryId.contains("EDUC", true) || categoryId.contains("INVEST", true) -> "violet"
+        categoryId.contains("UNCATEG", true) || categoryId.contains("OTHER", true) -> "neutral"
         else -> "violet"
     }
     val amountColor = when {
@@ -4283,7 +4289,7 @@ private fun ActivityReferenceMerchantIcon(
 ) {
     val icon = when {
         direction == MoneyDirection.TRANSFER -> Icons.Rounded.SyncAlt
-        direction == MoneyDirection.INCOME -> Icons.Rounded.AccountBalanceWallet
+        direction == MoneyDirection.INCOME -> Icons.Rounded.Work
         categoryId.contains("GROCER", true) || categoryId.contains("SHOP", true) ->
             Icons.Rounded.ShoppingCart
         categoryId.contains("RENT", true) || categoryId.contains("HOUS", true) ->
@@ -4302,6 +4308,7 @@ private fun ActivityReferenceMerchantIcon(
         "red" -> Color(0xFFFFE7EF)
         "amber" -> Color(0xFFFFECDD)
         "blue" -> Color(0xFFE2EDFF)
+        "neutral" -> Color(0xFFF0F1F7)
         else -> Color(0xFFECE6FF)
     }
     val foreground = when (tone) {
@@ -4309,7 +4316,8 @@ private fun ActivityReferenceMerchantIcon(
         "red" -> Color(0xFFF22567)
         "amber" -> Color(0xFFFF7115)
         "blue" -> Color(0xFF185EFF)
-        else -> Color(0xFF6832E9)
+        "neutral" -> Color(0xFF737892)
+        else -> Color(0xFF5F0FE9)
     }
     Surface(
         modifier = Modifier.size(36.dp),

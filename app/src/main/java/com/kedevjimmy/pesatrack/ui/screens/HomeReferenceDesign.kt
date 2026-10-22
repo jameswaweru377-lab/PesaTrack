@@ -99,7 +99,7 @@ internal fun ReferenceHomeBottomBar(currentTab: MainTab, onSelected: (MainTab) -
         shadowElevation = 8.dp
     ) {
         Row(
-            Modifier.fillMaxWidth().height(76.dp).padding(horizontal = 12.dp, vertical = 6.dp),
+            Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 12.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(1.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -119,7 +119,7 @@ internal fun ReferenceHomeBottomBar(currentTab: MainTab, onSelected: (MainTab) -
                 Column(
                     Modifier.weight(1f).fillMaxHeight().then(surface).clip(RoundedCornerShape(15.dp))
                         .clickable { onSelected(tab) }
-                        .padding(vertical = 5.dp),
+                        .padding(vertical = 3.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
                 ) {

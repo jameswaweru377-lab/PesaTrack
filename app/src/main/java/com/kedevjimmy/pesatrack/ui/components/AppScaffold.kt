@@ -64,16 +64,17 @@ fun AppScaffold(
         topBar = {
             if (currentTab == MainTab.HOME || currentTab == MainTab.ACTIVITY) {
                 Box(
-                    modifier = Modifier.statusBarsPadding()
+                    modifier = Modifier
                         .background(
-                            Brush.horizontalGradient(
+                            Brush.linearGradient(
                                 listOf(
-                                    Color(0xFFF4F1FF),
-                                    HomeReferencePalette.canvas,
-                                    Color(0xFFEDF6FF)
+                                    Color(0xFFF0EBFF),
+                                    Color(0xFFF4F2FF),
+                                    Color(0xFFE8F3FF)
                                 )
                             )
                         )
+                        .statusBarsPadding()
                 ) {
                     ReferenceHomeHeader(
                         onNotifications = onNotificationsClick,
