@@ -62,6 +62,8 @@ class TransactionDetailJourneyTest {
         val payment = payment()
         compose.setContent { PesaTrackTheme { TransactionDetailScreen(PaddingValues(), payment.id, {}) } }
         val list = compose.onNodeWithTag("transaction-details-list")
+        list.performScrollToNode(hasText("Transaction facts"))
+        compose.onNodeWithText("Transaction facts").performClick()
         list.performScrollToNode(hasText("Total outflow"))
         compose.onNodeWithText("KES 2,023.00").assertIsDisplayed()
         compose.onNodeWithText("Balance unknown").assertIsDisplayed()
