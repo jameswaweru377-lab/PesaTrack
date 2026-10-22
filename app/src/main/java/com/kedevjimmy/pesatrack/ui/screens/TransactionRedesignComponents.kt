@@ -347,6 +347,99 @@ private fun CategoryOption(
  * Page-like modal intentionally preserves the original Activity navigation state.
  * "Money lent" and "Shared bill" are distinct ledger flows, never ordinary categories.
  */
+private data class CategoryIconVisual(val icon: ImageVector, val tint: Color, val backing: Color)
+
+private fun categoryIconVisual(label: String): CategoryIconVisual {
+    val v = Color(0xFF5C17E9); val green = Color(0xFF08784E)
+    val pink = Color(0xFFEF1761); val blue = Color(0xFF1459EA)
+    val orange = Color(0xFFE87115)
+    return when {
+        label.contains("phone", true) || label.contains("airtime", true) ||
+            label.contains("data", true) || label.contains("internet", true) ->
+            CategoryIconVisual(Icons.Rounded.Smartphone, v, Color(0xFFECE5FF))
+        label.contains("food", true) || label.contains("dining", true) ||
+            label.contains("eat", true) ->
+            CategoryIconVisual(Icons.Rounded.Restaurant, orange, Color(0xFFFFEBDD))
+        label.contains("elect", true) || label.contains("utilit", true) ->
+            CategoryIconVisual(Icons.Rounded.Bolt, blue, Color(0xFFE2EFFF))
+        label.contains("grocer", true) || label.contains("shop", true) ->
+            CategoryIconVisual(Icons.Rounded.ShoppingCart, pink, Color(0xFFFDE6F0))
+        label.contains("hous", true) || label.contains("rent", true) ->
+            CategoryIconVisual(Icons.Rounded.Home, green, Color(0xFFDDF9EF))
+        label.contains("transport", true) || label.contains("travel", true) ->
+            CategoryIconVisual(Icons.Rounded.DirectionsCar, blue, Color(0xFFE2EFFF))
+        label.contains("health", true) || label.contains("medic", true) ->
+            CategoryIconVisual(Icons.Rounded.Favorite, pink, Color(0xFFFCE8F1))
+        label.contains("educat", true) || label.contains("school", true) ->
+            CategoryIconVisual(Icons.Rounded.School, v, Color(0xFFECE5FF))
+        label.contains("entertain", true) || label.contains("game", true) ->
+            CategoryIconVisual(Icons.Rounded.SportsEsports, pink, Color(0xFFFDE6F0))
+        label.contains("personal", true) || label.contains("beaut", true) ->
+            CategoryIconVisual(Icons.Rounded.Spa, pink, Color(0xFFFDE6F0))
+        label.contains("income", true) || label.contains("salary", true) ->
+            CategoryIconVisual(Icons.Rounded.Work, green, Color(0xFFDDF9EF))
+        label.contains("transf", true) ->
+            CategoryIconVisual(Icons.Rounded.SwapHoriz, v, Color(0xFFECE5FF))
+        label.contains("bank", true) || label.contains("financial", true) ->
+            CategoryIconVisual(Icons.Rounded.AccountBalance, blue, Color(0xFFE2EFFF))
+        else -> CategoryIconVisual(Icons.Rounded.Label, v, Color(0xFFECE5FF))
+    }
+}
+
+@Composable
+private fun CategoryReferenceTile(
+    category: PesaCategory,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    compact: Boolean = false,
+    onSelect: () -> Unit
+) {
+    val v = categoryIconVisual(category.label)
+    val ink = Color(0xFF0B103A)
+    Surface(
+        modifier = modifier.clickable(onClick = onSelect),
+        color = if (selected) Color(0xFFF6F0FF) else Color.White,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(if (selected) 1.5.dp else .7.dp,
+            if (selected) Color(0xFF6620FA) else Color(0xFFE9E8F1))
+    ) {
+        Box {
+            Column(
+                Modifier.fillMaxWidth().padding(
+                    horizontal = if (compact) 5.dp else 7.dp,
+                    vertical = if (compact) 10.dp else 13.dp
+                ), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Surface(Modifier.size(if (compact) 40.dp else 43.dp),
+                    color = v.backing, shape = CircleShape) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(v.icon, null, Modifier.size(if (compact) 23.dp else 25.dp),
+                            tint = v.tint)
+                    }
+                }
+                Text(category.label, fontSize = if (compact) 11.sp else 12.sp,
+                    color = if (selected) Color(0xFF5D00EB) else ink,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    maxLines = 2, lineHeight = 14.sp, overflow = TextOverflow.Ellipsis)
+            }
+            if (selected) {
+                Surface(Modifier.align(Alignment.TopEnd).padding(5.dp).size(19.dp),
+                    color = Color(0xFF5D00EB), shape = CircleShape) {
+                    Icon(Icons.Rounded.Check, "Selected", Modifier.padding(3.dp), tint = Color.White)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Approved vibrant category selection bottom sheet. Only the presentation
+ * changes: canonical category saving, optional learning, custom categories,
+ * money lending and shared-bill actions retain their existing callbacks.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TransactionCategoryChooser(
     item: StoredTransaction,
@@ -360,15 +453,24 @@ internal fun TransactionCategoryChooser(
 ) {
     val context = LocalContext.current
     val categoryStore = remember { CategoryStore.get(context) }
-    var categories by remember(item.id) {
-        mutableStateOf(categoryStore.activityCategories())
-    }
+    var categories by remember(item.id) { mutableStateOf(categoryStore.activityCategories()) }
     var selectedId by remember(item.id) { mutableStateOf(initialCategoryId) }
     var query by remember(item.id) { mutableStateOf("") }
     var onlyThis by remember(item.id) { mutableStateOf(false) }
     var addingCategory by remember(item.id) { mutableStateOf(false) }
     var newCategoryName by remember(item.id) { mutableStateOf("") }
     var customError by remember(item.id) { mutableStateOf<String?>(null) }
+    val purple = Color(0xFF6100E8)
+    val ink = Color(0xFF0B103A)
+    val muted = Color(0xFF626B98)
+    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val current = categories.firstOrNull { it.id == initialCategoryId }
+    val suggested = (listOfNotNull(current) + categories.filter { c ->
+        listOf("Phone", "Food", "Utilities", "Groceries", "Housing").any {
+            c.label.contains(it, ignoreCase = true)
+        }
+    }).distinctBy { it.id }.take(6)
+    val matching = categories.filter { query.isBlank() || it.label.contains(query, ignoreCase = true) }
     if (addingCategory) {
         AlertDialog(
             onDismissRequest = { addingCategory = false },
@@ -378,8 +480,7 @@ internal fun TransactionCategoryChooser(
                     Text("This category will also be available in your budgets.",
                         style = MaterialTheme.typography.bodySmall)
                     OutlinedTextField(newCategoryName, { newCategoryName = it },
-                        label = { Text("Category name") },
-                        singleLine = true)
+                        label = { Text("Category name") }, singleLine = true)
                     customError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
             },
@@ -400,130 +501,148 @@ internal fun TransactionCategoryChooser(
             }
         )
     }
-    val suggested = categories.firstOrNull { it.id == initialCategoryId }
-        ?: categories.firstOrNull { it.id == TransactionCategory.EATING_OUT.name }
-    Dialog(onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column {
-                Row(Modifier.fillMaxWidth().padding(horizontal=12.dp, vertical=8.dp),
-                    verticalAlignment=Alignment.CenterVertically) {
-                    IconButton(onClick=onDismiss) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back")
-                    }
-                    Text("Choose category", Modifier.weight(1f),
-                        style=MaterialTheme.typography.titleLarge,
-                        fontWeight=FontWeight.Bold)
-                }
-                LazyColumn(Modifier.weight(1f),
-                    contentPadding=PaddingValues(horizontal=14.dp, vertical=8.dp),
-                    verticalArrangement=Arrangement.spacedBy(12.dp)) {
-                    item {
-                        Surface(shape=RoundedCornerShape(16.dp),
-                            color=MaterialTheme.colorScheme.surface) {
-                            Row(Modifier.fillMaxWidth().padding(12.dp),
-                                verticalAlignment=Alignment.CenterVertically) {
-                                Icon(Icons.Rounded.ReceiptLong,null,tint=teal)
-                                Column(Modifier.weight(1f).padding(start=12.dp)) {
-                                    Text(item.counterparty?.takeIf(String::isNotBlank) ?: "Transaction",
-                                        fontWeight=FontWeight.Bold)
-                                    Text("Recorded transaction · " + item.sourceKind,
-                                        style=MaterialTheme.typography.labelSmall,
-                                        color=MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                Text(formatTransactionDetailMoney(item.amountMinor),
-                                    fontWeight=FontWeight.Bold)
-                            }
-                        }
-                    }
-                    item {
-                        OutlinedTextField(query, { query=it },
-                            Modifier.fillMaxWidth(), singleLine=true,
-                            leadingIcon={Icon(Icons.Rounded.Search,null)},
-                            placeholder={Text("Search categories")},
-                            shape=RoundedCornerShape(16.dp))
-                    }
-                    if(query.isBlank()) {
-                        item {
-                            Text("Suggested for this payment",
-                                fontWeight=FontWeight.SemiBold,
-                                style=MaterialTheme.typography.titleMedium)
-                        }
-                        item {
-                            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                                CategoryOption(suggested?.label ?: "Choose category",
-                                    "Current suggestion", Icons.Rounded.LocalCafe,
-                                    selectedId == suggested?.id,
-                                    onClick={if(suggested!=null) selectedId=suggested.id},
-                                    modifier=Modifier.weight(1f))
-                                if(allowSpecial && canMakePersonalDebtLink(item)) {
-                                    CategoryOption("Money lent", "Loan to a person",
-                                        Icons.Rounded.VolunteerActivism, false,
-                                        onClick=onMoneyLent, modifier=Modifier.weight(1f))
-                                    CategoryOption("Shared bill", "Split costs",
-                                        Icons.Rounded.Groups, false,
-                                        onClick=onSharedBill, modifier=Modifier.weight(1f))
-                                }
-                            }
-                        }
-                    }
-                    item {
-                        Text("All categories", style=MaterialTheme.typography.titleMedium,
-                            fontWeight=FontWeight.SemiBold)
-                    }
-                    val matching = categories.filter {
-                        query.isBlank() || it.label.contains(query, ignoreCase=true)
-                    }
-                    items(matching.chunked(2)) { pair ->
-                        Row(Modifier.fillMaxWidth(),
-                            horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                            pair.forEach { c ->
-                                CategoryOption(c.label, "", Icons.Rounded.Label,
-                                    c.id==selectedId,
-                                    onClick={selectedId=c.id},
-                                    modifier=Modifier.weight(1f))
-                            }
-                            if(pair.size==1) Spacer(Modifier.weight(1f))
-                        }
-                    }
-                    if(matching.isEmpty()) item {
-                        Text("No categories match your search.")
-                    }
-                    item {
-                        TextButton(onClick = { addingCategory = true }) {
-                            Icon(Icons.Rounded.Add, null)
-                            Spacer(Modifier.width(6.dp))
-                            Text("Add custom category")
-                        }
-                    }
-                    item {
-                        Text("Remembering similar payments is optional. Source transactions remain separate.",
-                            color=MaterialTheme.colorScheme.onSurfaceVariant,
-                            style=MaterialTheme.typography.bodySmall)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheet,
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+        containerColor = Color(0xFFFCFBFF),
+        scrimColor = Color(0xB50A1030),
+        dragHandle = {
+            Surface(Modifier.padding(top = 9.dp, bottom = 11.dp).size(58.dp, 5.dp),
+                color = Color(0xFFA7A6B7), shape = CircleShape) {}
+        }
+    ) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(.91f),
+            verticalArrangement = Arrangement.spacedBy(0.dp)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Surface(Modifier.size(54.dp), color = Color(0xFFECE4FF),
+                    shape = RoundedCornerShape(19.dp)) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.ReceiptLong, null, Modifier.size(27.dp), tint = purple)
                     }
                 }
-                Surface(color=MaterialTheme.colorScheme.surface,
-                    shadowElevation=6.dp) {
-                    Column(Modifier.fillMaxWidth().padding(12.dp),
-                        verticalArrangement=Arrangement.spacedBy(6.dp)) {
-                        Button(onClick={onSave(selectedId, !onlyThis)},
-                            modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),
-                            enabled=!busy && categories.any { it.id==selectedId },
-                            colors=ButtonDefaults.buttonColors(containerColor=teal,
-                                contentColor=baseNavy)) {
-                            Text("Save category", fontWeight=FontWeight.Bold)
-                        }
-                        Row(Modifier.fillMaxWidth().clickable { onlyThis=!onlyThis }
-                            .heightIn(min=42.dp), verticalAlignment=Alignment.CenterVertically) {
-                            Checkbox(checked=onlyThis, onCheckedChange={onlyThis=it})
-                            Column {
-                                Text("Only this transaction",
-                                    style=MaterialTheme.typography.labelLarge)
-                                Text("Do not apply to similar payments",
-                                    style=MaterialTheme.typography.labelSmall,
-                                    color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(Modifier.weight(1f)) {
+                    Text("Choose a category", fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold, color = ink)
+                    Text("How should PesaTrack treat this payment?",
+                        fontSize = 13.sp, color = muted, maxLines = 2)
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Rounded.Close, "Close category picker", tint = ink)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Surface(Modifier.fillMaxWidth().padding(horizontal = 19.dp),
+                color = Color.White, shape = RoundedCornerShape(50),
+                border = BorderStroke(1.dp, Color(0xFFE9E7F3))) {
+                Row(Modifier.heightIn(min = 52.dp).padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+                    Icon(Icons.Rounded.Search, null, Modifier.size(23.dp), tint = muted)
+                    TextField(value = query, onValueChange = { query = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Search categories...", fontSize = 14.sp, color = muted) },
+                        singleLine = true,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            disabledIndicatorColor = Color.Transparent))
+                    if (query.isNotBlank()) IconButton(onClick = { query = "" }) {
+                        Icon(Icons.Rounded.Close, "Clear search")
+                    }
+                }
+            }
+            LazyColumn(Modifier.weight(1f),
+                contentPadding = PaddingValues(start = 19.dp, end = 19.dp, top = 14.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                if (query.isBlank() && suggested.isNotEmpty()) {
+                    item {
+                        Text("Suggested for you", fontWeight = FontWeight.Bold,
+                            color = ink, fontSize = 16.sp)
+                    }
+                    item {
+                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            suggested.forEach { c ->
+                                CategoryReferenceTile(
+                                    category = c, selected = selectedId == c.id,
+                                    modifier = Modifier.width(115.dp),
+                                    onSelect = { selectedId = c.id }
+                                )
                             }
                         }
+                    }
+                    item { HorizontalDivider(color = Color(0xFFEAE8F4)) }
+                }
+                item {
+                    Text("All categories", fontWeight = FontWeight.Bold,
+                        color = ink, fontSize = 16.sp)
+                }
+                item {
+                    BoxWithConstraints {
+                        val cols = if (maxWidth >= 650.dp) 5 else if (maxWidth >= 425.dp) 4 else 3
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            matching.chunked(cols).forEach { row ->
+                                Row(Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                    row.forEach { c ->
+                                        CategoryReferenceTile(c, selectedId == c.id,
+                                            Modifier.weight(1f), compact = true,
+                                            onSelect = { selectedId = c.id })
+                                    }
+                                    repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (matching.isEmpty()) item {
+                    Text("No categories match your search.", color = muted, fontSize = 13.sp)
+                }
+                item {
+                    TextButton(onClick = { addingCategory = true }) {
+                        Icon(Icons.Rounded.Add, null)
+                        Spacer(Modifier.width(5.dp))
+                        Text("Add category")
+                    }
+                }
+                if (allowSpecial && canMakePersonalDebtLink(item)) {
+                    item {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedButton(onClick = onMoneyLent, Modifier.weight(1f)) {
+                                Text("Money lent", fontSize = 12.sp)
+                            }
+                            OutlinedButton(onClick = onSharedBill, Modifier.weight(1f)) {
+                                Text("Shared bill", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
+            Surface(color = Color(0xFFFCFBFF), shadowElevation = 4.dp) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 19.dp, vertical = 9.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Row(Modifier.fillMaxWidth().clickable { onlyThis = !onlyThis }
+                        .heightIn(min = 36.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = onlyThis, onCheckedChange = { onlyThis = it })
+                        Column {
+                            Text("Only this transaction", fontSize = 12.sp, color = ink)
+                            Text("Otherwise PesaTrack may learn from similar payments",
+                                fontSize = 10.sp, color = muted)
+                        }
+                    }
+                    Button(onClick = { onSave(selectedId, !onlyThis) },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
+                        enabled = !busy && categories.any { it.id == selectedId },
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = purple, contentColor = Color.White)
+                    ) {
+                        Text("Save Category", fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
