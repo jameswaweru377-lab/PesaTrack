@@ -69,6 +69,7 @@ class TransactionDetailJourneyTest {
         compose.onNodeWithText("Change").performClick()
         compose.onNodeWithText("Add category").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Transport", useUnmergedTree = true).performScrollTo().performClick()
+        compose.onNodeWithText("Save Category").performClick()
         compose.waitUntil(5000) {
             TransactionStore.get(context).getById(payment.id)?.category ==
                 CategoryStore.get(context).canonicalId(TransactionCategory.TRANSPORT.name)
