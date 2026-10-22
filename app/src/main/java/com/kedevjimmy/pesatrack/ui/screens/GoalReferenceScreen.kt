@@ -437,11 +437,11 @@ private fun GoalFilterChip(
     Surface(
         modifier = Modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(50.dp),
-        color = if (selected) Color(0xFF202B42)
+        color = if (selected) Color(0xFFEDE6FF)
         else MaterialTheme.colorScheme.surfaceVariant,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (selected) Color(0xFF55E6D1)
+            if (selected) PlanVibrant.violet
             else MaterialTheme.colorScheme.outline
         )
     ) {
@@ -453,14 +453,14 @@ private fun GoalFilterChip(
                 group.icon,
                 null,
                 Modifier.size(17.dp),
-                tint = if (selected) Color(0xFF8B80FF)
+                tint = if (selected) PlanVibrant.violet
                 else MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 group.label,
                 modifier = Modifier.padding(start = 6.dp),
                 style = MaterialTheme.typography.labelMedium,
-                color = if (selected) Color(0xFFF1EFFF)
+                color = if (selected) PlanVibrant.violet
                 else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -815,34 +815,35 @@ fun SavingGoalsScreen(
             )
         }
         item {
-            OutlinedButton(
-                onClick = {
-                    voiceAdd = true
-                },
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                contentPadding = PaddingValues(
-                    horizontal = 14.dp,
-                    vertical = 11.dp
-                )
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Rounded.Mic,
-                    contentDescription = null
+                VibrantActionButton(
+                    "+ New goal",
+                    onClick = {
+                        editingGoal = null
+                        goalEditor = true
+                    },
+                    modifier = Modifier.weight(1f)
                 )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "Add goal by voice",
-                    fontWeight = FontWeight.SemiBold
-                )
+                OutlinedButton(
+                    onClick = { voiceAdd = true },
+                    modifier = Modifier.weight(1f).heightIn(min = 50.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD8CBFF)),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color(0xFFEDE6FF),
+                        contentColor = PlanVibrant.violet
+                    ),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 11.dp)
+                ) {
+                    Icon(Icons.Rounded.Mic, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Add by voice", fontWeight = FontWeight.SemiBold)
+                }
             }
-        }
-
-        item {
-            VibrantActionButton("+ New goal", onClick = {
-                editingGoal = null
-                goalEditor = true
-            })
         }
     }
 }

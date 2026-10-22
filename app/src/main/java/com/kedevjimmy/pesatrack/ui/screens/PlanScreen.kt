@@ -53,6 +53,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
 import com.kedevjimmy.pesatrack.data.local.CommitmentProgress
+import com.kedevjimmy.pesatrack.data.local.FinancialProgress
+import com.kedevjimmy.pesatrack.data.local.FinancialProgressRepository
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.MonthlyBudget
 import com.kedevjimmy.pesatrack.data.local.PayCycleSnapshot
@@ -91,7 +93,8 @@ internal data class PlanReferenceData(
     val recurring: List<RecurringPatternCandidate>,
     val budgets: List<MonthlyBudget>,
     val goals: List<SmartRule>,
-    val bills: List<ScheduledBill>
+    val bills: List<ScheduledBill>,
+    val financialProgress: FinancialProgress? = null
 )
 
 class PlanScreenCache {
@@ -153,6 +156,9 @@ fun PlanScreen(
     var upcomingBills by remember {
         mutableStateOf<List<ScheduledBill>>(initialData?.bills ?: emptyList())
     }
+    var financialProgress by remember {
+        mutableStateOf(initialData?.financialProgress)
+    }
     var showPlanDetails by remember {
         mutableStateOf(false)
     }
@@ -193,6 +199,15 @@ fun PlanScreen(
                             it.category == TransactionCategory.SAVINGS &&
                                 (it.plannedAmountMinor ?: 0L) > 0L
                         }
+                val progress = try {
+                    traceFinancialRead("plan.progress") {
+                        FinancialProgressRepository(context).read()
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    null
+                }
                 PlanReferenceData(
                     snapshot = cycle,
                     recurring = recurring,
@@ -200,7 +215,8 @@ fun PlanScreen(
                     goals = goals,
                     bills = traceFinancialRead("plan.upcomingBills") {
                         billSchedules.upcomingThisMonth()
-                    }
+                    },
+                    financialProgress = progress
                 )
             }
         snapshot = loaded.snapshot
@@ -208,6 +224,7 @@ fun PlanScreen(
         monthlyBudgets = loaded.budgets
         savingsGoals = loaded.goals
         upcomingBills = loaded.bills
+        financialProgress = loaded.financialProgress
         hasLoaded = true
         stateCache?.data = loaded
         stateCache?.revision = ledgerUpdateState.revision
@@ -274,15 +291,17 @@ fun PlanScreen(
         }
         item {
             VibrantPlanSurface {
+                val budgetCount = financialProgress?.budgets?.size ?: monthlyBudgets.size
+                val goalCount = financialProgress?.goals?.size ?: savingsGoals.size
                 VibrantPlanSectionTitle("Your plan")
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                     VibrantDestinationTile(Icons.Rounded.BarChart, "Budgets",
-                        if (monthlyBudgets.isEmpty()) "Set your first limit"
-                        else "${monthlyBudgets.size} active budgets", "pink",
+                        if (budgetCount == 0) "Set your first limit"
+                        else "$budgetCount active budgets", "pink",
                         onBudgetClick, Modifier.weight(1f))
                     VibrantDestinationTile(Icons.Rounded.TrackChanges, "Goals",
-                        if (savingsGoals.isEmpty()) "Set your first goal"
-                        else "${savingsGoals.size} savings goals", "mint",
+                        if (goalCount == 0) "Set your first goal"
+                        else "$goalCount savings goals", "mint",
                         onGoalsClick, Modifier.weight(1f))
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -319,7 +338,41 @@ fun PlanScreen(
                 }
             }
         }
-        if (snapshot.cycle != null) item {
+        val progressData = financialProgress
+        if (progressData != null) item {
+            val budgetItems = progressData.budgets
+            val goalItems = progressData.goals
+            val budgetUsedMinor = budgetItems.sumOf { it.saved }
+            val budgetLimitMinor = budgetItems.sumOf { it.target }
+            val goalSavedMinor = goalItems.sumOf { it.saved }
+            val goalTargetMinor = goalItems.sumOf { it.target }
+            val budgetRatio = if (budgetLimitMinor > 0L) {
+                (budgetUsedMinor.toFloat() / budgetLimitMinor.toFloat()).coerceIn(0f, 1f)
+            } else 0f
+            val goalRatio = if (goalTargetMinor > 0L) {
+                (goalSavedMinor.toFloat() / goalTargetMinor.toFloat()).coerceIn(0f, 1f)
+            } else 0f
+            val budgetPercent = if (budgetLimitMinor > 0L) {
+                (budgetUsedMinor.toDouble() * 100.0 / budgetLimitMinor.toDouble()).toInt().coerceAtLeast(0)
+            } else 0
+            val goalPercent = if (goalTargetMinor > 0L) {
+                (goalSavedMinor.toDouble() * 100.0 / goalTargetMinor.toDouble()).toInt().coerceIn(0, 100)
+            } else 0
+            VibrantPlanSurface {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Your progress", Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("This month", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                VibrantPlanMeter("Budget used",
+                    if (budgetItems.isEmpty()) "No budgets" else "$budgetPercent%",
+                    budgetRatio, Icons.Rounded.BarChart, "violet")
+                VibrantPlanMeter("Goals saved",
+                    if (goalItems.isEmpty()) "No goals" else "$goalPercent%",
+                    goalRatio, Icons.Rounded.Savings, "mint")
+            }
+        } else if (snapshot.cycle != null) item {
             val base = (snapshot.startingFundsMinor + snapshot.additionalIncomeMinor)
                 .coerceAtLeast(1L).toFloat()
             val spent = (snapshot.spentMinor.toFloat() / base).coerceIn(0f,1f)

@@ -119,7 +119,6 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                 IconButton(onClick = { showHelp = true }) { Icon(Icons.Rounded.Info, "How pay cycles work") }
             }
         }
-        item { SpendingPeriodSelector(true, onCalendar, {}) }
         if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         error?.let { item { Text(it); Button(onClick = { retry++ }) { Text("Try again") } } }
         if (!loading && error == null && selected == null) item {
