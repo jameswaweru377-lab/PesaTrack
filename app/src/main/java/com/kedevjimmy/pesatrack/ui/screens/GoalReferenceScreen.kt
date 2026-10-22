@@ -412,11 +412,11 @@ private fun GoalHero(
                 Text("of " + goalMoney(totalTargetMinor), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            VibrantPlanIcon(Icons.Rounded.TrackChanges, "violet", size = 70)
+            VibrantPlanIcon(Icons.Rounded.TrackChanges, "violet", size = 58)
         }
         LinearProgressIndicator(progress = { progress }, Modifier.fillMaxWidth().height(9.dp)
             .clip(RoundedCornerShape(50.dp)),
-            color = PlanVibrant.violet, trackColor = Color(0xFFECE8F9))
+            color = PlanVibrant.violet, trackColor = MaterialTheme.colorScheme.surfaceVariant)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Goal progress  •  " + (progress * 100).roundToInt() + "%",
                 style = MaterialTheme.typography.labelSmall,
