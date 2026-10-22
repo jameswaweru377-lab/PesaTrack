@@ -27,6 +27,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.platform.LocalDensity
+import java.math.BigDecimal
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
@@ -39,6 +44,15 @@ internal fun activityShareLabel(part: Long, total: Long): String {
     if (total <= 0L || part <= 0L) return "0%"
     val pct = part.toDouble() / total.toDouble() * 100.0
     return if (pct < 1.0) "<1%" else "${kotlin.math.round(pct).toInt()}%"
+}
+
+/** Exact KES formatting: show cents whenever any chart segment has fractional shillings. */
+internal fun activityKesLabel(minor: Long, showCents: Boolean = false): String {
+    val formatter = NumberFormat.getNumberInstance(Locale.US).apply {
+        minimumFractionDigits = if (showCents || minor % 100L != 0L) 2 else 0
+        maximumFractionDigits = 2
+    }
+    return "KES " + formatter.format(BigDecimal.valueOf(minor, 2))
 }
 
 internal data class ActivityReferenceSegment(val label: String, val minor: Long, val color: Color)
@@ -111,13 +125,16 @@ internal fun ActivityReferenceSummary(
 ) {
     val ink = HomeReferencePalette.ink
     val muted = HomeReferencePalette.muted
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
     val segments = remember(transactions, filter, categoryName, accountName, possibleDuplicateIds) {
         activityReferenceSegments(transactions, filter, categoryName, accountName, possibleDuplicateIds)
     }
     val totalMinor = segments.fold(0L) { sum, segment -> if (Long.MAX_VALUE - sum < segment.minor) Long.MAX_VALUE else sum + segment.minor }
     val total = totalMinor.toDouble()
-    val center = if (filter == "Needs Review") total.toLong().toString()
-        else "KES " + NumberFormat.getIntegerInstance(Locale.US).format((total / 100.0).toLong())
+    val showCents = filter != "Needs Review" && segments.any { it.minor % 100L != 0L }
+    val center = if (filter == "Needs Review") totalMinor.toString()
+        else activityKesLabel(totalMinor, showCents)
     val caption = when (filter) {
         "Money In" -> "received"
         "Transfers" -> "moved"
@@ -178,7 +195,17 @@ internal fun ActivityReferenceSummary(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(Modifier.weight(1.04f).aspectRatio(1f), contentAlignment = Alignment.Center) {
+                    BoxWithConstraints(Modifier.weight(1.04f).aspectRatio(1f), contentAlignment = Alignment.Center) {
+                        val innerWidth = (maxWidth - 56.dp).coerceAtLeast(42.dp)
+                        val innerWidthPx = with(density) { innerWidth.toPx() }
+                        fun textFits(value: String, size: androidx.compose.ui.unit.TextUnit): Boolean =
+                            textMeasurer.measure(AnnotatedString(value), style = TextStyle(fontSize = size,
+                                fontWeight = FontWeight.ExtraBold), maxLines = 1).size.width <= innerWidthPx
+                        val oneLineSize = listOf(18.sp, 17.sp, 16.sp).firstOrNull { textFits(center, it) }
+                        val splitAmount = filter != "Needs Review" && oneLineSize == null
+                        val numericText = if (splitAmount) center.removePrefix("KES ") else center
+                        val numericSize = listOf(17.sp, 16.sp, 14.sp, 12.sp, 10.sp)
+                            .firstOrNull { textFits(numericText, it) } ?: 10.sp
                         Canvas(Modifier.fillMaxSize()) {
                             val width = 19.dp.toPx()
                             val inset = width / 2f + 3.dp.toPx()
@@ -202,17 +229,26 @@ internal fun ActivityReferenceSummary(
                                 }
                             }
                         }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(center, fontSize = if (center.length > 11) 14.sp else 19.sp,
-                                fontWeight = FontWeight.ExtraBold, color = ink,
-                                maxLines = 1)
-                            Text(caption, fontSize = 12.sp, color = muted,
-                                maxLines = 2, lineHeight = 14.sp)
+                        Column(
+                            modifier = Modifier.width(innerWidth),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            if (splitAmount) {
+                                Text("KES", fontSize = 11.sp, lineHeight = 13.sp,
+                                    fontWeight = FontWeight.SemiBold, color = ink, maxLines = 1)
+                            }
+                            Text(numericText,
+                                fontSize = if (splitAmount) numericSize else (oneLineSize ?: numericSize),
+                                lineHeight = 20.sp, fontWeight = FontWeight.ExtraBold, color = ink,
+                                maxLines = 1, softWrap = false)
+                            Text(caption, fontSize = 11.sp, color = muted,
+                                maxLines = 2, lineHeight = 13.sp,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         }
                     }
                     Column(Modifier.weight(1.46f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         if (segments.isEmpty()) {
-                            Text("No matching transactions", color = muted, fontSize = 12.sp)
+                            Text(if (filter == "Transfers") "No transfers recorded for this period" else "No matching transactions", color = muted, fontSize = 12.sp, lineHeight = 16.sp)
                         }
                         segments.forEachIndexed { index, segment ->
                             Row(
@@ -225,8 +261,7 @@ internal fun ActivityReferenceSummary(
                                     fontSize = 12.sp, color = ink, maxLines = 1,
                                     overflow = TextOverflow.Ellipsis)
                                 val formatted = if (filter == "Needs Review") segment.minor.toString()
-                                    else "KES " + NumberFormat.getIntegerInstance(Locale.US)
-                                        .format(segment.minor / 100L)
+                                    else activityKesLabel(segment.minor, showCents)
                                 Text(formatted, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                                     color = ink, maxLines = 1)
                                 Text(activityShareLabel(segment.minor, totalMinor), fontSize = 11.sp, color = muted)
@@ -236,6 +271,11 @@ internal fun ActivityReferenceSummary(
                             }
                         }
                     }
+                }
+                if (showCents) {
+                    Text("Amounts include cents for exact reconciliation.",
+                        fontSize = 10.sp, color = muted,
+                        modifier = Modifier.padding(top = 4.dp))
                 }
             }
         }
