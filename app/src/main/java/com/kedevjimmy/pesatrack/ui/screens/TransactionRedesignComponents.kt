@@ -37,6 +37,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.PesaCategory
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
+import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
@@ -676,7 +677,7 @@ internal fun TransactionCategoryChooser(
                 if (query.isBlank() && allowCorrections) {
                     val acceptIdentity = item.counterparty.isNullOrBlank() &&
                         !item.evidenceLabel.isNullOrBlank()
-                    val refundLink = item.relationType == "REFUND"
+                    val refundLink = item.relationType == TransactionStore.RELATION_REFUND
                     val canOwnTransfer = item.relationType == null &&
                         item.direction != MoneyDirection.TRANSFER.name &&
                         item.reviewState != ReviewState.EXCLUDED.name
