@@ -95,78 +95,12 @@ fun AppScaffold(
             }
         },
         bottomBar = {
-            if (currentTab == MainTab.HOME || currentTab == MainTab.ACTIVITY) {
+            if (currentTab != null) {
                 Surface(
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
                     color = Color.White
                 ) {
                     ReferenceHomeBottomBar(currentTab, onTabSelected)
-                }
-            } else Surface(
-                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 0.dp
-            ) {
-                Row(
-                    Modifier.fillMaxWidth().height(76.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(0.dp)
-                ) {
-                    @Composable
-                    fun androidx.compose.foundation.layout.RowScope.tabItem(tab: MainTab) {
-                        val selected = currentTab == tab ||
-                            (tab == MainTab.MORE && currentTab == MainTab.ACCOUNTS)
-                        val tint = if (selected) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
-                        Column(
-                            Modifier.weight(1f).fillMaxHeight().clickable {
-                                onTabSelected(tab)
-                            }.padding(vertical = 9.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp,
-                                Alignment.CenterVertically),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                tab.icon, contentDescription = tab.label,
-                                modifier = Modifier.size(25.dp), tint = tint
-                            )
-                            Text(tab.label, color = tint,
-                                style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                    tabItem(MainTab.HOME)
-                    tabItem(MainTab.ACTIVITY)
-                    Box(
-                        Modifier.weight(1f).fillMaxHeight()
-                            .testTag("bottom-add-tool-button"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        val addAccent = MaterialTheme.colorScheme.primary
-                        val addFill = addAccent
-                        val addIcon = MaterialTheme.colorScheme.onPrimary
-                        Canvas(Modifier.requiredSize(72.dp)) {
-                            drawCircle(addAccent.copy(alpha = .10f))
-                        }
-                        Surface(
-                            onClick = { toolsOpen = true },
-                            modifier = Modifier.requiredSize(58.dp),
-                            shape = CircleShape,
-                            color = addFill,
-                            border = BorderStroke(2.dp, addAccent),
-                            shadowElevation = 10.dp
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Rounded.Add,
-                                    contentDescription = "Add & import tools",
-                                    modifier = Modifier.size(33.dp),
-                                    tint = addIcon
-                                )
-                            }
-                        }
-                    }
-                    tabItem(MainTab.PLAN)
-                    tabItem(MainTab.MORE)
                 }
             }
         },
