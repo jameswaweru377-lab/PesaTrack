@@ -68,7 +68,6 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
             }
             item { Text("Preferences", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
             item { SettingsGroup {
-                SettingsCompactRow(Icons.Rounded.Palette, "Appearance", "Light, dark or your phone's setting") { page = "appearance" }
                 SettingsCompactRow(Icons.Rounded.Notifications, "Reminders", "Bills, budgets and savings") { page = "reminders" }
             } }
             item {
