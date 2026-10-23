@@ -107,7 +107,6 @@ internal fun ReferenceHomeBottomBar(currentTab: MainTab, onSelected: (MainTab) -
                 Triple(MainTab.HOME, Icons.Rounded.Home, "Home"),
                 Triple(MainTab.ACTIVITY, Icons.Rounded.FormatListBulleted, "Activity"),
                 Triple(MainTab.PLAN, Icons.Rounded.PieChartOutline, "Plan"),
-                Triple(MainTab.ACCOUNTS, Icons.Rounded.AccountBalanceWallet, "Accounts"),
                 Triple(MainTab.MORE, Icons.Rounded.MoreHoriz, "More")
             )
             tabs.forEach { (tab, icon, title) ->
