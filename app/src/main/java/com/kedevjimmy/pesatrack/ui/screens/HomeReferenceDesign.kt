@@ -110,7 +110,7 @@ internal fun ReferenceHomeBottomBar(currentTab: MainTab, onSelected: (MainTab) -
                 Triple(MainTab.MORE, Icons.Rounded.MoreHoriz, "More")
             )
             tabs.forEach { (tab, icon, title) ->
-                val active = currentTab == tab
+                val active = currentTab == tab || (tab == MainTab.MORE && currentTab == MainTab.ACCOUNTS)
                 val surface = if (active) Modifier.background(
                     Brush.verticalGradient(listOf(Color(0xFF7625FF), Color(0xFF4300D8))),
                     RoundedCornerShape(15.dp)
