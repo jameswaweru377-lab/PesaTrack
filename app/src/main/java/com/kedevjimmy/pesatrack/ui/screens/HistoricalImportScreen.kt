@@ -402,39 +402,88 @@ fun HistoricalImportScreen(
 
         result?.let { importResult ->
             item {
-                SectionHeader("Import result")
-                Spacer(Modifier.height(6.dp))
-                PesaCard {
-                    Column(
-                        Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        color = if (importResult.cancelled) MaterialTheme.colorScheme.secondaryContainer
+                            else MaterialTheme.colorScheme.primaryContainer
                     ) {
-                        ImportResultRow("SMS scanned", importResult.scanned)
-                        ImportResultRow("Money messages matched", importResult.matched)
-                        ImportResultRow("New transactions added", importResult.inserted)
-                        ImportResultRow("Duplicates skipped", importResult.duplicates)
-                        ImportResultRow("Unrelated messages ignored", importResult.ignored)
-                        if (importResult.resumed) {
-                            Text(
-                                "This run resumed from the most recent saved checkpoint instead of rescanning the completed part of the interrupted import.",
-                                style =
-                                    MaterialTheme.typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme.colorScheme
-                                        .onSurfaceVariant
-                            )
+                        Row(
+                            Modifier.fillMaxWidth().padding(20.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+                            ) {
+                                Icon(
+                                    if (importResult.cancelled) Icons.Rounded.History else Icons.Rounded.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(12.dp).size(28.dp)
+                                )
+                            }
+                            Column(
+                                Modifier.weight(1f).padding(start = 14.dp),
+                                verticalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Text(
+                                    if (importResult.cancelled) "Import paused safely" else "Import complete",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    if (importResult.cancelled)
+                                        "Some history was scanned. Any saved records are kept, and you can resume later."
+                                    else
+                                        "Your financial messages have been checked. Duplicate messages were skipped.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    "${importResult.inserted} new transactions added",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
                         }
-                        if (importResult.cancelled) {
-                            Text(
-                                "Import stopped before the selected history was fully scanned. Records already added were kept and a recent checkpoint is retained so the next run can continue without rescanning the completed part.",
-                                style =
-                                    MaterialTheme.typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme.colorScheme
-                                        .onSurfaceVariant
-                            )
+                    }
+
+                    SectionHeader("Import summary")
+                    PesaCard {
+                        Column(
+                            Modifier.fillMaxWidth().padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                ImportMetric("SMS scanned", importResult.scanned, Modifier.weight(1f))
+                                ImportMetric("Money messages", importResult.matched, Modifier.weight(1f))
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                ImportMetric("New records", importResult.inserted, Modifier.weight(1f))
+                                ImportMetric("Duplicates skipped", importResult.duplicates, Modifier.weight(1f))
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                ImportMetric("Unrelated ignored", importResult.ignored, Modifier.weight(1f))
+                                Spacer(Modifier.weight(1f))
+                            }
+                            if (importResult.resumed) {
+                                Text(
+                                    "This run resumed from the most recent saved checkpoint instead of rescanning the completed part of the import.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (importResult.cancelled) {
+                                Text(
+                                    "The selected history was not fully scanned. Records already added were kept, and the saved checkpoint lets the next run continue safely.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -501,6 +550,36 @@ private fun WindowChip(
         label = { Text(label) },
         modifier = modifier
     )
+}
+
+@Composable
+private fun ImportMetric(
+    label: String,
+    value: Int,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 13.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                value.toString(),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 @Composable
