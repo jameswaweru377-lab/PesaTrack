@@ -82,10 +82,10 @@ fun MoreScreen(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 SectionHeader("Bring your records in")
                 ImportFeatureCard(
-                    title = "Import a statement",
-                    subtitle = "Bank or M-Pesa statement",
+                    title = "Statements & imports",
+                    subtitle = "Import a bank or M-Pesa statement",
                     formats = "PDF  ·  CSV",
-                    supportingText = "Review records before adding them to your money history.",
+                    supportingText = "Import PDF or CSV files, or return to saved statement records.",
                     onClick = onStatementActivityClick
                 )
                 if (onPaycheckClick != null) {
@@ -150,12 +150,6 @@ fun MoreScreen(
         item { SectionHeader("Records & support") }
         item {
             MenuGroup {
-                MenuRow(
-                    icon = Icons.Rounded.ReceiptLong,
-                    title = "Statement history",
-                    subtitle = "View saved statement records",
-                    onClick = onStatementActivityClick
-                )
                 MenuRow(
                     icon = Icons.Rounded.CalendarMonth,
                     title = "Import older SMS",
