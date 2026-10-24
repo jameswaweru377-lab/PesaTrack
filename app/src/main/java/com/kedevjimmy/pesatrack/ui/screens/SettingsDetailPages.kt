@@ -137,7 +137,7 @@ internal fun MoneyAccessPage(padding: PaddingValues, back: () -> Unit, history: 
 }
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun RemindersPage(padding: PaddingValues, back: () -> Unit) {
+internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: String = "Reminders") {
     val context = LocalContext.current
     val bills = remember { BillSchedules(context) }
     var lead by remember { mutableIntStateOf(bills.globalReminderLeadDays()) }
@@ -155,7 +155,7 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit) {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it }
     val settings = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { allowed = NotificationManagerCompat.from(context).areNotificationsEnabled() }
     fun ask() { if (Build.VERSION.SDK_INT >= 33 && !allowed) permission.launch(Manifest.permission.POST_NOTIFICATIONS) }
-    EverydayPage("Reminders", padding, back) {
+    EverydayPage(title, padding, back) {
         item { Text("A little help staying on track. Reminders are checked during the day and may be delayed by your phone's battery settings.") }
         if (!allowed) item { Button(onClick = { settings.launch(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }, modifier = Modifier.fillMaxWidth()) { Text("Allow PesaTrack notifications") } }
         item { ChoiceSwitch("Upcoming bills", "Remind me before a scheduled bill is due", billOn) { billOn = it; bills.setGlobalReminderLeadDays(lead, it); if(it) ask() } }
@@ -196,8 +196,8 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit) {
     }
 }
 @Composable
-internal fun HelpPage(padding: PaddingValues, back: () -> Unit, advanced: () -> Unit) {
-    EverydayPage("Help", padding, back) {
+internal fun HelpPage(padding: PaddingValues, back: () -> Unit, advanced: () -> Unit, title: String = "Help") {
+    EverydayPage(title, padding, back) {
         item { Text("Missing transactions?", style = MaterialTheme.typography.titleMedium); Text("Check Money message access, then add past transactions. PesaTrack ignores duplicates. Bank-app updates begin after you approve the app.") }
         item { Text("A balance looks wrong?", style = MaterialTheme.typography.titleMedium); Text("Open the account to check its latest balance and date. Older messages may be missing. An estimate is not a live bank balance.") }
         item { Text("Sorting needs a correction?", style = MaterialTheme.typography.titleMedium); Text("Open a transaction in Activity to change its category or confirm which account it belongs to.") }
