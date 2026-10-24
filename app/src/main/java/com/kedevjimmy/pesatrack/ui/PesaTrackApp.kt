@@ -658,8 +658,8 @@ fun PesaTrackApp(
         }
 
         composable("profile") {
-            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
-                currentTab = null,
+            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
+                currentTab = MainTab.MORE,
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 ProfileScreen(
@@ -668,7 +668,8 @@ fun PesaTrackApp(
                     onSettingsClick = { navController.navigate("settings") },
                     onAccountsClick = { navigateToTab(MainTab.ACCOUNTS) },
                     onDataHealthClick = { navController.navigate("data-health") },
-                    onGoalsClick = { navController.navigate("saving-goals") }
+                    onGoalsClick = { navController.navigate("saving-goals") },
+                    onHistoricalImportClick = { navController.navigate("historical-import") }
                 )
             }
         }
