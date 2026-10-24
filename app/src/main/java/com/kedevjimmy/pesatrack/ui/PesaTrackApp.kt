@@ -658,9 +658,15 @@ fun PesaTrackApp(
         }
 
         composable("profile") {
-            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
+            var profilePage by rememberSaveable { mutableStateOf("home") }
+            AppScaffold(
+                onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
+                onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
+                onNotificationsClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
                 currentTab = MainTab.MORE,
-                onTabSelected = ::navigateToTab
+                onTabSelected = ::navigateToTab,
+                showTopBar = profilePage == "home",
+                useHomeHeader = profilePage == "home"
             ) { padding ->
                 ProfileScreen(
                     scaffoldPadding = padding,
@@ -669,7 +675,8 @@ fun PesaTrackApp(
                     onAccountsClick = { navigateToTab(MainTab.ACCOUNTS) },
                     onDataHealthClick = { navController.navigate("data-health") },
                     onGoalsClick = { navController.navigate("saving-goals") },
-                    onHistoricalImportClick = { navController.navigate("historical-import") }
+                    onHistoricalImportClick = { navController.navigate("historical-import") },
+                    onPageChanged = { profilePage = it }
                 )
             }
         }
