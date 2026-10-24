@@ -65,7 +65,7 @@ fun ProfileScreen(
     }
 
     if (page == "personal") {
-        PersonalDetailsScreen(scaffoldPadding, onBack = { page = "home" })
+        PersonalDetailsScreen(scaffoldPadding, onBack = { page = "home" }, title = "Personal information")
         return
     }
 
