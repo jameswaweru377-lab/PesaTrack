@@ -69,7 +69,12 @@ fun ProfileScreen(
         onBack()
     }
     BackHandler(enabled = page != "home" && page != "personal") {
-        page = "home"
+        page = when (page) {
+            "privacy", "access" -> "security"
+            "archive" -> "privacy"
+            "policy", "terms", "financial_notice" -> "about"
+            else -> "home"
+        }
     }
 
     if (page == "personal") {
