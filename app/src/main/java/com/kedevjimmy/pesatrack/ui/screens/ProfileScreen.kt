@@ -286,10 +286,11 @@ private fun ProfileGradientBanner(name: String, email: String, avatar: String, o
                         style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .84f))
                     Surface(shape = RoundedCornerShape(50.dp), color = Color.White.copy(alpha = .17f)) {
                         Row(Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                            horizontalArrangement = Arrangement.spacedBy(5.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.Shield, contentDescription = null,
                                 tint = Color.White, modifier = Modifier.size(13.dp))
-                            Text("  Stored on this phone", style = MaterialTheme.typography.labelSmall,
+                            Text("Stored on this phone", style = MaterialTheme.typography.labelSmall,
                                 color = Color.White)
                         }
                     }
