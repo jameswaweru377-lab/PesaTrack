@@ -933,9 +933,8 @@ internal fun StatementIntelligenceDashboard(
                     }
                 }
                 }
-                if (onTabSelected != null) {
-                    StatementBottomNavigation(onTabSelected)
-                }
+                // Statement archive is a focused workspace. Keep the app's global
+                // navigation out of this full-screen flow.
             }
         }
     }
