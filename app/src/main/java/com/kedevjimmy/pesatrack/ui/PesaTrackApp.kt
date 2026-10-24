@@ -542,6 +542,9 @@ fun PesaTrackApp(
                     },
                     onGoalsClick = {
                         navController.navigate("saving-goals")
+                    },
+                    onPaycheckClick = {
+                        navController.navigate("paycheck-analysis") { launchSingleTop = true }
                     }
                 )
             }
