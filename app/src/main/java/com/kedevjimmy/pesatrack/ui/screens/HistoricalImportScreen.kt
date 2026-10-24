@@ -403,13 +403,16 @@ fun HistoricalImportScreen(
         }
 
         result?.let { importResult ->
+            val resultContainerColor = if (importResult.cancelled)
+                MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer
+            val resultContentColor = if (importResult.cancelled)
+                MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(24.dp),
-                        color = if (importResult.cancelled) MaterialTheme.colorScheme.secondaryContainer
-                            else MaterialTheme.colorScheme.primaryContainer
+                        color = resultContainerColor
                     ) {
                         Row(
                             Modifier.fillMaxWidth().padding(20.dp),
@@ -434,7 +437,7 @@ fun HistoricalImportScreen(
                                     if (importResult.cancelled) "Import paused safely" else "Import complete",
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    color = resultContentColor
                                 )
                                 Text(
                                     if (importResult.cancelled)
@@ -442,13 +445,13 @@ fun HistoricalImportScreen(
                                     else
                                         "Your financial messages have been checked. Duplicate messages were skipped.",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    color = resultContentColor
                                 )
                                 Text(
                                     "${importResult.inserted} new transactions added",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    color = resultContentColor
                                 )
                             }
                         }
