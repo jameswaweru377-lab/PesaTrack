@@ -60,6 +60,9 @@ fun ProfileScreen(
         }
     }
 
+    BackHandler(enabled = page == "home") {
+        onBack()
+    }
     BackHandler(enabled = page != "home" && page != "personal") {
         page = "home"
     }
