@@ -34,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.kedevjimmy.pesatrack.ui.components.MainTab
 
 @Composable
 internal fun StatementEmptyLanding(
@@ -175,36 +174,6 @@ internal fun StatementEmptyLanding(
                     onClick = {}
                 )
             }
-        }
-    }
-}
-
-@Composable
-internal fun StatementBottomNavigation(onTabSelected: (MainTab) -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 62.dp).padding(horizontal = 6.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            listOf(MainTab.HOME, MainTab.ACTIVITY, MainTab.PLAN, MainTab.ACCOUNTS, MainTab.MORE)
-                .forEach { tab ->
-                    val selected = tab == MainTab.ACCOUNTS
-                    val tint = if (selected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                    Column(
-                        Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
-                            .clickable { onTabSelected(tab) }.padding(vertical = 5.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Icon(tab.icon, contentDescription = tab.label,
-                            tint = tint, modifier = Modifier.size(21.dp))
-                        Text(tab.label, color = tint, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
         }
     }
 }
