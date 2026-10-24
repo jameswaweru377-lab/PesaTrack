@@ -50,6 +50,8 @@ fun AppScaffold(
     onProfileClick: () -> Unit = {},
     onPaycheckClick: () -> Unit = {},
     onNotificationsClick: () -> Unit = {},
+    showTopBar: Boolean = true,
+    useHomeHeader: Boolean = false,
     content: @Composable (PaddingValues) -> Unit
 ) {
     var toolsOpen by remember { mutableStateOf(false) }
@@ -59,10 +61,10 @@ fun AppScaffold(
             .getString("profile_name", "J").orEmpty().trim().take(1).ifBlank { "J" }
     }
     Scaffold(
-        containerColor = if (currentTab == MainTab.HOME || currentTab == MainTab.ACTIVITY) HomeReferencePalette.canvas
+        containerColor = if (currentTab == MainTab.HOME || currentTab == MainTab.ACTIVITY || useHomeHeader) HomeReferencePalette.canvas
             else MaterialTheme.colorScheme.background,
         topBar = {
-            if (currentTab == MainTab.HOME || currentTab == MainTab.ACTIVITY) {
+            if (showTopBar && (currentTab == MainTab.HOME || currentTab == MainTab.ACTIVITY || useHomeHeader)) {
                 Box(
                     modifier = Modifier
                         .background(
@@ -82,7 +84,7 @@ fun AppScaffold(
                         profileInitial = profileInitial
                     )
                 }
-            } else if (currentTab != null) {
+            } else if (showTopBar && currentTab != null) {
                 Surface(
                     modifier = Modifier.statusBarsPadding(),
                     color = MaterialTheme.colorScheme.background
