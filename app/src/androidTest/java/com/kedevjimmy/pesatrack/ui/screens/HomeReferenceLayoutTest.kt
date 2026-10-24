@@ -64,10 +64,11 @@ class HomeReferenceLayoutTest {
                 ReferenceHomeBottomBar(MainTab.HOME, onSelected = { selected = it })
             }
         }
-        listOf("Home", "Activity", "Plan", "Accounts", "More").forEach {
+        listOf("Home", "Activity", "Plan", "More").forEach {
             compose.onAllNodesWithText(it).onFirst().assertExists()
         }
-        compose.onNodeWithText("Accounts").performClick()
-        assertEquals(MainTab.ACCOUNTS, selected)
+        compose.onNodeWithText("Accounts").assertDoesNotExist()
+        compose.onNodeWithText("More").performClick()
+        assertEquals(MainTab.MORE, selected)
     }
 }

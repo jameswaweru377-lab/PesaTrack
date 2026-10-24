@@ -273,53 +273,54 @@ private fun VibrantCycleHero(
     onSalaryClick: () -> Unit
 ) {
     val base = salaryMinor.coerceAtLeast(1L).toFloat()
-    val spending = (spentMinor / base).coerceIn(0f,1f)
-    val savings = ((savedMinor ?: 0L) / base).coerceIn(0f,1f)
-    Surface(shape = RoundedCornerShape(22.dp),
-        modifier = Modifier.fillMaxWidth(), color = PlanVibrant.violet) {
-        Column(Modifier.fillMaxWidth()
-            .background(Brush.linearGradient(listOf(Color(0xFF6B23F8),
-                Color(0xFF3A05C3),Color(0xFF0666DA))))
-            .padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val spending = (spentMinor / base).coerceIn(0f, 1f)
+    val savings = ((savedMinor ?: 0L) / base).coerceIn(0f, 1f)
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Confirmed salary", color = Color.White.copy(alpha = .83f),
-                        fontSize = 12.sp)
-                    Text(salary, color = Color.White, fontSize = 29.sp,
-                        fontWeight = FontWeight.ExtraBold)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Confirmed salary", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                    Text(salary, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold)
                 }
-                OutlinedButton(onClick = onSalaryClick,
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp, Color.White.copy(alpha = .65f)),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = Color.White),
-                    contentPadding = PaddingValues(horizontal = 10.dp)) {
-                    Text("Manage salary", fontSize = 11.sp)
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Column(Modifier.weight(1f)) {
-                    Text("Spent", color = Color.White.copy(alpha = .78f), fontSize = 11.sp)
-                    Text(spent, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                }
-                Column(Modifier.weight(1f)) {
-                    Text("Saved", color = Color.White.copy(alpha = .78f), fontSize = 11.sp)
-                    Text(saved, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                }
-                Column(Modifier.weight(1f)) {
-                    Text("Cycle surplus", color = Color.White.copy(alpha = .78f), fontSize = 11.sp)
-                    Text(surplus, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(shape = RoundedCornerShape(50.dp), color = Color(0xFFE2F8EF)) {
+                        Text("Cycle active", modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            color = Color(0xFF147D58), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                    }
+                    OutlinedButton(onClick = onSalaryClick, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp)) {
+                        Text("Manage salary", style = MaterialTheme.typography.labelMedium)
+                    }
                 }
             }
-            Row(Modifier.fillMaxWidth().height(9.dp)
-                .background(Color.White.copy(alpha = .23f),RoundedCornerShape(50.dp))) {
-                Box(Modifier.fillMaxHeight().fillMaxWidth(spending)
-                    .background(Color(0xFFFF72A4), RoundedCornerShape(50.dp)))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CycleSummaryMetric("Spent", spent, MaterialTheme.colorScheme.error, Modifier.weight(1f))
+                CycleSummaryMetric("Saved", saved, MaterialTheme.colorScheme.onSurface, Modifier.weight(1f))
+                CycleSummaryMetric("Cycle surplus", surplus,
+                    if (surplus.startsWith("-")) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    Modifier.weight(1f))
             }
-            Text("Spent ${(spending*100).toInt()}% of confirmed salary  •  Saved ${(savings*100).toInt()}%",
-                color = Color.White.copy(alpha = .92f), fontSize = 11.sp)
-            Text("Planning figure, not account balance.",
-                color = Color.White.copy(alpha = .84f), fontSize = 11.sp)
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Box(Modifier.fillMaxWidth().height(8.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(50.dp))) {
+                    Box(Modifier.fillMaxHeight().fillMaxWidth(spending).background(PlanVibrant.violet, RoundedCornerShape(50.dp)))
+                }
+                Text("Spent " + (spending * 100).toInt() + "% of confirmed salary  •  Saved " + (savings * 100).toInt() + "%",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+            }
+            Text("Planning figure, not account balance.", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall)
         }
+    }
+}
+
+@Composable
+private fun CycleSummaryMetric(label: String, amount: String, amountColor: Color, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+        Text(amount, color = amountColor, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 2)
     }
 }

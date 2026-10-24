@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -658,9 +661,15 @@ fun PesaTrackApp(
         }
 
         composable("profile") {
-            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
-                currentTab = null,
-                onTabSelected = ::navigateToTab
+            var profilePage by rememberSaveable { mutableStateOf("home") }
+            AppScaffold(
+                onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
+                onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
+                onNotificationsClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
+                currentTab = MainTab.MORE,
+                onTabSelected = ::navigateToTab,
+                showTopBar = profilePage == "home",
+                useHomeHeader = profilePage == "home"
             ) { padding ->
                 ProfileScreen(
                     scaffoldPadding = padding,
@@ -668,7 +677,9 @@ fun PesaTrackApp(
                     onSettingsClick = { navController.navigate("settings") },
                     onAccountsClick = { navigateToTab(MainTab.ACCOUNTS) },
                     onDataHealthClick = { navController.navigate("data-health") },
-                    onGoalsClick = { navController.navigate("saving-goals") }
+                    onGoalsClick = { navController.navigate("saving-goals") },
+                    onHistoricalImportClick = { navController.navigate("historical-import") },
+                    onPageChanged = { profilePage = it }
                 )
             }
         }

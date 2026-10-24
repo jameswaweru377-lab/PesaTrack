@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 
 @Composable
-fun PersonalDetailsScreen(padding: PaddingValues, onBack: () -> Unit) {
+fun PersonalDetailsScreen(padding: PaddingValues, onBack: () -> Unit, title: String = "Personal details") {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("pesatrack_preferences", 0) }
     var name by rememberSaveable { mutableStateOf(prefs.getString("profile_name", "").orEmpty()) }
@@ -26,7 +26,7 @@ fun PersonalDetailsScreen(padding: PaddingValues, onBack: () -> Unit) {
     var email by rememberSaveable { mutableStateOf(prefs.getString("profile_email", "").orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
     BackHandler(onBack = onBack)
-    EverydayPage("Personal details", padding, onBack) {
+    EverydayPage(title, padding, onBack) {
         item { Text("Make PesaTrack yours. These details stay on this phone and are not a sign-in account.") }
         item { OutlinedTextField(name, { name = it.take(60) }, label = { Text("Your name") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
         item { OutlinedTextField(email, { email = it.take(120) }, label = { Text("Email (optional)") }, supportingText = { Text("For your own reference. We won't send you email.") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
