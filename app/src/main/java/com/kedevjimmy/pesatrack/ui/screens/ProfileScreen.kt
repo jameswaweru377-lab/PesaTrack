@@ -394,7 +394,7 @@ private fun ProfileSecurityPage(
                     verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     IconBubble(Icons.Rounded.Shield, size = 58.dp,
                         background = pesaToneContainer("violet"), tint = pesaToneContent("violet"))
-                    Text("Your records stay private", style = MaterialTheme.typography.titleMedium,
+                    Text("Protect your financial records", style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold)
                     Text("PesaTrack stores your financial records locally on this phone. Review the protections below.",
                         style = MaterialTheme.typography.bodySmall,
