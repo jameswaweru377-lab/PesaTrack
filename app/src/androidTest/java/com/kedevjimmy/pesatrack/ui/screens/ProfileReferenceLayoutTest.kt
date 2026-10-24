@@ -1,7 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -48,7 +48,7 @@ class ProfileReferenceLayoutTest {
             "About PesaTrack",
             "More settings",
             "Stored on this phone"
-        ).forEach { compose.onNodeWithText(it).assertExists() }
+        ).forEach { compose.onNodeWithText(it).assertIsDisplayed() }
     }
 
     @Test
@@ -56,12 +56,12 @@ class ProfileReferenceLayoutTest {
         showProfile()
 
         compose.onNodeWithText("Appearance").performClick()
-        compose.onNodeWithText("Light").assertExists()
-        compose.onNodeWithText("PesaTrack purple").assertExists()
+        compose.onNodeWithText("Light").assertIsDisplayed()
+        compose.onNodeWithText("PesaTrack purple").assertIsDisplayed()
         compose.onNodeWithContentDescription("Back").performClick()
 
         compose.onNodeWithText("Personal information").performClick()
-        compose.onNodeWithText("Your name").assertExists()
-        compose.onNodeWithText("Save details").assertExists()
+        compose.onNodeWithText("Your name").assertIsDisplayed()
+        compose.onNodeWithText("Save details").assertIsDisplayed()
     }
 }
