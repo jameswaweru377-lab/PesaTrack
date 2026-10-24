@@ -39,7 +39,8 @@ fun ProfileScreen(
     onAccountsClick: (() -> Unit)? = null,
     onDataHealthClick: (() -> Unit)? = null,
     onGoalsClick: (() -> Unit)? = null,
-    onHistoricalImportClick: (() -> Unit)? = null
+    onHistoricalImportClick: (() -> Unit)? = null,
+    onPageChanged: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("pesatrack_preferences", 0) }
@@ -48,6 +49,10 @@ fun ProfileScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var retry by remember { mutableIntStateOf(0) }
     val ledger by LedgerUpdateBus.state.collectAsState()
+
+    LaunchedEffect(page) {
+        onPageChanged(page)
+    }
 
     LaunchedEffect(ledger.revision, retry, page == "financial") {
         try {
