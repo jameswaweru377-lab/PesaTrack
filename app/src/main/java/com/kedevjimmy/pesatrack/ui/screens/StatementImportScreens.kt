@@ -187,17 +187,40 @@ private fun readStatement(c:Context,uri:Uri):String {
   stagedPdf?.let{ready->item{
    PesaCard {
     Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-     Text("Local PDF verification",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
-     Text("${ready.pages} pages · ${ready.lines.size} source rows · ${ready.proof.cashRows} cash movements · ${ready.informationalRows} M-Shwari informational events.")
-     Text("Official Paid In: ${toolMoney(ready.paidInMinor)} · Paid Out: ${toolMoney(ready.paidOutMinor)}.")
-     Text("${ready.sourceCharacters} source characters checked for ownership by physical cells.",style=MaterialTheme.typography.bodySmall)
+     Column(verticalArrangement=Arrangement.spacedBy(5.dp)) {
+      Text("Statement check",style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
+      Text("Review the totals and original rows before choosing where to save them.",style=MaterialTheme.typography.bodyMedium,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     }
+     Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()) {
+      ImportSummaryMetric("PDF pages",ready.pages.toString(),Modifier.weight(1f))
+      ImportSummaryMetric("Source rows",ready.lines.size.toString(),Modifier.weight(1f))
+     }
+     Row(horizontalArrangement=Arrangement.spacedBy(8.dp),modifier=Modifier.fillMaxWidth()) {
+      ImportSummaryMetric("Cash movements",ready.proof.cashRows.toString(),Modifier.weight(1f))
+      ImportSummaryMetric("M-Shwari notes",ready.informationalRows.toString(),Modifier.weight(1f))
+     }
+     Surface(shape=androidx.compose.foundation.shape.RoundedCornerShape(16.dp),color=MaterialTheme.colorScheme.surfaceContainerLow,modifier=Modifier.fillMaxWidth()) {
+      Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+       Text("Official statement totals",style=MaterialTheme.typography.labelLarge,fontWeight=FontWeight.SemiBold)
+       Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)) {
+         Text("Paid in",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+         Text(toolMoney(ready.paidInMinor),style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold,color=MaterialTheme.colorScheme.primary)
+        }
+        Column(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(3.dp)) {
+         Text("Paid out",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+         Text(toolMoney(ready.paidOutMinor),style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.Bold)
+        }
+       }
+      }
+     }
      if(ready.categoryPaidInGapMinor!=0L||ready.categoryPaidOutGapMinor!=0L)
-      Text("Source PDF category subtotals disagree with the printed total: Paid In difference ${toolMoney(ready.categoryPaidInGapMinor)}; Paid Out difference ${toolMoney(ready.categoryPaidOutGapMinor)}. Detailed rows match the official TOTAL.",
+      Text("Category subtotals differ from the printed total: Paid in difference ${toolMoney(ready.categoryPaidInGapMinor)}; paid out difference ${toolMoney(ready.categoryPaidOutGapMinor)}. Detailed rows match the official total.",
        color=MaterialTheme.colorScheme.tertiary,style=MaterialTheme.typography.bodySmall)
-     Text("Exact balance sequence under ${ready.fulizaCycles} provisional Fuliza exception(s), ${ready.sharedBalanceGroups} shared ending-balance groups. No independent opening/closing balance or external receipt count.",
-      style=MaterialTheme.typography.bodySmall)
+     Text("${ready.sourceCharacters} source characters checked across physical cells. Balance sequence: ${ready.fulizaCycles} provisional Fuliza exception(s), ${ready.sharedBalanceGroups} shared ending-balance groups.",
+      style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      Text("Every original source row appears below, including zero-value events. These are not SMS Activity postings.",
-      style=MaterialTheme.typography.bodySmall)
+      style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      Row(verticalAlignment=Alignment.CenterVertically) {
       Checkbox(checked=statementPdfApproved,onCheckedChange={statementPdfApproved=it},enabled=!busy)
       Text("I reviewed the PDF and amounts. Save only in Statement Activity and leave my SMS ledger unchanged.",
@@ -336,6 +359,20 @@ private fun readStatement(c:Context,uri:Uri):String {
   )
  }
  if(showStatementActivity) StatementActivityDialog(onDismiss={showStatementActivity=false})
+}
+
+@Composable
+private fun ImportSummaryMetric(label:String,value:String,modifier:Modifier=Modifier) {
+ Surface(
+  modifier=modifier,
+  shape=androidx.compose.foundation.shape.RoundedCornerShape(15.dp),
+  color=MaterialTheme.colorScheme.surfaceContainerLow
+ ) {
+  Column(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=13.dp),verticalArrangement=Arrangement.spacedBy(4.dp)) {
+   Text(value,style=MaterialTheme.typography.titleLarge,fontWeight=FontWeight.Bold)
+   Text(label,style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  }
+ }
 }
 
 @Composable private fun StatementImportDateButton(label:String,day:String,enabled:Boolean,onChanged:(String)->Unit) {
