@@ -492,7 +492,14 @@ internal fun StatementIntelligenceDashboard(
                                     navigate(destination, flow, category)
                                 },
                                 onImport = { importing = true },
-                                onArchive = { navigate(StatementPage.BROWSE) }
+                                onArchive = { navigate(StatementPage.BROWSE) },
+                                onSelectMonth = { selectedKey ->
+                                    monthSelection = selectedKey
+                                    period = StatementFinancialPolicy.Period.MONTH
+                                    allHistory = false
+                                    dayAnchor = null
+                                    navigate(StatementPage.SUMMARY)
+                                }
                             )
                         }
                         StatementPage.CATEGORIES -> {
