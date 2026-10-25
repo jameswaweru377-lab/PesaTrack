@@ -26,7 +26,8 @@ internal fun StatementOverviewPage(
     onReconciliationToggle: () -> Unit,
     onNavigate: (StatementPage, StatementFlow?, String?) -> Unit,
     onImport: () -> Unit,
-    onArchive: () -> Unit
+    onArchive: () -> Unit,
+    onSelectMonth: (String) -> Unit
 ) {
     val statementCount = sourceMonths.sumOf { it.sourceCount }
     val coverageStart = sourceMonths.minOfOrNull { it.source.firstTransactionAt }
@@ -215,6 +216,93 @@ internal fun StatementOverviewPage(
                             }
                         }
                     }
+                }
+            }
+        }
+        item {
+            val monthly = sourceMonths.take(6).reversed()
+            val maxMonthly = maxOf(1L, monthly.maxOfOrNull {
+                maxOf(it.usage.paidInMinor, it.usage.paidOutMinor)
+            } ?: 0L)
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Income vs spending", style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold)
+                            Text("Monthly statement totals · tap a month to inspect",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Rounded.ShowChart, contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(Modifier.size(8.dp), shape = RoundedCornerShape(50),
+                                color = androidx.compose.ui.graphics.Color(0xFF159A78)) {}
+                            Spacer(Modifier.width(5.dp))
+                            Text("Received", style = MaterialTheme.typography.labelSmall)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(Modifier.size(8.dp), shape = RoundedCornerShape(50),
+                                color = androidx.compose.ui.graphics.Color(0xFFE85D68)) {}
+                            Spacer(Modifier.width(5.dp))
+                            Text("Spent", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    if (monthly.isEmpty()) {
+                        Text("Monthly trends will appear when statement history is available.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else monthly.forEach { entry ->
+                        Column(Modifier.fillMaxWidth().clickable {
+                            onSelectMonth(entry.key)
+                        }.padding(vertical = 3.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(entry.usage.label, Modifier.weight(1f),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Medium)
+                                Text("Net \${statementMoney(entry.usage.netMinor)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (entry.usage.netMinor >= 0L)
+                                        androidx.compose.ui.graphics.Color(0xFF16866B)
+                                    else MaterialTheme.colorScheme.error)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Box(Modifier.weight((entry.usage.paidInMinor.toFloat() / maxMonthly)
+                                    .coerceAtLeast(0.025f)).height(6.dp)
+                                    .background(androidx.compose.ui.graphics.Color(0xFF159A78),
+                                        RoundedCornerShape(8.dp)))
+                                Box(Modifier.weight((entry.usage.paidOutMinor.toFloat() / maxMonthly)
+                                    .coerceAtLeast(0.025f)).height(6.dp)
+                                    .background(androidx.compose.ui.graphics.Color(0xFFE85D68),
+                                        RoundedCornerShape(8.dp)))
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("In \${statementMoney(entry.usage.paidInMinor)}",
+                                    Modifier.weight(1f), style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Out \${statementMoney(entry.usage.paidOutMinor)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                    if (sourceMonths.size > 6) {
+                        TextButton(onClick = onArchive, modifier = Modifier.align(Alignment.End)) {
+                            Text("Browse all \${sourceMonths.size} months")
+                            Icon(Icons.Rounded.ChevronRight, contentDescription = null)
+                        }
+                    }
+                    Text("Bars show statement cash movements, not verified account balances or classified spending.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
