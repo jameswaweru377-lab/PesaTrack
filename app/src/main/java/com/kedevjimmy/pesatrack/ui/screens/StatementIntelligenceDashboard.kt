@@ -210,7 +210,7 @@ internal fun StatementIntelligenceDashboard(
                         Column(Modifier.weight(1f)) {
                             Text("Statements", style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold)
-                            Text("Your imported records, in one place",
+                            Text("Understand your money over time",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -484,6 +484,7 @@ internal fun StatementIntelligenceDashboard(
                                 visible = visible,
                                 sourceCashFlow = sourceCashFlow,
                                 breakdown = breakdown,
+                                categoryLabels = categoryLabels,
                                 reconciliationExpanded = reconciliationExpanded,
                                 onReconciliationToggle = {
                                     reconciliationExpanded = !reconciliationExpanded
