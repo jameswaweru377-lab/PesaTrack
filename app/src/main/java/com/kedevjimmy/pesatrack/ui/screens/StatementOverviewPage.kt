@@ -22,6 +22,7 @@ internal fun StatementOverviewPage(
     visible: List<StatementClassified>,
     sourceCashFlow: StatementCashFlowTotals,
     breakdown: List<Pair<String, Long>>,
+    categoryLabels: Map<String, String>,
     reconciliationExpanded: Boolean,
     onReconciliationToggle: () -> Unit,
     onNavigate: (StatementPage, StatementFlow?, String?) -> Unit,
@@ -79,12 +80,12 @@ internal fun StatementOverviewPage(
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatementSmallMetric("Money in", sourceCashFlow.moneyInMinor,
-                    MaterialTheme.colorScheme.primary, Modifier.weight(1f),
+                    androidx.compose.ui.graphics.Color(0xFF16866B), Modifier.weight(1f),
                     detail = "${visible.count { it.line.paidInMinor > 0L }} transactions") {
                     onNavigate(StatementPage.TRANSACTIONS, StatementFlow.INCOME, null)
                 }
                 StatementSmallMetric("Money out", sourceCashFlow.moneyOutMinor,
-                    MaterialTheme.colorScheme.primary, Modifier.weight(1f),
+                    androidx.compose.ui.graphics.Color(0xFFE85D68), Modifier.weight(1f),
                     detail = "${visible.count { it.line.withdrawnMinor > 0L }} transactions") {
                     onNavigate(StatementPage.TRANSACTIONS, null, null)
                 }
@@ -303,6 +304,54 @@ internal fun StatementOverviewPage(
                     Text("Bars show statement cash movements, not verified account balances or classified spending.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        item {
+            val incomeSources = visible.asSequence()
+                .filter { it.flow == StatementFlow.INCOME && it.reportAmountMinor > 0L }
+                .groupBy { it.categoryId }
+                .map { (categoryId, rows) ->
+                    val label = categoryId?.let { categoryLabels[it] }
+                        ?.takeIf { it.isNotBlank() } ?: "Unclassified income"
+                    label to rows.fold(0L) { total, row ->
+                        Math.addExact(total, row.reportAmountMinor)
+                    }
+                }
+                .sortedByDescending { it.second }
+                .take(4)
+            if (incomeSources.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(18.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Text("Income sources", style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold)
+                        Text("Based on transactions classified as income. Own-account transfers are excluded.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        incomeSources.forEach { (label, amount) ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Rounded.SouthWest, contentDescription = null,
+                                    tint = androidx.compose.ui.graphics.Color(0xFF16866B),
+                                    modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(9.dp))
+                                Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(statementMoney(amount), style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        TextButton(onClick = {
+                            onNavigate(StatementPage.TRANSACTIONS, StatementFlow.INCOME, null)
+                        }) {
+                            Text("View income transactions")
+                            Icon(Icons.Rounded.ChevronRight, contentDescription = null)
+                        }
+                    }
                 }
             }
         }
