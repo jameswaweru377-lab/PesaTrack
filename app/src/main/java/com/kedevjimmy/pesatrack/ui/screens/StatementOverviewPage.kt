@@ -288,13 +288,13 @@ internal fun StatementOverviewPage(
                                         androidx.compose.ui.graphics.Color(0xFF16866B)
                                     else MaterialTheme.colorScheme.error)
                             }
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Box(Modifier.weight((values.first.toFloat() / maxMonthly)
-                                    .coerceAtLeast(0.025f)).height(6.dp)
+                            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Box(Modifier.fillMaxWidth((values.first.toDouble() / maxMonthly)
+                                    .toFloat().coerceIn(0.025f, 1f)).height(5.dp)
                                     .background(androidx.compose.ui.graphics.Color(0xFF159A78),
                                         RoundedCornerShape(8.dp)))
-                                Box(Modifier.weight((values.second.toFloat() / maxMonthly)
-                                    .coerceAtLeast(0.025f)).height(6.dp)
+                                Box(Modifier.fillMaxWidth((values.second.toDouble() / maxMonthly)
+                                    .toFloat().coerceIn(0.025f, 1f)).height(5.dp)
                                     .background(androidx.compose.ui.graphics.Color(0xFFE85D68),
                                         RoundedCornerShape(8.dp)))
                             }
