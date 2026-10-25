@@ -403,11 +403,11 @@ fun HistoricalImportScreen(
         }
 
         result?.let { importResult ->
-            val resultContainerColor = if (importResult.cancelled)
-                MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer
-            val resultContentColor = if (importResult.cancelled)
-                MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
             item {
+                val resultContainerColor = if (importResult.cancelled)
+                    MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer
+                val resultContentColor = if (importResult.cancelled)
+                    MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
