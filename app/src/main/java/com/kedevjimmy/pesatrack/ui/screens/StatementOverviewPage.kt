@@ -269,7 +269,7 @@ internal fun StatementOverviewPage(
                                 Text(entry.usage.label, Modifier.weight(1f),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Medium)
-                                Text("Net \${statementMoney(entry.usage.netMinor)}",
+                                Text("Net ${statementMoney(entry.usage.netMinor)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = if (entry.usage.netMinor >= 0L)
                                         androidx.compose.ui.graphics.Color(0xFF16866B)
@@ -286,10 +286,10 @@ internal fun StatementOverviewPage(
                                         RoundedCornerShape(8.dp)))
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("In \${statementMoney(entry.usage.paidInMinor)}",
+                                Text("In ${statementMoney(entry.usage.paidInMinor)}",
                                     Modifier.weight(1f), style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("Out \${statementMoney(entry.usage.paidOutMinor)}",
+                                Text("Out ${statementMoney(entry.usage.paidOutMinor)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -297,7 +297,7 @@ internal fun StatementOverviewPage(
                     }
                     if (sourceMonths.size > 6) {
                         TextButton(onClick = onArchive, modifier = Modifier.align(Alignment.End)) {
-                            Text("Browse all \${sourceMonths.size} months")
+                            Text("Browse all ${sourceMonths.size} months")
                             Icon(Icons.Rounded.ChevronRight, contentDescription = null)
                         }
                     }
