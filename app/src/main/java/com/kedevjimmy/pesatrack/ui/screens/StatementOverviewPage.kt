@@ -221,9 +221,20 @@ internal fun StatementOverviewPage(
             }
         }
         item {
-            val monthly = sourceMonths.take(6).reversed()
-            val maxMonthly = maxOf(1L, monthly.maxOfOrNull {
-                maxOf(it.usage.paidInMinor, it.usage.paidOutMinor)
+            val reportsByMonth = visible.groupBy {
+                StatementMonthlyUsage.monthKey(it.line.occurredAt)
+            }
+            val monthly = sourceMonths.filter { it.key in reportsByMonth.keys }.take(6).reversed()
+            val monthlyValues = monthly.associate { entry ->
+                val rows = reportsByMonth[entry.key].orEmpty()
+                val income = rows.asSequence().filter { it.flow == StatementFlow.INCOME }
+                    .fold(0L) { total, row -> Math.addExact(total, row.reportAmountMinor) }
+                val spending = rows.asSequence().filter { it.flow == StatementFlow.EXPENSE }
+                    .fold(0L) { total, row -> Math.addExact(total, row.reportAmountMinor) }
+                entry.key to (income to spending)
+            }
+            val maxMonthly = maxOf(1L, monthlyValues.values.maxOfOrNull {
+                maxOf(it.first, it.second)
             } ?: 0L)
             Surface(
                 shape = RoundedCornerShape(18.dp),
@@ -236,7 +247,7 @@ internal fun StatementOverviewPage(
                         Column(Modifier.weight(1f)) {
                             Text("Income vs spending", style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold)
-                            Text("Monthly statement totals · tap a month to inspect",
+                            Text("Classified income and recognized spending · tap a month",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -248,13 +259,13 @@ internal fun StatementOverviewPage(
                             Surface(Modifier.size(8.dp), shape = RoundedCornerShape(50),
                                 color = androidx.compose.ui.graphics.Color(0xFF159A78)) {}
                             Spacer(Modifier.width(5.dp))
-                            Text("Received", style = MaterialTheme.typography.labelSmall)
+                            Text("Income", style = MaterialTheme.typography.labelSmall)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(Modifier.size(8.dp), shape = RoundedCornerShape(50),
                                 color = androidx.compose.ui.graphics.Color(0xFFE85D68)) {}
                             Spacer(Modifier.width(5.dp))
-                            Text("Spent", style = MaterialTheme.typography.labelSmall)
+                            Text("Spending", style = MaterialTheme.typography.labelSmall)
                         }
                     }
                     if (monthly.isEmpty()) {
@@ -265,31 +276,33 @@ internal fun StatementOverviewPage(
                         Column(Modifier.fillMaxWidth().clickable {
                             onSelectMonth(entry.key)
                         }.padding(vertical = 3.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            val values = monthlyValues[entry.key] ?: (0L to 0L)
+                            val net = Math.subtractExact(values.first, values.second)
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(entry.usage.label, Modifier.weight(1f),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Medium)
-                                Text("Net ${statementMoney(entry.usage.netMinor)}",
+                                Text("Net ${statementMoney(net)}",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = if (entry.usage.netMinor >= 0L)
+                                    color = if (net >= 0L)
                                         androidx.compose.ui.graphics.Color(0xFF16866B)
                                     else MaterialTheme.colorScheme.error)
                             }
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Box(Modifier.weight((entry.usage.paidInMinor.toFloat() / maxMonthly)
+                                Box(Modifier.weight((values.first.toFloat() / maxMonthly)
                                     .coerceAtLeast(0.025f)).height(6.dp)
                                     .background(androidx.compose.ui.graphics.Color(0xFF159A78),
                                         RoundedCornerShape(8.dp)))
-                                Box(Modifier.weight((entry.usage.paidOutMinor.toFloat() / maxMonthly)
+                                Box(Modifier.weight((values.second.toFloat() / maxMonthly)
                                     .coerceAtLeast(0.025f)).height(6.dp)
                                     .background(androidx.compose.ui.graphics.Color(0xFFE85D68),
                                         RoundedCornerShape(8.dp)))
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("In ${statementMoney(entry.usage.paidInMinor)}",
+                                Text("Income ${statementMoney(values.first)}",
                                     Modifier.weight(1f), style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text("Out ${statementMoney(entry.usage.paidOutMinor)}",
+                                Text("Spending ${statementMoney(values.second)}",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -301,7 +314,7 @@ internal fun StatementOverviewPage(
                             Icon(Icons.Rounded.ChevronRight, contentDescription = null)
                         }
                     }
-                    Text("Bars show statement cash movements, not verified account balances or classified spending.",
+                    Text("Only classified income and recognized purchases are shown; transfers, loans and unclassified rows are excluded.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
