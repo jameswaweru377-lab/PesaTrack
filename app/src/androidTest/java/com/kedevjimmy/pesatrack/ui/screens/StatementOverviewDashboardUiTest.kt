@@ -37,10 +37,10 @@ class StatementOverviewDashboardUiTest {
             }
         }
 
-        compose.onNodeWithText("Income vs spending").assertIsDisplayed()
-        compose.onNodeWithText("Monthly trends will appear when statement history is available.")
+        compose.onNodeWithText("Income vs spending trend").assertIsDisplayed()
+        compose.onNodeWithText("Import a statement to compare recognized income and spending.")
             .assertIsDisplayed()
-        compose.onNodeWithText("Import statement").assertIsDisplayed()
+        compose.onNodeWithText("Import statement (PDF or CSV)").assertIsDisplayed()
         compose.onNodeWithText("Import statement").performClick()
         assertEquals(1, imports)
     }
