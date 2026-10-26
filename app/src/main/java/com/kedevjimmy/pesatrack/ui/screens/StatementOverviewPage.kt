@@ -242,7 +242,7 @@ internal fun StatementOverviewPage(
                     }
                     monthly.asReversed().take(4).forEach { entry ->
                         val amount = values[entry.key] ?: (0L to 0L)
-                        Row(Modifier.fillMaxWidth().clickable { onSelectMonth(entry.key).invoke() }
+                        Row(Modifier.fillMaxWidth().clickable { onSelectMonth(entry.key) }
                             .padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(entry.usage.label, style = MaterialTheme.typography.bodyMedium,
