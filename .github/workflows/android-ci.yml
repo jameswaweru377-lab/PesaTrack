@@ -75,6 +75,25 @@ jobs:
           export PESATRACK_LAB_SOURCE_SHA="$(git rev-parse HEAD)"
           ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:compileDebugAndroidTestKotlin --stacktrace 2>&1 | tee /tmp/pesatrack-build.log
 
+      - name: Verify debug APK integrity and Android package metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="app/build/outputs/apk/debug/app-debug.apk"
+          tools="$ANDROID_HOME/build-tools/36.0.0"
+          test -s "$apk"
+          echo "APK size: $(stat -c '%s bytes' "$apk")"
+          sha256sum "$apk"
+          unzip -t "$apk"
+          "$tools/zipalign" -c -v 4 "$apk"
+          "$tools/apksigner" verify --verbose --print-certs "$apk"
+          "$tools/aapt" dump badging "$apk" | tee /tmp/pesatrack-apk-badging.txt
+          grep -F "package: name='com.kedevjimmy.pesatrack'" /tmp/pesatrack-apk-badging.txt
+          grep -F "sdkVersion:'24'" /tmp/pesatrack-apk-badging.txt
+          grep -F "targetSdkVersion:'36'" /tmp/pesatrack-apk-badging.txt
+          grep -F "native-code: 'arm64-v8a'" /tmp/pesatrack-apk-badging.txt
+          echo "APK archive, alignment, signature, package ID, SDK bounds, and ABI checks passed."
+
       - name: Summarize Kotlin regression evidence
         shell: bash
         run: |
