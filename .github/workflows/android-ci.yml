@@ -276,11 +276,18 @@ jobs:
           fi
 
           cp "$apk" PesaTrack-debug.apk
+          versioned_apk="PesaTrack-debug-${GITHUB_SHA:0:7}.apk"
+          cp "$apk" "$versioned_apk"
 
           gh release delete-asset ci-apk app-debug.apk --yes >/dev/null 2>&1 || true
 
+          # Keep a stable latest link and a commit-specific link to avoid stale
+          # APKs served from browser/download caches on Android devices.
           gh release upload ci-apk \
             PesaTrack-debug.apk \
+            --clobber
+          gh release upload ci-apk \
+            "$versioned_apk" \
             --clobber
 
           gh release edit ci-apk \
