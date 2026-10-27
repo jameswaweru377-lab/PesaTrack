@@ -422,7 +422,7 @@ internal fun StatementOverviewPage(
                 shape = RoundedCornerShape(14.dp)) {
                 Icon(Icons.Rounded.Inventory2, null)
                 Spacer(Modifier.width(8.dp))
-                Text("Browse all statements")
+                Text("Browse monthly history")
             }
         }
     }
