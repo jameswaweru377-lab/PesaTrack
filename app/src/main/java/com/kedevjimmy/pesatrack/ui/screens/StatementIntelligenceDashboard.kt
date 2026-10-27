@@ -210,7 +210,7 @@ internal fun StatementIntelligenceDashboard(
                         Column(Modifier.weight(1f)) {
                             Text("Statements", style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold)
-                            Text("Your imported records, in one place",
+                            Text("Understand your money over time",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -484,6 +484,7 @@ internal fun StatementIntelligenceDashboard(
                                 visible = visible,
                                 sourceCashFlow = sourceCashFlow,
                                 breakdown = breakdown,
+                                categoryLabels = categoryLabels,
                                 reconciliationExpanded = reconciliationExpanded,
                                 onReconciliationToggle = {
                                     reconciliationExpanded = !reconciliationExpanded
@@ -492,7 +493,14 @@ internal fun StatementIntelligenceDashboard(
                                     navigate(destination, flow, category)
                                 },
                                 onImport = { importing = true },
-                                onArchive = { navigate(StatementPage.BROWSE) }
+                                onArchive = { navigate(StatementPage.BROWSE) },
+                                onSelectMonth = { selectedKey ->
+                                    monthSelection = selectedKey
+                                    period = StatementFinancialPolicy.Period.MONTH
+                                    allHistory = false
+                                    dayAnchor = null
+                                    navigate(StatementPage.SUMMARY)
+                                }
                             )
                         }
                         StatementPage.CATEGORIES -> {
@@ -515,7 +523,7 @@ internal fun StatementIntelligenceDashboard(
                                         color = MaterialTheme.colorScheme.surfaceContainerLow) {
                                         Column(Modifier.padding(14.dp),
                                             horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Text("Where your money went",
+                                            Text("Category details",
                                                 style = MaterialTheme.typography.titleLarge,
                                                 fontWeight = FontWeight.Bold)
                                             StatementDonut(shown, chartTotal,
@@ -559,10 +567,10 @@ internal fun StatementIntelligenceDashboard(
                                 verticalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
                                 item {
-                                    Text("Your spending over time",
+                                    Text("Financial insights",
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold)
-                                    Text("See when expenses happened in imported statements, without counting transfers or loans as purchases.",
+                                    Text("Understand cash-flow patterns across your imported statement history.",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
@@ -864,10 +872,10 @@ internal fun StatementIntelligenceDashboard(
                                 contentPadding = PaddingValues(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 item {
-                                    Text("Your statement history",
+                                    Text("Monthly history",
                                         style = MaterialTheme.typography.titleLarge,
                                         fontWeight = FontWeight.Bold)
-                                    Text("Browse every imported month, even from years before PesaTrack.",
+                                    Text("Choose a month to review its totals, categories and original transactions.",
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         style = MaterialTheme.typography.bodySmall)
                                 }
@@ -888,7 +896,7 @@ internal fun StatementIntelligenceDashboard(
                                         }
                                     }
                                 }
-                                if (matched.isEmpty()) item { Text("No imported months match.") }
+                                if (matched.isEmpty()) item { Text("No months match your search. Try another month or year.") }
                                 matched.groupBy { it.usage.year }
                                     .toSortedMap(compareByDescending { it })
                                     .forEach { (y, group) ->
