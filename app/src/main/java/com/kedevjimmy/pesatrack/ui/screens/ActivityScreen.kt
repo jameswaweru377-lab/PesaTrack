@@ -236,6 +236,7 @@ fun ActivityScreen(
     onIdentityReviewClick: () -> Unit = {},
     onSalaryClick: () -> Unit = {},
     onPaycheckClick: () -> Unit = {},
+    onStatementsClick: (() -> Unit)? = null,
     openNeedsAttention: Boolean = false,
     initialAccountReviewKey: String? = null,
     stateCache: ActivityScreenCache? = null
@@ -1070,7 +1071,8 @@ fun ActivityScreen(
             if (showExtraFilters) item(key = "activity-tools") {
                 ActivityToolsDisclosure(
                     onChanged = { refresh() },
-                    onPaycheckClick = onPaycheckClick
+                    onPaycheckClick = onPaycheckClick,
+                    onStatementsClick = onStatementsClick
                 )
             }
             if(showExtraFilters) item(key = "additional-filters") {

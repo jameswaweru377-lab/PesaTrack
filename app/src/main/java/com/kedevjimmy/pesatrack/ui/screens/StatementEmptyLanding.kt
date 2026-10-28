@@ -34,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.kedevjimmy.pesatrack.ui.components.MainTab
 
 @Composable
 internal fun StatementEmptyLanding(
@@ -42,7 +41,8 @@ internal fun StatementEmptyLanding(
     onImport: () -> Unit,
     onExplainReview: () -> Unit,
     onBankCsv: () -> Unit,
-    bankCsvImportEnabled: Boolean = true
+    bankCsvImportEnabled: Boolean = false,
+    onBack: () -> Unit = {}
 ) {
     val cardShape = RoundedCornerShape(22.dp)
     Column(
@@ -50,6 +50,11 @@ internal fun StatementEmptyLanding(
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        OutlinedButton(onClick = onBack) {
+            Icon(Icons.Rounded.ReceiptLong, contentDescription = null)
+            Spacer(Modifier.width(7.dp))
+            Text("Statements · Back")
+        }
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = cardShape,
@@ -156,7 +161,7 @@ internal fun StatementEmptyLanding(
             Text("Supported imports", style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold)
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                ImportTypeCard(
+                if (bankCsvImportEnabled) ImportTypeCard(
                     modifier = Modifier.weight(1f),
                     title = "Bank CSV",
                     detail = if (bankCsvImportEnabled) "Review in Activity tools" else "Available from Activity",
@@ -171,40 +176,10 @@ internal fun StatementEmptyLanding(
                     detail = "Private on-device check",
                     icon = { Icon(Icons.Rounded.PictureAsPdf, contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary) },
-                    enabled = false,
-                    onClick = {}
+                    enabled = true,
+                    onClick = onImport
                 )
             }
-        }
-    }
-}
-
-@Composable
-internal fun StatementBottomNavigation(onTabSelected: (MainTab) -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Row(
-            Modifier.fillMaxWidth().heightIn(min = 62.dp).padding(horizontal = 6.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            listOf(MainTab.HOME, MainTab.ACTIVITY, MainTab.PLAN, MainTab.ACCOUNTS, MainTab.MORE)
-                .forEach { tab ->
-                    val selected = tab == MainTab.ACCOUNTS
-                    val tint = if (selected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                    Column(
-                        Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
-                            .clickable { onTabSelected(tab) }.padding(vertical = 5.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Icon(tab.icon, contentDescription = tab.label,
-                            tint = tint, modifier = Modifier.size(21.dp))
-                        Text(tab.label, color = tint, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
         }
     }
 }

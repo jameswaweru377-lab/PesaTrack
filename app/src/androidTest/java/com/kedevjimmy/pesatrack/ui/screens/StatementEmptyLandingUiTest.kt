@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -34,6 +35,8 @@ class StatementEmptyLandingUiTest {
 
         compose.onNodeWithText("Import a statement").performClick()
         assertEquals(1, importCount)
+        compose.onNodeWithText("M-Pesa PDF").performClick()
+        assertEquals(2, importCount)
     }
 
     private fun assertEmptyState(dark: Boolean) {
@@ -50,7 +53,7 @@ class StatementEmptyLandingUiTest {
         compose.onNodeWithText("0 files").assertIsDisplayed()
         compose.onNodeWithText("Private by design").assertIsDisplayed()
         compose.onNodeWithText("Bring a statement into view").assertIsDisplayed()
-        compose.onNodeWithText("Bank CSV").assertIsDisplayed()
+        compose.onNodeWithText("Bank CSV").assertDoesNotExist()
         compose.onNodeWithText("M-Pesa PDF").assertIsDisplayed()
     }
 }

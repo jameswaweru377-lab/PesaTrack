@@ -47,11 +47,10 @@ private fun readStatement(c:Context,uri:Uri):String {
  val bytes=c.contentResolver.openInputStream(uri)?.use {input->val out=ByteArrayOutputStream();val buffer=ByteArray(8192);while(true){val n=input.read(buffer);if(n<0)break;require(out.size()+n<=StatementCsv.MAX_BYTES){"Choose a CSV smaller than 2 MB."};out.write(buffer,0,n)};out.toByteArray()} ?: error("Could not open the file.")
  return Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString()
 }
-@Composable internal fun StatementImportSheet(onDismiss:()->Unit,onChanged:()->Unit,onPaycheckClick:()->Unit = {},statementOnly:Boolean = false) {
+@Composable internal fun StatementImportSheet(onDismiss:()->Unit,onChanged:()->Unit,onPaycheckClick:()->Unit = {},statementOnly:Boolean = false,onOpenStatements:(()->Unit)? = null) {
  val c=LocalContext.current;val store=remember {EverydayMoneyStore(c)};val scope=rememberCoroutineScope()
  var accounts by remember {mutableStateOf<List<MoneyAccount>>(emptyList())};var accountId by rememberSaveable {mutableStateOf("")}
  var rows by remember {mutableStateOf<List<StatementRow>>(emptyList())};var preview by remember {mutableStateOf<List<EverydayMoneyStore.Preview>>(emptyList())}
- var showStatementActivity by remember {mutableStateOf(false)}
  var sourcePdfUri by remember {mutableStateOf<Uri?>(null)}
  var sourcePdfPassword by remember {mutableStateOf("")}
  var stagedPdf by remember {mutableStateOf<OfflineMpesaPdfReader.Prepared?>(null)}
@@ -155,7 +154,8 @@ private fun readStatement(c:Context,uri:Uri):String {
      if(!statementOnly) {
       Text("Choose a supported CSV or verified PDF.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
       OutlinedButton(onClick={picker.launch(arrayOf("text/csv","text/comma-separated-values","application/csv","text/plain","application/octet-stream"))},enabled=!busy&&accountId.isNotEmpty(),modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.TableChart,null);Spacer(Modifier.width(8.dp));Text("Select CSV file")}
-      OutlinedButton(onClick={showStatementActivity=true},enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(48.dp)){Text("Open Statement Activity")}
+      if(onOpenStatements!=null) OutlinedButton(onClick={onDismiss();onOpenStatements()},enabled=!busy,
+       modifier=Modifier.fillMaxWidth().heightIn(48.dp)){Text("Open Statements")}
      }
      OutlinedButton(onClick={statementPdfPicker.launch(arrayOf("application/pdf"))},
       enabled=!busy&&accounts.any{it.id==accountId&&it.type==AccountType.MOBILE_WALLET},
@@ -217,7 +217,8 @@ private fun readStatement(c:Context,uri:Uri):String {
           else "This statement is already saved. No duplicate was created."
          stagedPdf=null;statementPdfApproved=false
          // A Statements-only launch returns to the existing dashboard after saving.
-         if(statementOnly) {onChanged();onDismiss()} else showStatementActivity=true
+         onChanged();onDismiss()
+         if(!statementOnly) onOpenStatements?.invoke()
         }catch(e:CancellationException){throw e}
         catch(e:Exception){error=e.message ?: "Statement Activity save failed. No ledger entries changed."}
         finally{importing=false}
@@ -335,7 +336,6 @@ private fun readStatement(c:Context,uri:Uri):String {
    }){Text("Verify locally")}}
   )
  }
- if(showStatementActivity) StatementActivityDialog(onDismiss={showStatementActivity=false})
 }
 
 @Composable private fun StatementImportDateButton(label:String,day:String,enabled:Boolean,onChanged:(String)->Unit) {

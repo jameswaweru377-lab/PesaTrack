@@ -49,6 +49,7 @@ fun AppScaffold(
     onTabSelected: (MainTab) -> Unit,
     onProfileClick: () -> Unit = {},
     onPaycheckClick: () -> Unit = {},
+    onStatementsClick: (() -> Unit)? = null,
     onNotificationsClick: () -> Unit = {},
     showTopBar: Boolean = true,
     useHomeHeader: Boolean = false,
@@ -126,6 +127,9 @@ fun AppScaffold(
                     onPaycheckClick = {
                         toolsOpen = false
                         onPaycheckClick()
+                    },
+                    onStatementsClick = onStatementsClick?.let { goToStatements ->
+                        { toolsOpen = false; goToStatements() }
                     }
                 )
             }
