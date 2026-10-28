@@ -19,11 +19,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.everyday.*
-import com.kedevjimmy.pesatrack.ui.components.MainTab
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -34,7 +31,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-internal enum class StatementPage { SUMMARY, CATEGORIES, TRENDS, TRANSACTIONS, DEBTS, BROWSE }
+internal enum class StatementPage {
+    SUMMARY, CATEGORIES, TRENDS, TRANSACTIONS, DEBTS, BROWSE,
+    CATEGORY_DETAIL, MONTH_DETAIL, COVERAGE, EVIDENCE_DETAIL
+}
 private val nairobiStatementZone = TimeZone.getTimeZone("Africa/Nairobi")
 
 internal fun statementDate(timestamp: Long, template: String = "dd MMM yyyy"): String =
@@ -53,15 +53,18 @@ private fun statementCategoryGroup(id: String?, labels: Map<String, String>): St
 @Composable
 internal fun StatementIntelligenceDashboard(
     onDismiss: () -> Unit,
-    onTabSelected: ((MainTab) -> Unit)? = null
+    modifier: Modifier = Modifier,
+    onActivityTransactionClick: (Long) -> Unit = {}
 ) {
     val context = LocalContext.current
     val store = remember(context) { StatementActivityStore(context) }
     val reader = remember(context) { StatementReportReader(context) }
     val crossCategory = remember(context) { StatementCrossCategoryRepository(context) }
+    val activityLinks = remember(context) { StatementActivityLinkReader(context) }
     val ledgerRevision by LedgerUpdateBus.state.collectAsState()
     val scope = rememberCoroutineScope()
     var sources by remember { mutableStateOf<List<StatementHistoryReport.SourceMonth>>(emptyList()) }
+    var savedBatches by remember { mutableStateOf<List<StatementActivityStore.Batch>>(emptyList()) }
     var accountLabels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var categoryLabels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var categoryKinds by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
@@ -73,21 +76,22 @@ internal fun StatementIntelligenceDashboard(
     var labelsChanged by remember { mutableIntStateOf(0) }
     var accountSelection by remember { mutableStateOf<String?>(null) }
     var accountMenu by remember { mutableStateOf(false) }
-    var period by remember { mutableStateOf(StatementFinancialPolicy.Period.MONTH) }
-    var allHistory by remember { mutableStateOf(true) }
-    var dateMenu by remember { mutableStateOf(false) }
-    var moreMenu by remember { mutableStateOf(false) }
+    // Null means the default latest imported year. Explicit AllHistory stays selected.
+    var chosenScope by remember { mutableStateOf<StatementReportScope?>(null) }
     var showReviewHelp by remember { mutableStateOf(false) }
-    var monthSelection by remember { mutableStateOf<String?>(null) }
-    var yearSelection by remember { mutableStateOf<Int?>(null) }
-    var dayAnchor by remember { mutableStateOf<Long?>(null) }
     var page by remember { mutableStateOf(StatementPage.SUMMARY) }
-    var previousPage by remember { mutableStateOf(StatementPage.SUMMARY) }
+    val pageHistory = remember { mutableStateListOf<Pair<StatementPage, StatementReportScope?>>() }
+    var categoryDetail by remember { mutableStateOf<String?>(null) }
+    var evidenceDetail by remember { mutableStateOf<StatementClassified?>(null) }
+    var linkedActivityId by remember { mutableStateOf<Long?>(null) }
+    var deleteTarget by remember { mutableStateOf<StatementActivityStore.Batch?>(null) }
+    var deleteError by remember { mutableStateOf(false) }
     var importing by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var browseQuery by remember { mutableStateOf("") }
     var flowFilter by remember { mutableStateOf<StatementFlow?>(null) }
     var categoryFilter by remember { mutableStateOf<String?>(null) }
+    var sourceDirectionFilter by remember { mutableStateOf<Boolean?>(null) }
     var onlyClassified by remember { mutableStateOf(false) }
     var edit by remember { mutableStateOf<StatementClassified?>(null) }
     var editCategory by remember { mutableStateOf<String?>(null) }
@@ -99,7 +103,6 @@ internal fun StatementIntelligenceDashboard(
     var bridgeScanning by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
-    var reconciliationExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(refreshed) {
         busy = true
@@ -107,11 +110,12 @@ internal fun StatementIntelligenceDashboard(
         try {
             val info = withContext(Dispatchers.IO) {
                 val bridge = StatementCategoryBridge(context)
-                Triple(store.sourceMonths(),
+                Triple(store.sourceMonths() to store.batches(),
                     EverydayMoneyStore(context).ownedAccounts().associate { it.id to it.name },
                     bridge.categoryLabels() to bridge.categoryKinds())
             }
-            sources = info.first
+            sources = info.first.first
+            savedBatches = info.first.second
             accountLabels = info.second
             categoryLabels = info.third.first
             categoryKinds = info.third.second
@@ -127,9 +131,28 @@ internal fun StatementIntelligenceDashboard(
     }
     val statementFileCount = remember(sources) { sources.map { it.batchId }.distinct().size }
     val years = remember(months) { StatementHistoryReport.years(months) }
-    val month = months.firstOrNull { it.key == monthSelection } ?: months.firstOrNull()
-    val year = yearSelection?.takeIf { it in years } ?: years.firstOrNull()
-    val dateAnchor = dayAnchor ?: month?.source?.lastTransactionAt ?: 0L
+    val reportScope = chosenScope ?: years.firstOrNull()?.let { StatementReportScope.Year(it) }
+        ?: StatementReportScope.AllHistory
+    val allHistory = reportScope == StatementReportScope.AllHistory
+    val period = when (reportScope) {
+        is StatementReportScope.Day -> StatementFinancialPolicy.Period.DAY
+        is StatementReportScope.Week -> StatementFinancialPolicy.Period.WEEK
+        is StatementReportScope.Month -> StatementFinancialPolicy.Period.MONTH
+        else -> StatementFinancialPolicy.Period.YEAR
+    }
+    val month = months.firstOrNull {
+        it.key == (reportScope as? StatementReportScope.Month)?.key
+    } ?: months.firstOrNull()
+    val year = when (reportScope) {
+        is StatementReportScope.Year -> reportScope.value
+        is StatementReportScope.Month -> reportScope.key.substringBefore('-').toInt()
+        else -> years.firstOrNull()
+    }
+    val dateAnchor = when (reportScope) {
+        is StatementReportScope.Day -> reportScope.anchorMs
+        is StatementReportScope.Week -> reportScope.anchorMs
+        else -> month?.source?.lastTransactionAt ?: 0L
+    }
 
     // Preload all data for the currently selected account once; changing Day,
     // Week, Month, Year or page never triggers repeated PDF/database reads.
@@ -147,19 +170,10 @@ internal fun StatementIntelligenceDashboard(
           catch (_: Exception) { dataError = true; reports = emptyList() }
     }
 
-    val visible = remember(reports, period, month?.key, year, dateAnchor, allHistory) {
-        reports.filter { row ->
-            allHistory || when (period) {
-                StatementFinancialPolicy.Period.YEAR ->
-                    year != null && StatementMonthlyUsage.monthKey(row.line.occurredAt).startsWith("$year-")
-                StatementFinancialPolicy.Period.MONTH -> month != null &&
-                    StatementMonthlyUsage.monthKey(row.line.occurredAt) == month.key
-                else -> StatementFinancialPolicy.within(row.line.occurredAt, dateAnchor, period)
-            }
-        }
+    val visible = remember(reports, reportScope) {
+        StatementReportScopePolicy.selectRows(reports, reportScope)
     }
     val totals = remember(visible) { StatementFinancialPolicy.totals(visible) }
-    val sourceCashFlow = remember(visible) { StatementFinancialPolicy.sourceCashFlow(visible) }
     val breakdown = remember(visible, categoryLabels) {
         StatementExpenseCatalog.breakdown(visible, categoryLabels)
     }
@@ -176,12 +190,27 @@ internal fun StatementIntelligenceDashboard(
         StatementFinancialPolicy.Period.DAY -> statementDate(dateAnchor)
     }
 
+    LaunchedEffect(page, evidenceDetail, accountId) {
+        linkedActivityId = null
+        val target = evidenceDetail
+        val account = accountId
+        if (page == StatementPage.EVIDENCE_DETAIL && target != null && account != null) {
+            try {
+                linkedActivityId = withContext(Dispatchers.IO) {
+                    activityLinks.linkedTransactionId(target, account)
+                }
+            } catch (e: CancellationException) { throw e }
+              catch (_: Exception) { linkedActivityId = null }
+        }
+    }
+
     fun navigate(target: StatementPage, selectedFlow: StatementFlow? = null,
                  selectedCategory: String? = null) {
-        previousPage = page
+        if (target != page) pageHistory.add(page to chosenScope)
         page = target
         flowFilter = selectedFlow
         categoryFilter = selectedCategory
+        sourceDirectionFilter = null
         query = ""
     }
     fun back() {
@@ -189,66 +218,21 @@ internal fun StatementIntelligenceDashboard(
             showReviewHelp -> showReviewHelp = false
             importing -> importing = false
             edit != null -> edit = null
-            page == StatementPage.DEBTS || page == StatementPage.BROWSE ->
-                page = previousPage.takeIf { it != page } ?: StatementPage.SUMMARY
-            page != StatementPage.SUMMARY -> page = StatementPage.SUMMARY
+            page != StatementPage.SUMMARY -> {
+                val previous = if (pageHistory.isNotEmpty())
+                    pageHistory.removeAt(pageHistory.lastIndex) else null
+                page = previous?.first ?: StatementPage.SUMMARY
+                if (previous != null) chosenScope = previous.second
+            }
             else -> onDismiss()
         }
     }
     BackHandler { back() }
 
-    Dialog(onDismissRequest = { back() },
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.fillMaxSize().systemBarsPadding()) {
-                if (page == StatementPage.SUMMARY) {
-                    Row(Modifier.fillMaxWidth().padding(start = 4.dp, top = 8.dp, end = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { back() }) {
-                            Icon(Icons.Rounded.ArrowBack, contentDescription = "Back")
-                        }
-                        Column(Modifier.weight(1f)) {
-                            Text("Statements", style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold)
-                            Text("Your imported records, in one place",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        IconButton(onClick = { navigate(StatementPage.BROWSE) },
-                            enabled = months.isNotEmpty()) {
-                            Icon(Icons.Rounded.Search, contentDescription = "Search statements",
-                                tint = MaterialTheme.colorScheme.primary)
-                        }
-                        if (months.isNotEmpty()) {
-                            Box {
-                                IconButton(onClick = { moreMenu = true }) {
-                                    Icon(Icons.Rounded.MoreVert,
-                                        contentDescription = "More statement options")
-                                }
-                                DropdownMenu(expanded = moreMenu,
-                                    onDismissRequest = { moreMenu = false }) {
-                                    listOf(
-                                        "Categories" to StatementPage.CATEGORIES,
-                                        "Trends" to StatementPage.TRENDS,
-                                        "Transactions" to StatementPage.TRANSACTIONS,
-                                        "Debts" to StatementPage.DEBTS,
-                                        "Statement archive" to StatementPage.BROWSE
-                                    ).forEach { (label, destination) ->
-                                        DropdownMenuItem(text = { Text(label) }, onClick = {
-                                            moreMenu = false
-                                            navigate(destination)
-                                        })
-                                    }
-                                    HorizontalDivider()
-                                    DropdownMenuItem(text = { Text("Import statement") }, onClick = {
-                                        moreMenu = false
-                                        importing = true
-                                    })
-                                }
-                            }
-                        }
-                    }
-                } else {
+    Surface(modifier.fillMaxSize(), color = HomeReferencePalette.canvas) {
+        Column(Modifier.fillMaxSize()) {
+                if (page in setOf(StatementPage.CATEGORIES, StatementPage.TRENDS,
+                        StatementPage.TRANSACTIONS, StatementPage.DEBTS, StatementPage.BROWSE)) {
                     Row(Modifier.fillMaxWidth().padding(start = 4.dp, top = 8.dp, end = 8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { back() }) {
@@ -288,83 +272,13 @@ internal fun StatementIntelligenceDashboard(
                         statementFileCount = statementFileCount,
                         onImport = { importing = true },
                         onExplainReview = { showReviewHelp = true },
-                        onBankCsv = { onTabSelected?.invoke(MainTab.ACTIVITY) },
-                        bankCsvImportEnabled = onTabSelected != null
+                        onBankCsv = {},
+                        bankCsvImportEnabled = false,
+                        onBack = { back() }
                     )
                 } else {
-                    if (page == StatementPage.SUMMARY) {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.weight(1.08f)) {
-                                OutlinedButton(onClick = { dateMenu = true },
-                                    modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 9.dp)) {
-                                    Icon(Icons.Rounded.CalendarMonth, contentDescription = null,
-                                        modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(periodTitle, modifier = Modifier.weight(1f), maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.labelMedium)
-                                    Icon(Icons.Rounded.ExpandMore, contentDescription = "Choose date range",
-                                        modifier = Modifier.size(18.dp))
-                                }
-                                DropdownMenu(expanded = dateMenu, onDismissRequest = { dateMenu = false }) {
-                                    DropdownMenuItem(text = { Text("All imported dates") }, onClick = {
-                                        allHistory = true
-                                        dateMenu = false
-                                    })
-                                    if (years.isNotEmpty()) HorizontalDivider()
-                                    years.forEach { availableYear ->
-                                        DropdownMenuItem(text = { Text("Year · $availableYear") }, onClick = {
-                                            period = StatementFinancialPolicy.Period.YEAR
-                                            yearSelection = availableYear
-                                            allHistory = false
-                                            dateMenu = false
-                                        })
-                                    }
-                                    if (months.isNotEmpty()) HorizontalDivider()
-                                    months.forEach { availableMonth ->
-                                        DropdownMenuItem(text = { Text(availableMonth.usage.label) }, onClick = {
-                                            period = StatementFinancialPolicy.Period.MONTH
-                                            monthSelection = availableMonth.key
-                                            dayAnchor = null
-                                            allHistory = false
-                                            dateMenu = false
-                                        })
-                                    }
-                                }
-                            }
-                            Box(Modifier.weight(0.92f)) {
-                                OutlinedButton(onClick = { accountMenu = true },
-                                    modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 9.dp)) {
-                                    Icon(Icons.Rounded.AccountBalanceWallet, contentDescription = null,
-                                        modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(accountLabels[accountId] ?: "M-Pesa wallet",
-                                        modifier = Modifier.weight(1f), maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.labelMedium)
-                                    Icon(Icons.Rounded.ExpandMore, contentDescription = "Choose account",
-                                        modifier = Modifier.size(18.dp))
-                                }
-                                DropdownMenu(expanded = accountMenu,
-                                    onDismissRequest = { accountMenu = false }) {
-                                    accounts.forEach { id ->
-                                        DropdownMenuItem(
-                                            text = { Text(accountLabels[id] ?: "Saved M-Pesa wallet") },
-                                            onClick = {
-                                                accountSelection = id
-                                                monthSelection = null
-                                                yearSelection = null
-                                                dayAnchor = null
-                                                allHistory = true
-                                                accountMenu = false
-                                            })
-                                    }
-                                }
-                            }
-                        }
-                    } else {
+                    if (page in setOf(StatementPage.CATEGORIES, StatementPage.TRENDS,
+                            StatementPage.TRANSACTIONS, StatementPage.DEBTS, StatementPage.BROWSE)) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 15.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.weight(1f)) {
@@ -385,10 +299,7 @@ internal fun StatementIntelligenceDashboard(
                                             text = { Text(accountLabels[id] ?: "Saved M-Pesa wallet") },
                                             onClick = {
                                                 accountSelection = id
-                                                monthSelection = null
-                                                yearSelection = null
-                                                dayAnchor = null
-                                                allHistory = true
+                                                chosenScope = null
                                                 accountMenu = false
                                             })
                                     }
@@ -399,7 +310,8 @@ internal fun StatementIntelligenceDashboard(
                             }
                         }
                     }
-                    if (page != StatementPage.SUMMARY && page != StatementPage.BROWSE && page != StatementPage.DEBTS) {
+                    if (page in setOf(StatementPage.CATEGORIES, StatementPage.TRENDS,
+                            StatementPage.TRANSACTIONS)) {
                         LazyRow(
                             contentPadding = PaddingValues(horizontal = 14.dp),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -415,15 +327,24 @@ internal fun StatementIntelligenceDashboard(
                             }
                         }
                     }
-                    if (page != StatementPage.SUMMARY && page != StatementPage.BROWSE) {
+                    if (page in setOf(StatementPage.CATEGORIES, StatementPage.TRENDS,
+                            StatementPage.TRANSACTIONS, StatementPage.DEBTS)) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 13.dp),
                             horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                             FilterChip(selected = allHistory,
-                                onClick = { allHistory = true; flowFilter = null; categoryFilter = null },
+                                onClick = { chosenScope = StatementReportScope.AllHistory; flowFilter = null; categoryFilter = null },
                                 label = { Text("All") }, modifier = Modifier.weight(1f))
                             StatementFinancialPolicy.Period.entries.forEach { item ->
                                 FilterChip(selected = !allHistory && period == item,
-                                    onClick = { period = item; allHistory = false; flowFilter = null; categoryFilter = null },
+                                    onClick = {
+                                        chosenScope = when (item) {
+                                            StatementFinancialPolicy.Period.YEAR -> StatementReportScope.Year(year ?: return@FilterChip)
+                                            StatementFinancialPolicy.Period.MONTH -> StatementReportScope.Month(month?.key ?: return@FilterChip)
+                                            StatementFinancialPolicy.Period.WEEK -> StatementReportScope.Week(dateAnchor)
+                                            StatementFinancialPolicy.Period.DAY -> StatementReportScope.Day(dateAnchor)
+                                        }
+                                        flowFilter = null; categoryFilter = null
+                                    },
                                     label = { Text(item.name.lowercase().replaceFirstChar { it.uppercase() }) },
                                     modifier = Modifier.weight(1f))
                             }
@@ -435,17 +356,19 @@ internal fun StatementIntelligenceDashboard(
                                 when (period) {
                                     StatementFinancialPolicy.Period.YEAR -> {
                                         val i = years.indexOf(year)
-                                        if (i < years.lastIndex) yearSelection = years[i + 1]
+                                        if (i in 0 until years.lastIndex)
+                                            chosenScope = StatementReportScope.Year(years[i + 1])
                                     }
                                     StatementFinancialPolicy.Period.MONTH -> {
                                         val i = months.indexOf(month)
                                         if (i < months.lastIndex) {
-                                            monthSelection = months[i + 1].key
-                                            dayAnchor = null
+                                            chosenScope = StatementReportScope.Month(months[i + 1].key)
                                         }
                                     }
-                                    StatementFinancialPolicy.Period.WEEK -> dayAnchor = shiftedDate(dateAnchor, -7)
-                                    StatementFinancialPolicy.Period.DAY -> dayAnchor = shiftedDate(dateAnchor, -1)
+                                    StatementFinancialPolicy.Period.WEEK ->
+                                        chosenScope = StatementReportScope.Week(shiftedDate(dateAnchor, -7))
+                                    StatementFinancialPolicy.Period.DAY ->
+                                        chosenScope = StatementReportScope.Day(shiftedDate(dateAnchor, -1))
                                 }
                             }) { Icon(Icons.Rounded.ChevronLeft, contentDescription = "Earlier period") }
                             Text(periodTitle, style = MaterialTheme.typography.titleMedium,
@@ -454,17 +377,18 @@ internal fun StatementIntelligenceDashboard(
                                 when (period) {
                                     StatementFinancialPolicy.Period.YEAR -> {
                                         val i = years.indexOf(year)
-                                        if (i > 0) yearSelection = years[i - 1]
+                                        if (i > 0) chosenScope = StatementReportScope.Year(years[i - 1])
                                     }
                                     StatementFinancialPolicy.Period.MONTH -> {
                                         val i = months.indexOf(month)
                                         if (i > 0) {
-                                            monthSelection = months[i - 1].key
-                                            dayAnchor = null
+                                            chosenScope = StatementReportScope.Month(months[i - 1].key)
                                         }
                                     }
-                                    StatementFinancialPolicy.Period.WEEK -> dayAnchor = shiftedDate(dateAnchor, 7)
-                                    StatementFinancialPolicy.Period.DAY -> dayAnchor = shiftedDate(dateAnchor, 1)
+                                    StatementFinancialPolicy.Period.WEEK ->
+                                        chosenScope = StatementReportScope.Week(shiftedDate(dateAnchor, 7))
+                                    StatementFinancialPolicy.Period.DAY ->
+                                        chosenScope = StatementReportScope.Day(shiftedDate(dateAnchor, 1))
                                 }
                             }) { Icon(Icons.Rounded.ChevronRight, contentDescription = "Later period") }
                         }
@@ -472,27 +396,41 @@ internal fun StatementIntelligenceDashboard(
 
                     when (page) {
                         StatementPage.SUMMARY -> {
-                            val scopedMonths = months.filter { selected ->
-                                allHistory || when (period) {
-                                    StatementFinancialPolicy.Period.YEAR -> selected.usage.year == year
-                                    StatementFinancialPolicy.Period.MONTH -> selected.key == month?.key
-                                    else -> true
-                                }
-                            }
                             StatementOverviewPage(
-                                sourceMonths = scopedMonths,
-                                visible = visible,
-                                sourceCashFlow = sourceCashFlow,
-                                breakdown = breakdown,
-                                reconciliationExpanded = reconciliationExpanded,
-                                onReconciliationToggle = {
-                                    reconciliationExpanded = !reconciliationExpanded
-                                },
-                                onNavigate = { destination, flow, category ->
-                                    navigate(destination, flow, category)
-                                },
+                                model = StatementInsightModels.from(
+                                    accountLabel = accountLabels[accountId] ?: "M-Pesa wallet",
+                                    scope = reportScope, visible = visible,
+                                    selectedMonths = months, categoryLabels = categoryLabels,
+                                    accountRows = reports
+                                ),
+                                onBack = { back() },
+                                onSelectScope = { chosenScope = it },
+                                onOpenCategories = { navigate(StatementPage.CATEGORIES) },
+                                onOpenTrends = { navigate(StatementPage.TRENDS) },
+                                onOpenArchive = { navigate(StatementPage.BROWSE) },
+                                onOpenCoverage = { navigate(StatementPage.COVERAGE) },
                                 onImport = { importing = true },
-                                onArchive = { navigate(StatementPage.BROWSE) }
+                                onOpenTransactions = { flow, category ->
+                                    navigate(StatementPage.TRANSACTIONS, flow, category)
+                                },
+                                onOpenMonth = { key ->
+                                    navigate(StatementPage.MONTH_DETAIL)
+                                    chosenScope = StatementReportScope.Month(key)
+                                },
+                                onOpenCategory = { category ->
+                                    categoryDetail = category
+                                    navigate(StatementPage.CATEGORY_DETAIL)
+                                },
+                                availableAccounts = accounts.map { it to
+                                    (accountLabels[it] ?: "M-Pesa wallet") },
+                                onSelectAccount = { id ->
+                                    accountSelection = id
+                                    chosenScope = null
+                                },
+                                onOpenCashMovement = { incoming ->
+                                    navigate(StatementPage.TRANSACTIONS)
+                                    sourceDirectionFilter = incoming
+                                }
                             )
                         }
                         StatementPage.CATEGORIES -> {
@@ -536,8 +474,8 @@ internal fun StatementIntelligenceDashboard(
                                 items(shown, key = { it.first }) { (category, amount) ->
                                     val i = shown.indexOfFirst { it.first == category }
                                     StatementCategoryLine(category, amount, chartTotal, i) {
-                                        navigate(StatementPage.TRANSACTIONS,
-                                            StatementFlow.EXPENSE, category)
+                                        categoryDetail = category
+                                        navigate(StatementPage.CATEGORY_DETAIL)
                                     }
                                 }
                                 item {
@@ -571,7 +509,29 @@ internal fun StatementIntelligenceDashboard(
                                         totals.expenseMinor,
                                         "Classified expenses · partial statement periods may be missing")
                                 }
-                                item {
+                                if (allHistory) item {
+                                    StatementInsightCard {
+                                        Text("Spending by imported year",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold)
+                                        Text("Years are kept separate; missing source periods cannot be interpreted as zero.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        years.forEach { importedYear ->
+                                            val yearRows = StatementReportScopePolicy.selectRows(
+                                                reports, StatementReportScope.Year(importedYear))
+                                            Row(Modifier.fillMaxWidth().clickable {
+                                                chosenScope = StatementReportScope.Year(importedYear)
+                                            }.padding(vertical = 9.dp),
+                                                verticalAlignment = Alignment.CenterVertically) {
+                                                Text(importedYear.toString(), Modifier.weight(1f))
+                                                Text(statementMoney(StatementFinancialPolicy.totals(yearRows).expenseMinor),
+                                                    fontWeight = FontWeight.Bold)
+                                                Icon(Icons.Rounded.ChevronRight, null)
+                                            }
+                                        }
+                                    }
+                                } else item {
                                     Surface(shape = RoundedCornerShape(18.dp),
                                         color = MaterialTheme.colorScheme.surfaceContainerLow) {
                                         Column(Modifier.padding(14.dp),
@@ -590,10 +550,8 @@ internal fun StatementIntelligenceDashboard(
                                                             it.usage.year == year && it.usage.month == slot + 1
                                                         }
                                                         if (chosen != null) {
-                                                            monthSelection = chosen.key
-                                                            period = StatementFinancialPolicy.Period.MONTH
-                                                            dayAnchor = null
-                                                            page = StatementPage.SUMMARY
+                                                            navigate(StatementPage.MONTH_DETAIL)
+                                                            chosenScope = StatementReportScope.Month(chosen.key)
                                                         }
                                                     }
                                                     StatementFinancialPolicy.Period.MONTH -> {
@@ -603,9 +561,8 @@ internal fun StatementIntelligenceDashboard(
                                                             set(Calendar.DAY_OF_MONTH, minOf(slot * 7 + 1,
                                                                 getActualMaximum(Calendar.DAY_OF_MONTH)))
                                                         }
-                                                        dayAnchor = calendar.timeInMillis
-                                                        period = StatementFinancialPolicy.Period.WEEK
-                                                        page = StatementPage.SUMMARY
+                                                        navigate(StatementPage.TRANSACTIONS)
+                                                        chosenScope = StatementReportScope.Week(calendar.timeInMillis)
                                                     }
                                                     StatementFinancialPolicy.Period.WEEK -> {
                                                         val calendar = Calendar.getInstance(nairobiStatementZone).apply {
@@ -614,9 +571,8 @@ internal fun StatementIntelligenceDashboard(
                                                                 add(Calendar.DAY_OF_MONTH, -1)
                                                             add(Calendar.DAY_OF_MONTH, slot)
                                                         }
-                                                        dayAnchor = calendar.timeInMillis
-                                                        period = StatementFinancialPolicy.Period.DAY
-                                                        page = StatementPage.SUMMARY
+                                                        navigate(StatementPage.TRANSACTIONS)
+                                                        chosenScope = StatementReportScope.Day(calendar.timeInMillis)
                                                     }
                                                     StatementFinancialPolicy.Period.DAY -> {
                                                         navigate(StatementPage.TRANSACTIONS, StatementFlow.EXPENSE)
@@ -642,6 +598,9 @@ internal fun StatementIntelligenceDashboard(
                         StatementPage.TRANSACTIONS -> {
                             val filtered = visible.filter {
                                 (flowFilter == null || it.flow == flowFilter) &&
+                                    (sourceDirectionFilter == null ||
+                                        if (sourceDirectionFilter == true)
+                                            it.line.paidInMinor > 0L else it.line.withdrawnMinor > 0L) &&
                                     (categoryFilter == null ||
                                         statementCategoryGroup(it.categoryId, categoryLabels) == categoryFilter) &&
                                     (query.isBlank() || it.line.description.contains(query, ignoreCase = true) ||
@@ -664,12 +623,21 @@ internal fun StatementIntelligenceDashboard(
                                         StatementFlow.FEE to "Fees", StatementFlow.UNKNOWN to "Needs review")
                                     items(choices) { (value, title) ->
                                         FilterChip(selected = flowFilter == value,
-                                            onClick = { flowFilter = value; categoryFilter = null },
+                                            onClick = {
+                                                flowFilter = value
+                                                categoryFilter = null
+                                                sourceDirectionFilter = null
+                                            },
                                             label = { Text(title) })
                                     }
                                 }
                                 if (categoryFilter != null) TextButton(onClick = { categoryFilter = null }) {
                                     Text("Category: " + categoryFilter + "  ×")
+                                }
+                                if (sourceDirectionFilter != null) TextButton(onClick = {
+                                    sourceDirectionFilter = null
+                                }) {
+                                    Text((if (sourceDirectionFilter == true) "Money in" else "Money out") + "  ×")
                                 }
                                 LazyColumn(Modifier.fillMaxSize(),
                                     contentPadding = PaddingValues(16.dp),
@@ -683,11 +651,8 @@ internal fun StatementIntelligenceDashboard(
                                         Surface(shape = RoundedCornerShape(14.dp),
                                             color = MaterialTheme.colorScheme.surfaceContainerLow,
                                             modifier = Modifier.fillMaxWidth().clickable {
-                                                edit = classified
-                                                editCategory = classified.categoryId
-                                                editRemember = false
-                                                editRememberBoth = false
-                                                saveError = null
+                                                evidenceDetail = classified
+                                                navigate(StatementPage.EVIDENCE_DETAIL)
                                             }) {
                                             Row(Modifier.padding(13.dp),
                                                 verticalAlignment = Alignment.CenterVertically) {
@@ -729,7 +694,7 @@ internal fun StatementIntelligenceDashboard(
                                                             MaterialTheme.colorScheme.primary
                                                         else MaterialTheme.colorScheme.onSurface)
                                                     Icon(Icons.Rounded.ChevronRight,
-                                                        contentDescription = "Review category")
+                                                        contentDescription = "Open source evidence")
                                                 }
                                             }
                                         }
@@ -900,11 +865,8 @@ internal fun StatementIntelligenceDashboard(
                                             Surface(shape = RoundedCornerShape(15.dp),
                                                 color = MaterialTheme.colorScheme.surfaceContainerLow,
                                                 modifier = Modifier.fillMaxWidth().clickable {
-                                                    monthSelection = entry.key
-                                                    yearSelection = entry.usage.year
-                                                    dayAnchor = null
-                                                    period = StatementFinancialPolicy.Period.MONTH
-                                                    page = StatementPage.SUMMARY
+                                                    navigate(StatementPage.MONTH_DETAIL)
+                                                    chosenScope = StatementReportScope.Month(entry.key)
                                                 }) {
                                                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                                                     Column(Modifier.weight(1f)) {
@@ -922,6 +884,41 @@ internal fun StatementIntelligenceDashboard(
                                         }
                                     }
                                 item {
+                                    Text("Saved source files",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold)
+                                    Text("One source is selected per month for reporting. Other overlapping saved files are preserved separately.",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
+                                items(savedBatches.filter { it.accountId == accountId },
+                                    key = { "batch:${it.id}" }) { batch ->
+                                    StatementInsightCard {
+                                        Row(Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Rounded.Description, null,
+                                                tint = HomeReferencePalette.purple)
+                                            Spacer(Modifier.width(9.dp))
+                                            Column(Modifier.weight(1f)) {
+                                                Text("Imported ${statementDate(batch.recordedAt)}",
+                                                    fontWeight = FontWeight.SemiBold)
+                                                Text("${batch.rows} source rows · " +
+                                                    (if (batch.totalsIndependentlyVerified)
+                                                        "Checked" else "Saved"),
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = HomeReferencePalette.muted)
+                                            }
+                                            IconButton(onClick = {
+                                                deleteTarget = batch
+                                                deleteError = false
+                                            }) {
+                                                Icon(Icons.Rounded.DeleteOutline,
+                                                    contentDescription = "Remove saved source file")
+                                            }
+                                        }
+                                    }
+                                }
+                                item {
                                     Button(onClick = { importing = true },
                                         modifier = Modifier.fillMaxWidth()) {
                                         Icon(Icons.Rounded.Add, contentDescription = null)
@@ -930,15 +927,70 @@ internal fun StatementIntelligenceDashboard(
                                 }
                             }
                         }
+                        StatementPage.CATEGORY_DETAIL -> {
+                            val category = categoryDetail
+                            if (category != null) StatementCategoryInsightPage(
+                                categoryLabel = category,
+                                rows = visible,
+                                categoryLabels = categoryLabels,
+                                onOpenTransactions = { label ->
+                                    navigate(StatementPage.TRANSACTIONS,
+                                        StatementFlow.EXPENSE, label)
+                                },
+                                onOpenRow = { selected ->
+                                    evidenceDetail = selected
+                                    navigate(StatementPage.EVIDENCE_DETAIL)
+                                },
+                                onBack = { back() }
+                            )
+                        }
+                        StatementPage.MONTH_DETAIL -> {
+                            val selected = (reportScope as? StatementReportScope.Month)?.key
+                                ?.let { key -> months.firstOrNull { it.key == key } }
+                            if (selected != null) StatementPeriodPage(
+                                month = selected, rows = reports,
+                                onOpenRow = { record ->
+                                    evidenceDetail = record
+                                    navigate(StatementPage.EVIDENCE_DETAIL)
+                                }, onBack = { back() }
+                            )
+                        }
+                        StatementPage.COVERAGE -> {
+                            StatementCoveragePage(
+                                year = year ?: months.first().usage.year,
+                                months = months,
+                                onOpenMonth = { key ->
+                                    navigate(StatementPage.MONTH_DETAIL)
+                                    chosenScope = StatementReportScope.Month(key)
+                                },
+                                onImport = { importing = true },
+                                onBack = { back() }
+                            )
+                        }
+                        StatementPage.EVIDENCE_DETAIL -> {
+                            val selected = evidenceDetail
+                            if (selected != null) StatementEvidenceDetailPage(
+                                row = selected,
+                                sourceLabel = accountLabels[accountId] ?: "M-Pesa wallet",
+                                categoryLabel = statementCategoryGroup(selected.categoryId,
+                                    categoryLabels),
+                                linkedActivityId = linkedActivityId,
+                                onReviewCategory = {
+                                    edit = selected
+                                    editCategory = selected.categoryId
+                                    editRemember = false
+                                    editRememberBoth = false
+                                    saveError = null
+                                },
+                                onOpenActivity = onActivityTransactionClick,
+                                onBack = { back() }
+                            )
+                        }
                     }
                 }
                 }
-                if (onTabSelected != null) {
-                    StatementBottomNavigation(onTabSelected)
-                }
             }
         }
-    }
     if (showReviewHelp) {
         AlertDialog(
             onDismissRequest = { showReviewHelp = false },
@@ -955,6 +1007,37 @@ internal fun StatementIntelligenceDashboard(
         onDismiss = { importing = false; refreshed++ },
         onChanged = { refreshed++ },
         statementOnly = true
+    )
+
+    deleteTarget?.let { batch ->
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("Remove saved statement?") },
+            text = { Text("This permanently removes ${batch.rows} saved source entries " +
+                "and their statement-only corrections. Existing Activity transactions, " +
+                "balances and debts remain unchanged. This action cannot be undone.") },
+            dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("Keep file") } },
+            confirmButton = {
+                TextButton(onClick = {
+                    deleteTarget = null
+                    scope.launch {
+                        try {
+                            val deleted = withContext(Dispatchers.IO) {
+                                store.deleteSavedStatement(batch)
+                            }
+                            if (deleted) refreshed++ else deleteError = true
+                        } catch (e: CancellationException) { throw e }
+                          catch (_: Exception) { deleteError = true }
+                    }
+                }) { Text("Remove statement", color = MaterialTheme.colorScheme.error) }
+            }
+        )
+    }
+    if (deleteError) AlertDialog(
+        onDismissRequest = { deleteError = false },
+        title = { Text("Statement not removed") },
+        text = { Text("The source changed or could not be removed. No Activity records were changed.") },
+        confirmButton = { TextButton(onClick = { deleteError = false }) { Text("OK") } }
     )
 
     // The preview is an evidence check, never an eager classification write.

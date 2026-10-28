@@ -44,7 +44,8 @@ import java.nio.charset.CodingErrorAction
  */
 @Composable internal fun ActivityToolsDisclosure(
     onChanged: () -> Unit,
-    onPaycheckClick: () -> Unit = {}
+    onPaycheckClick: () -> Unit = {},
+    onStatementsClick: (() -> Unit)? = null
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -62,14 +63,18 @@ import java.nio.charset.CodingErrorAction
         }
         if (expanded) ActivityMoneyActions(
             onChanged = onChanged,
-            onPaycheckClick = onPaycheckClick
+            onPaycheckClick = onPaycheckClick,
+            onStatementsClick = onStatementsClick
         )
     }
 }
 
-@Composable internal fun ActivityMoneyActions(onChanged:()->Unit,onPaycheckClick:()->Unit = {}) {
+@Composable internal fun ActivityMoneyActions(
+    onChanged: () -> Unit,
+    onPaycheckClick: () -> Unit = {},
+    onStatementsClick: (() -> Unit)? = null
+) {
  var add by rememberSaveable {mutableStateOf(false)};var importing by rememberSaveable {mutableStateOf(false)}
- var viewingStatements by rememberSaveable {mutableStateOf(false)}
  Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(10.dp)) {
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
    Button(onClick={add=true},modifier=Modifier.weight(1f).heightIn(min=54.dp),
@@ -81,10 +86,11 @@ import java.nio.charset.CodingErrorAction
    }
   }
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-   OutlinedButton(onClick={viewingStatements=true},modifier=Modifier.weight(1f).heightIn(min=52.dp),
+   if (onStatementsClick != null) OutlinedButton(onClick=onStatementsClick,
+    modifier=Modifier.weight(1f).heightIn(min=52.dp),
     contentPadding=PaddingValues(horizontal=10.dp,vertical=8.dp)) {
-    Icon(Icons.Rounded.ReceiptLong,null,modifier=Modifier.size(19.dp));Spacer(Modifier.width(6.dp))
-    Text("Statements",maxLines=1)
+     Icon(Icons.Rounded.ReceiptLong,null,modifier=Modifier.size(19.dp));Spacer(Modifier.width(6.dp))
+     Text("Statements",maxLines=1)
    }
    OutlinedButton(onClick=onPaycheckClick,modifier=Modifier.weight(1f).heightIn(min=52.dp),
     contentPadding=PaddingValues(horizontal=10.dp,vertical=8.dp)) {
@@ -93,9 +99,9 @@ import java.nio.charset.CodingErrorAction
    }
   }
  }
- if(viewingStatements) StatementActivityDialog(onDismiss={viewingStatements=false})
  if(add) ManualEntrySheet(onDismiss={add=false},onChanged=onChanged)
- if(importing) StatementImportSheet(onDismiss={importing=false},onChanged=onChanged,onPaycheckClick=onPaycheckClick)
+ if(importing) StatementImportSheet(onDismiss={importing=false},onChanged=onChanged,
+    onPaycheckClick=onPaycheckClick,onOpenStatements=onStatementsClick)
 }
 @Composable private fun ManualEntrySheet(onDismiss:()->Unit,onChanged:()->Unit) {
  val c=LocalContext.current;val store=remember {EverydayMoneyStore(c)};val scope=rememberCoroutineScope()

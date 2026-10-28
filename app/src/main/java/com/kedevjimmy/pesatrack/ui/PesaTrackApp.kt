@@ -4,6 +4,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
@@ -47,7 +48,7 @@ import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreenCache
 import com.kedevjimmy.pesatrack.ui.screens.MoneySetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoreScreen
-import com.kedevjimmy.pesatrack.ui.screens.StatementActivityDialog
+import com.kedevjimmy.pesatrack.ui.screens.StatementIntelligenceDashboard
 import com.kedevjimmy.pesatrack.ui.screens.MpesaConnectionScreen
 import com.kedevjimmy.pesatrack.ui.screens.OnboardingScreen
 import com.kedevjimmy.pesatrack.ui.screens.PayCycleActivityScreen
@@ -377,12 +378,14 @@ fun PesaTrackApp(
         composable(MainTab.ACTIVITY.route) {
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.ACTIVITY,
-                onTabSelected = ::navigateToTab
+                onTabSelected = ::navigateToTab,
+                onStatementsClick = { navController.navigate("statement-activity") { launchSingleTop = true } }
             ) { padding ->
                 ActivityScreen(
                     scaffoldPadding = padding,
                     onSalaryClick = { navController.navigate("salary") },
                     onPaycheckClick = { navController.navigate("paycheck-analysis") },
+                    onStatementsClick = { navController.navigate("statement-activity") { launchSingleTop = true } },
                     onTransactionClick = { id ->
                         navController.navigate(
                             "transaction-detail/$id"
@@ -407,12 +410,14 @@ fun PesaTrackApp(
         composable("activity-attention") {
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.ACTIVITY,
-                onTabSelected = ::navigateToTab
+                onTabSelected = ::navigateToTab,
+                onStatementsClick = { navController.navigate("statement-activity") { launchSingleTop = true } }
             ) { padding ->
                 ActivityScreen(
                     scaffoldPadding = padding,
                     onSalaryClick = { navController.navigate("salary") },
                     onPaycheckClick = { navController.navigate("paycheck-analysis") },
+                    onStatementsClick = { navController.navigate("statement-activity") { launchSingleTop = true } },
                     onTransactionClick = { id ->
                         navController.navigate(
                             "transaction-detail/$id"
@@ -512,7 +517,8 @@ fun PesaTrackApp(
         composable(MainTab.MORE.route) {
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.MORE,
-                onTabSelected = ::navigateToTab
+                onTabSelected = ::navigateToTab,
+                onStatementsClick = { navController.navigate("statement-activity") { launchSingleTop = true } }
             ) { padding ->
                 MoreScreen(
                     scaffoldPadding = padding,
@@ -549,10 +555,22 @@ fun PesaTrackApp(
 
         composable("statement-activity") {
             // Read-only PDF statement archive. Never invokes SMS imports or account updates.
-            StatementActivityDialog(
-                onDismiss = { navController.popBackStack() },
-                onTabSelected = ::navigateToTab
-            )
+            AppScaffold(
+                currentTab = MainTab.MORE,
+                onTabSelected = ::navigateToTab,
+                onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
+                onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
+                onStatementsClick = { navController.navigate("statement-activity") { launchSingleTop = true } },
+                useHomeHeader = true
+            ) { padding ->
+                StatementIntelligenceDashboard(
+                    onDismiss = { navController.popBackStack() },
+                    modifier = Modifier.padding(padding),
+                    onActivityTransactionClick = { id ->
+                        navController.navigate("transaction-detail/$id")
+                    }
+                )
+            }
         }
 
         composable("reports") {

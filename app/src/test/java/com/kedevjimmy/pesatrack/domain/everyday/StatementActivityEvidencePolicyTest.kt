@@ -123,4 +123,21 @@ class StatementActivityEvidencePolicyTest {
         )
         assertFalse(output.activityReceiptVerified)
     }
+
+    @Test fun activityNavigationRequiresUniqueExactReceiptIdentity() {
+        val matching = activity()
+        assertEquals(12L, StatementActivityEvidencePolicy.verified(
+            row, "wallet-a", listOf(matching))?.transactionId)
+        assertNull(StatementActivityEvidencePolicy.verified(
+            row, "wallet-a", listOf(matching, matching)))
+        assertNull(StatementActivityEvidencePolicy.verified(
+            row, "wallet-a", listOf(matching.copy(accountId = "different-wallet"))))
+        assertNull(StatementActivityEvidencePolicy.verified(
+            row, "wallet-a", listOf(matching.copy(amountMinor = 9_999L))))
+        assertNull(StatementActivityEvidencePolicy.verified(
+            row, "wallet-a", listOf(matching.copy(occurredAtEpochMs =
+                row.occurredAt + 2 * 86_400_000L))))
+        assertNull(StatementActivityEvidencePolicy.verified(
+            row, "wallet-a", listOf(matching.copy(structurallyLinked = true))))
+    }
 }

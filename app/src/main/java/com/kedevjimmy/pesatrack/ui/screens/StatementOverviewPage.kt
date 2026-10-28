@@ -1,607 +1,365 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.domain.everyday.*
 
+/** The account-specific Phase 1 reference layout, populated solely from local statement data. */
 @Composable
 internal fun StatementOverviewPage(
-    sourceMonths: List<StatementHistoryReport.SelectedMonth>,
-    visible: List<StatementClassified>,
-    sourceCashFlow: StatementCashFlowTotals,
-    breakdown: List<Pair<String, Long>>,
-    reconciliationExpanded: Boolean,
-    onReconciliationToggle: () -> Unit,
-    onNavigate: (StatementPage, StatementFlow?, String?) -> Unit,
+    model: StatementInsightViewModel,
+    onBack: () -> Unit,
+    onSelectScope: (StatementReportScope) -> Unit,
+    onOpenCategories: () -> Unit,
+    onOpenTrends: () -> Unit,
+    onOpenArchive: () -> Unit,
+    onOpenCoverage: () -> Unit,
     onImport: () -> Unit,
-    onArchive: () -> Unit
+    onOpenTransactions: (StatementFlow?, String?) -> Unit,
+    onOpenMonth: (String) -> Unit,
+    onOpenCategory: (String) -> Unit,
+    availableAccounts: List<Pair<String, String>> = emptyList(),
+    onSelectAccount: (String) -> Unit = {},
+    onOpenCashMovement: (Boolean) -> Unit = {},
+    sourceLabel: String = "M-Pesa"
 ) {
-    val statementCount = sourceMonths.sumOf { it.sourceCount }
-    val coverageStart = sourceMonths.minOfOrNull { it.source.firstTransactionAt }
-    val coverageEnd = sourceMonths.maxOfOrNull { it.source.lastTransactionAt }
-    val expenseTotal = breakdown.fold(0L) { total, row -> Math.addExact(total, row.second) }
-    val largestExpenses = visible.asSequence()
-        .filter { it.flow == StatementFlow.EXPENSE }
-        .sortedByDescending { it.reportAmountMinor }
-        .take(4)
-        .toList()
-    val linkedRows = visible.count { it.activityReceiptVerified }
-    val linkedProgress = if (visible.isEmpty()) 0f else linkedRows.toFloat() / visible.size
-    val topCategory = breakdown.firstOrNull()
-    val topShare = if (topCategory == null || expenseTotal <= 0L) 0
-        else (topCategory.second.toDouble() * 100.0 / expenseTotal).toInt()
+    val p = HomeReferencePalette
+    val selectedYear = model.chartYear
+    val sourceYears = model.sourceMonths.map { it.usage.year }.distinct().sortedDescending()
+    val displayedMonths = model.sourceMonths.filter { it.usage.year == selectedYear }
+    val scopeTitle = when (val period = model.scope) {
+        StatementReportScope.AllHistory -> "All history"
+        is StatementReportScope.Year -> period.value.toString()
+        is StatementReportScope.Month -> period.key
+        is StatementReportScope.Week -> "Week of ${statementDate(period.anchorMs)}"
+        is StatementReportScope.Day -> statementDate(period.anchorMs)
+    }
+    var dateMenu by remember { mutableStateOf(false) }
+    var walletMenu by remember { mutableStateOf(false) }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        modifier = Modifier.fillMaxSize().background(p.canvas).testTag("statements-overview"),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 30.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
         item {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Column(
-                    Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+            Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFFE9E7FE),
+                    modifier = Modifier.padding(top = 3.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                            modifier = Modifier.size(42.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Rounded.AccountBalanceWallet,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                        }
-                        Spacer(Modifier.width(11.dp))
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(
-                                "Financial overview",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Text(
-                                if (sourceMonths.isEmpty()) "No statement history available"
-                                else "${sourceMonths.size} reporting months · $statementCount saved statements",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                            )
-                        }
-                    }
-                    Text(
-                        statementMoney(sourceCashFlow.netFlowMinor),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        "Net cash flow for the selected statement period",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.14f))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Rounded.CalendarMonth,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(
-                                "Available coverage",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                            Text(
-                                if (coverageStart != null && coverageEnd != null) {
-                                    "${statementDate(coverageStart, "d MMM yyyy")} to ${statementDate(coverageEnd, "d MMM yyyy")}"
-                                } else "Import a statement to start your history",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                            )
-                        }
-                        if (sourceMonths.isEmpty()) {
-                            TextButton(onClick = onImport) {
-                                Text("Import")
-                            }
-                        }
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Rounded.ArrowBack, contentDescription = "Back to previous screen",
+                            tint = p.ink)
                     }
                 }
-            }
-        }
-
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                StatementSmallMetric(
-                    "Money in",
-                    sourceCashFlow.moneyInMinor,
-                    MaterialTheme.colorScheme.tertiary,
-                    Modifier.weight(1f),
-                    detail = "${visible.count { it.line.paidInMinor > 0L }} transactions"
-                ) {
-                    onNavigate(StatementPage.TRANSACTIONS, StatementFlow.INCOME, null)
-                }
-                StatementSmallMetric(
-                    "Money out",
-                    sourceCashFlow.moneyOutMinor,
-                    MaterialTheme.colorScheme.error,
-                    Modifier.weight(1f),
-                    detail = "${visible.count { it.line.withdrawnMinor > 0L }} transactions"
-                ) {
-                    onNavigate(StatementPage.TRANSACTIONS, null, null)
-                }
-            }
-        }
-
-        item {
-            Surface(
-                modifier = Modifier.fillMaxWidth().clickable {
-                    onNavigate(StatementPage.TRANSACTIONS, null, null)
-                },
-                shape = RoundedCornerShape(17.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
-            ) {
-                Row(
-                    Modifier.padding(horizontal = 15.dp, vertical = 13.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(38.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Rounded.SwapVert,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(21.dp)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.width(11.dp))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text("Net cash flow", style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(statementMoney(sourceCashFlow.netFlowMinor),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = if (sourceCashFlow.netFlowMinor >= 0L)
-                                MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
-                    }
-                    Icon(Icons.Rounded.ChevronRight, contentDescription = "View transactions",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
-
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("Spending breakdown", style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold)
-                Text(
-                    "Recognized expenses only. Transfers, savings movements, fees and loans may appear in money out but are not automatically treated as purchases.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        item {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
-            ) {
-                Column(
-                    Modifier.padding(15.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text("Total recognized spending", style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(statementMoney(expenseTotal), style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold)
-                        }
-                        TextButton(onClick = { onNavigate(StatementPage.CATEGORIES, null, null) }) {
-                            Text("All categories")
-                            Icon(Icons.Rounded.ChevronRight, contentDescription = null,
-                                modifier = Modifier.size(17.dp))
-                        }
-                    }
-                    if (breakdown.isEmpty() || expenseTotal <= 0L) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            shape = RoundedCornerShape(14.dp)
-                        ) {
-                            Column(
-                                Modifier.fillMaxWidth().padding(18.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(Icons.Rounded.PieChartOutline, contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(30.dp))
-                                Text("No categorized spending yet",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold)
-                                Text("Imported rows remain available for review and classification.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    } else {
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            StatementDonut(
-                                values = breakdown,
-                                total = expenseTotal,
-                                modifier = Modifier.size(190.dp).padding(8.dp)
-                            )
-                        }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
-                        breakdown.take(5).forEachIndexed { index, (category, amount) ->
-                            StatementCategoryLine(category, amount, expenseTotal, index) {
-                                onNavigate(StatementPage.TRANSACTIONS, StatementFlow.EXPENSE, category)
-                            }
-                        }
-                        if (breakdown.size > 5) {
-                            TextButton(
-                                onClick = { onNavigate(StatementPage.CATEGORIES, null, null) },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text("View all ${breakdown.size} categories")
-                                Icon(Icons.Rounded.ArrowForward, contentDescription = null,
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(sourceLabel, fontSize = 27.sp, fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-0.7).sp, color = p.ink)
+                    Text("Statement insights", fontSize = 15.sp, color = p.muted)
+                    Spacer(Modifier.height(8.dp))
+                    Box {
+                        Surface(color = Color.White, shape = RoundedCornerShape(13.dp),
+                            modifier = Modifier.clickable(enabled = availableAccounts.size > 1) {
+                                walletMenu = true
+                            }) {
+                            Row(Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Rounded.Smartphone, null, tint = p.green,
                                     modifier = Modifier.size(17.dp))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            Surface(
-                modifier = Modifier.fillMaxWidth().clickable {
-                    onNavigate(StatementPage.CATEGORIES, null, null)
-                },
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.62f)
-            ) {
-                Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(42.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.Lightbulb, contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.size(22.dp))
-                        }
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Financial insight", style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold)
-                            Surface(shape = RoundedCornerShape(6.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)) {
-                                Text("From your data", Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                        Text(
-                            if (topCategory != null) "${topCategory.first} is your largest recognized category at $topShare% of spending."
-                            else "Your category insights will appear when spending has been classified.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text("Based on the currently selected statement period.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Icon(Icons.Rounded.ChevronRight, contentDescription = "Explore insights",
-                        tint = MaterialTheme.colorScheme.primary)
-                }
-            }
-        }
-
-        item {
-            Surface(
-                modifier = Modifier.fillMaxWidth().clickable {
-                    onNavigate(StatementPage.TRENDS, null, null)
-                },
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
-            ) {
-                Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(42.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Rounded.InsertChart, contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(22.dp))
-                            }
-                        }
-                        Spacer(Modifier.width(11.dp))
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text("Income and spending trends",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold)
-                            Text("Explore historical changes by period",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Icon(Icons.Rounded.ChevronRight, contentDescription = "View trends",
-                            tint = MaterialTheme.colorScheme.primary)
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Surface(
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.65f)
-                        ) {
-                            Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Money in", style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(statementMoney(sourceCashFlow.moneyInMinor),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
+                                Spacer(Modifier.width(7.dp))
+                                Text(model.accountLabel, color = p.ink,
+                                    style = MaterialTheme.typography.labelLarge,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                if (availableAccounts.size > 1)
+                                    Icon(Icons.Rounded.ExpandMore, "Choose wallet", tint = p.muted)
                             }
                         }
-                        Surface(
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)
-                        ) {
-                            Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("Money out", style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(statementMoney(sourceCashFlow.moneyOutMinor),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                    }
-                    Text("Open trend charts and monthly history",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary)
-                }
-            }
-        }
-
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("Largest expenses", style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold)
-                    Text("Highest classified purchases in this period",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                TextButton(onClick = {
-                    onNavigate(StatementPage.TRANSACTIONS, StatementFlow.EXPENSE, null)
-                }) {
-                    Text("View all")
-                    Icon(Icons.Rounded.ChevronRight, contentDescription = null,
-                        modifier = Modifier.size(17.dp))
-                }
-            }
-        }
-
-        item {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
-            ) {
-                if (largestExpenses.isEmpty()) {
-                    Column(
-                        Modifier.fillMaxWidth().padding(18.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(Icons.Rounded.ReceiptLong, contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(28.dp))
-                        Text("No classified expenses to show",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold)
-                        Text("Unclassified and uncertain movements are not presented as purchases.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                } else {
-                    Column(Modifier.padding(horizontal = 14.dp)) {
-                        largestExpenses.forEachIndexed { index, expense ->
-                            Row(
-                                Modifier.fillMaxWidth()
-                                    .clickable {
-                                        onNavigate(StatementPage.TRANSACTIONS, StatementFlow.EXPENSE, null)
-                                    }
-                                    .padding(vertical = 13.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                                    modifier = Modifier.size(42.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Rounded.Receipt, contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(21.dp))
-                                    }
-                                }
-                                Spacer(Modifier.width(11.dp))
-                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Text(expense.line.description, style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium, maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis)
-                                    Text(statementDate(expense.line.occurredAt, "d MMM yyyy"),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                Spacer(Modifier.width(8.dp))
-                                Text(statementMoney(expense.reportAmountMinor),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis)
-                            }
-                            if (index < largestExpenses.lastIndex) {
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+                        DropdownMenu(expanded = walletMenu,
+                            onDismissRequest = { walletMenu = false }) {
+                            availableAccounts.forEach { (id, name) ->
+                                DropdownMenuItem(text = { Text(name) }, onClick = {
+                                    walletMenu = false; onSelectAccount(id)
+                                })
                             }
                         }
                     }
                 }
             }
         }
-
         item {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
-            ) {
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                    Row(
-                        Modifier.fillMaxWidth().clickable(onClick = onReconciliationToggle)
-                            .heightIn(min = 50.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Rounded.Info, contentDescription = null, modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.width(10.dp))
-                        Text("How is this calculated?", Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                        Icon(
-                            if (reconciliationExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                            contentDescription = if (reconciliationExpanded)
-                                "Hide calculation details" else "Show calculation details"
-                        )
-                    }
-                    if (reconciliationExpanded) {
-                        Text(
-                            "Money in, money out and net flow come from the selected saved statement rows. " +
-                                "Money out can include transfers, savings, fees and loans. The spending breakdown " +
-                                "includes recognized expenses only. Overlapping statements are not added together.",
-                            Modifier.padding(start = 30.dp, end = 4.dp, bottom = 13.dp),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f))
-            ) {
-                Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(42.dp)) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Rounded.Link, contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(21.dp))
-                            }
-                        }
-                        Spacer(Modifier.width(11.dp))
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text("Activity evidence", style = MaterialTheme.typography.titleSmall,
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Box {
+                    Surface(color = Color.White, shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.clickable { dateMenu = true }) {
+                        Row(Modifier.padding(horizontal = 10.dp, vertical = 13.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.CalendarMonth, null, tint = p.muted,
+                                modifier = Modifier.size(17.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(when (model.scope) {
+                                StatementReportScope.AllHistory -> "All history"
+                                is StatementReportScope.Month -> model.scope.key
+                                is StatementReportScope.Week -> "Week"
+                                is StatementReportScope.Day -> "Day"
+                                is StatementReportScope.Year -> selectedYear.toString()
+                            }, color = p.ink,
                                 fontWeight = FontWeight.SemiBold)
-                            Text("$linkedRows of ${visible.size} statement rows linked",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        if (visible.isNotEmpty()) {
-                            Text("${(linkedProgress * 100).toInt()}%",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold)
+                            Icon(Icons.Rounded.ExpandMore, "Choose reporting year", tint = p.ink)
                         }
                     }
-                    LinearProgressIndicator(
-                        progress = { linkedProgress },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                    Text(
-                        "Matched Activity rows are linked with evidence. Statement rows remain separate from Activity totals.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    DropdownMenu(expanded = dateMenu, onDismissRequest = { dateMenu = false }) {
+                        sourceYears.forEach { year ->
+                            DropdownMenuItem(text = { Text(year.toString()) }, onClick = {
+                                dateMenu = false; onSelectScope(StatementReportScope.Year(year))
+                            })
+                        }
+                        DropdownMenuItem(text = { Text("All imported dates") }, onClick = {
+                            dateMenu = false; onSelectScope(StatementReportScope.AllHistory)
+                        })
+                    }
+                }
+                Surface(color = Color.White, shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.weight(1f).clickable(onClick = onOpenCoverage)) {
+                    Row(Modifier.padding(horizontal = 8.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Icon(if (model.hasMissingMonths) Icons.Rounded.Info
+                            else Icons.Rounded.CheckCircle, null,
+                            tint = if (model.hasMissingMonths) Color(0xFFD68119) else p.green,
+                            modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("${displayedMonths.size}/12 months", color = p.muted,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                Surface(color = Color.White, shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.clickable(onClick = onOpenArchive)) {
+                    Row(Modifier.padding(horizontal = 10.dp, vertical = 13.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Text("Archive", color = p.purple, fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelLarge)
+                        Spacer(Modifier.width(5.dp))
+                        Icon(Icons.Rounded.ArrowForward, null, tint = p.purple,
+                            modifier = Modifier.size(16.dp))
+                    }
                 }
             }
         }
-
         item {
-            Button(onClick = onImport, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-                shape = RoundedCornerShape(15.dp)) {
-                Icon(Icons.Rounded.FileUpload, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Import statement")
+            Surface(shape = RoundedCornerShape(23.dp), color = p.purple,
+                modifier = Modifier.fillMaxWidth()) {
+                Box(Modifier.fillMaxWidth().background(Brush.linearGradient(
+                    listOf(Color(0xFF6515F6), Color(0xFF2712B0), Color(0xFF003BCD))))) {
+                    androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(150.dp)) {
+                        drawCircle(Color(0xFF00CFF5).copy(alpha = .37f),
+                            radius = size.width * .28f,
+                            center = androidx.compose.ui.geometry.Offset(size.width * .93f, 0f))
+                        drawCircle(Color(0xFF845AFF).copy(alpha = .30f),
+                            radius = size.width * .25f,
+                            center = androidx.compose.ui.geometry.Offset(size.width * .82f, size.height * .98f))
+                    }
+                    Column(Modifier.padding(19.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("$sourceLabel spending · $scopeTitle",
+                            color = Color.White.copy(alpha = .95f),
+                            style = MaterialTheme.typography.titleMedium)
+                        Text(statementMoney(model.metrics.spentMinor),
+                            color = Color.White, fontSize = 32.sp,
+                            fontWeight = FontWeight.ExtraBold, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis)
+                        Text("Classified expenses · transfers excluded",
+                            color = Color.White.copy(alpha = .91f),
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             }
         }
-
         item {
-            OutlinedButton(
-                onClick = onArchive,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
-                shape = RoundedCornerShape(15.dp)
-            ) {
-                Icon(Icons.Rounded.Inventory2, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Statement archive")
-                Spacer(Modifier.width(5.dp))
-                Icon(Icons.Rounded.ChevronRight, contentDescription = null,
-                    modifier = Modifier.size(18.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                StatementOverviewCashTile("Money in", model.metrics.moneyInMinor,
+                    "Cash received", true, Modifier.weight(1f)) {
+                    onOpenCashMovement(true)
+                }
+                StatementOverviewCashTile("Money out", model.metrics.moneyOutMinor,
+                    "Cash sent", false, Modifier.weight(1f)) {
+                    onOpenCashMovement(false)
+                }
             }
+        }
+        if (model.hasUnclassifiedIncome) item {
+            Text("Some incoming money still needs classification. Cash received is not necessarily income.",
+                color = p.muted, style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(horizontal = 5.dp))
+        }
+        item {
+            StatementInsightCard {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Monthly spending", fontWeight = FontWeight.ExtraBold,
+                        fontSize = 19.sp, color = p.ink, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onOpenTrends) { Text("See trends", color = p.purple) }
+                }
+                Text("$selectedYear · Only imported months have data",
+                    color = p.muted, style = MaterialTheme.typography.labelSmall)
+                StatementMonthlyLineChart(model.monthlySpending) { monthNumber ->
+                    model.sourceMonths.firstOrNull { it.usage.year == selectedYear &&
+                        it.usage.month == monthNumber }?.let { onOpenMonth(it.key) }
+                }
+                if (model.hasMissingMonths) {
+                    TextButton(onClick = onOpenCoverage) {
+                        Icon(Icons.Rounded.Info, null, tint = p.purple,
+                            modifier = Modifier.size(17.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("View coverage", color = p.purple)
+                    }
+                }
+            }
+        }
+        item {
+            StatementInsightCard {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Top spending categories", fontSize = 19.sp,
+                        fontWeight = FontWeight.ExtraBold, color = p.ink,
+                        modifier = Modifier.weight(1f))
+                    TextButton(onClick = onOpenCategories) { Text("View all", color = p.purple) }
+                }
+                val total = model.metrics.spentMinor.coerceAtLeast(1L)
+                if (model.categories.isEmpty()) {
+                    Text("No classified spending in the selected period.",
+                        color = p.muted, style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { onOpenTransactions(StatementFlow.UNKNOWN, null) }) {
+                        Text("Review unclassified entries")
+                    }
+                } else model.categories.take(3).forEachIndexed { index, (category, amount) ->
+                    val tint = listOf(Color(0xFFFF9E58), Color(0xFF269EFF), Color(0xFFAA6DFB))[index]
+                    Row(Modifier.fillMaxWidth().clickable { onOpenCategory(category) }
+                        .padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Surface(color = tint.copy(alpha = .15f), shape = RoundedCornerShape(11.dp)) {
+                            Icon(when (index) {
+                                0 -> Icons.Rounded.Restaurant
+                                1 -> Icons.Rounded.DirectionsCar
+                                else -> Icons.Rounded.ReceiptLong
+                            }, null, tint = tint, modifier = Modifier.padding(10.dp).size(20.dp))
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text(category, color = p.ink,
+                                style = MaterialTheme.typography.bodyMedium, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis)
+                            LinearProgressIndicator(
+                                progress = { (amount.toDouble() / total).toFloat().coerceIn(0f, 1f) },
+                                color = tint, trackColor = Color(0xFFEEEDFC),
+                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)))
+                        }
+                        Text(statementMoney(amount), color = p.ink,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold, maxLines = 1)
+                        Icon(Icons.Rounded.ChevronRight, null, tint = p.muted,
+                            modifier = Modifier.size(17.dp))
+                    }
+                }
+            }
+        }
+        item {
+            StatementInsightCard {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Statement archive", fontSize = 19.sp,
+                        fontWeight = FontWeight.ExtraBold, color = p.ink,
+                        modifier = Modifier.weight(1f))
+                    TextButton(onClick = onOpenArchive) {
+                        Text("All statements", color = p.purple)
+                        Icon(Icons.Rounded.ArrowForward, null, tint = p.purple,
+                            modifier = Modifier.size(15.dp))
+                    }
+                }
+                if (displayedMonths.isEmpty()) Text("No statements for this year.",
+                    color = p.muted, style = MaterialTheme.typography.bodySmall)
+                else displayedMonths.take(3).forEach { entry ->
+                    Row(Modifier.fillMaxWidth().clickable { onOpenMonth(entry.key) }
+                        .padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Surface(color = Color(0xFFEDE6FF), shape = RoundedCornerShape(11.dp)) {
+                            Icon(Icons.Rounded.Description, null, tint = p.purple,
+                                modifier = Modifier.padding(10.dp).size(20.dp))
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(entry.usage.label, color = p.ink,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold)
+                            Text("${entry.usage.sourceRows} entries" +
+                                (if (entry.sourceCount > 1) " · overlapping sources" else ""),
+                                style = MaterialTheme.typography.labelSmall, color = p.muted)
+                        }
+                        Text(if (entry.source.independentlyVerified) "Checked" else "Saved",
+                            color = if (entry.source.independentlyVerified) p.green else p.muted,
+                            style = MaterialTheme.typography.labelSmall)
+                        Icon(Icons.Rounded.ChevronRight, null, tint = p.muted,
+                            modifier = Modifier.size(19.dp))
+                    }
+                }
+                HorizontalDivider(color = p.line)
+                TextButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Rounded.Add, null, tint = p.purple)
+                    Text("Import another statement", color = p.purple)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun StatementInsightCard(content: @Composable ColumnScope.() -> Unit) {
+    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White,
+        shape = RoundedCornerShape(22.dp), shadowElevation = 2.dp) {
+        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp),
+            content = content)
+    }
+}
+
+@Composable
+private fun StatementOverviewCashTile(
+    title: String, amount: Long, detail: String, incoming: Boolean,
+    modifier: Modifier = Modifier, onClick: () -> Unit
+) {
+    val p = HomeReferencePalette
+    val tint = if (incoming) p.green else p.red
+    Surface(modifier = modifier.clickable(onClick = onClick), color = Color.White,
+        shape = RoundedCornerShape(19.dp), shadowElevation = 1.dp) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(color = tint.copy(alpha = .10f),
+                    shape = RoundedCornerShape(12.dp)) {
+                    Icon(if (incoming) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward,
+                        null, tint = tint, modifier = Modifier.padding(9.dp).size(19.dp))
+                }
+                Spacer(Modifier.width(7.dp))
+                Text(title, color = p.ink, fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.labelLarge)
+            }
+            Text(statementMoney(amount), color = p.ink, fontWeight = FontWeight.ExtraBold,
+                fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(detail + " · not classified spending", color = p.muted,
+                style = MaterialTheme.typography.labelSmall, maxLines = 2)
         }
     }
 }
