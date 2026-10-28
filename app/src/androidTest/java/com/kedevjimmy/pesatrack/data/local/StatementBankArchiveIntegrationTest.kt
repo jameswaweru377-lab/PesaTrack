@@ -38,7 +38,7 @@ class StatementBankArchiveIntegrationTest {
 
     private fun accepted(accountId: String): StatementAdmissionResult.Accepted {
         val profile = StatementSourceProfileRegistry.forProvider("KENYAN_BANK_EQUITY")!!
-            .copy(formatsProvenOnDevice = setOf("PDF"))
+            .copy(sampleValidatedFormats = setOf("PDF"))
         val result = UniversalStatementTableInterpreter.interpret(
             pages, openingBalanceMinor = 0L, profile = profile.table
         ) as StatementTableResult.Accepted

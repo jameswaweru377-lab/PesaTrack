@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status (28 October 2026):** James approved proceeding with implementation. The account/profile, balance interpreter, additive bank archive, v5 backup compatibility and separate read-model foundation are implemented on a Phase 2 work branch, pending CI. **Equity PDF import is not enabled.** Admission still requires the real PDF's private on-device extraction and full account/summary/footer proof; the redacted screenshot is not sufficient.
+**Status (28 October 2026):** James approved proceeding. The v5 bank archive, backup compatibility and provider-neutral reporting foundation passed Android CI in draft PR #464. After James privately supplied an encrypted Equity PDF and its opening password, an in-memory local extraction verified its full account/header structure, opening balance chain and printed page/grand totals. A guarded Android Equity PDF importer, review-and-save flow and bank account overview are now added to the *same draft PR branch*, pending refreshed Android CI and on-device acceptance. No private source data or password enters code, tests, git or CI.
 
 **Goal:** Admit one verified Equity Bank Kenya statement layout into PesaTrack's isolated Statements history, give it the approved premium account-specific insights and source-detail UI, and prepare the archive/read model for future banks without regressing M-Pesa or Activity.
 
@@ -161,4 +161,4 @@
 
 ## Implementation handoff
 
-James approved implementing the additive design. Work on schema, backup, admission contracts and read model can proceed independently; the **live Equity adapter remains blocked at Task 0** until a private, real PDF is proven. Never advertise an Equity importer merely because synthetic table tests pass. Phase 3, not this plan, provides cross-bank aggregation and mirror-transfer-safe **all-accounts** financial totals.
+The actual private selectable-text Equity PDF has now passed the local bank extractor and balance/printed-total admission trial. The source remains private and is **not** an automated fixture; CI uses only invented PDFs. The remaining release gate is **on-device PDF import and backup migration/restore instrumentation**. The importer must block unsupported Equity layouts rather than saving partial evidence. Phase 3, not this plan, provides cross-bank aggregation and mirror-transfer-safe **all-accounts** financial totals.

@@ -8,13 +8,13 @@ import org.junit.Test
 /** All source identities, dates, descriptions and money are invented. */
 class StatementBankAdmissionTest {
     private val profile = StatementSourceProfileRegistry.forProvider("KENYAN_BANK_EQUITY")!!
-        .copy(formatsProvenOnDevice = setOf("PDF"))
+        .copy(sampleValidatedFormats = setOf("PDF"))
     private val account = MoneyAccount("bank-1", "My invented bank", AccountType.BANK,
         identifier = "001234567890")
     private val document = StatementDocumentProof(
         detectedProviderKey = "KENYAN_BANK_EQUITY", detectedAccountIdentifier = "001234567890",
         currency = "KES", format = "PDF", allSourceRegionsAccountedFor = true,
-        pages = 1, printedPageTotals = listOf(StatementPrintedTotal(2_000, 5_000)),
+        pages = 1, printedPageTotals = mapOf(1 to StatementPrintedTotal(2_000, 5_000)),
         printedGrandTotal = StatementPrintedTotal(2_000, 5_000), openingBalanceMinor = 0L
     )
     private val pages = listOf(StatementTablePage(1,
@@ -60,7 +60,8 @@ class StatementBankAdmissionTest {
 
     @Test fun unverifiedFormatCannotBeEnabledByChoosingAnAccount() {
         assertEquals(StatementAdmissionResult.Reason.UNVERIFIED_FORMAT,
-            (admit(source = StatementSourceProfileRegistry.forProvider("KENYAN_BANK_EQUITY"))
+            (admit(source = StatementSourceProfileRegistry.forProvider("KENYAN_BANK_EQUITY")!!
+                .copy(sampleValidatedFormats = emptySet()))
                 as StatementAdmissionResult.Blocked).reason)
     }
 
@@ -72,7 +73,7 @@ class StatementBankAdmissionTest {
             (admit(proof = document.copy(printedGrandTotal = StatementPrintedTotal(2_500, 5_000)))
                 as StatementAdmissionResult.Blocked).reason)
         assertEquals(StatementAdmissionResult.Reason.MISSING_PRINTED_TOTALS,
-            (admit(proof = document.copy(printedPageTotals = emptyList()))
+            (admit(proof = document.copy(printedPageTotals = emptyMap()))
                 as StatementAdmissionResult.Blocked).reason)
     }
 
@@ -80,5 +81,15 @@ class StatementBankAdmissionTest {
         assertEquals(StatementAdmissionResult.Reason.UNVERIFIED_BALANCE,
             (admit(proof = document.copy(openingBalanceMinor = null))
                 as StatementAdmissionResult.Blocked).reason)
+    }
+
+    @Test fun coverPageMayHaveNoTransactionsOrPrintedTotals() {
+        val onSecondPage = pages.map { it.copy(pageNumber = 2) }
+        val result = admit(
+            proof = document.copy(pages = 2,
+                printedPageTotals = mapOf(2 to StatementPrintedTotal(2_000, 5_000))),
+            sourcePages = onSecondPage
+        )
+        assertTrue(result.toString(), result is StatementAdmissionResult.Accepted)
     }
 }

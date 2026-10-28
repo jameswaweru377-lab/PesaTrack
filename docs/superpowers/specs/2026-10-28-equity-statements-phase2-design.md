@@ -1,6 +1,6 @@
 # PesaTrack Statements Phase 2 — Equity-first Design (Proposed)
 
-**Status:** Architecture approved for implementation on 28 October 2026. Bank-neutral foundation and synthetic tests are being implemented; the **live Equity importer remains disabled** pending private on-device PDF proof. Never treat the redacted screenshot as a fully admitted PDF layout.
+**Status:** Architecture approved on 28 October 2026. The private encrypted original has since passed a local, in-memory source reconstruction and financial reconciliation (without saving details). The guarded Equity PDF importer and account-specific UI are on the Phase 2 work branch pending Android CI and private on-device acceptance. Other banks and arbitrary layouts remain unsupported.
 
 **Inspected baseline:** the exact source tree merged to `main` on 28 October 2026 (`3b5fb0d3a2dbb5c36f8a9b98b4d34f16b5c8f704`; tree `8a60c8440239f1aa3ff7ae7e940a21101902f99d`). Source code and existing tests override older documentation. Existing unmerged Statements PRs #460, #391 and #390 are not implementation bases or merge candidates.
 

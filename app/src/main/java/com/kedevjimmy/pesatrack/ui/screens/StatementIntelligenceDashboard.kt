@@ -21,6 +21,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.everyday.*
+import com.kedevjimmy.pesatrack.domain.model.AccountType
+import com.kedevjimmy.pesatrack.domain.statements.StatementBankHistoryPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementSourceProfileRegistry
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -65,6 +68,9 @@ internal fun StatementIntelligenceDashboard(
     val scope = rememberCoroutineScope()
     var sources by remember { mutableStateOf<List<StatementHistoryReport.SourceMonth>>(emptyList()) }
     var savedBatches by remember { mutableStateOf<List<StatementActivityStore.Batch>>(emptyList()) }
+    var bankMonthsByAccount by remember {
+        mutableStateOf<Map<String, List<StatementBankHistoryPolicy.Month>>>(emptyMap())
+    }
     var accountLabels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var categoryLabels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var categoryKinds by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
@@ -110,22 +116,32 @@ internal fun StatementIntelligenceDashboard(
         try {
             val info = withContext(Dispatchers.IO) {
                 val bridge = StatementCategoryBridge(context)
+                val owned = EverydayMoneyStore(context).ownedAccounts()
+                val bankReader = StatementBankReportReader(context)
+                val banks = owned.filter { it.type == AccountType.BANK }.mapNotNull { account ->
+                    bankReader.monthsFor(account.id).takeIf { it.isNotEmpty() }?.let { account.id to it }
+                }.toMap()
                 Triple(store.sourceMonths() to store.batches(),
-                    EverydayMoneyStore(context).ownedAccounts().associate { it.id to it.name },
-                    bridge.categoryLabels() to bridge.categoryKinds())
+                    owned.associate { it.id to it.name },
+                    bridge.categoryLabels() to bridge.categoryKinds()) to banks
             }
-            sources = info.first.first
-            savedBatches = info.first.second
-            accountLabels = info.second
-            categoryLabels = info.third.first
-            categoryKinds = info.third.second
+            sources = info.first.first.first
+            savedBatches = info.first.first.second
+            accountLabels = info.first.second
+            categoryLabels = info.first.third.first
+            categoryKinds = info.first.third.second
+            bankMonthsByAccount = info.second
         } catch (e: CancellationException) { throw e }
           catch (_: Exception) { dataError = true }
         finally { busy = false }
     }
 
-    val accounts = remember(sources) { sources.map { it.accountId }.distinct() }
+    val accounts = remember(sources, bankMonthsByAccount) {
+        (sources.map { it.accountId } + bankMonthsByAccount.keys).distinct()
+    }
     val accountId = accountSelection?.takeIf { it in accounts } ?: accounts.firstOrNull()
+    val bankMonths = accountId?.let { bankMonthsByAccount[it] }.orEmpty()
+    val bankSelected = bankMonths.isNotEmpty()
     val months = remember(sources, accountId) {
         StatementHistoryReport.selectForAccount(sources, accountId.orEmpty())
     }
@@ -156,10 +172,15 @@ internal fun StatementIntelligenceDashboard(
 
     // Preload all data for the currently selected account once; changing Day,
     // Week, Month, Year or page never triggers repeated PDF/database reads.
-    LaunchedEffect(accountId, refreshed, labelsChanged, months, ledgerRevision.revision) {
+    LaunchedEffect(accountId, refreshed, labelsChanged, months, bankSelected, ledgerRevision.revision) {
         if (accountId == null) {
             reports = emptyList()
             loadedAccount = null
+            return@LaunchedEffect
+        }
+        if (bankSelected) {
+            reports = emptyList()
+            loadedAccount = accountId
             return@LaunchedEffect
         }
         if (loadedAccount != accountId) loadedAccount = null
@@ -231,7 +252,7 @@ internal fun StatementIntelligenceDashboard(
 
     Surface(modifier.fillMaxSize(), color = HomeReferencePalette.canvas) {
         Column(Modifier.fillMaxSize()) {
-                if (page in setOf(StatementPage.CATEGORIES, StatementPage.TRENDS,
+                if (!bankSelected && page in setOf(StatementPage.CATEGORIES, StatementPage.TRENDS,
                         StatementPage.TRANSACTIONS, StatementPage.DEBTS, StatementPage.BROWSE)) {
                     Row(Modifier.fillMaxWidth().padding(start = 4.dp, top = 8.dp, end = 8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
@@ -267,6 +288,22 @@ internal fun StatementIntelligenceDashboard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium)
                     }
+                } else if (bankSelected && accountId != null) {
+                    StatementBankOverviewPage(
+                        accountId = accountId,
+                        accountLabel = accountLabels[accountId] ?: "Bank account",
+                        sourceLabel = StatementSourceProfileRegistry.forProvider(
+                            bankMonths.first().providerKey)?.label ?: "Bank statements",
+                        months = bankMonths,
+                        availableAccounts = accounts.map { it to (accountLabels[it] ?: "Account") },
+                        onSelectAccount = { id ->
+                            accountSelection = id
+                            chosenScope = null
+                            page = StatementPage.SUMMARY
+                        },
+                        onImport = { importing = true },
+                        onBack = onDismiss
+                    )
                 } else if (months.isEmpty()) {
                     StatementEmptyLanding(
                         statementFileCount = statementFileCount,

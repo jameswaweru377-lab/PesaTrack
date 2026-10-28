@@ -42,6 +42,15 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.SecureFlagPolicy
 import com.kedevjimmy.pesatrack.documents.OfflineMpesaPdfReader
+import com.kedevjimmy.pesatrack.documents.OfflineBankTableReader
+import com.kedevjimmy.pesatrack.domain.statements.StatementAdmissionResult
+import com.kedevjimmy.pesatrack.domain.statements.StatementBankAdmission
+import com.kedevjimmy.pesatrack.domain.statements.StatementSourceProfileRegistry
+
+private data class StagedBankPdf(
+ val parsed: OfflineBankTableReader.Prepared,
+ val admitted: StatementAdmissionResult.Accepted
+)
 
 private fun readStatement(c:Context,uri:Uri):String {
  val bytes=c.contentResolver.openInputStream(uri)?.use {input->val out=ByteArrayOutputStream();val buffer=ByteArray(8192);while(true){val n=input.read(buffer);if(n<0)break;require(out.size()+n<=StatementCsv.MAX_BYTES){"Choose a CSV smaller than 2 MB."};out.write(buffer,0,n)};out.toByteArray()} ?: error("Could not open the file.")
@@ -52,8 +61,10 @@ private fun readStatement(c:Context,uri:Uri):String {
  var accounts by remember {mutableStateOf<List<MoneyAccount>>(emptyList())};var accountId by rememberSaveable {mutableStateOf("")}
  var rows by remember {mutableStateOf<List<StatementRow>>(emptyList())};var preview by remember {mutableStateOf<List<EverydayMoneyStore.Preview>>(emptyList())}
  var sourcePdfUri by remember {mutableStateOf<Uri?>(null)}
+ var sourcePdfProviderKey by remember {mutableStateOf("SAFARICOM_MPESA")}
  var sourcePdfPassword by remember {mutableStateOf("")}
  var stagedPdf by remember {mutableStateOf<OfflineMpesaPdfReader.Prepared?>(null)}
+ var stagedBankPdf by remember {mutableStateOf<StagedBankPdf?>(null)}
  var statementPdfApproved by remember {mutableStateOf(false)}
  // This constraint belongs to the current rows; changing accounts must not clear it.
  var activityRowsRequireAccountType by remember {mutableStateOf<AccountType?>(null)}
@@ -71,8 +82,8 @@ private fun readStatement(c:Context,uri:Uri):String {
  var reading by remember {mutableStateOf(false)};var importing by remember {mutableStateOf(false)}
  val busy=reading||importing||preparing!=null
  val selected=remember {mutableStateMapOf<Int,Boolean>()};var error by remember {mutableStateOf<String?>(null)};var dateError by remember {mutableStateOf<String?>(null)};var done by remember {mutableStateOf<String?>(null)}
- fun invalidatePreview() {stagedPdf=null;statementPdfApproved=false;previewSource=null;preview=emptyList();dateResult=null;selected.clear();error=null;dateError=null;done=null}
- LaunchedEffect(Unit){try{accounts=withContext(Dispatchers.IO){store.ownedAccounts()}.filter {if(statementOnly)it.type==AccountType.MOBILE_WALLET else it.type==AccountType.BANK||it.type==AccountType.MOBILE_WALLET}}catch(e:CancellationException){throw e}catch(e:Exception){error="Could not load accounts."}}
+ fun invalidatePreview() {stagedPdf=null;stagedBankPdf=null;statementPdfApproved=false;previewSource=null;preview=emptyList();dateResult=null;selected.clear();error=null;dateError=null;done=null}
+ LaunchedEffect(Unit){try{accounts=withContext(Dispatchers.IO){store.ownedAccounts()}.filter {it.type==AccountType.BANK||it.type==AccountType.MOBILE_WALLET}}catch(e:CancellationException){throw e}catch(e:Exception){error="Could not load accounts."}}
   LaunchedEffect(selection,activityRowsRequireAccountType){
   val source=selection
   previewSource=null;preview=emptyList();dateResult=null;selected.clear();dateError=null
@@ -123,7 +134,7 @@ private fun readStatement(c:Context,uri:Uri):String {
       Text("01 · Source account",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
      }
      Text("Select the account that appears on your statement.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     ChoiceField("Account",accounts.firstOrNull{it.id==accountId}?.name ?: "Choose account",accounts.map {it.id to it.name},!busy&&stagedPdf==null&&sourcePdfUri==null){if(accountId!=it){invalidatePreview();accountId=it}}
+     ChoiceField("Account",accounts.firstOrNull{it.id==accountId}?.name ?: "Choose account",accounts.map {it.id to it.name},!busy&&stagedPdf==null&&stagedBankPdf==null&&sourcePdfUri==null){if(accountId!=it){invalidatePreview();accountId=it}}
      if(accountId.isEmpty()) Text("Choose a confirmed account before reviewing transactions.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
    }
@@ -149,7 +160,7 @@ private fun readStatement(c:Context,uri:Uri):String {
     Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
      Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
       Icon(Icons.Rounded.UploadFile,null,tint=MaterialTheme.colorScheme.primary)
-      Text(if(statementOnly)"02 · Choose your M-Pesa PDF"else"03 · Choose a document",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
+      Text(if(statementOnly)"02 · Choose your statement PDF"else"03 · Choose a document",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
      }
      if(!statementOnly) {
       Text("Choose a supported CSV or verified PDF.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -157,10 +168,18 @@ private fun readStatement(c:Context,uri:Uri):String {
       if(onOpenStatements!=null) OutlinedButton(onClick={onDismiss();onOpenStatements()},enabled=!busy,
        modifier=Modifier.fillMaxWidth().heightIn(48.dp)){Text("Open Statements")}
      }
-     OutlinedButton(onClick={statementPdfPicker.launch(arrayOf("application/pdf"))},
+     OutlinedButton(onClick={sourcePdfProviderKey="SAFARICOM_MPESA";statementPdfPicker.launch(arrayOf("application/pdf"))},
       enabled=!busy&&accounts.any{it.id==accountId&&it.type==AccountType.MOBILE_WALLET},
       modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
       Icon(Icons.Rounded.PictureAsPdf,null);Spacer(Modifier.width(8.dp));Text("Choose M-Pesa PDF")
+     }
+     if(accounts.any{it.id==accountId&&it.type==AccountType.BANK}) {
+      StatementSourceProfileRegistry.importableBankProfiles().forEach { profile ->
+       OutlinedButton(onClick={sourcePdfProviderKey=profile.providerKey;statementPdfPicker.launch(arrayOf("application/pdf"))},
+        enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
+        Icon(Icons.Rounded.AccountBalance,null);Spacer(Modifier.width(8.dp));Text("Choose ${profile.label} PDF")
+       }
+      }
      }
      Text("Your PDF is checked privately on this device. Only verified rows are saved to Statements; Activity balances stay separate.",
       style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
@@ -270,6 +289,51 @@ private fun readStatement(c:Context,uri:Uri):String {
     }
    }
   }
+  stagedBankPdf?.let { ready ->
+   item { PesaCard {
+    Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(9.dp)) {
+     Text("Verified bank statement",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
+     Text("${ready.parsed.document.pages} PDF pages · ${ready.admitted.sourceRows} verified cash movements")
+     Text("Money in ${toolMoney(ready.admitted.moneyInMinor)} · Money out ${toolMoney(ready.admitted.moneyOutMinor)}")
+     Text("${statementDate(ready.admitted.legs.minOf{it.occurredAt})} – ${statementDate(ready.admitted.legs.maxOf{it.occurredAt})}",
+      style=MaterialTheme.typography.bodySmall)
+     Text("The account identity, opening balance, every running balance and printed totals were checked locally. Money out is not automatically spending; unknown categories remain unknown.",
+      style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     Row(verticalAlignment=Alignment.CenterVertically) {
+      Checkbox(checked=statementPdfApproved,onCheckedChange={statementPdfApproved=it},enabled=!busy)
+      Text("I reviewed the source rows. Save only to Statements, never to Activity.",
+       Modifier.weight(1f),style=MaterialTheme.typography.bodySmall)
+     }
+     Button(enabled=!busy&&statementPdfApproved,onClick={
+      importing=true;error=null
+      scope.launch {
+       try {
+        val saved=withContext(Dispatchers.IO) {
+         StatementBankArchiveStore(c).save(ready.admitted,ready.parsed.tables)
+        }
+        done=if(saved.added)"Saved this verified bank statement. Activity was not changed."
+          else "This statement is already saved; no duplicate was created."
+        stagedBankPdf=null;statementPdfApproved=false
+        onChanged();onDismiss()
+        if(!statementOnly) onOpenStatements?.invoke()
+       }catch(e:CancellationException){throw e}
+       catch(e:Exception){error=e.message ?: "Could not save this bank statement."}
+       finally{importing=false}
+      }
+     },modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {Text("Save to Statements")}
+    }
+   }}
+   items(ready.admitted.legs.size,key={it}){i->
+    val row=ready.admitted.legs[i]
+    PesaCard {Column(Modifier.padding(12.dp),verticalArrangement=Arrangement.spacedBy(3.dp)) {
+     Text(row.description,style=MaterialTheme.typography.bodyMedium)
+     Text("${statementDate(row.occurredAt)} · Page ${row.pageNumber}, row ${row.rowNumber}",style=MaterialTheme.typography.bodySmall)
+     Text(if(row.movementMinor>=0)"Money in ${toolMoney(row.movementMinor)}"
+      else "Money out ${toolMoney(-row.movementMinor)}",style=MaterialTheme.typography.bodySmall)
+     Text("Printed balance ${toolMoney(row.runningBalanceMinor)}",style=MaterialTheme.typography.bodySmall)
+    }}
+   }
+  }
   if(previewSource==selection)dateResult?.let {dates ->item {
    Text("${dates.rows.size} of ${rows.size} entries in selected dates · ${dates.excludedCount} outside",style=MaterialTheme.typography.titleSmall)
    Text("Entries in this file: ${dates.availableFromDay} to ${dates.availableToDay}.",style=MaterialTheme.typography.bodySmall)
@@ -313,9 +377,9 @@ private fun readStatement(c:Context,uri:Uri):String {
   AlertDialog(
    onDismissRequest={sourcePdfUri=null;sourcePdfPassword=""},
    properties=DialogProperties(securePolicy=SecureFlagPolicy.SecureOn),
-   title={Text("Open M-Pesa statement privately")},
+   title={Text(if(sourcePdfProviderKey=="SAFARICOM_MPESA") "Open M-Pesa statement privately" else "Open bank statement privately")},
    text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-    Text("The PDF and password remain on your phone. Enter its password or leave blank.")
+    Text("The PDF and password remain on your phone. Enter its PDF-opening password, if required.")
     OutlinedTextField(value=sourcePdfPassword,onValueChange={sourcePdfPassword=it.take(256)},
      label={Text("PDF password (optional)")},
      visualTransformation=PasswordVisualTransformation(),singleLine=true,
@@ -327,8 +391,27 @@ private fun readStatement(c:Context,uri:Uri):String {
     sourcePdfPassword="";sourcePdfUri=null;invalidatePreview();reading=true
     scope.launch{
      try{
-      stagedPdf=withContext(Dispatchers.IO){OfflineMpesaPdfReader.inspect(c,uri,secret)}
-      done="The full PDF passed physical extraction, official summary and provisional balance checks. Review all rows before saving."
+      if(sourcePdfProviderKey=="SAFARICOM_MPESA") {
+       stagedPdf=withContext(Dispatchers.IO){OfflineMpesaPdfReader.inspect(c,uri,secret)}
+       done="The full PDF passed physical extraction, official summary and provisional balance checks. Review all rows before saving."
+      } else {
+       val providerKey=sourcePdfProviderKey
+       val selectedAccount=accounts.firstOrNull{it.id==accountId}
+        ?:error("Choose the account first.")
+       val prepared=withContext(Dispatchers.IO){OfflineBankTableReader.inspect(c,uri,secret,providerKey)}
+       val confirmed=withContext(Dispatchers.IO){
+        FinancialUnderstandingStore.get(c).confirmedAccountIds()+
+          AccountOwnershipConsentStore(c).confirmedRevisions().keys
+       }
+       val admission=StatementBankAdmission.verify(
+        StatementSourceProfileRegistry.forProvider(providerKey),selectedAccount,
+        confirmed,providerKey,prepared.document,prepared.tables
+       )
+       val accepted=admission as? StatementAdmissionResult.Accepted
+        ?:error("This bank statement was blocked: ${(admission as StatementAdmissionResult.Blocked).reason}. Nothing was saved.")
+       stagedBankPdf=StagedBankPdf(prepared,accepted)
+       done="This bank statement passed full local extraction, account, balance and totals checks. Review its rows before saving."
+      }
      }catch(e:CancellationException){throw e}
      catch(e:Exception){error=e.message ?: "The PDF did not pass verification. No statement records were saved."}
      finally{reading=false}

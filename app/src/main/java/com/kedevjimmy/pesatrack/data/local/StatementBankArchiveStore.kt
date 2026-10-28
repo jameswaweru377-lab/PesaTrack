@@ -65,7 +65,7 @@ class StatementBankArchiveStore(context: Context) {
 
     fun save(admitted: StatementAdmissionResult.Accepted, pages: List<StatementTablePage>): SaveResult {
         requireConfirmedBank(admitted.accountId, admitted.accountIdentityHashMaterial)
-        require(admitted.profile.formatsProvenOnDevice.contains(admitted.documentFormat)) {
+        require(admitted.profile.sampleValidatedFormats.contains(admitted.documentFormat)) {
             "This statement format has not been verified on this device."
         }
         require(admitted.sourceRows in 1..5_000 && admitted.legs.size == admitted.sourceRows)

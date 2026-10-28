@@ -2,14 +2,14 @@ package com.kedevjimmy.pesatrack.domain.statements
 
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 
-/** Declarative issuer vocabulary. A layout profile is not permission to import an untested PDF. */
+/** Declarative issuer vocabulary. A layout profile never bypasses full-document admission. */
 data class StatementSourceProfile(
     val providerKey: String,
     val label: String,
     val accountType: AccountType,
     val currency: String,
     val table: StatementFormatProfile,
-    val formatsProvenOnDevice: Set<String> = emptySet()
+    val sampleValidatedFormats: Set<String> = emptySet()
 )
 
 object StatementSourceProfileRegistry {
@@ -23,9 +23,16 @@ object StatementSourceProfileRegistry {
                 // Value is still unconfirmed; never admit a populated value as an amount.
                 aliases = mapOf("Value" to StatementField.VALUE_DATE),
                 allowCreditDebitBalanceSuffix = true
-            )
+            ),
+            // Verified against the private selectable-text issuer PDF in a
+            // memory-only local trial; Android device acceptance is still pending.
+            sampleValidatedFormats = setOf("PDF")
         )
     ).associateBy { it.providerKey }
 
     fun forProvider(providerKey: String): StatementSourceProfile? = profiles[providerKey]
+
+    fun importableBankProfiles(): List<StatementSourceProfile> =
+        profiles.values.filter { it.accountType == AccountType.BANK && "PDF" in it.sampleValidatedFormats }
+            .sortedBy { it.label }
 }
