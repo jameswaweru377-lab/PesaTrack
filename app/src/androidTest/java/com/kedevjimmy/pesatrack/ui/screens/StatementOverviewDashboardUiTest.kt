@@ -1,7 +1,5 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.ui.test.assertDoesNotExist
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -38,7 +36,7 @@ class StatementOverviewDashboardUiTest {
 
     @Test fun showsRealPassedAmountsWithoutFakeAllAccounts() {
         compose.setContent { PesaTrackTheme {
-            StatementOverviewPage(model, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+            StatementOverviewPage(model, {}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {})
         } }
         compose.onNodeWithText("M-Pesa").assertExists()
         compose.onNodeWithText("KES 12,345").assertExists()
@@ -54,7 +52,7 @@ class StatementOverviewDashboardUiTest {
         var archive = 0
         var coverage = 0
         compose.setContent { PesaTrackTheme {
-            StatementOverviewPage(model, {}, {}, {}, {}, { archive++ }, { coverage++ }, {}, {}, {}, {})
+            StatementOverviewPage(model, {}, {}, {}, {}, { archive++ }, { coverage++ }, {}, { _, _ -> }, {}, {})
         } }
         compose.onNodeWithText("Archive").performClick()
         compose.onNodeWithTag("statements-overview").performScrollToNode(hasText("View coverage"))
@@ -66,7 +64,7 @@ class StatementOverviewDashboardUiTest {
     @Test fun cashMovementCardsOpenDifferentSourceDirections() {
         val selected = mutableListOf<Boolean>()
         compose.setContent { PesaTrackTheme {
-            StatementOverviewPage(model, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+            StatementOverviewPage(model, {}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {},
                 onOpenCashMovement = { selected.add(it) })
         } }
         compose.onNodeWithText("Money in").performClick()
