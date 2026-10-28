@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.security
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.data.local.StatementActivityStore
+import com.kedevjimmy.pesatrack.data.local.StatementArchiveDb
 
 /**
  * The separate, private statement journal is evidence, not canonical cash.
@@ -12,21 +13,26 @@ import com.kedevjimmy.pesatrack.data.local.StatementActivityStore
  * connection. Attachment alone does not reserve a pooled SQLite connection.
  */
 internal object StatementBackupArchive {
-    const val SCHEMA_VERSION = 3
+    const val SCHEMA_VERSION = StatementArchiveDb.VERSION
     private const val FILE_NAME = "pesatrack_statement_activity.db"
     private const val ALIAS = "statement_backup"
 
     // Restore parents before their foreign-key children.
-    val tablesInRestoreOrder = listOf(
+    val legacyTablesInRestoreOrder = listOf(
         "statement_batches",
         "statement_activity_lines",
         "statement_category_labels",
         "statement_category_rules"
     )
+    val tablesInRestoreOrder = legacyTablesInRestoreOrder + listOf(
+        "statement_sources_v2",
+        "statement_legs_v2",
+        "statement_category_labels_v2"
+    )
 
     // Keep this explicit: a statement schema upgrade requires a reviewed
     // archive-format migration, never best-effort column dropping.
-    val columns = mapOf(
+    val legacyColumns = mapOf(
         "statement_batches" to setOf(
             "id", "account_id", "recorded_at", "row_count",
             "movement_count", "informational_count", "paid_in_minor",
@@ -44,16 +50,43 @@ internal object StatementBackupArchive {
             "exact_merchant_key", "category_id"
         )
     )
+    val columns = legacyColumns + mapOf(
+        "statement_sources_v2" to setOf(
+            "id", "account_id", "provider_key", "account_identity_hash",
+            "currency", "document_format", "imported_at", "row_count",
+            "first_at", "last_at", "money_in_minor", "money_out_minor", "totals_verified"
+        ),
+        "statement_legs_v2" to setOf(
+            "source_id", "leg_number", "page_number", "row_number",
+            "occurred_at", "description", "reference", "movement_minor",
+            "running_balance_minor", "source_cells_json"
+        ),
+        "statement_category_labels_v2" to setOf(
+            "source_id", "leg_number", "category_id"
+        )
+    )
+
+    /** Legacy payloads contain precisely the old four tables, never inferred missing rows. */
+    fun backupColumnsFor(version: Int): Map<String, Set<String>> = when (version) {
+        3, 4 -> legacyColumns
+        SCHEMA_VERSION -> columns
+        else -> throw IllegalArgumentException("Unsupported saved statement history schema.")
+    }
 
     fun prepare(context: Context) {
         // Open through the authoritative statement helper; this runs its
-        // lossless v1/v2 -> v3 migration before an ATTACH or restore.
+        // Lossless legacy migration before an ATTACH or restore.
         StatementActivityStore(context).batches()
     }
 
     fun hasExistingData(context: Context): Boolean {
         val archive = StatementActivityStore(context)
-        return archive.batches().isNotEmpty() || archive.categoryRules().isNotEmpty()
+        if (archive.batches().isNotEmpty() || archive.categoryRules().isNotEmpty()) return true
+        val db = StatementArchiveDb(context)
+        return try {
+            db.readableDatabase.rawQuery("SELECT 1 FROM statement_sources_v2 LIMIT 1", null)
+                .use { it.moveToFirst() }
+        } finally { db.close() }
     }
 
     fun attach(context: Context, db: SQLiteDatabase) {

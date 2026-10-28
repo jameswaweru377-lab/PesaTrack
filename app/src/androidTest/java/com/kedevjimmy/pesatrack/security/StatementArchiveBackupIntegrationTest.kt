@@ -44,7 +44,7 @@ class StatementArchiveBackupIntegrationTest {
     }
 
     private fun <T> archive(block: (SQLiteDatabase) -> T): T {
-        StatementActivityStore(app).batches() // Initialize the statement v3 schema.
+        StatementActivityStore(app).batches() // Initialize or migrate the statement archive.
         val path = app.getDatabasePath("pesatrack_statement_activity.db")
         SQLiteDatabase.openDatabase(path.absolutePath, null, SQLiteDatabase.OPEN_READWRITE)
             .use { db ->
@@ -109,9 +109,28 @@ class StatementArchiveBackupIntegrationTest {
 
     private fun clearStatementArchive() = archive { db ->
         listOf(
-            "statement_category_labels", "statement_activity_lines",
-            "statement_category_rules", "statement_batches"
+            "statement_category_labels_v2", "statement_legs_v2", "statement_sources_v2",
+            "statement_category_labels", "statement_activity_lines", "statement_category_rules", "statement_batches"
         ).forEach { db.delete(it, null, null) }
+    }
+
+    private fun seedBankEvidence() = archive { db ->
+        db.insertOrThrow("statement_sources_v2", null, ContentValues().apply {
+            put("id", "b".repeat(64)); put("account_id", "invented-owned-bank")
+            put("provider_key", "KENYAN_BANK_EQUITY"); put("account_identity_hash", "c".repeat(64))
+            put("currency", "KES"); put("document_format", "PDF")
+            put("imported_at", 1_780_000_000_000L); put("row_count", 1)
+            put("first_at", 1_780_000_000_000L); put("last_at", 1_780_000_000_000L)
+            put("money_in_minor", 1000L); put("money_out_minor", 0L); put("totals_verified", 1)
+        })
+        db.insertOrThrow("statement_legs_v2", null, ContentValues().apply {
+            put("source_id", "b".repeat(64)); put("leg_number", 0)
+            put("page_number", 1); put("row_number", 1)
+            put("occurred_at", 1_780_000_000_000L)
+            put("description", "Invented bank movement")
+            put("movement_minor", 1000L); put("running_balance_minor", 1000L)
+            put("source_cells_json", "[\"01-01-2026\",\"\",\"Invented bank movement\",\"\",\"10.00\",\"10.00 Cr\"]")
+        })
     }
 
     @Test fun encryptedBackupRestoresAllStatementRowsAndCategoriesWithoutCashPosting() {
@@ -140,6 +159,24 @@ class StatementArchiveBackupIntegrationTest {
         assertEquals(2, store.lines(batchId).size)
         val ledger = PesaTrackDatabase.get(app).readableDatabase
         assertEquals(0L, ledger.compileStatement("SELECT count(*) FROM transactions").simpleQueryForLong())
+    }
+
+    @Test fun v4LiveArchiveMigratesToV5WithoutRewritingLegacyEvidence() {
+        seedArchive()
+        archive { db ->
+            // Recreate the existing v4 schema in this isolated test database.
+            db.execSQL("DROP TABLE statement_category_labels_v2")
+            db.execSQL("DROP TABLE statement_legs_v2")
+            db.execSQL("DROP TABLE statement_sources_v2")
+            db.version = 4
+        }
+        assertEquals(2, StatementActivityStore(app).lines(batchId).size)
+        archive { db ->
+            assertEquals(5, db.version)
+            assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_batches").simpleQueryForLong())
+            assertEquals(2L, db.compileStatement("SELECT COUNT(*) FROM statement_activity_lines").simpleQueryForLong())
+            assertEquals(0L, db.compileStatement("SELECT COUNT(*) FROM statement_sources_v2").simpleQueryForLong())
+        }
     }
 
     @Test fun authenticatedIncompleteStatementHistoryIsRejectedBeforeEitherDatabaseChanges() {
@@ -203,5 +240,40 @@ class StatementArchiveBackupIntegrationTest {
         manager.restoreEncryptedBytes(legacy, password)
         assertTrue(RuleStore.get(app).listRules().isEmpty())
         assertTrue(StatementActivityStore(app).batches().isEmpty())
+    }
+
+    @Test fun currentBackupRestoresBothKindsOfEvidenceWithoutLedgerTransactions() {
+        seedArchive()
+        seedBankEvidence()
+        val encrypted = manager.exportEncryptedBytes(password)
+        assertEquals(3, manager.previewEncryptedBytes(encrypted, password).statementRows)
+        clearStatementArchive()
+        assertEquals(3, manager.restoreEncryptedBytes(encrypted, password).statementRows)
+        archive { db ->
+            assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_sources_v2").simpleQueryForLong())
+            assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_legs_v2").simpleQueryForLong())
+            assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_batches").simpleQueryForLong())
+        }
+        assertEquals(0L, PesaTrackDatabase.get(app).readableDatabase
+            .compileStatement("SELECT COUNT(*) FROM transactions").simpleQueryForLong())
+    }
+
+    @Test fun legacyV3AndV4PayloadsRestoreOldEvidenceAndClearNewEvidence() {
+        seedArchive()
+        for (oldVersion in listOf(3, 4)) {
+            val legacy = EncryptedBackupFixture.rewrite(manager.exportEncryptedBytes(password), password) { root ->
+                val archive = root.getAsJsonObject("statementArchive")
+                archive.addProperty("schemaVersion", oldVersion)
+                val tables = archive.getAsJsonObject("tables")
+                listOf("statement_sources_v2", "statement_legs_v2", "statement_category_labels_v2")
+                    .forEach(tables::remove)
+            }
+            seedBankEvidence()
+            manager.restoreEncryptedBytes(legacy, password)
+            archive { db ->
+                assertEquals(0L, db.compileStatement("SELECT COUNT(*) FROM statement_sources_v2").simpleQueryForLong())
+                assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_batches").simpleQueryForLong())
+            }
+        }
     }
 }

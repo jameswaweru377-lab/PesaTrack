@@ -3,7 +3,6 @@ package com.kedevjimmy.pesatrack.data.local
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
 import com.kedevjimmy.pesatrack.domain.everyday.StatementActivityLine
 import com.kedevjimmy.pesatrack.domain.everyday.StatementActivityProof
 import com.kedevjimmy.pesatrack.domain.model.AccountType
@@ -35,90 +34,6 @@ class StatementActivityStore(context: Context) {
     )
 
     data class SaveResult(val added: Boolean, val batchId: String)
-
-    private class Db(context: Context) :
-        SQLiteOpenHelper(context, "pesatrack_statement_activity.db", null, 4) {
-        override fun onConfigure(db: SQLiteDatabase) {
-            super.onConfigure(db)
-            db.setForeignKeyConstraintsEnabled(true)
-        }
-
-        override fun onCreate(db: SQLiteDatabase) {
-            db.execSQL(
-                """CREATE TABLE statement_batches (
-                    id TEXT PRIMARY KEY NOT NULL,
-                    account_id TEXT NOT NULL,
-                    recorded_at INTEGER NOT NULL,
-                    row_count INTEGER NOT NULL,
-                    movement_count INTEGER NOT NULL,
-                    informational_count INTEGER NOT NULL,
-                    paid_in_minor INTEGER NOT NULL,
-                    paid_out_minor INTEGER NOT NULL,
-                    totals_verified INTEGER NOT NULL
-                )""".trimIndent()
-            )
-            db.execSQL(
-                """CREATE TABLE statement_activity_lines (
-                    batch_id TEXT NOT NULL REFERENCES statement_batches(id) ON DELETE CASCADE,
-                    line_number INTEGER NOT NULL,
-                    page_number INTEGER NOT NULL,
-                    row_number INTEGER NOT NULL,
-                    reference TEXT NOT NULL,
-                    occurred_at INTEGER NOT NULL,
-                    description TEXT NOT NULL,
-                    paid_in_minor INTEGER NOT NULL,
-                    withdrawn_minor INTEGER NOT NULL,
-                    balance_minor INTEGER NOT NULL,
-                    source_cells_json TEXT NOT NULL DEFAULT '[]',
-                    PRIMARY KEY(batch_id, line_number)
-                )""".trimIndent()
-            )
-            db.execSQL("CREATE INDEX statement_lines_time ON statement_activity_lines(batch_id, occurred_at DESC)")
-            createGlobalHistoryIndex(db)
-            createCategoryTables(db)
-        }
-
-        private fun createCategoryTables(db: SQLiteDatabase) {
-            db.execSQL("""
-                CREATE TABLE IF NOT EXISTS statement_category_labels (
-                    batch_id TEXT NOT NULL REFERENCES statement_batches(id) ON DELETE CASCADE,
-                    page_number INTEGER NOT NULL,
-                    row_number INTEGER NOT NULL,
-                    category_id TEXT NOT NULL,
-                    PRIMARY KEY (batch_id, page_number, row_number)
-                )
-            """.trimIndent())
-            db.execSQL("""
-                CREATE TABLE IF NOT EXISTS statement_category_rules (
-                    exact_merchant_key TEXT PRIMARY KEY NOT NULL,
-                    category_id TEXT NOT NULL
-                )
-            """.trimIndent())
-        }
-
-        /**
-         * A chronological index spanning every saved PDF, not just one batch.
-         * The Owed to Me archive search sorts by occurred_at before paging.
-         * Keeping this as a separate index does not change any statement rows.
-         */
-        private fun createGlobalHistoryIndex(db: SQLiteDatabase) {
-            db.execSQL(
-                "CREATE INDEX IF NOT EXISTS statement_lines_recent_global " +
-                    "ON statement_activity_lines(occurred_at DESC, batch_id, line_number)"
-            )
-        }
-
-        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-            require(oldVersion in 1..3 && newVersion == 4) {
-                "Statement Activity requires a lossless migration."
-            }
-            if (oldVersion < 2) {
-                db.execSQL("ALTER TABLE statement_activity_lines ADD COLUMN source_cells_json TEXT NOT NULL DEFAULT '[]'")
-            }
-            if (oldVersion < 3) createCategoryTables(db)
-            if (oldVersion < 4) createGlobalHistoryIndex(db)
-        }
-    }
 
     private fun fingerprint(accountId: String, lines: List<StatementActivityLine>): String {
         val digest = MessageDigest.getInstance("SHA-256")
@@ -165,7 +80,7 @@ class StatementActivityStore(context: Context) {
         val paid = lines.fold(0L) { sum, row -> Math.addExact(sum, row.paidInMinor) }
         val withdrawn = lines.fold(0L) { sum, row -> Math.addExact(sum, row.withdrawnMinor) }
         val batchId = fingerprint(accountId, lines)
-        val helper = Db(app)
+        val helper = StatementArchiveDb(app)
         try {
             val db = helper.writableDatabase
             db.beginTransaction()
@@ -271,7 +186,7 @@ class StatementActivityStore(context: Context) {
             add((limit + 1).toString())
             add(offset.toString())
         }.toTypedArray()
-        val helper = Db(app)
+        val helper = StatementArchiveDb(app)
         try {
             val result = helper.readableDatabase.rawQuery(
                 """SELECT s.batch_id, s.line_number, b.account_id, s.reference, s.description,
@@ -317,7 +232,7 @@ class StatementActivityStore(context: Context) {
         shown: ReceivableArchiveMatch
     ): com.kedevjimmy.pesatrack.domain.everyday.StatementRow {
         require(shown.batchId.matches(Regex("[a-f0-9]{64}")) && shown.lineNumber >= 0)
-        val helper = Db(app)
+        val helper = StatementArchiveDb(app)
         try {
             val actual = helper.readableDatabase.rawQuery(
                 """SELECT s.batch_id,s.line_number,b.account_id,s.reference,s.description,
@@ -359,7 +274,7 @@ class StatementActivityStore(context: Context) {
         require(expected.id.matches(Regex("[a-f0-9]{64}"))) {
             "Select a valid saved statement."
         }
-        val helper = Db(app)
+        val helper = StatementArchiveDb(app)
         try {
             val db = helper.writableDatabase
             db.beginTransaction()
@@ -392,7 +307,7 @@ class StatementActivityStore(context: Context) {
     }
 
     fun batches(): List<Batch> {
-        val helper = Db(app)
+        val helper = StatementArchiveDb(app)
         try {
             return helper.readableDatabase.rawQuery(
                 "SELECT id, account_id, recorded_at, row_count, movement_count, " +
@@ -412,7 +327,7 @@ class StatementActivityStore(context: Context) {
 
     fun lines(batchId: String): List<StatementActivityLine> {
         require(batchId.matches(Regex("[a-f0-9]{64}")))
-        val helper = Db(app)
+        val helper = StatementArchiveDb(app)
         try {
             return helper.readableDatabase.rawQuery(
                 "SELECT page_number, row_number, reference, occurred_at, description, " +
@@ -440,7 +355,7 @@ class StatementActivityStore(context: Context) {
      * Individual source batches remain separate for overlap-safe selection.
      */
     fun sourceMonths(): List<com.kedevjimmy.pesatrack.domain.everyday.StatementHistoryReport.SourceMonth> {
-        val helper = Db(app)
+        val helper = StatementArchiveDb(app)
         try {
             val sql = """
                 SELECT b.id, b.account_id, b.recorded_at, b.totals_verified,
@@ -491,7 +406,7 @@ class StatementActivityStore(context: Context) {
     /** Saved per-source user corrections (never touches Activity, budgets or balances). */
     fun categoriesFor(batchId: String): Map<Pair<Int, Int>, String> {
         require(batchId.matches(Regex("[a-f0-9]{64}")))
-        val helper = Db(app)
+        val helper = StatementArchiveDb(app)
         try {
             return helper.readableDatabase.rawQuery(
                 "SELECT page_number, row_number, category_id FROM statement_category_labels WHERE batch_id=?",
@@ -508,7 +423,7 @@ class StatementActivityStore(context: Context) {
 
     /** Explicitly remembered merchant categories for all future statement PDFs. */
     fun categoryRules(): Map<String, String> {
-        val helper = Db(app)
+        val helper = StatementArchiveDb(app)
         try {
             return helper.readableDatabase.rawQuery(
                 "SELECT exact_merchant_key, category_id FROM statement_category_rules", null
@@ -524,7 +439,7 @@ class StatementActivityStore(context: Context) {
     fun followSharedCategory(batchId: String, page: Int, row: Int) {
         require(batchId.matches(Regex("[a-f0-9]{64}")))
         require(page > 0 && row > 0)
-        val helper = Db(app)
+        val helper = StatementArchiveDb(app)
         try {
             val db = helper.writableDatabase
             db.beginTransaction()
@@ -557,7 +472,7 @@ class StatementActivityStore(context: Context) {
             "Choose a valid PesaTrack category."
         }
         require(category.kind != CategoryKind.SYSTEM)
-        val helper = Db(app)
+        val helper = StatementArchiveDb(app)
         try {
             val db = helper.writableDatabase
             db.beginTransaction()

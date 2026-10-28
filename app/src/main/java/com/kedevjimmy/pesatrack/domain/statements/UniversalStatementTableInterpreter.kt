@@ -14,7 +14,9 @@ enum class StatementField {
 }
 
 data class StatementFormatProfile(
-    val aliases: Map<String, StatementField> = emptyMap()
+    val aliases: Map<String, StatementField> = emptyMap(),
+    /** Issuer-proven running-balance notation. Never inferred from a transaction description. */
+    val allowCreditDebitBalanceSuffix: Boolean = false
 )
 
 /**
@@ -77,6 +79,7 @@ object UniversalStatementTableInterpreter {
     private const val MAX_COLUMNS = 40
     private val whitespace = Regex("\\s+")
     private val numeric = Regex("[+-]?(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\\.[0-9]{1,2})?")
+    private val signedBalance = Regex("(?i)^((?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\\.[0-9]{1,2})?)\\s+(CR|DR)$")
     private val moneyLike = Regex("(?i)^(?:(?:KES|KSH|KSHS)\\s*)?[+-]?(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)(?:\\.[0-9]{1,2})?(?:\\s*(?:KES|KSH|KSHS))?$")
     private val currencyAlias = mapOf(
         "DATE" to StatementField.DATE,
@@ -248,11 +251,23 @@ object UniversalStatementTableInterpreter {
                 val description = get(row, StatementField.DESCRIPTION)
                 if (description.isBlank() || description.length > 200)
                     return blocked(StatementBlockReason.INVALID_STRUCTURE, page.pageNumber, rowNumber)
+                val valueDate = get(row, StatementField.VALUE_DATE)
+                if (valueDate.isNotBlank() && parseDate(valueDate, zone, now) == null)
+                    return blocked(StatementBlockReason.INVALID_DATE, page.pageNumber, rowNumber)
                 val balanceText = get(row, StatementField.BALANCE)
-                if (balanceText.isBlank() || balanceText == "-" || !numeric.matches(balanceText))
+                if (balanceText.isBlank() || balanceText == "-")
                     return blocked(StatementBlockReason.INVALID_AMOUNT, page.pageNumber, rowNumber)
-                val balance = EverydayMoneyPolicy.money(balanceText)
-                    ?: return blocked(StatementBlockReason.INVALID_AMOUNT, page.pageNumber, rowNumber)
+                val suffixed = if (profile.allowCreditDebitBalanceSuffix)
+                    signedBalance.matchEntire(balanceText) else null
+                val balance = when {
+                    suffixed != null -> {
+                        val magnitude = EverydayMoneyPolicy.money(suffixed.groupValues[1])
+                            ?: return blocked(StatementBlockReason.INVALID_AMOUNT, page.pageNumber, rowNumber)
+                        if (suffixed.groupValues[2].equals("DR", true)) -magnitude else magnitude
+                    }
+                    numeric.matches(balanceText) -> EverydayMoneyPolicy.money(balanceText)
+                    else -> null
+                } ?: return blocked(StatementBlockReason.INVALID_AMOUNT, page.pageNumber, rowNumber)
                 val status = get(row, StatementField.STATUS)
                 if (StatementField.STATUS in index && normalizedHeader(status) !in
                     setOf("COMPLETED", "SUCCESS", "SUCCESSFUL", "POSTED"))

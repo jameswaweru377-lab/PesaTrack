@@ -370,18 +370,18 @@ class PesaBackupManager(
             "This backup is missing saved statement history."
         }
         val archive = section.asJsonObject
-        require(archive.get("schemaVersion")?.asInt == StatementBackupArchive.SCHEMA_VERSION) {
-            "Unsupported saved statement history schema."
-        }
+        val columns = StatementBackupArchive.backupColumnsFor(
+            archive.get("schemaVersion")?.asInt ?: 0
+        )
         val tableElement = archive.get("tables")
         require(tableElement != null && tableElement.isJsonObject) {
             "This backup is missing statement history tables."
         }
         val tables = tableElement.asJsonObject
-        require(tables.keySet() == StatementBackupArchive.columns.keys) {
+        require(tables.keySet() == columns.keys) {
             "This backup does not contain complete statement history."
         }
-        StatementBackupArchive.columns.forEach { (table, expectedColumns) ->
+        columns.forEach { (table, expectedColumns) ->
             val entries = tables.get(table)
             require(entries != null && entries.isJsonArray) {
                 "Statement history rows are damaged."
@@ -400,8 +400,10 @@ class PesaBackupManager(
         return tables
     }
 
-    private fun statementRowCount(root: JsonObject): Int =
-        statementTables(root)?.getAsJsonArray("statement_activity_lines")?.size() ?: 0
+    private fun statementRowCount(root: JsonObject): Int = statementTables(root)?.let { tables ->
+        Math.addExact(tables.getAsJsonArray("statement_activity_lines")?.size() ?: 0,
+            tables.getAsJsonArray("statement_legs_v2")?.size() ?: 0)
+    } ?: 0
 
     private fun validateBackupSchema(
         payload: JsonObject
@@ -631,13 +633,14 @@ class PesaBackupManager(
                     database.delete(StatementBackupArchive.qualified(table), null, null)
                 }
                 StatementBackupArchive.tablesInRestoreOrder.forEach { table ->
-                    archiveRows.getAsJsonArray(table).forEach { rowElement ->
+                    archiveRows.getAsJsonArray(table)?.forEach { rowElement ->
                         val values = ContentValues()
                         rowElement.asJsonObject.entrySet().forEach { (column, element) ->
                             putCell(values, column, element.asJsonObject)
                         }
                         database.insertOrThrow(StatementBackupArchive.qualified(table), null, values)
-                        if (table == "statement_activity_lines") restoredStatementRows++
+                        if (table == "statement_activity_lines" || table == "statement_legs_v2")
+                            restoredStatementRows++
                     }
                 }
                 StatementBackupArchive.requireNoOrphans(database)
