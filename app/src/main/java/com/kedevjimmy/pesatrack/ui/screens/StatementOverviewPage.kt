@@ -227,7 +227,7 @@ internal fun StatementOverviewPage(
                 }
                 if (model.hasMissingMonths) {
                     TextButton(onClick = onOpenCoverage) {
-                        Icon(Icons.Rounded.InfoOutline, null, tint = p.purple,
+                        Icon(Icons.Rounded.Info, null, tint = p.purple,
                             modifier = Modifier.size(17.dp))
                         Spacer(Modifier.width(5.dp))
                         Text("View coverage", color = p.purple)
