@@ -50,7 +50,7 @@ One new permanent release identity was created after confirming that the four re
 - Both folders restrict access to the owning Windows account and SYSTEM. The backup was checked for matching bytes, opened with the password, and its private key exercised through a certificate request before any release retry.
 - The owner approved the recovery copy on **C:**. This protects against accidental loss of one copy, **not loss of the C: drive**. A separate offline copy remains an owner follow-up.
 
-The keystore and private-key passwords are the same setup password and are not saved in recovery instructions. Retrieve the password from the owner's separate password-manager record. Do not ask the owner to paste it into chat. Never regenerate or replace this identity for an ordinary build or retry. If the local key or a required secret becomes unavailable, stop and recover the existing identity; do not silently create another one.
+The keystore and private-key passwords are the same setup password and are not saved in recovery instructions. Setup required the owner to acknowledge saving the password securely; retrieve it from that separate password recovery record (for example, their password manager). Do not ask the owner to paste it into chat. Never regenerate or replace this identity for an ordinary build or retry. If the local key or a required secret becomes unavailable, stop and recover the existing identity; do not silently create another one.
 
 ### Offline recovery copy
 
