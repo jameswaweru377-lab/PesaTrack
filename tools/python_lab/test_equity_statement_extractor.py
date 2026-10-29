@@ -3,6 +3,8 @@ import base64
 import io
 import json
 import unittest
+from unittest.mock import patch
+from pdfminer.pdfdocument import PDFPasswordIncorrect
 from reportlab.pdfgen import canvas
 
 from bank_table_extractor import inspect_pdf
@@ -124,6 +126,24 @@ class EquityStatementExtractorTest(unittest.TestCase):
     def test_running_balance_error_blocks_all_rows(self):
         response = json.loads(inspect_pdf(invented_pdf(broken_running_balance=True), "", "KENYAN_BANK_EQUITY"))
         self.assertEqual("blocked", response["status"])
+
+    def test_rejected_password_is_distinguished_without_leaking_exception_text(self):
+        with patch("pdfplumber.open", side_effect=PDFPasswordIncorrect("PRIVATE_PASSWORD_DETAILS")):
+            response = json.loads(inspect_pdf(invented_pdf(), "not-the-password", "KENYAN_BANK_EQUITY"))
+        self.assertEqual("pdf_password_rejected", response["reason"])
+        self.assertNotIn("PRIVATE_PASSWORD_DETAILS", json.dumps(response))
+
+    def test_unexpected_document_open_error_is_sanitized(self):
+        with patch("pdfplumber.open", side_effect=RuntimeError("PRIVATE_DOCUMENT_DETAILS")):
+            response = json.loads(inspect_pdf(invented_pdf(), "", "KENYAN_BANK_EQUITY"))
+        self.assertEqual("pdf_open_failed", response["reason"])
+        self.assertNotIn("PRIVATE_DOCUMENT_DETAILS", json.dumps(response))
+
+    def test_unexpected_page_extraction_error_is_sanitized(self):
+        with patch("bank_table_extractor._read_page", side_effect=RuntimeError("PRIVATE_ROW_DETAILS")):
+            response = json.loads(inspect_pdf(invented_pdf(), "", "KENYAN_BANK_EQUITY"))
+        self.assertEqual("pdf_page_extraction_failed", response["reason"])
+        self.assertNotIn("PRIVATE_ROW_DETAILS", json.dumps(response))
 
 
 if __name__ == "__main__":

@@ -239,20 +239,24 @@ def inspect_pdf(base64_data: str, password: str, provider_key: str) -> str:
     profile = PROFILES.get(provider_key)
     if profile is None:
         return json.dumps({"status": "blocked", "reason": "unsupported_provider"})
+    stage = "pdf_input_failed"
     try:
         if len(base64_data) > 12 * 1024 * 1024 or len(password) > 256:
             raise Blocked("oversize_or_invalid_input")
         raw = base64.b64decode(base64_data, validate=True)
         if len(raw) > MAX_BYTES or not raw.startswith(b"%PDF-"):
             raise Blocked("invalid_pdf")
+        stage = "pdf_engine_unavailable"
         import pdfplumber  # bundled by Chaquopy; import only after bounded input.
         deadline = time.monotonic() + MAX_SECONDS
+        stage = "pdf_open_failed"
         with pdfplumber.open(io.BytesIO(raw), password=password) as pdf:
             if len(pdf.pages) not in range(1, MAX_PAGES + 1):
                 raise Blocked("unsupported_pages")
             identity = None
             tables = []
             for index, page in enumerate(pdf.pages, 1):
+                stage = "pdf_page_extraction_failed"
                 source_id, result = _read_page(page, index, profile, deadline)
                 if identity is not None and identity != source_id:
                     raise Blocked("account_changes_between_pages")
@@ -273,6 +277,8 @@ def inspect_pdf(base64_data: str, password: str, provider_key: str) -> str:
                            "headers": source["headers"], "rows": source["rows"]}]})
     except Blocked as problem:
         return json.dumps({"status": "blocked", "reason": str(problem)})
-    except Exception:
-        # Exception text can contain private PDF tokens or passwords: discard.
-        return json.dumps({"status": "blocked", "reason": "unsupported_or_locked_pdf"})
+    except Exception as problem:
+        # Only stable stage/class codes may cross the boundary. Exceptions can
+        # include private source tokens, document identifiers, or passwords.
+        reason = "pdf_password_rejected" if type(problem).__name__ == "PDFPasswordIncorrect" else stage
+        return json.dumps({"status": "blocked", "reason": reason})
