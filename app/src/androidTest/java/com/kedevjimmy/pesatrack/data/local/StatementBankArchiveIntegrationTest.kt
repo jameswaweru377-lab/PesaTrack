@@ -36,11 +36,13 @@ class StatementBankArchiveIntegrationTest {
         app.deleteDatabase("pesatrack_statement_activity.db")
     }
 
-    private fun accepted(accountId: String): StatementAdmissionResult.Accepted {
+    private fun accepted(
+        accountId: String, sourcePages: List<StatementTablePage> = pages
+    ): StatementAdmissionResult.Accepted {
         val profile = StatementSourceProfileRegistry.forProvider("KENYAN_BANK_EQUITY")!!
             .copy(sampleValidatedFormats = setOf("PDF"))
         val result = UniversalStatementTableInterpreter.interpret(
-            pages, openingBalanceMinor = 0L, profile = profile.table
+            sourcePages, openingBalanceMinor = 0L, profile = profile.table
         ) as StatementTableResult.Accepted
         return StatementAdmissionResult.Accepted(
             accountId, "001234567890", profile, "PDF", 0L, result.legs, result.sourceRows,
@@ -76,5 +78,51 @@ class StatementBankArchiveIntegrationTest {
         assertEquals("20.00", rows[1].originalCells[3])
         val ledger = PesaTrackDatabase.get(app).readableDatabase
         assertEquals(0L, ledger.compileStatement("SELECT COUNT(*) FROM transactions").simpleQueryForLong())
+    }
+
+    @Test fun localBankCategoryLabelsAreReversibleAndCannotReclassifyActivity() {
+        val bank = AccountOwnershipConsentStore(app).createOwnedAccount(
+            "Invented Equity", AccountType.BANK)
+        AccountStore.get(app).updateDetails(bank.id, "001234567890", null)
+        val original = store.save(accepted(bank.id), pages)
+        val sourceBefore = store.sourcesFor(bank.id).single()
+        val bankRowsBefore = store.legsFor(original.sourceId)
+
+        store.labelLeg(original.sourceId, 1, "GROCERIES")
+        store.labelLeg(original.sourceId, 0, "INCOME")
+        assertEquals("GROCERIES", store.legsFor(original.sourceId)[1].categoryId)
+        assertEquals("INCOME", store.legsFor(original.sourceId)[0].categoryId)
+        assertNotNull(runCatching {
+            store.labelLeg(original.sourceId, 1, "INCOME")
+        }.exceptionOrNull())
+        assertNotNull(runCatching {
+            store.labelLeg(original.sourceId, 0, "TRANSFER")
+        }.exceptionOrNull())
+        assertNotNull(runCatching {
+            store.labelLeg("0".repeat(64), 1, "GROCERIES")
+        }.exceptionOrNull())
+        assertEquals("GROCERIES", store.legsFor(original.sourceId)[1].categoryId)
+
+        val alternativePages = pages.map { page ->
+            page.copy(rows = page.rows.mapIndexed { index, cells ->
+                if (index == 1) cells.toMutableList().apply { this[2] = "Another bank copy" }
+                else cells
+            })
+        }
+        val alternative = store.save(accepted(bank.id, alternativePages), alternativePages)
+        assertTrue(alternative.added)
+        assertNull(store.legsFor(alternative.sourceId)[1].categoryId)
+
+        assertFalse(store.save(accepted(bank.id), pages).added)
+        assertEquals("GROCERIES", store.legsFor(original.sourceId)[1].categoryId)
+        store.labelLeg(original.sourceId, 1, null)
+        assertNull(store.legsFor(original.sourceId)[1].categoryId)
+        assertEquals(sourceBefore, store.sourcesFor(bank.id).first { it.id == original.sourceId })
+        val rowsAfter = store.legsFor(original.sourceId)
+        bankRowsBefore.zip(rowsAfter).forEach { (before, after) ->
+            assertEquals(before.copy(categoryId = after.categoryId), after)
+        }
+        assertEquals(0L, PesaTrackDatabase.get(app).readableDatabase
+            .compileStatement("SELECT COUNT(*) FROM transactions").simpleQueryForLong())
     }
 }
