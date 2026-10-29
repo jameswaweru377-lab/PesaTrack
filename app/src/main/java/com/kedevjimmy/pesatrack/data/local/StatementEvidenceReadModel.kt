@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.data.local
 import android.content.Context
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.statements.StatementEvidenceCorrelationPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementSourceCoveragePolicy
 
 /**
  * Phase 3 read-only statement evidence boundary. It does not query or modify
@@ -14,17 +15,19 @@ class StatementEvidenceReadModel(context: Context) {
     data class Snapshot(
         val observations: List<StatementEvidenceCorrelationPolicy.Observation>,
         val correlation: StatementEvidenceCorrelationPolicy.Result,
+        val coverage: List<StatementSourceCoveragePolicy.MonthCoverage>,
         val representedAccounts: Set<String>,
         val representedSources: Set<String>
     )
 
     /** Bounded [startInclusive, endExclusive) source view; call on a worker thread. */
-    fun read(startInclusive: Long, endExclusive: Long): Snapshot {
+    fun read(startInclusive: Long, endExclusive: Long, accountFilter: String? = null): Snapshot {
         require(startInclusive > 0L && endExclusive > startInclusive)
+        require(accountFilter == null || accountFilter.isNotBlank())
         val confirmed = FinancialUnderstandingStore.get(app).confirmedAccountIds() +
             AccountOwnershipConsentStore(app).confirmedRevisions().keys
         val accounts = EverydayMoneyStore(app).ownedAccounts().filter {
-            it.enabled && it.id in confirmed &&
+            it.enabled && it.id in confirmed && (accountFilter == null || it.id == accountFilter) &&
                 it.type in setOf(AccountType.BANK, AccountType.MOBILE_WALLET)
         }
         val evidence = mutableListOf<StatementEvidenceCorrelationPolicy.Observation>()
@@ -46,7 +49,8 @@ class StatementEvidenceReadModel(context: Context) {
                     sourceId = batch.id, accountId = batch.accountId,
                     currency = "KES", occurredAt = line.occurredAt,
                     movementMinor = line.movementMinor, reference = line.reference,
-                    ownershipConfirmed = true
+                    ownershipConfirmed = true,
+                    sourceTotalsVerified = batch.totalsIndependentlyVerified
                 ))
             }
         }
@@ -62,7 +66,7 @@ class StatementEvidenceReadModel(context: Context) {
                         sourceId = source.id, accountId = source.accountId,
                         currency = source.currency, occurredAt = leg.occurredAt,
                         movementMinor = leg.movementMinor, reference = leg.reference,
-                        ownershipConfirmed = true
+                        ownershipConfirmed = true, sourceTotalsVerified = true
                     ))
                 }
             }
@@ -73,6 +77,7 @@ class StatementEvidenceReadModel(context: Context) {
         )
         return Snapshot(ordered,
             StatementEvidenceCorrelationPolicy.reconcile(ordered, confirmed),
+            StatementSourceCoveragePolicy.analyze(ordered),
             ordered.map { it.accountId }.toSet(), ordered.map { it.sourceId }.toSet())
     }
 }

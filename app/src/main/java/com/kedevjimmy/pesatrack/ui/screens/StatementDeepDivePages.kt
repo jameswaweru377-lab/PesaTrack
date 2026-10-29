@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.domain.everyday.*
+import com.kedevjimmy.pesatrack.domain.statements.StatementSourceCoveragePolicy
 import java.text.DateFormatSymbols
 import java.util.Locale
 
@@ -172,7 +173,10 @@ internal fun StatementCoveragePage(
     onOpenMonth: (String) -> Unit,
     onImport: () -> Unit,
     onBack: () -> Unit,
-    sourceLabel: String = "M-Pesa"
+    sourceLabel: String = "M-Pesa",
+    overlapByMonth: Map<String, StatementSourceCoveragePolicy.MonthCoverage> = emptyMap(),
+    checkingOverlap: Boolean = false,
+    overlapUnavailable: Boolean = false
 ) {
     val p = HomeReferencePalette
     val yearMonths = months.filter { it.usage.year == year }.associateBy { it.usage.month }
@@ -188,6 +192,10 @@ internal fun StatementCoveragePage(
                         fontWeight = FontWeight.Bold)
                     Text("A missing month is unknown, not KES 0 spent. Imported partial months are not necessarily complete.",
                         color = p.muted, style = MaterialTheme.typography.bodySmall)
+                    if (checkingOverlap) Text("Checking repeated entries across saved PDFs…",
+                        color = p.muted, style = MaterialTheme.typography.bodySmall)
+                    if (overlapUnavailable) Text("Overlap verification is unavailable. The report still uses one selected PDF per month.",
+                        color = p.red, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -199,11 +207,14 @@ internal fun StatementCoveragePage(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         row.forEach { monthNumber ->
                             val source = yearMonths[monthNumber]
+                            val overlap = source?.let { overlapByMonth[it.key] }
                             Surface(
                                 modifier = Modifier.weight(1f).clickable(enabled = source != null) {
                                     source?.let { onOpenMonth(it.key) }
                                 },
                                 color = if (source == null) Color(0xFFF4F2F8)
+                                    else if (overlap?.status == StatementSourceCoveragePolicy.Status.NEEDS_REVIEW)
+                                        Color(0xFFFFF3E8)
                                     else Color(0xFFE7F8EE),
                                 shape = RoundedCornerShape(13.dp)
                             ) {
@@ -215,10 +226,38 @@ internal fun StatementCoveragePage(
                                     Text(if (source == null) "Not imported" else "Imported",
                                         color = if (source == null) p.muted else p.green,
                                         style = MaterialTheme.typography.labelSmall)
+                                    if (overlap != null && overlap.sourceCount > 1) Text(
+                                        if (overlap.status == StatementSourceCoveragePolicy.Status.NEEDS_REVIEW)
+                                            "Review overlap" else "${overlap.sourceCount} PDFs",
+                                        color = if (overlap.status == StatementSourceCoveragePolicy.Status.NEEDS_REVIEW)
+                                            p.red else p.muted,
+                                        style = MaterialTheme.typography.labelSmall)
                                 }
                             }
                         }
                     }
+                }
+            }
+        }
+        val overlapping = overlapByMonth.values.filter { it.sourceCount > 1 }
+            .sortedByDescending { it.monthKey }
+        if (overlapping.isNotEmpty()) item {
+            StatementInsightCard {
+                Text("Repeated statement entries", color = p.ink,
+                    fontWeight = FontWeight.Bold)
+                Text("Exact verified repeats are recognized once in this coverage check. The current month reports still show one selected PDF, not an all-source total.",
+                    color = p.muted, style = MaterialTheme.typography.bodySmall)
+                overlapping.forEach { entry ->
+                    val needsReview = entry.status ==
+                        StatementSourceCoveragePolicy.Status.NEEDS_REVIEW
+                    Text("${entry.monthKey} · ${entry.sourceCount} PDFs · " +
+                        "${entry.confirmedRepeatCopies} exact repeat(s)",
+                        color = p.ink, fontWeight = FontWeight.SemiBold)
+                    Text(if (needsReview)
+                            "${entry.unresolvedCandidateCount} entries need evidence review (overlap or source verification); no combined cash total is claimed."
+                        else "No unresolved near-duplicate found in the saved evidence. Partial month coverage may still be missing.",
+                        color = if (needsReview) p.red else p.muted,
+                        style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

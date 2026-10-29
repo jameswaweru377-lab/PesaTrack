@@ -20,7 +20,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
+import com.kedevjimmy.pesatrack.data.local.StatementEvidenceReadModel
 import com.kedevjimmy.pesatrack.domain.statements.StatementBankHistoryPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementSourceCoveragePolicy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -46,6 +48,29 @@ internal fun StatementBankOverviewPage(
     BackHandler(enabled=chosenMonth!=null) { chosenMonth=null }
     var evidence by remember { mutableStateOf<List<StatementBankArchiveStore.Leg>>(emptyList()) }
     var failed by remember { mutableStateOf(false) }
+    var overlapByMonth by remember(accountId) {
+        mutableStateOf<Map<String, StatementSourceCoveragePolicy.MonthCoverage>>(emptyMap())
+    }
+    var overlapUnavailable by remember(accountId) { mutableStateOf(false) }
+    LaunchedEffect(accountId, year, months) {
+        overlapByMonth = emptyMap()
+        overlapUnavailable = false
+        val selectedYears = year?.let { listOf(it) } ?: years
+        try {
+            overlapByMonth = withContext(Dispatchers.IO) {
+                selectedYears.flatMap { selectedYear ->
+                    val dates = java.util.Calendar.getInstance(
+                        java.util.TimeZone.getTimeZone("Africa/Nairobi")
+                    ).apply { clear(); set(selectedYear, java.util.Calendar.JANUARY, 1) }
+                    val from = dates.timeInMillis
+                    dates.add(java.util.Calendar.YEAR, 1)
+                    StatementEvidenceReadModel(context).read(from, dates.timeInMillis, accountId)
+                        .coverage
+                }.associateBy { it.monthKey }
+            }
+        } catch (e: CancellationException) { throw e }
+          catch (_: Exception) { overlapUnavailable = true }
+    }
     LaunchedEffect(accountId, chosenMonth) {
         evidence = emptyList();failed = false
         val selected = chosenMonth ?: return@LaunchedEffect
@@ -117,6 +142,8 @@ internal fun StatementBankOverviewPage(
                     fontWeight=FontWeight.Bold,color=p.ink)
                 Text("Verified movements in this bank account. Transfers, loans and withdrawals are not automatically classified as spending or income.",
                     style=MaterialTheme.typography.bodySmall,color=p.muted)
+                Text("Each imported month currently shows one selected document; multiple documents are checked for repeated evidence separately.",
+                    style=MaterialTheme.typography.bodySmall,color=p.muted)
                 Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                     Column(Modifier.weight(1f)) {
                         Text("MONEY IN",color=p.green,style=MaterialTheme.typography.labelSmall)
@@ -156,6 +183,19 @@ internal fun StatementBankOverviewPage(
                             Text("${entry.rowCount} verified movements",style=MaterialTheme.typography.bodySmall,color=p.muted)
                             if(entry.containsOverlappingImports)Text("Alternative imports exist; counted once",
                                 style=MaterialTheme.typography.bodySmall,color=p.red)
+                            val overlap = overlapByMonth[entry.key]
+                            if(overlap != null && overlap.sourceCount > 1) {
+                                Text("${overlap.confirmedRepeatCopies} exact repeated entries verified",
+                                    style=MaterialTheme.typography.bodySmall,color=p.muted)
+                                if(overlap.status == StatementSourceCoveragePolicy.Status.NEEDS_REVIEW)
+                                    Text("${overlap.unresolvedCandidateCount} entries need evidence review",
+                                        style=MaterialTheme.typography.bodySmall,color=p.red)
+                                else Text("Coverage checked; this card still reports one selected PDF",
+                                    style=MaterialTheme.typography.bodySmall,color=p.muted)
+                            }
+                            if(overlapUnavailable && entry.containsOverlappingImports)
+                                Text("Could not verify repeated entries yet",
+                                    style=MaterialTheme.typography.bodySmall,color=p.red)
                         }
                         Text(statementMoney(entry.moneyOutMinor),fontWeight=FontWeight.SemiBold,color=p.ink)
                         Icon(Icons.Rounded.ChevronRight,null,tint=p.muted)
@@ -171,6 +211,11 @@ internal fun StatementBankOverviewPage(
                     style=MaterialTheme.typography.bodySmall,color=p.muted)
                 if(chosenMonth!!.containsOverlappingImports) Text("Other documents cover this month; only one source is shown.",
                     style=MaterialTheme.typography.bodySmall,color=p.red)
+                overlapByMonth[chosenMonth!!.key]?.let { overlap ->
+                    if(overlap.status == StatementSourceCoveragePolicy.Status.NEEDS_REVIEW)
+                        Text("${overlap.unresolvedCandidateCount} entries require overlap or source verification. A combined bank total is not available.",
+                            style=MaterialTheme.typography.bodySmall,color=p.red)
+                }
             } }
             if(failed) item {Text("Could not read bank evidence. Your saved records were not changed.",color=p.red)}
             items(evidence,key={it.sourceId+":"+it.number}) { row -> StatementInsightCard {
