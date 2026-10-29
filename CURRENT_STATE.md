@@ -2,6 +2,14 @@
 
 _Last refreshed: 20 October 2026_
 
+_Targeted security update (29 October 2026, pending CI and device verification):_
+App-lock background grace and PIN lockout now use boot-scoped monotonic elapsed time,
+not the user-adjustable wall clock. A prior-boot background marker requires unlock;
+a prior-boot or legacy wall-clock PIN lockout restarts with a bounded 60-second delay
+when repeated failures were recorded. PIN hashing, backup format, permissions and
+financial data are unchanged. The focused JVM timing-policy tests pass locally;
+Android build and physical-device behavior remain unverified for this change.
+
 This file is the short engineering source of truth. Historical audits, design explorations and `PROJECT_CONTEXT.md` are useful background, but they must not override current code or this snapshot when they conflict.
 
 ## Product status
