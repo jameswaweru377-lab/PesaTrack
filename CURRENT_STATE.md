@@ -10,6 +10,20 @@ when repeated failures were recorded. PIN hashing, backup format, permissions an
 financial data are unchanged. The focused JVM timing-policy tests pass locally;
 Android build and physical-device behavior remain unverified for this change.
 
+_Audit S5 descriptor privacy hardening (29 October 2026, separate review branch):_
+The Android and Worker sanitation policies now distinguish 10-character
+transaction references containing digits from ordinary 10-letter business
+words, fail closed for any digit or non-ASCII character before normalization,
+and accept only explicitly recognized public labels or narrowly business-
+typed suffixes. Unknown single-word and ambiguous generic names are rejected;
+a business suffix still cannot conclusively prove an organization is public.
+One synthetic
+corpus is exercised by Worker and Android JVM tests; this does not grant new
+online channels or permissions, alter ledger data, or change the deployed
+Worker until separate deployment approval. Worker rate-limit finding S4 and
+its shared-mobile-IP tradeoff remain unresolved. Android CI and physical
+device results must be recorded before accepting this branch.
+
 This file is the short engineering source of truth. Historical audits, design explorations and `PROJECT_CONTEXT.md` are useful background, but they must not override current code or this snapshot when they conflict.
 
 ## Product status

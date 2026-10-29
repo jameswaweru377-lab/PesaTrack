@@ -1,7 +1,9 @@
 import worker, {
   classifyOrganizationRole,
   salarySuitabilityForRole,
+  sanitizeDescriptor,
 } from "./src/index.js";
+import { readFileSync } from "node:fs";
 
 function assert(condition, message) {
   if (!condition) {
@@ -30,6 +32,16 @@ const allowedEnv = {
   ENTITY_RESOLVE_EDGE_RATE_LIMITER:
     allowLimiter(),
 };
+
+const privacyCorpus = JSON.parse(
+  readFileSync(
+    new URL(
+      "../../app/src/test/resources/merchant-descriptor-privacy-v1.json",
+      import.meta.url,
+    ),
+    "utf8",
+  ),
+);
 
 const CLIENT_ID =
   "7fbe6f76-c82a-4d44-9f1a-cf36bf9db905";
@@ -110,6 +122,21 @@ assert(
   safeWithoutProvider.status === 503,
   "safe descriptor should reach provider boundary",
 );
+
+for (const { input, expected } of privacyCorpus) {
+  assert(
+    sanitizeDescriptor(input) === expected,
+    `Worker sanitizer returned different text for ${JSON.stringify(input)}`,
+  );
+  const response = await worker.fetch(
+    resolveRequest(input),
+    allowedEnv,
+  );
+  assert(
+    response.status === (expected === null ? 400 : 503),
+    `Worker descriptor filter disagrees for ${JSON.stringify(input)}`,
+  );
+}
 
 let observedClientKey = null;
 let observedEdgeKey = null;

@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.domain.intelligence
 
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import com.google.gson.JsonParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -9,6 +10,29 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RemoteEntityEnrichmentTest {
+    @Test
+    fun androidSanitizerFollowsSharedWorkerPrivacyCorpus() {
+        val fixture = javaClass.classLoader
+            ?.getResourceAsStream("merchant-descriptor-privacy-v1.json")
+            ?.bufferedReader(Charsets.UTF_8)
+            ?.use { it.readText() }
+            ?: error("Shared descriptor privacy corpus missing")
+        val examples = JsonParser.parseString(fixture).asJsonArray
+        assertTrue("Expected a meaningful privacy corpus", examples.size() >= 12)
+        for (row in examples) {
+            val example = row.asJsonObject
+            val input = example.get("input").asString
+            val expected = example.get("expected")
+                .takeUnless { it.isJsonNull }
+                ?.asString
+            assertEquals(
+                "Android descriptor filter disagrees for $input",
+                expected,
+                EntityDescriptorPrivacyPolicy.sanitize(input)
+            )
+        }
+    }
+
     @Test
     fun sanitizerAllowsCommercialDescriptor() {
         assertEquals(
