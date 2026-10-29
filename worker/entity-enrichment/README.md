@@ -14,17 +14,22 @@ The app and Worker reject descriptors that look like:
 - long account/reference numbers
 - likely personal names
 
-Both sides use a conservative business-evidence check. A narrow list of known
-public business names and meaningful business-type words may pass; unknown
-single-word names and ambiguous generic labels such as `Mary Mobile` or
-`Jane Services` stay on device. Ten-letter ordinary words are not automatically
-treated as transaction codes; ten-character alphanumeric codes containing
-digits remain blocked. One shared, synthetic corpus under
+Both sides use a conservative business-evidence check. A narrow list of exact
+public business names and descriptors ending with a meaningful business-type
+word may pass; unknown single-word names and ambiguous generic labels such as
+`Mary Mobile`, `Jane Services`, or `John Kamau Properties` stay on device.
+The entire descriptor must be plain ASCII without digits; this deliberately
+blocks whitespace-separated phone numbers, reference fragments, and Unicode
+disguises before any normalization. Unknown ten-letter words are also rejected;
+explicitly recognized public names are exceptions. One shared, synthetic corpus under
 `app/src/test/resources/merchant-descriptor-privacy-v1.json` checks exact
 Android/Worker agreement. Legitimate merchants not recognized by this policy
 may simply receive no online enrichment; local accounting is unaffected.
-Four or more consecutive digits are conservatively rejected, even when
-combined with an otherwise recognized merchant name.
+All numeric-bearing descriptors are conservatively rejected, even when
+combined with an otherwise recognized merchant name. The business-type suffix
+remains a heuristic, not identity verification: a contrived human-name-plus-
+business-word descriptor may still be ambiguous and requires owner approval
+of this residual tradeoff before merging or deploying.
 
 The Worker must never receive a full SMS body, transaction amount, balance, phone number, transaction code, or account number.
 

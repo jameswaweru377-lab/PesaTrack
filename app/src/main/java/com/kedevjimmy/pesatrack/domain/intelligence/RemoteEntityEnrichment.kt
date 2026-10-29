@@ -36,6 +36,10 @@ data class RemoteEntityEnrichment(
 object EntityDescriptorPrivacyPolicy {
     private val whitespace =
         Regex("""\s+""")
+    // A descriptor containing digits or non-ASCII characters may conceal split
+    // phone/account numbers or Unicode-obfuscated transaction references.
+    private val safeMerchantCharacters =
+        Regex("""^[A-Za-z&'()./+\- ]+$""")
     private val transactionCode =
         Regex(
             """\b(?=[A-Z0-9]*\d)[A-Z0-9]{10}\b""",
@@ -59,7 +63,9 @@ object EntityDescriptorPrivacyPolicy {
         "java house",
         "kplc prepaid",
         "safaricom",
-        "quickmart"
+        "quickmart",
+        "strathmore university",
+        "zuri properties"
     )
 
     private val strongBusinessSignals = setOf(
@@ -96,8 +102,7 @@ object EntityDescriptorPrivacyPolicy {
         "fuel",
         "petroleum",
         "airways",
-        "airline",
-        "properties"
+        "airline"
     )
 
     fun sanitize(
@@ -110,6 +115,12 @@ object EntityDescriptorPrivacyPolicy {
                 ?.takeIf { it.length in 3..80 }
                 ?: return null
 
+        // Reject before replacing characters; stripping them could turn an
+        // obfuscated private identifier into a seemingly safe business name.
+        if (!safeMerchantCharacters.matches(cleaned)) {
+            return null
+        }
+
         if (
             transactionCode.containsMatchIn(cleaned) ||
             phoneNumber.containsMatchIn(cleaned) ||
@@ -120,12 +131,6 @@ object EntityDescriptorPrivacyPolicy {
         }
 
         val sanitized = cleaned
-            .replace(
-                Regex("""[^A-Za-z0-9&'’()./+\- ]"""),
-                " "
-            )
-            .replace(whitespace, " ")
-            .trim()
 
         return sanitized.takeIf {
             it.length in 3..80 && isClearlyCommercial(it)
@@ -167,7 +172,14 @@ object EntityDescriptorPrivacyPolicy {
             return false
         }
 
-        return words.any { it in strongBusinessSignals }
+        // Unrecognized 10-letter words can also be transaction-like reference
+        // tokens; named public exceptions are handled above.
+        if (words.any { it.length == 10 && it !in strongBusinessSignals }) {
+            return false
+        }
+
+        // A trailing personal name after a merchant term must not be sent.
+        return words.last() in strongBusinessSignals
     }
 }
 

@@ -13,8 +13,11 @@ Android build and physical-device behavior remain unverified for this change.
 _Audit S5 descriptor privacy hardening (29 October 2026, separate review branch):_
 The Android and Worker sanitation policies now distinguish 10-character
 transaction references containing digits from ordinary 10-letter business
-words, accept only clearly commercial or explicitly recognized public labels,
-and reject unknown single-word and ambiguous generic names. One synthetic
+words, fail closed for any digit or non-ASCII character before normalization,
+and accept only explicitly recognized public labels or narrowly business-
+typed suffixes. Unknown single-word and ambiguous generic names are rejected;
+a business suffix still cannot conclusively prove an organization is public.
+One synthetic
 corpus is exercised by Worker and Android JVM tests; this does not grant new
 online channels or permissions, alter ledger data, or change the deployed
 Worker until separate deployment approval. Worker rate-limit finding S4 and

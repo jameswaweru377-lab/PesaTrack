@@ -152,6 +152,8 @@ const knownPublicNames = new Set([
   "kplc prepaid",
   "safaricom",
   "quickmart",
+  "strathmore university",
+  "zuri properties",
 ]);
 
 const strongBusinessSignals = new Set([
@@ -189,7 +191,6 @@ const strongBusinessSignals = new Set([
   "petroleum",
   "airways",
   "airline",
-  "properties",
 ]);
 
 function isClearlyCommercial(value) {
@@ -204,7 +205,11 @@ function isClearlyCommercial(value) {
   const words = normalized.split(" ").filter(Boolean);
   if (words.length < 2 || words.length > 6) return false;
 
-  return words.some((word) => strongBusinessSignals.has(word));
+  if (words.some((word) => word.length === 10 && !strongBusinessSignals.has(word))) {
+    return false;
+  }
+
+  return strongBusinessSignals.has(words[words.length - 1]);
 }
 
 export function sanitizeDescriptor(raw) {
@@ -214,14 +219,13 @@ export function sanitizeDescriptor(raw) {
   if (
     cleaned.length < 3 ||
     cleaned.length > MAX_DESCRIPTOR_LENGTH ||
+    !/^[A-Za-z&'()./+\- ]+$/.test(cleaned) ||
     looksSensitive(cleaned)
   ) {
     return null;
   }
 
-  const sanitized = normalizeWhitespace(
-    cleaned.replace(/[^A-Za-z0-9&'’()./+\- ]/g, " "),
-  );
+  const sanitized = cleaned;
 
   return sanitized.length >= 3 &&
     isClearlyCommercial(sanitized) ? sanitized : null;
