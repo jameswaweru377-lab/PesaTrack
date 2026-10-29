@@ -94,6 +94,9 @@ jobs:
           grep -F "native-code: 'arm64-v8a'" /tmp/pesatrack-apk-badging.txt
           echo "APK archive, alignment, signature, package ID, SDK bounds, and ABI checks passed."
 
+      - name: Test rolling signed APK publication safeguards
+        run: python3 -m unittest tools.test_publish_rolling_apks -v
+
       - name: Summarize Kotlin regression evidence
         shell: bash
         run: |
@@ -241,55 +244,74 @@ jobs:
     needs: [build]
     if: needs.build.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 35
     permissions:
       contents: write
 
     steps:
-      - name: Download tested debug APK
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - name: Checkout the commit that passed validation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          name: pesatrack-debug-apk
-          path: dist
+          ref: ${{ github.sha }}
 
-      - name: Publish rolling debug APK
+      - name: Set up JDK 17
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Python 3.13 for embedded offline PDF extraction
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          gradle-version: "wrapper"
+
+      - name: Require the existing protected release-signing credentials
         env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
+          PESATRACK_RELEASE_KEYSTORE_BASE64: ${{ secrets.PESATRACK_RELEASE_KEYSTORE_BASE64 }}
+          PESATRACK_RELEASE_STORE_PASSWORD: ${{ secrets.PESATRACK_RELEASE_STORE_PASSWORD }}
+          PESATRACK_RELEASE_KEY_ALIAS: ${{ secrets.PESATRACK_RELEASE_KEY_ALIAS }}
+          PESATRACK_RELEASE_KEY_PASSWORD: ${{ secrets.PESATRACK_RELEASE_KEY_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
+          for secret in PESATRACK_RELEASE_KEYSTORE_BASE64 PESATRACK_RELEASE_STORE_PASSWORD PESATRACK_RELEASE_KEY_ALIAS PESATRACK_RELEASE_KEY_PASSWORD; do
+            if [[ -z "${!secret}" ]]; then
+              echo "Missing required signing secret: $secret. Rolling APK publication is blocked; no debug fallback."
+              exit 1
+            fi
+          done
+          keystore="$RUNNER_TEMP/pesatrack-release.jks"
+          printf '%s' "$PESATRACK_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          test -s "$keystore"
+          chmod 600 "$keystore"
+          echo "PESATRACK_RELEASE_KEYSTORE=$keystore" >> "$GITHUB_ENV"
+          # CI workflow run numbers increase across accepted main runs; filenames stay fixed.
+          echo "PESATRACK_VERSION_CODE=$((200000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          echo "PESATRACK_VERSION_NAME=0.1.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
 
-          apk="dist/app-debug.apk"
+      - name: Assemble the signed update from the tested commit
+        env:
+          PESATRACK_RELEASE_STORE_PASSWORD: ${{ secrets.PESATRACK_RELEASE_STORE_PASSWORD }}
+          PESATRACK_RELEASE_KEY_ALIAS: ${{ secrets.PESATRACK_RELEASE_KEY_ALIAS }}
+          PESATRACK_RELEASE_KEY_PASSWORD: ${{ secrets.PESATRACK_RELEASE_KEY_PASSWORD }}
+          PESATRACK_ENTITY_ENRICHMENT_URL: https://pesatrack.jameswaweru399.workers.dev/v1/entity/resolve
+        run: ./gradlew :app:assembleRelease --stacktrace
 
-          if [[ ! -f "$apk" ]]; then
-            echo "Expected tested APK not found at $apk"
-            exit 1
-          fi
-
-          if ! gh release view ci-apk >/dev/null 2>&1; then
-            gh release create ci-apk \
-              --target "$GITHUB_SHA" \
-              --title "PesaTrack Rolling CI APK" \
-              --notes "Rolling prerelease containing the latest PesaTrack debug APK from main that passed build, lint and unit tests. Android instrumentation is optional and runs only when explicitly requested for review. The attached PesaTrack-debug.apk is authoritative; the release source archive remains tied to the original ci-apk tag." \
-              --prerelease
-          fi
-
-          cp "$apk" PesaTrack-debug.apk
-          versioned_apk="PesaTrack-debug-${GITHUB_SHA:0:7}.apk"
-          cp "$apk" "$versioned_apk"
-
-          gh release delete-asset ci-apk app-debug.apk --yes >/dev/null 2>&1 || true
-
-          # Keep a stable latest link and a commit-specific link to avoid stale
-          # APKs served from browser/download caches on Android devices.
-          gh release upload ci-apk \
-            PesaTrack-debug.apk \
-            --clobber
-          gh release upload ci-apk \
-            "$versioned_apk" \
-            --clobber
-
-          gh release edit ci-apk \
-            --notes "Rolling development preview built from commit $GITHUB_SHA after successful build, lint and unit tests. Instrumentation is optional and runs only when explicitly requested; this publication reports build, lint and unit-test verification. The attached PesaTrack-debug.apk is authoritative; the source archive remains tied to the original ci-apk tag."
+      - name: Verify compatibility and replace only the two rolling APKs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          APK_PATH: app/build/outputs/apk/release/app-release.apk
+        run: bash tools/publish_rolling_apks.sh
 

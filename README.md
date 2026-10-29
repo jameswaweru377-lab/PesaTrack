@@ -79,7 +79,7 @@ The public enrichment Worker is rate limited, and provider credentials remain se
   - Android lint;
   - debug APK assembly;
 - Android instrumentation on API 35 is paused and only runs through an explicitly requested manual review with run_instrumentation enabled. PR updates and main publication use build checks without automatic emulator execution.
-- Pushes to main publish the rolling development debug APK after build, lint and unit tests pass, without requiring emulator tests. Manual review runs retain artifacts but do not replace the rolling release. Signed release runs also default to build-only validation; enable run_instrumentation only when the user explicitly requests emulator review.
+- Pushes to main publish one release-signed APK under two rolling attachment names, `PesaTrack-Full.apk` and `PesaTrack-Update.apk`, after build, lint and unit tests pass. Publication requires protected release-signing secrets; absent secrets block it. These are identical APKs, and an existing debug-signed phone installation may require a separately approved, backed-up migration. CI does not prove the update has been tested on a physical phone.
 - Canonical ingestion uses an explicit SQLite transaction boundary with rollback coverage.
 - Migration coverage includes fresh v38 plus selected historical upgrades including v1, v30, v31/v32 and populated v37 to v38; encrypted legacy/current restore is covered.
 - App lock, biometric unlock and passphrase-encrypted backup/restore are implemented.

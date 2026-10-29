@@ -133,7 +133,7 @@ The Android CI workflow has three responsibilities:
 
 1. `build`: Worker validation, unit tests, lint, debug APK assembly, then upload the APK as a workflow artifact.
 2. `instrumentation`: run Android instrumentation only when explicitly requested through a manual workflow run with `run_instrumentation` enabled (default off).
-3. `publish`: after successful build checks on a push to `main`, replace the rolling development `ci-apk` asset without requiring instrumentation. Manual review/build runs retain artifacts but cannot replace the rolling release.
+3. `publish`: after successful build checks on a push to `main`, build a release-signed APK with the existing protected signing secrets and replace the `ci-apk` attachments with only `PesaTrack-Full.apk` and `PesaTrack-Update.apk`. These are identical signed APKs; signing/version compatibility checks fail closed. Missing secrets block publication. Manual review/build runs retain artifacts but cannot replace the rolling release. Physical-phone upgrade compatibility remains unverified.
 
 PR updates and merges run build checks automatically. Marking a PR ready does not start another run. Android 7 security and API compatibility emulator suites are manual review tools; the former weekly compatibility schedule is disabled. Manual signed releases also default to build-only validation. Emulator validation is opt-in through run_instrumentation; when explicitly enabled, it must pass before signing. Agents must not start instrumentation based on an older plan without a current user request.
 

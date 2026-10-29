@@ -2,7 +2,20 @@
 
 _Last updated: 29 October 2026_
 
-PesaTrack keeps the rolling debug APK separate from signed release artifacts.
+PesaTrack's rolling user-installable release uses the **existing protected release-signing identity**. The debug APK remains an internal workflow artifact and is not a user update download.
+
+## Two rolling downloads
+
+After Android CI succeeds on a push to `main`, its publish job builds a release-signed APK from the **same tested commit**. The rolling GitHub release at tag `ci-apk` contains exactly two APK attachments:
+
+- `PesaTrack-Full.apk` — complete app, intended for a first installation.
+- `PesaTrack-Update.apk` — **the same signed bytes** intended for installation over a compatible earlier app.
+
+These filenames stay fixed. The job replaces both attachments and deletes old debug/commit-specific APK attachments after a successful signed upload. Android does not support safe in-place upgrades via APK filename or a special smaller delta file: only app ID, signing identity and `versionCode` govern that decision.
+
+Do not mistake the attached APKs for Android instrumentation or physical-phone upgrade proof. The existing Redmi installation may have been signed by an ephemeral CI debug key; in that case, this new release certificate is not directly compatible. Never uninstall or reset until encrypted backup/restore and a one-time migration are verified and explicitly approved.
+
+**Signing prerequisite:** all four `PESATRACK_RELEASE_*` secrets below must be provisioned with a persistent, separately backed-up release key. If unavailable, the rolling publication job **fails closed**, leaving the existing release as-is. It does not substitute an unsigned or newly signed debug APK.
 
 ## Versioning
 
@@ -11,7 +24,7 @@ Release builds accept explicit values through:
 - `PESATRACK_VERSION_NAME` — semantic-style version such as `0.2.0`.
 - `PESATRACK_VERSION_CODE` — positive Android integer that must increase for every Play release.
 
-Normal debug development keeps the current defaults when these values are not supplied.
+Normal debug development keeps the current defaults when these values are not supplied. The main-branch rolling publisher supplies `PESATRACK_VERSION_CODE=200000+GITHUB_RUN_NUMBER` and `PESATRACK_VERSION_NAME=0.1.<GITHUB_RUN_NUMBER>`. The numeric code grows across successful new workflow runs; rerunning a published run is refused to prevent same-code replacement. If a separately made manual signed release has a higher code, it cannot be downgraded by this rolling channel. The publisher checks the previously attached signed Update APK and rejects versions that do not increase.
 
 ## Signing secrets
 
@@ -48,21 +61,17 @@ The workflow has repository read permission only. It does not automatically publ
 2. **Compatible signing certificate** (or supported signing-key rotation lineage) with the APK already installed on the phone.
 3. **No version-code downgrade.** Give each newer installable APK a version code higher than its predecessor. A readable `versionName` helps users identify the release but does not replace `versionCode`.
 
-### Current repository behavior (29 October 2026; not yet upgrade-ready)
-- `.github/workflows/android-ci.yml` publishes `PesaTrack-debug.apk` and a commit-specific debug APK after checks on `main`. The debug keystore is not explicitly persisted across GitHub runners. This makes in-place updates **unreliable**; the workflow also uses the Gradle default `versionCode=1` unless configured otherwise.
-- The **Signed Android Release** workflow already has conditional release signing support and explicit version inputs, but it is **manual** and does not automatically publish the rolling `ci-apk` asset. Do not assume its secrets are configured or that its signing certificate matches any debug build on a user's phone.
-- A green workflow proves the stated build/tests passed, **not** that a new APK will install over an older APK on a physical Redmi device.
+### CI implementation and validation status (29 October 2026)
+- `.github/workflows/android-ci.yml` is configured to validate debug builds and then build a **signed release** on `main` from the same commit for rolling publication. Tests in `tools/test_publish_rolling_apks.py` use entirely synthetic artifacts and mocked GitHub CLI commands to check two-asset publication, signer mismatch, downgrade prevention and missing version metadata.
+- The **Signed Android Release** workflow remains independently/manual, with explicit version inputs; its secrets are reused by the rolling publisher. **Secret provisioning has not been verified by local tests.** Do not assume that a new rolling signed APK was published until the main workflow publish job succeeds.
+- A green workflow proves the stated build/tests and signed-APK metadata checks passed, **not** that the new APK successfully updated the user's installed Redmi app without data loss.
 
-### Proposed permanent update channel (requires separate implementation approval)
-1. Select and securely retain **one signing identity** for every PesaTrack APK intended to upgrade the same installed application. Store required secrets only in GitHub Actions encrypted secrets and keep an independently protected offline backup.
-2. Assign a **strictly increasing `versionCode`** for each user-facing build; maintain a readable version name and immutable source commit association.
-3. Build and verify the signed APK. Before release, check APK package name, version code, signing-certificate fingerprint and integrity; compare the certificate against the expected previous user-installable build. Never print passwords or private keys.
-4. Publish an unambiguous APK link with commit and version details. A single signed APK can be both a **fresh install** (on a phone without PesaTrack) and an **update** (on a phone with a compatible earlier install); making two identically functional files is unnecessary.
-5. On a test device, first install the previous approved APK with synthetic local data, then install the new APK **without uninstalling**. Verify it offers Update, retains the local database/settings and launches. Report phone testing separately from CI.
-6. **Existing debug-install migration:** first compare the phone's installed certificate with the new signing certificate. If incompatible, **stop** and prepare a verified, encrypted local backup/restore and explicit user-approved one-time reinstallation. Never promise direct compatibility, never discard the user's data and never request that personal statement contents or credentials be uploaded.
-7. Ordinary sideloaded Android apps still require the user to approve installation; this policy does **not** promise silent/background self-updating.
-
-**Status:** Documentation of the agreed target and safeguards only. This section does not enable stable signing, create credentials, change workflows, or establish successful on-phone update testing.
+### Safeguards still required
+1. Store a secure offline copy of the **same** signing keystore configured in GitHub secrets; do not generate a fresh key per build.
+2. When upgrading from a previously approved **signed** update, the publisher checks that the signing fingerprint is unchanged and `versionCode` increases before replacing either asset.
+3. On a test device, install the previous approved signed APK with invented local data, then install the new signed update **without uninstalling**. Verify it offers Update, retains its database/settings and launches. Report phone testing separately from CI.
+4. **Existing debug-install migration:** first compare the phone's installed certificate with the new signing certificate. If incompatible, **stop** and prepare a verified, encrypted local backup/restore and explicit user-approved one-time reinstallation. Never promise direct compatibility, never discard the user's data and never request personal statement contents or credentials to be uploaded.
+5. Ordinary sideloaded Android apps still require the user to approve installation; this policy does **not** promise silent/background self-updating.
 
 ## Before a public Play release
 
