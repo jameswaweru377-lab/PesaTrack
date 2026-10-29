@@ -14,6 +14,8 @@
   { "input": "Jane Services", "expected": null },
   { "input": "Mary", "expected": null },
   { "input": "ACME HARDWARE 0712345678", "expected": null },
+  { "input": "Java House 1234", "expected": null },
+  { "input": "ACME HARDWARE 4321", "expected": null },
   { "input": "ACME LTD TQK12ABC34", "expected": null },
   { "input": "ACME LTD 1234567890", "expected": null },
   { "input": "ACME LTD hello@example.com", "expected": null }

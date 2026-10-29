@@ -23,6 +23,8 @@ digits remain blocked. One shared, synthetic corpus under
 `app/src/test/resources/merchant-descriptor-privacy-v1.json` checks exact
 Android/Worker agreement. Legitimate merchants not recognized by this policy
 may simply receive no online enrichment; local accounting is unaffected.
+Four or more consecutive digits are conservatively rejected, even when
+combined with an otherwise recognized merchant name.
 
 The Worker must never receive a full SMS body, transaction amount, balance, phone number, transaction code, or account number.
 

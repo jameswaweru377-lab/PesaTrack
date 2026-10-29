@@ -20,7 +20,8 @@ This is a privacy-first correction, not an expansion of online-lookup channels.
 
 ## Boundaries
 
-- Continue blocking phone numbers, email, long account/reference numbers,
+- Continue blocking phone numbers, email, account/reference numbers with four
+  or more consecutive digits,
   and 10-character alphanumeric transaction codes containing digits.
 - All-letter words of ten characters are not automatically transaction codes.
 - Known public entities such as Java House and KPLC Prepaid may be explicitly

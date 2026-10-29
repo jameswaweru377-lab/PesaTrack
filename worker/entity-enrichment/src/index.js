@@ -134,7 +134,7 @@ function normalizeWhitespace(value) {
 function looksSensitive(value) {
   const transactionCode = /\b(?=[A-Z0-9]*\d)[A-Z0-9]{10}\b/i;
   const phone = /(?:\+?254|0)[17]\d{8}/;
-  const longNumber = /\d{5,}/;
+  const longNumber = /\d{4,}/;
   const email = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 
   return (

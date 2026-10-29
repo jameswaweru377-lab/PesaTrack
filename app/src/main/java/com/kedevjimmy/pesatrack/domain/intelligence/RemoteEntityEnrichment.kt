@@ -46,7 +46,7 @@ object EntityDescriptorPrivacyPolicy {
             """(?:\+?254|0)[17]\d{8}"""
         )
     private val longNumber =
-        Regex("""\d{5,}""")
+        Regex("""\d{4,}""")
     private val email =
         Regex(
             """[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}""",
