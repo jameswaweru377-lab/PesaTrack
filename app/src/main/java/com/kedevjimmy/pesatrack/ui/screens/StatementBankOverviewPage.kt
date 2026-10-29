@@ -20,12 +20,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
+import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.StatementEvidenceReadModel
 import com.kedevjimmy.pesatrack.domain.statements.StatementBankHistoryPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementBankCategoryLabelPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementSourceCoveragePolicy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 /** Bank source view reusing Phase 1 palette/cards. No guessed spending or merged accounts. */
 @Composable
@@ -41,6 +44,9 @@ internal fun StatementBankOverviewPage(
 ) {
     val context = LocalContext.current
     val p = HomeReferencePalette
+    val scope = rememberCoroutineScope()
+    val bankCategories = remember(context) { CategoryStore.get(context).all() }
+    val bankCategoryLabels = remember(bankCategories) { bankCategories.associate { it.id to it.label } }
     val years = remember(months) { months.map { it.key.substringBefore('-').toInt() }.distinct().sortedDescending() }
     var year by remember(accountId) { mutableStateOf<Int?>(years.firstOrNull()) }
     var accountMenu by remember { mutableStateOf(false) }
@@ -48,6 +54,10 @@ internal fun StatementBankOverviewPage(
     BackHandler(enabled=chosenMonth!=null) { chosenMonth=null }
     var evidence by remember { mutableStateOf<List<StatementBankArchiveStore.Leg>>(emptyList()) }
     var failed by remember { mutableStateOf(false) }
+    var editingLeg by remember(accountId) { mutableStateOf<StatementBankArchiveStore.Leg?>(null) }
+    var selectedLabel by remember(accountId) { mutableStateOf<String?>(null) }
+    var labelError by remember { mutableStateOf<String?>(null) }
+    var savingLabel by remember { mutableStateOf(false) }
     var overlapByMonth by remember(accountId) {
         mutableStateOf<Map<String, StatementSourceCoveragePolicy.MonthCoverage>>(emptyMap())
     }
@@ -227,7 +237,91 @@ internal fun StatementBankOverviewPage(
                     style=MaterialTheme.typography.bodySmall,color=p.muted)
                 Text("Original source · Page ${row.page}, row ${row.row}",
                     style=MaterialTheme.typography.labelSmall,color=p.muted)
+                TextButton(onClick = {
+                    editingLeg = row
+                    selectedLabel = row.categoryId
+                    labelError = null
+                }, contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp)) {
+                    Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(row.categoryId?.let { bankCategoryLabels[it] } ?: "Add category label")
+                }
             } }
         }
+    }
+
+    val editing = editingLeg
+    if (editing != null) {
+        val allowed = bankCategories.filter {
+            StatementBankCategoryLabelPolicy.canLabel(editing.movementMinor, it.kind.name)
+        }
+        var categoryMenu by remember(editing.sourceId, editing.number) { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { if (!savingLabel) editingLeg = null },
+            title = { Text("Label bank statement record") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(editing.description, maxLines = 3,
+                        overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                    Text("Your label stays on this exact bank statement row. It does not change " +
+                        "Activity, spending totals, transfers, or other imported files. " +
+                        "A matching name or amount is not enough to link the records.",
+                        style = MaterialTheme.typography.bodySmall, color = p.muted)
+                    Box {
+                        OutlinedButton(onClick = { categoryMenu = true },
+                            enabled = !savingLabel && allowed.isNotEmpty(),
+                            modifier = Modifier.fillMaxWidth()) {
+                            Text(selectedLabel?.let { bankCategoryLabels[it] } ?: "No category label",
+                                modifier = Modifier.weight(1f))
+                            Icon(Icons.Rounded.ExpandMore, null)
+                        }
+                        DropdownMenu(expanded = categoryMenu,
+                            onDismissRequest = { categoryMenu = false }) {
+                            allowed.forEach { category ->
+                                DropdownMenuItem(text = { Text(category.label) }, onClick = {
+                                    selectedLabel = category.id
+                                    labelError = null
+                                    categoryMenu = false
+                                })
+                            }
+                        }
+                    }
+                    if (editing.categoryId != null || selectedLabel != null) {
+                        TextButton(onClick = { selectedLabel = null; labelError = null },
+                            enabled = !savingLabel) { Text("Remove category label") }
+                    }
+                    if (labelError != null) Text(requireNotNull(labelError),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = !savingLabel &&
+                    (selectedLabel == null || allowed.any { it.id == selectedLabel }),
+                    onClick = {
+                        val chosen = selectedLabel
+                        savingLabel = true
+                        scope.launch {
+                            try {
+                                withContext(Dispatchers.IO) {
+                                    StatementBankArchiveStore(context).labelLeg(
+                                        editing.sourceId, editing.number, chosen)
+                                }
+                                evidence = evidence.map { leg ->
+                                    if (leg.sourceId == editing.sourceId && leg.number == editing.number)
+                                        leg.copy(categoryId = chosen) else leg
+                                }
+                                editingLeg = null
+                            } catch (e: CancellationException) { throw e }
+                              catch (_: Exception) {
+                                  labelError = "Could not save this bank label. Please try again."
+                              } finally { savingLabel = false }
+                        }
+                    }
+                ) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { editingLeg = null },
+                enabled = !savingLabel) { Text("Cancel") } }
+        )
     }
 }

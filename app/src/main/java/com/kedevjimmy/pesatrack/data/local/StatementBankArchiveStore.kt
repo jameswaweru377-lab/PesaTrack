@@ -2,8 +2,10 @@ package com.kedevjimmy.pesatrack.data.local
 
 import android.content.ContentValues
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.statements.StatementAdmissionResult
+import com.kedevjimmy.pesatrack.domain.statements.StatementBankCategoryLabelPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementTablePage
 import com.kedevjimmy.pesatrack.domain.statements.StatementTableResult
 import com.kedevjimmy.pesatrack.domain.statements.UniversalStatementTableInterpreter
@@ -182,6 +184,54 @@ class StatementBankArchiveStore(context: Context) {
                         if (c.isNull(10)) null else c.getString(10)))
                 }
             } }
+        } finally { helper.close() }
+    }
+
+    /**
+     * Reversible, source-row-specific annotation. Never writes the canonical
+     * Activity ledger or modifies bank cash legs, balances or report totals.
+     * In particular, an Equity description is not sufficient for shared
+     * merchant learning or an own-account transfer assertion.
+     */
+    fun labelLeg(sourceId: String, legNumber: Int, categoryId: String?) {
+        require(sourceId.matches(Regex("[a-f0-9]{64}")) && legNumber >= 0) {
+            "Select a valid saved statement row."
+        }
+        val category = categoryId?.let { requested ->
+            requireNotNull(CategoryStore.get(app).find(requested)) {
+                "Choose a valid PesaTrack category."
+            }
+        }
+        val helper = StatementArchiveDb(app)
+        try {
+            val db = helper.writableDatabase
+            db.beginTransaction()
+            try {
+                val movement = db.rawQuery(
+                    "SELECT movement_minor FROM statement_legs_v2 WHERE source_id=? AND leg_number=?",
+                    arrayOf(sourceId, legNumber.toString())
+                ).use { c ->
+                    require(c.moveToFirst()) { "Statement row no longer exists." }
+                    c.getLong(0)
+                }
+                if (category != null) {
+                    require(StatementBankCategoryLabelPolicy.canLabel(movement, category.kind.name)) {
+                        "This bank movement cannot safely use that category."
+                    }
+                    val inserted = db.insertWithOnConflict(
+                        "statement_category_labels_v2", null, ContentValues().apply {
+                            put("source_id", sourceId)
+                            put("leg_number", legNumber)
+                            put("category_id", category.id)
+                        }, SQLiteDatabase.CONFLICT_REPLACE
+                    )
+                    check(inserted != -1L) { "Could not save the bank statement label." }
+                } else {
+                    db.delete("statement_category_labels_v2", "source_id=? AND leg_number=?",
+                        arrayOf(sourceId, legNumber.toString()))
+                }
+                db.setTransactionSuccessful()
+            } finally { db.endTransaction() }
         } finally { helper.close() }
     }
 }

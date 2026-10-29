@@ -147,6 +147,24 @@ PR updates and merges run build checks automatically. Marking a PR ready does no
 
 The build/test jobs require only read access to repository contents. Release write permission is scoped to the publish job.
 
+## Phase 3C — Statement category boundary (29 October 2026)
+
+M-Pesa Statements continue using the existing **exact receipt, account, amount
+and bounded date** verification for approved Activity category projection. An
+explicit one-off Statement correction has precedence; the reverse
+`Remember in Activity + Statements` action requires its own verified receipt
+and user consent. Bank statements such as Equity do **not** acquire these links
+from matching names, amounts or dates alone.
+
+The Equity/bank document view supports reversible **source-row-only** labels
+in the existing `statement_category_labels_v2` table (expense labels for debits,
+income labels for credits). They are annotations, not proven financial event
+types. Bank PDF legs, cash totals, Activity, debts, source overlap and other
+imported files remain unchanged. Missing bank references mean a full automatic
+bank-to-Activity category bridge is deliberately **not yet available**. The
+independent cross-product Insights report remains a future phase. See
+`docs/superpowers/plans/2026-10-29-statements-phase3c-category-bridge.md`.
+
 ## Tests
 
 Current repository coverage includes JVM tests plus Android instrumentation. Important existing test areas include:
