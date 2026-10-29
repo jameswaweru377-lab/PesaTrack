@@ -14,6 +14,16 @@ The app and Worker reject descriptors that look like:
 - long account/reference numbers
 - likely personal names
 
+Both sides use a conservative business-evidence check. A narrow list of known
+public business names and meaningful business-type words may pass; unknown
+single-word names and ambiguous generic labels such as `Mary Mobile` or
+`Jane Services` stay on device. Ten-letter ordinary words are not automatically
+treated as transaction codes; ten-character alphanumeric codes containing
+digits remain blocked. One shared, synthetic corpus under
+`app/src/test/resources/merchant-descriptor-privacy-v1.json` checks exact
+Android/Worker agreement. Legitimate merchants not recognized by this policy
+may simply receive no online enrichment; local accounting is unaffected.
+
 The Worker must never receive a full SMS body, transaction amount, balance, phone number, transaction code, or account number.
 
 ## Provider
@@ -104,6 +114,11 @@ Current repository policy:
 - do not send raw SMS, phone numbers, transaction codes, account numbers, or likely personal names.
 
 The install ID improves fairness but is client-generated and therefore not trusted identity. The larger edge-wide cap remains necessary to limit abuse from clients that rotate IDs. These rate limits protect provider quota and abuse exposure; they are not authentication and are not accounting controls. Cloudflare's Worker limiter is permissive/eventually consistent and local to an edge location, so monitoring upstream usage still matters.
+
+Audit S4 remains open: rotating client IDs can evade per-install throttling and
+the shared edge bucket can be exhausted. Adding IP throttling requires an
+explicit decision about shared-NAT/mobile-user false positives; this privacy
+filter change does not modify rate limiting or deploy Cloudflare rules.
 
 If enrichment is throttled or unavailable, PesaTrack must continue with local ledger truth and local entity intelligence.
 

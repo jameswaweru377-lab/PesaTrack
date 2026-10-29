@@ -1,0 +1,20 @@
+[
+  { "input": "Java House", "expected": "Java House" },
+  { "input": "  Java    House  ", "expected": "Java House" },
+  { "input": "Strathmore University", "expected": "Strathmore University" },
+  { "input": "Zuri Properties", "expected": "Zuri Properties" },
+  { "input": "ACME HARDWARE LTD", "expected": "ACME HARDWARE LTD" },
+  { "input": "ACME HARDWARE", "expected": "ACME HARDWARE" },
+  { "input": "KPLC PREPAID", "expected": "KPLC PREPAID" },
+  { "input": "Safaricom", "expected": "Safaricom" },
+  { "input": "Quickmart", "expected": "Quickmart" },
+  { "input": "Kamau", "expected": null },
+  { "input": "John Kamau", "expected": null },
+  { "input": "Mary Mobile", "expected": null },
+  { "input": "Jane Services", "expected": null },
+  { "input": "Mary", "expected": null },
+  { "input": "ACME HARDWARE 0712345678", "expected": null },
+  { "input": "ACME LTD TQK12ABC34", "expected": null },
+  { "input": "ACME LTD 1234567890", "expected": null },
+  { "input": "ACME LTD hello@example.com", "expected": null }
+]

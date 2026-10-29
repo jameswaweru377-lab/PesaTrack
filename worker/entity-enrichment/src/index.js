@@ -132,7 +132,7 @@ function normalizeWhitespace(value) {
 }
 
 function looksSensitive(value) {
-  const transactionCode = /\b[A-Z0-9]{10}\b/i;
+  const transactionCode = /\b(?=[A-Z0-9]*\d)[A-Z0-9]{10}\b/i;
   const phone = /(?:\+?254|0)[17]\d{8}/;
   const longNumber = /\d{5,}/;
   const email = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
@@ -145,7 +145,16 @@ function looksSensitive(value) {
   );
 }
 
-const businessSignals = new Set([
+// Only known public brand labels may omit a recognizable business-type term.
+// Unknown names stay local even when they contain generic words like 'mobile'.
+const knownPublicNames = new Set([
+  "java house",
+  "kplc prepaid",
+  "safaricom",
+  "quickmart",
+]);
+
+const strongBusinessSignals = new Set([
   "bank",
   "sacco",
   "supermarket",
@@ -161,7 +170,6 @@ const businessSignals = new Set([
   "clinic",
   "hardware",
   "electronics",
-  "services",
   "limited",
   "ltd",
   "company",
@@ -175,45 +183,38 @@ const businessSignals = new Set([
   "power",
   "water",
   "telecom",
-  "mobile",
   "internet",
   "mall",
   "fuel",
   "petroleum",
   "airways",
   "airline",
+  "properties",
 ]);
 
-function looksLikePersonalName(value) {
-  if (/\d/.test(value)) return false;
-
-  const words = value
+function isClearlyCommercial(value) {
+  const normalized = value
     .toLowerCase()
     .replace(/[^a-z&'’\- ]/g, " ")
     .replace(/\s+/g, " ")
-    .trim()
-    .split(" ")
-    .filter(Boolean);
+    .trim();
 
-  if (words.length < 2 || words.length > 4) return false;
-  if (words.some((word) => businessSignals.has(word))) return false;
+  if (knownPublicNames.has(normalized)) return true;
 
-  return words.every(
-    (word) =>
-      word.length >= 2 &&
-      /^[a-z'’\-]+$/i.test(word),
-  );
+  const words = normalized.split(" ").filter(Boolean);
+  if (words.length < 2 || words.length > 6) return false;
+
+  return words.some((word) => strongBusinessSignals.has(word));
 }
 
-function sanitizeDescriptor(raw) {
+export function sanitizeDescriptor(raw) {
   if (typeof raw !== "string") return null;
 
   const cleaned = normalizeWhitespace(raw);
   if (
     cleaned.length < 3 ||
     cleaned.length > MAX_DESCRIPTOR_LENGTH ||
-    looksSensitive(cleaned) ||
-    looksLikePersonalName(cleaned)
+    looksSensitive(cleaned)
   ) {
     return null;
   }
@@ -222,7 +223,8 @@ function sanitizeDescriptor(raw) {
     cleaned.replace(/[^A-Za-z0-9&'’()./+\- ]/g, " "),
   );
 
-  return sanitized.length >= 3 ? sanitized : null;
+  return sanitized.length >= 3 &&
+    isClearlyCommercial(sanitized) ? sanitized : null;
 }
 
 function mapCategory(raw) {

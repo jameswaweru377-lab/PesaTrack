@@ -38,7 +38,7 @@ object EntityDescriptorPrivacyPolicy {
         Regex("""\s+""")
     private val transactionCode =
         Regex(
-            """\b[A-Z0-9]{10}\b""",
+            """\b(?=[A-Z0-9]*\d)[A-Z0-9]{10}\b""",
             RegexOption.IGNORE_CASE
         )
     private val phoneNumber =
@@ -53,7 +53,16 @@ object EntityDescriptorPrivacyPolicy {
             RegexOption.IGNORE_CASE
         )
 
-    private val businessSignals = setOf(
+    // Exact public merchant names cover brand labels without a generic business term.
+    // Unknown single-word or ambiguous personal-looking names stay on device.
+    private val knownPublicNames = setOf(
+        "java house",
+        "kplc prepaid",
+        "safaricom",
+        "quickmart"
+    )
+
+    private val strongBusinessSignals = setOf(
         "bank",
         "sacco",
         "supermarket",
@@ -69,7 +78,6 @@ object EntityDescriptorPrivacyPolicy {
         "clinic",
         "hardware",
         "electronics",
-        "services",
         "limited",
         "ltd",
         "company",
@@ -83,13 +91,13 @@ object EntityDescriptorPrivacyPolicy {
         "power",
         "water",
         "telecom",
-        "mobile",
         "internet",
         "mall",
         "fuel",
         "petroleum",
         "airways",
-        "airline"
+        "airline",
+        "properties"
     )
 
     fun sanitize(
@@ -111,18 +119,17 @@ object EntityDescriptorPrivacyPolicy {
             return null
         }
 
-        if (looksLikePersonalName(cleaned)) {
-            return null
-        }
-
-        return cleaned
+        val sanitized = cleaned
             .replace(
                 Regex("""[^A-Za-z0-9&'’()./+\- ]"""),
                 " "
             )
             .replace(whitespace, " ")
             .trim()
-            .takeIf { it.length in 3..80 }
+
+        return sanitized.takeIf {
+            it.length in 3..80 && isClearlyCommercial(it)
+        }
     }
 
     fun cacheKey(
@@ -136,7 +143,7 @@ object EntityDescriptorPrivacyPolicy {
             .replace(whitespace, " ")
             .trim()
 
-    private fun looksLikePersonalName(
+    private fun isClearlyCommercial(
         value: String
     ): Boolean {
         val normalized =
@@ -148,37 +155,19 @@ object EntityDescriptorPrivacyPolicy {
                 .replace(whitespace, " ")
                 .trim()
 
+        if (normalized in knownPublicNames) {
+            return true
+        }
+
         val words =
             normalized.split(" ")
                 .filter(String::isNotBlank)
 
-        if (words.size !in 2..4) {
+        if (words.size !in 2..6) {
             return false
         }
 
-        if (
-            words.any {
-                it in businessSignals
-            }
-        ) {
-            return false
-        }
-
-        if (
-            value.any(Char::isDigit)
-        ) {
-            return false
-        }
-
-        return words.all { word ->
-            word.length >= 2 &&
-                word.all {
-                    it.isLetter() ||
-                        it == '-' ||
-                        it == '\'' ||
-                        it == '’'
-                }
-        }
+        return words.any { it in strongBusinessSignals }
     }
 }
 
