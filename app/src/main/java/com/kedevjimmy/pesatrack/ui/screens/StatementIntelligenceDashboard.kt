@@ -23,6 +23,7 @@ import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.everyday.*
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.statements.StatementBankHistoryPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementSourceCoveragePolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementSourceProfileRegistry
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -163,6 +164,31 @@ internal fun StatementIntelligenceDashboard(
         is StatementReportScope.Year -> reportScope.value
         is StatementReportScope.Month -> reportScope.key.substringBefore('-').toInt()
         else -> years.firstOrNull()
+    }
+    var sourceCoverage by remember(accountId) {
+        mutableStateOf<Map<String, StatementSourceCoveragePolicy.MonthCoverage>>(emptyMap())
+    }
+    var sourceCoverageLoading by remember(accountId) { mutableStateOf(false) }
+    var sourceCoverageUnavailable by remember(accountId) { mutableStateOf(false) }
+    LaunchedEffect(page, accountId, year, refreshed) {
+        if (page != StatementPage.COVERAGE || accountId == null || year == null) return@LaunchedEffect
+        sourceCoverageLoading = true
+        sourceCoverageUnavailable = false
+        sourceCoverage = emptyMap()
+        try {
+            val checked = withContext(Dispatchers.IO) {
+                val calendar = Calendar.getInstance(nairobiStatementZone).apply {
+                    clear(); set(year, Calendar.JANUARY, 1, 0, 0, 0)
+                }
+                val from = calendar.timeInMillis
+                calendar.add(Calendar.YEAR, 1)
+                StatementEvidenceReadModel(context).read(from, calendar.timeInMillis, accountId)
+                    .coverage.associateBy { it.monthKey }
+            }
+            sourceCoverage = checked
+        } catch (e: CancellationException) { throw e }
+          catch (_: Exception) { sourceCoverageUnavailable = true }
+        finally { sourceCoverageLoading = false }
     }
     val dateAnchor = when (reportScope) {
         is StatementReportScope.Day -> reportScope.anchorMs
@@ -996,6 +1022,9 @@ internal fun StatementIntelligenceDashboard(
                             StatementCoveragePage(
                                 year = year ?: months.first().usage.year,
                                 months = months,
+                                overlapByMonth = sourceCoverage,
+                                checkingOverlap = sourceCoverageLoading,
+                                overlapUnavailable = sourceCoverageUnavailable,
                                 onOpenMonth = { key ->
                                     navigate(StatementPage.MONTH_DETAIL)
                                     chosenScope = StatementReportScope.Month(key)

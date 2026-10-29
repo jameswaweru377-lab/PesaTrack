@@ -21,7 +21,9 @@ object StatementEvidenceCorrelationPolicy {
         val movementMinor: Long,
         val reference: String?,
         val ownershipConfirmed: Boolean,
-        val roleProtected: Boolean = false
+        val roleProtected: Boolean = false,
+        /** Independent archive totals are proven; does not imply income/spending. */
+        val sourceTotalsVerified: Boolean = false
     )
 
     data class Link(val firstId: String, val secondId: String, val kind: LinkKind) {
