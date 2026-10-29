@@ -54,6 +54,15 @@ A plugin may be unavailable in a particular ChatGPT or Codex environment. Check 
 
 Prefer focused fixes and architecture hardening over unapproved feature expansion.
 
+## APK update continuity — required for future releases
+- The user installs PesaTrack directly on a Redmi phone and needs **in-place APK updates without losing local transactions, statements, settings or categories**. Protect this requirement in every change to Android builds, package identity, CI or releases.
+- Android decides whether an APK can update the installed app using the same application ID, a compatible signing identity (certificate or supported signing lineage), and a non-downgrade `versionCode`. APK filenames such as `fresh.apk` or `update.apk` are only labels; they do not make an APK upgrade-compatible.
+- **Current state (29 October 2026):** `.github/workflows/android-ci.yml` publishes a rolling **debug** APK on `main` without a deliberately persistent signing identity across fresh GitHub runners. `app/build.gradle.kts` defaults its version code to `1` unless supplied. Therefore the current rolling APK is **not guaranteed** to install over earlier builds. `.github/workflows/release-build.yml` has a separate, manually dispatched signed release path; its secrets and physical-device upgrade compatibility must be verified, not assumed.
+- **Approved goal, not yet implemented:** adopt a single securely retained signing identity and increasing version code for the user-installable APK channel, verify signature/package/version on the published artifact, then publish an identifiable tested APK from the accepted commit. Preserve the existing Android application ID. Keep signing material in protected GitHub secrets with a separately protected offline recovery copy; never put keys or passwords in source, output or logs.
+- **Before migrating an existing phone installation:** compare the installed APK signing certificate to the proposed update. If they differ, do not ask the user to uninstall until a private, encrypted backup/restore path is verified and the user explicitly approves a one-time migration. There is no safe assumption that an old runner's debug key can be recovered.
+- Do not describe GitHub CI passing as proof of on-device update compatibility. Record the checked commit, APK signing fingerprint, application ID, version code, and real-phone upgrade result (if actually tested). Do not silently switch release channels or replace the user's installed app.
+- See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) for the update policy, current limitations and safe rollout checks. Changing workflows, signing or publishing releases requires separate task-specific approval.
+
 ## Concurrent development
 - Do not modify another agent's active branch, worktree, PR or in-progress task.
 - Check the target branch before writing.
