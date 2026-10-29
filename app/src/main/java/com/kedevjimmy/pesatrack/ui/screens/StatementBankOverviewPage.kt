@@ -40,7 +40,8 @@ internal fun StatementBankOverviewPage(
     availableAccounts: List<Pair<String, String>>,
     onSelectAccount: (String) -> Unit,
     onImport: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    initialYear: Int? = null
 ) {
     val context = LocalContext.current
     val p = HomeReferencePalette
@@ -48,7 +49,9 @@ internal fun StatementBankOverviewPage(
     val bankCategories = remember(context) { CategoryStore.get(context).all() }
     val bankCategoryLabels = remember(bankCategories) { bankCategories.associate { it.id to it.label } }
     val years = remember(months) { months.map { it.key.substringBefore('-').toInt() }.distinct().sortedDescending() }
-    var year by remember(accountId) { mutableStateOf<Int?>(years.firstOrNull()) }
+    var year by remember(accountId, initialYear) {
+        mutableStateOf<Int?>(initialYear?.takeIf { it in years } ?: years.firstOrNull())
+    }
     var accountMenu by remember { mutableStateOf(false) }
     var chosenMonth by remember(accountId) { mutableStateOf<StatementBankHistoryPolicy.Month?>(null) }
     BackHandler(enabled=chosenMonth!=null) { chosenMonth=null }

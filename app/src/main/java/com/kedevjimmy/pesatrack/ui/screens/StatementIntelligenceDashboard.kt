@@ -30,13 +30,14 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import com.kedevjimmy.pesatrack.domain.statements.StatementUnifiedOverviewPolicy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 internal enum class StatementPage {
-    SUMMARY, CATEGORIES, TRENDS, TRANSACTIONS, DEBTS, BROWSE,
+    ALL_ACCOUNTS, SUMMARY, CATEGORIES, TRENDS, TRANSACTIONS, DEBTS, BROWSE,
     CATEGORY_DETAIL, MONTH_DETAIL, COVERAGE, EVIDENCE_DETAIL
 }
 private val nairobiStatementZone = TimeZone.getTimeZone("Africa/Nairobi")
@@ -86,7 +87,7 @@ internal fun StatementIntelligenceDashboard(
     // Null means the default latest imported year. Explicit AllHistory stays selected.
     var chosenScope by remember { mutableStateOf<StatementReportScope?>(null) }
     var showReviewHelp by remember { mutableStateOf(false) }
-    var page by remember { mutableStateOf(StatementPage.SUMMARY) }
+    var page by remember { mutableStateOf(StatementPage.ALL_ACCOUNTS) }
     val pageHistory = remember { mutableStateListOf<Pair<StatementPage, StatementReportScope?>>() }
     var categoryDetail by remember { mutableStateOf<String?>(null) }
     var evidenceDetail by remember { mutableStateOf<StatementClassified?>(null) }
@@ -110,6 +111,11 @@ internal fun StatementIntelligenceDashboard(
     var bridgeScanning by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
+    var chosenOverviewYear by remember { mutableStateOf<Int?>(null) }
+    var unifiedOverview by remember { mutableStateOf<StatementUnifiedOverviewPolicy.Overview?>(null) }
+    var unifiedLoading by remember { mutableStateOf(false) }
+    var unifiedError by remember { mutableStateOf(false) }
+    var unifiedKey by remember { mutableStateOf<Pair<Int, Int>?>(null) }
 
     LaunchedEffect(refreshed) {
         busy = true
@@ -139,6 +145,34 @@ internal fun StatementIntelligenceDashboard(
 
     val accounts = remember(sources, bankMonthsByAccount) {
         (sources.map { it.accountId } + bankMonthsByAccount.keys).distinct()
+    }
+    val allYears = remember(sources, bankMonthsByAccount) {
+        (sources.map { it.usage.year } + bankMonthsByAccount.values.flatten()
+            .mapNotNull { it.key.substringBefore('-').toIntOrNull() })
+            .distinct().sortedDescending()
+    }
+    val overviewYear = chosenOverviewYear ?: allYears.firstOrNull()
+        ?: Calendar.getInstance(nairobiStatementZone).get(Calendar.YEAR)
+    LaunchedEffect(page, overviewYear, refreshed, busy) {
+        if (page != StatementPage.ALL_ACCOUNTS || busy || unifiedKey == (overviewYear to refreshed))
+            return@LaunchedEffect
+        unifiedLoading = true
+        unifiedError = false
+        try {
+            val result = withContext(Dispatchers.IO) {
+                val calendar = Calendar.getInstance(nairobiStatementZone).apply {
+                    clear(); set(overviewYear, Calendar.JANUARY, 1, 0, 0, 0)
+                }
+                val from = calendar.timeInMillis
+                calendar.add(Calendar.YEAR, 1)
+                val snapshot = StatementEvidenceReadModel(context).read(from, calendar.timeInMillis)
+                StatementUnifiedOverviewPolicy.project(overviewYear, snapshot.coverage)
+            }
+            unifiedOverview = result
+            unifiedKey = overviewYear to refreshed
+        } catch (e: CancellationException) { throw e }
+          catch (_: Exception) { unifiedError = true; unifiedOverview = null }
+        finally { unifiedLoading = false }
     }
     val accountId = accountSelection?.takeIf { it in accounts } ?: accounts.firstOrNull()
     val bankMonths = accountId?.let { bankMonthsByAccount[it] }.orEmpty()
@@ -198,7 +232,8 @@ internal fun StatementIntelligenceDashboard(
 
     // Preload all data for the currently selected account once; changing Day,
     // Week, Month, Year or page never triggers repeated PDF/database reads.
-    LaunchedEffect(accountId, refreshed, labelsChanged, months, bankSelected, ledgerRevision.revision) {
+    LaunchedEffect(page, accountId, refreshed, labelsChanged, months, bankSelected, ledgerRevision.revision) {
+        if (page == StatementPage.ALL_ACCOUNTS) return@LaunchedEffect
         if (accountId == null) {
             reports = emptyList()
             loadedAccount = null
@@ -265,6 +300,8 @@ internal fun StatementIntelligenceDashboard(
             showReviewHelp -> showReviewHelp = false
             importing -> importing = false
             edit != null -> edit = null
+            page == StatementPage.ALL_ACCOUNTS -> onDismiss()
+            page == StatementPage.SUMMARY -> page = StatementPage.ALL_ACCOUNTS
             page != StatementPage.SUMMARY -> {
                 val previous = if (pageHistory.isNotEmpty())
                     pageHistory.removeAt(pageHistory.lastIndex) else null
@@ -302,17 +339,58 @@ internal fun StatementIntelligenceDashboard(
                     }
                 }
                 Box(Modifier.fillMaxWidth().weight(1f)) {
-                if (dataError) {
+                if (dataError && page != StatementPage.ALL_ACCOUNTS) {
                     Column(Modifier.padding(20.dp)) {
                         Text("Could not open the saved statement report. Your financial records were not changed.",
                             color = MaterialTheme.colorScheme.error)
                         TextButton(onClick = { refreshed++ }) { Text("Try again") }
                     }
-                } else if (busy || (accountId != null && loadedAccount != accountId)) {
+                } else if (busy || (page != StatementPage.ALL_ACCOUNTS &&
+                        accountId != null && loadedAccount != accountId)) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("Preparing your saved statement report…",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium)
+                    }
+                } else if (page == StatementPage.ALL_ACCOUNTS) {
+                    if (unifiedError) {
+                        Column(Modifier.padding(20.dp)) {
+                            Text("Could not check statement coverage. Saved files were not changed.",
+                                color = MaterialTheme.colorScheme.error)
+                            TextButton(onClick = { unifiedKey = null; refreshed++ }) {
+                                Text("Try again")
+                            }
+                        }
+                    } else if (unifiedLoading || unifiedOverview == null ||
+                        unifiedOverview?.year != overviewYear) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("Checking imported statement coverage…",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        StatementUnifiedOverviewPage(
+                            overview = unifiedOverview!!,
+                            years = allYears.ifEmpty { listOf(overviewYear) },
+                            accountLabels = accountLabels,
+                            bankAccountIds = bankMonthsByAccount.keys,
+                            onSelectYear = { chosenOverviewYear = it },
+                            onSelectAccount = { id ->
+                                accountSelection = id
+                                chosenScope = StatementReportScope.Year(overviewYear)
+                                page = StatementPage.SUMMARY
+                            },
+                            onImport = { importing = true },
+                            onBack = onDismiss,
+                            onOpenReview = {
+                                unifiedOverview?.accountMonths?.firstOrNull {
+                                    it.state == StatementUnifiedOverviewPolicy.MonthState.NEEDS_REVIEW
+                                }?.let { evidence ->
+                                    accountSelection = evidence.accountId
+                                    chosenScope = StatementReportScope.Year(overviewYear)
+                                    page = StatementPage.SUMMARY
+                                }
+                            }
+                        )
                     }
                 } else if (bankSelected && accountId != null) {
                     StatementBankOverviewPage(
@@ -328,7 +406,8 @@ internal fun StatementIntelligenceDashboard(
                             page = StatementPage.SUMMARY
                         },
                         onImport = { importing = true },
-                        onBack = onDismiss
+                        onBack = { page = StatementPage.ALL_ACCOUNTS },
+                        initialYear = (chosenScope as? StatementReportScope.Year)?.value
                     )
                 } else if (months.isEmpty()) {
                     StatementEmptyLanding(
@@ -458,6 +537,7 @@ internal fun StatementIntelligenceDashboard(
                     }
 
                     when (page) {
+                        StatementPage.ALL_ACCOUNTS -> Unit
                         StatementPage.SUMMARY -> {
                             StatementOverviewPage(
                                 model = StatementInsightModels.from(
@@ -466,7 +546,7 @@ internal fun StatementIntelligenceDashboard(
                                     selectedMonths = months, categoryLabels = categoryLabels,
                                     accountRows = reports
                                 ),
-                                onBack = { back() },
+                                onBack = { page = StatementPage.ALL_ACCOUNTS },
                                 onSelectScope = { chosenScope = it },
                                 onOpenCategories = { navigate(StatementPage.CATEGORIES) },
                                 onOpenTrends = { navigate(StatementPage.TRENDS) },
