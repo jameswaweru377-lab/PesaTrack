@@ -1,15 +1,18 @@
 package com.kedevjimmy.pesatrack.security
 
 import android.content.Context
+import android.os.SystemClock
+import android.provider.Settings
 import android.util.Base64
 import java.security.MessageDigest
 import java.security.SecureRandom
-import kotlin.math.max
 import kotlin.math.min
 
 class AppLockManager(
     context: Context
 ) {
+    private val contentResolver =
+        context.applicationContext.contentResolver
     private val prefs =
         context.applicationContext
             .getSharedPreferences(
@@ -53,33 +56,37 @@ class AppLockManager(
             .remove(
                 KEY_LAST_BACKGROUND_EPOCH_MS
             )
+            .remove(KEY_LAST_BACKGROUND_ELAPSED_MS)
+            .remove(KEY_BACKGROUND_BOOT_COUNT)
             .remove(
                 KEY_FAILED_ATTEMPTS
             )
             .remove(
                 KEY_LOCKOUT_UNTIL_EPOCH_MS
             )
+            .remove(KEY_LOCKOUT_UNTIL_ELAPSED_MS)
+            .remove(KEY_LOCKOUT_BOOT_COUNT)
             .apply()
     }
 
     fun verifyPin(
         pin: String,
-        nowEpochMs: Long =
-            System.currentTimeMillis()
+        nowElapsedMs: Long =
+            SystemClock.elapsedRealtime()
     ): Boolean {
         if (!isEnabled()) {
             return true
         }
         if (
             remainingLockoutMs(
-                nowEpochMs
+                nowElapsedMs
             ) > 0L
         ) {
             return false
         }
         if (!isSupportedStoredPin(pin)) {
             recordFailedAttempt(
-                nowEpochMs
+                nowElapsedMs
             )
             return false
         }
@@ -122,7 +129,7 @@ class AppLockManager(
             }.getOrNull()
                 ?: run {
                     recordFailedAttempt(
-                        nowEpochMs
+                        nowElapsedMs
                     )
                     return false
                 }
@@ -136,23 +143,62 @@ class AppLockManager(
             clearFailedAttempts()
         } else {
             recordFailedAttempt(
-                nowEpochMs
+                nowElapsedMs
             )
         }
         return verified
     }
 
     fun remainingLockoutMs(
-        nowEpochMs: Long =
-            System.currentTimeMillis()
-    ): Long =
-        max(
-            0L,
-            prefs.getLong(
-                KEY_LOCKOUT_UNTIL_EPOCH_MS,
-                0L
-            ) - nowEpochMs
+        nowElapsedMs: Long =
+            SystemClock.elapsedRealtime()
+    ): Long {
+        val savedUntil = when {
+            prefs.contains(KEY_LOCKOUT_UNTIL_ELAPSED_MS) ->
+                prefs.getLong(KEY_LOCKOUT_UNTIL_ELAPSED_MS, 0L)
+            prefs.contains(KEY_LOCKOUT_UNTIL_EPOCH_MS) ->
+                prefs.getLong(KEY_LOCKOUT_UNTIL_EPOCH_MS, 0L)
+            else -> return 0L
+        }
+        val bootCount = currentBootCount()
+        val savedBootCount =
+            prefs.getInt(KEY_LOCKOUT_BOOT_COUNT, UNKNOWN_BOOT_COUNT)
+                .takeIf { prefs.contains(KEY_LOCKOUT_BOOT_COUNT) }
+        val window = AppLockTimingPolicy.normalizeLockout(
+            untilElapsedMs = savedUntil,
+            lockoutBootCount = savedBootCount,
+            nowElapsedMs = nowElapsedMs,
+            currentBootCount = bootCount,
+            failedAttempts = prefs.getInt(KEY_FAILED_ATTEMPTS, 0)
         )
+        if (window == null) {
+            prefs.edit()
+                .remove(KEY_LOCKOUT_UNTIL_ELAPSED_MS)
+                .remove(KEY_LOCKOUT_UNTIL_EPOCH_MS)
+                .remove(KEY_LOCKOUT_BOOT_COUNT)
+                .apply()
+            return 0L
+        }
+        if (
+            window.untilElapsedMs != savedUntil ||
+            savedBootCount != bootCount ||
+            prefs.contains(KEY_LOCKOUT_UNTIL_EPOCH_MS)
+        ) {
+            prefs.edit()
+                .putLong(KEY_LOCKOUT_UNTIL_ELAPSED_MS, window.untilElapsedMs)
+                .putInt(KEY_LOCKOUT_BOOT_COUNT, bootCount)
+                .remove(KEY_LOCKOUT_UNTIL_EPOCH_MS)
+                .apply()
+        }
+        val remaining = AppLockTimingPolicy.remainingLockoutMs(window, nowElapsedMs)
+        if (remaining == 0L) {
+            prefs.edit()
+                .remove(KEY_LOCKOUT_UNTIL_ELAPSED_MS)
+                .remove(KEY_LOCKOUT_BOOT_COUNT)
+                .apply()
+        }
+        return remaining
+    }
 
     fun disable(pin: String): Boolean {
         if (!verifyPin(pin)) {
@@ -165,17 +211,19 @@ class AppLockManager(
     }
 
     fun markBackgrounded(
-        nowEpochMs: Long =
-            System.currentTimeMillis()
+        nowElapsedMs: Long =
+            SystemClock.elapsedRealtime()
     ) {
         if (!isEnabled()) {
             return
         }
         prefs.edit()
             .putLong(
-                KEY_LAST_BACKGROUND_EPOCH_MS,
-                nowEpochMs
+                KEY_LAST_BACKGROUND_ELAPSED_MS,
+                nowElapsedMs
             )
+            .putInt(KEY_BACKGROUND_BOOT_COUNT, currentBootCount())
+            .remove(KEY_LAST_BACKGROUND_EPOCH_MS)
             .apply()
     }
 
@@ -184,37 +232,44 @@ class AppLockManager(
             .remove(
                 KEY_LAST_BACKGROUND_EPOCH_MS
             )
+            .remove(KEY_LAST_BACKGROUND_ELAPSED_MS)
+            .remove(KEY_BACKGROUND_BOOT_COUNT)
             .remove(
                 KEY_FAILED_ATTEMPTS
             )
             .remove(
                 KEY_LOCKOUT_UNTIL_EPOCH_MS
             )
+            .remove(KEY_LOCKOUT_UNTIL_ELAPSED_MS)
+            .remove(KEY_LOCKOUT_BOOT_COUNT)
             .apply()
     }
 
     fun shouldRequireUnlock(
-        nowEpochMs: Long =
-            System.currentTimeMillis()
+        nowElapsedMs: Long =
+            SystemClock.elapsedRealtime()
     ): Boolean {
         if (!isEnabled()) {
             return false
         }
-        val backgroundedAt =
-            prefs.getLong(
-                KEY_LAST_BACKGROUND_EPOCH_MS,
-                0L
-            )
-        if (backgroundedAt <= 0L) {
-            return false
+        if (prefs.contains(KEY_LAST_BACKGROUND_EPOCH_MS)) {
+            // An old wall-clock timestamp cannot safely grant an unlock grace period.
+            return true
         }
-        return nowEpochMs -
-            backgroundedAt >=
-            LOCK_GRACE_MS
+        return AppLockTimingPolicy.shouldRequireUnlock(
+            backgroundedAtElapsedMs =
+                prefs.getLong(KEY_LAST_BACKGROUND_ELAPSED_MS, 0L)
+                    .takeIf { prefs.contains(KEY_LAST_BACKGROUND_ELAPSED_MS) },
+            backgroundBootCount =
+                prefs.getInt(KEY_BACKGROUND_BOOT_COUNT, UNKNOWN_BOOT_COUNT)
+                    .takeIf { prefs.contains(KEY_BACKGROUND_BOOT_COUNT) },
+            nowElapsedMs = nowElapsedMs,
+            currentBootCount = currentBootCount()
+        )
     }
 
     private fun recordFailedAttempt(
-        nowEpochMs: Long
+        nowElapsedMs: Long
     ) {
         val attempts =
             prefs.getInt(
@@ -236,10 +291,12 @@ class AppLockManager(
             }
             ?.let { delayMs ->
                 editor.putLong(
-                    KEY_LOCKOUT_UNTIL_EPOCH_MS,
-                    nowEpochMs +
+                    KEY_LOCKOUT_UNTIL_ELAPSED_MS,
+                    nowElapsedMs +
                         delayMs
                 )
+                    .putInt(KEY_LOCKOUT_BOOT_COUNT, currentBootCount())
+                    .remove(KEY_LOCKOUT_UNTIL_EPOCH_MS)
             }
 
         editor.apply()
@@ -253,8 +310,19 @@ class AppLockManager(
             .remove(
                 KEY_LOCKOUT_UNTIL_EPOCH_MS
             )
+            .remove(KEY_LOCKOUT_UNTIL_ELAPSED_MS)
+            .remove(KEY_LOCKOUT_BOOT_COUNT)
             .apply()
     }
+
+    private fun currentBootCount(): Int =
+        runCatching {
+            Settings.Global.getInt(
+                contentResolver,
+                Settings.Global.BOOT_COUNT,
+                UNKNOWN_BOOT_COUNT
+            )
+        }.getOrDefault(UNKNOWN_BOOT_COUNT)
 
     companion object {
         const val PREFS_NAME =
@@ -266,16 +334,23 @@ class AppLockManager(
             "app_lock_pin_salt"
         private const val KEY_LAST_BACKGROUND_EPOCH_MS =
             "last_background_epoch_ms"
+        private const val KEY_LAST_BACKGROUND_ELAPSED_MS =
+            "last_background_elapsed_ms"
+        private const val KEY_BACKGROUND_BOOT_COUNT =
+            "background_boot_count"
         private const val KEY_FAILED_ATTEMPTS =
             "failed_pin_attempts"
         private const val KEY_LOCKOUT_UNTIL_EPOCH_MS =
             "pin_lockout_until_epoch_ms"
+        private const val KEY_LOCKOUT_UNTIL_ELAPSED_MS =
+            "pin_lockout_until_elapsed_ms"
+        private const val KEY_LOCKOUT_BOOT_COUNT =
+            "lockout_boot_count"
+        private const val UNKNOWN_BOOT_COUNT = Int.MIN_VALUE
 
         private const val SALT_BYTES = 16
         private const val KEY_BITS = 256
         private const val ITERATIONS = 120_000
-        private const val LOCK_GRACE_MS =
-            30_000L
         private const val NEW_PIN_MIN_LENGTH = 6
         private const val MAX_PIN_LENGTH = 8
         private const val LEGACY_PIN_MIN_LENGTH = 4
