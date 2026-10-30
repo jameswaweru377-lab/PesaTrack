@@ -2,6 +2,19 @@
 
 _Last refreshed: 20 October 2026_
 
+_Statements ↔ Activity evidence milestone (30 October 2026; pending PR CI/device verification):_
+The existing imported-statement coverage, cash overview and canonical Activity
+ledger remain independent. A new opt-in read-only correlation snapshot can now
+compare strictly original SMS/notification cash observations against independently
+archived M-Pesa and bank statement legs. It groups verified copies of the same
+account cash leg before proposing an exact-reference, opposite-leg own-account
+transfer; conflicting copies, protected roles, missing bank references and
+unverified source totals never authorize a transfer or Activity mutation.
+Statement-import and manual ledger entries cannot circularly corroborate their
+own PDF. This does not add a UI review action, persist links, synchronize bank
+categories or build final combined Insights totals. Real-device acceptance and
+Android CI verification must be recorded separately.
+
 _Targeted security update (29 October 2026, pending CI and device verification):_
 App-lock background grace and PIN lockout now use boot-scoped monotonic elapsed time,
 not the user-adjustable wall clock. A prior-boot background marker requires unlock;

@@ -2,6 +2,8 @@ package com.kedevjimmy.pesatrack.data.local
 
 import android.content.Context
 import com.kedevjimmy.pesatrack.domain.model.AccountType
+import com.kedevjimmy.pesatrack.domain.statements.StatementActivityObservationPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementCrossSourceEventPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementEvidenceCorrelationPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementSourceCoveragePolicy
 
@@ -19,6 +21,62 @@ class StatementEvidenceReadModel(context: Context) {
         val representedAccounts: Set<String>,
         val representedSources: Set<String>
     )
+
+    /**
+     * An opt-in cross-product proof preview, separate from the regular
+     * Statements coverage and gross cash totals. No ledger or archive writes.
+     */
+    data class ActivityEvidenceSnapshot(
+        val statements: Snapshot,
+        val originalActivityMessages: List<StatementEvidenceCorrelationPolicy.Observation>,
+        val eventProof: StatementCrossSourceEventPolicy.Result
+    )
+
+    /**
+     * For future Insights/review consumers. In contrast to
+     * activitySnapshotBetween(), this uses the Activity store's raw read-only
+     * range query and never triggers its maintenance/reclassification path.
+     */
+    fun readWithActivityEvidence(
+        startInclusive: Long,
+        endExclusive: Long,
+        accountFilter: String? = null
+    ): ActivityEvidenceSnapshot {
+        val statements = read(startInclusive, endExclusive, accountFilter)
+        val confirmed = FinancialUnderstandingStore.get(app).confirmedAccountIds() +
+            AccountOwnershipConsentStore(app).confirmedRevisions().keys
+        val owned = EverydayMoneyStore(app).ownedAccounts().filter {
+            it.enabled && it.id in confirmed &&
+                (accountFilter == null || it.id == accountFilter) &&
+                it.type in setOf(AccountType.BANK, AccountType.MOBILE_WALLET)
+        }.map { it.id }.toSet()
+        val activity = synchronized(CanonicalStoreLock.monitor) {
+            TransactionStore.get(app).transactionsBetween(startInclusive, endExclusive)
+        }
+        require(activity.size + statements.observations.size <= 20_000) {
+            "This evidence range is too large. Choose a shorter period."
+        }
+        val messages = StatementActivityObservationPolicy.project(activity.map { row ->
+            StatementActivityObservationPolicy.ActivityLeg(
+                transactionId = row.id, accountId = row.accountId,
+                sourceKind = row.sourceKind, type = row.type,
+                direction = row.direction, currency = "KES",
+                amountMinor = row.amountMinor, occurredAt = row.occurredAtEpochMs,
+                reference = row.transactionCode, reviewState = row.reviewState,
+                category = row.category,
+                structurallyLinked = row.linkedAccountId != null ||
+                    row.relationType != null || row.relatedTransactionId != null,
+                reversalOfCode = row.reversalOfCode
+            )
+        }, owned)
+        return ActivityEvidenceSnapshot(
+            statements = statements,
+            originalActivityMessages = messages,
+            eventProof = StatementCrossSourceEventPolicy.reconcile(
+                statements.observations + messages, owned
+            )
+        )
+    }
 
     /** Bounded [startInclusive, endExclusive) source view; call on a worker thread. */
     fun read(startInclusive: Long, endExclusive: Long, accountFilter: String? = null): Snapshot {
