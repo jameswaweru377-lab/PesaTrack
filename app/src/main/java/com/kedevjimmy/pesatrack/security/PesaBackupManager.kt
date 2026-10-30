@@ -47,6 +47,12 @@ data class BackupPreview(
     val statementHistoryIncluded: Boolean = false
 )
 
+/** Only a file matching these previously approved encrypted bytes can be restored. */
+class VerifiedBackupFile internal constructor(
+    val preview: BackupPreview,
+    internal val identity: EncryptedBackupIdentity
+)
+
 class PesaBackupManager(
     context: Context
 ) {
@@ -144,6 +150,25 @@ class PesaBackupManager(
                 readEncryptedBackup(uri),
             passphrase = passphrase
         )
+    }
+
+    fun previewEncryptedForRestore(uri: Uri, passphrase: String): VerifiedBackupFile {
+        requirePassphrase(passphrase)
+        val encrypted = readEncryptedBackup(uri)
+        return VerifiedBackupFile(
+            preview = previewEncryptedBytes(encrypted, passphrase),
+            identity = EncryptedBackupIdentity.fromEncrypted(encrypted)
+        )
+    }
+
+    /** Re-read once, reject changed documents before mutation, then restore those exact bytes. */
+    fun restoreApprovedFile(uri: Uri, passphrase: String, approved: VerifiedBackupFile): RestoreSummary {
+        requirePassphrase(passphrase)
+        val encrypted = readEncryptedBackup(uri)
+        require(approved.identity.matches(encrypted)) {
+            "This backup changed after preview. Select and review the file again before restoring."
+        }
+        return restoreEncryptedBytes(encrypted, passphrase)
     }
 
     internal fun exportEncryptedBytes(
