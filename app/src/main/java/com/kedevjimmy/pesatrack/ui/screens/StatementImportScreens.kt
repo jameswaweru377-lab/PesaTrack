@@ -43,6 +43,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.SecureFlagPolicy
 import com.kedevjimmy.pesatrack.documents.OfflineMpesaPdfReader
 import com.kedevjimmy.pesatrack.documents.OfflineBankTableReader
+import com.kedevjimmy.pesatrack.domain.statements.BankStatementAccountIdentityUiPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementAdmissionResult
 import com.kedevjimmy.pesatrack.domain.statements.StatementBankAdmission
 import com.kedevjimmy.pesatrack.domain.statements.StatementSourceProfileRegistry
@@ -80,7 +81,14 @@ private fun readStatement(c:Context,uri:Uri):String {
  var dateResult by remember {mutableStateOf<StatementDateSelection?>(null)}
  var preparing by remember {mutableStateOf<StatementImportSelection?>(null)}
  var reading by remember {mutableStateOf(false)};var importing by remember {mutableStateOf(false)}
- val busy=reading||importing||preparing!=null
+ var savingBankAccountNumber by remember {mutableStateOf(false)}
+ var bankAccountNumberDraft by remember {mutableStateOf("")}
+ var bankAccountEditingId by remember {mutableStateOf<String?>(null)}
+ val busy=reading||importing||preparing!=null||savingBankAccountNumber
+ val selectedBankAccount=accounts.firstOrNull{it.id==accountId&&it.type==AccountType.BANK}
+ val bankAccountNumberReady=selectedBankAccount?.let {
+  BankStatementAccountIdentityUiPolicy.hasFullNumber(it.identifier)
+ } ?: false
  val selected=remember {mutableStateMapOf<Int,Boolean>()};var error by remember {mutableStateOf<String?>(null)};var dateError by remember {mutableStateOf<String?>(null)};var done by remember {mutableStateOf<String?>(null)}
  fun invalidatePreview() {stagedPdf=null;stagedBankPdf=null;statementPdfApproved=false;previewSource=null;preview=emptyList();dateResult=null;selected.clear();error=null;dateError=null;done=null}
  LaunchedEffect(Unit){try{accounts=withContext(Dispatchers.IO){store.ownedAccounts()}.filter {it.type==AccountType.BANK||it.type==AccountType.MOBILE_WALLET}}catch(e:CancellationException){throw e}catch(e:Exception){error="Could not load accounts."}}
@@ -134,8 +142,51 @@ private fun readStatement(c:Context,uri:Uri):String {
       Text("01 · Source account",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
      }
      Text("Select the account that appears on your statement.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     ChoiceField("Account",accounts.firstOrNull{it.id==accountId}?.name ?: "Choose account",accounts.map {it.id to it.name},!busy&&stagedPdf==null&&stagedBankPdf==null&&sourcePdfUri==null){if(accountId!=it){invalidatePreview();accountId=it}}
+     ChoiceField("Account",accounts.firstOrNull{it.id==accountId}?.name ?: "Choose account",accounts.map {it.id to it.name},!busy&&stagedPdf==null&&stagedBankPdf==null&&sourcePdfUri==null){if(accountId!=it){invalidatePreview();bankAccountNumberDraft="";bankAccountEditingId=null;accountId=it}}
      if(accountId.isEmpty()) Text("Choose a confirmed account before reviewing transactions.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     selectedBankAccount?.let { bank ->
+      if(!bankAccountNumberReady || bankAccountEditingId==bank.id) {
+       Text("Complete bank account number required for PDF import. Enter the full number printed on your bank statement; the last four digits are not enough.",
+        style=MaterialTheme.typography.bodySmall,color=if(bankAccountNumberReady)MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
+       OutlinedTextField(
+        value=bankAccountNumberDraft,onValueChange={bankAccountNumberDraft=it.take(64)},
+        label={Text("Full bank account number")},singleLine=true,
+        visualTransformation=PasswordVisualTransformation(),
+        keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.NumberPassword),
+        isError=bankAccountNumberDraft.isNotEmpty() && BankStatementAccountIdentityUiPolicy.normalizeFullNumber(bankAccountNumberDraft)==null,
+        supportingText={Text("8–20 digits. Saved only on this device; never uploaded for verification.")},
+        modifier=Modifier.fillMaxWidth()
+       )
+       Button(onClick={
+        val target=bank.id
+        val fullNumber=BankStatementAccountIdentityUiPolicy.normalizeFullNumber(bankAccountNumberDraft)
+         ?:return@Button
+        savingBankAccountNumber=true;error=null
+        scope.launch {
+         try {
+          val refreshed=withContext(Dispatchers.IO){
+           AccountStore.get(c).updateIdentifier(target,fullNumber)
+           store.ownedAccounts().filter{it.type==AccountType.BANK||it.type==AccountType.MOBILE_WALLET}
+          }
+          if(accountId==target) {
+           accounts=refreshed;bankAccountNumberDraft="";bankAccountEditingId=null
+           // Identity metadata does not change an already-reviewed CSV's rows or date selection.
+           done="Bank account number saved on this device. You can now choose the bank PDF."
+          }
+         }catch(e:CancellationException){throw e}
+         catch(e:Exception){error="Could not save the bank account number. Please try again."}
+         finally{savingBankAccountNumber=false}
+        }
+       },enabled=!busy&&stagedPdf==null&&stagedBankPdf==null&&sourcePdfUri==null&&
+        BankStatementAccountIdentityUiPolicy.normalizeFullNumber(bankAccountNumberDraft)!=null,
+        modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {Text("Save bank account number")}
+      } else {
+       Text("A complete bank account number is saved on this device for PDF verification.",
+        style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+       TextButton(onClick={bankAccountNumberDraft="";bankAccountEditingId=bank.id},
+        enabled=!busy&&stagedBankPdf==null&&sourcePdfUri==null){Text("Change account number")}
+      }
+     }
     }
    }
   }
@@ -176,7 +227,7 @@ private fun readStatement(c:Context,uri:Uri):String {
      if(accounts.any{it.id==accountId&&it.type==AccountType.BANK}) {
       StatementSourceProfileRegistry.importableBankProfiles().forEach { profile ->
        OutlinedButton(onClick={sourcePdfProviderKey=profile.providerKey;statementPdfPicker.launch(arrayOf("application/pdf"))},
-        enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
+        enabled=!busy&&bankAccountNumberReady,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
         Icon(Icons.Rounded.AccountBalance,null);Spacer(Modifier.width(8.dp));Text("Choose ${profile.label} PDF")
        }
       }
@@ -408,7 +459,7 @@ private fun readStatement(c:Context,uri:Uri):String {
         confirmed,providerKey,prepared.document,prepared.tables
        )
        val accepted=admission as? StatementAdmissionResult.Accepted
-        ?:error("This bank statement was blocked: ${(admission as StatementAdmissionResult.Blocked).reason}. Nothing was saved.")
+        ?:error(BankStatementAccountIdentityUiPolicy.safeBlockedMessage((admission as StatementAdmissionResult.Blocked).reason))
        stagedBankPdf=StagedBankPdf(prepared,accepted)
        done="This bank statement passed full local extraction, account, balance and totals checks. Review its rows before saving."
       }
