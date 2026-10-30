@@ -291,6 +291,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun canUseBiometrics(): Boolean {
+        if (!appLockManager.isBiometricUnlockEnabled()) return false
         if (
             Build.VERSION.SDK_INT <
             Build.VERSION_CODES.P

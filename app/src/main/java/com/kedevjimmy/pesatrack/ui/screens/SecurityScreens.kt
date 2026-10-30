@@ -403,7 +403,7 @@ fun AppLockSettingsSheet(
             )
             Text(
                 if (enabled) {
-                    "A PIN is required after PesaTrack has been in the background for 30 seconds. You can also use device biometrics where available."
+                    "A PIN is required after your chosen background lock delay. You can also use device biometrics where available."
                 } else {
                     "Add a 6–8 digit local PIN so opening PesaTrack requires authentication after it has been in the background."
                 },

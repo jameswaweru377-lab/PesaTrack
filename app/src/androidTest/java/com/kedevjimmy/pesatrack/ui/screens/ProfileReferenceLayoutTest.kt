@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
@@ -35,7 +36,7 @@ class ProfileReferenceLayoutTest {
     }
 
     @Test
-    fun profileShowsEveryApprovedDestinationAndLocalDataNote() {
+    fun profileKeepsApprovedDestinationsWithoutFinancialOrSettingsDuplicates() {
         showProfile()
 
         listOf(
@@ -43,12 +44,12 @@ class ProfileReferenceLayoutTest {
             "Account security",
             "Notifications",
             "Appearance",
-            "Financial overview",
             "Help & support",
             "About PesaTrack",
-            "More settings",
             "Stored on this phone"
-        ).forEach { compose.onNodeWithText(it).assertIsDisplayed() }
+        ).forEach { compose.onNodeWithText(it).assertExists() }
+        compose.onNodeWithText("Financial overview").assertDoesNotExist()
+        compose.onNodeWithText("More settings").assertDoesNotExist()
     }
 
     @Test
@@ -62,6 +63,21 @@ class ProfileReferenceLayoutTest {
 
         compose.onNodeWithText("Personal information").performClick()
         compose.onNodeWithText("Your name").assertIsDisplayed()
-        compose.onNodeWithText("Save details").assertIsDisplayed()
+        compose.onNodeWithText("Choose photo").assertIsDisplayed()
+        compose.onNodeWithText("Save details").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun securityAndHelpHaveRealDestinations() {
+        showProfile()
+        compose.onNodeWithText("Account security").performScrollTo().performClick()
+        compose.onNodeWithText("App lock & security").assertIsDisplayed()
+        compose.onNodeWithText("App lock PIN").assertIsDisplayed()
+        compose.onNodeWithText("Unlock with biometrics").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithText("Help & support").performScrollTo().performClick()
+        compose.onNodeWithText("Search help topics").assertIsDisplayed()
+        compose.onNodeWithText("Guided troubleshooting").performClick()
+        compose.onNodeWithText("Check missing money updates").assertIsDisplayed()
     }
 }

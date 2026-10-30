@@ -16,12 +16,13 @@ internal object AppLockTimingPolicy {
         backgroundedAtElapsedMs: Long?,
         backgroundBootCount: Int?,
         nowElapsedMs: Long,
-        currentBootCount: Int
+        currentBootCount: Int,
+        graceMs: Long = LOCK_GRACE_MS
     ): Boolean {
         if (backgroundedAtElapsedMs == null) return false
         return backgroundBootCount != currentBootCount ||
             nowElapsedMs < backgroundedAtElapsedMs ||
-            nowElapsedMs - backgroundedAtElapsedMs >= LOCK_GRACE_MS
+            nowElapsedMs - backgroundedAtElapsedMs >= graceMs.coerceIn(0L, 60_000L)
     }
 
     /** A deadline from an earlier boot (or old wall-clock format) cannot be trusted. */
