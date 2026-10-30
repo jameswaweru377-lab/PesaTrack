@@ -87,6 +87,8 @@ The public enrichment Worker is rate limited, and provider credentials remain se
 ## Release and security documents
 
 - [Current engineering state](CURRENT_STATE.md)
+- [Current design standard](DESIGN.md)
+- [Whole-system audit remediation tracker](docs/AUDIT_REMEDIATION_TRACKER.md)
 - [Security policy](SECURITY.md)
 - [Contributing rules](CONTRIBUTING.md)
 - [Privacy policy source — pre-release review](docs/PRIVACY_POLICY.md)
