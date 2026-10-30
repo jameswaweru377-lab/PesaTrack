@@ -148,10 +148,11 @@ class StatementCrossSourceEventPolicyTest {
     @Test fun feeAndPrincipalWithSameReferenceRemainSeparate() {
         val result = StatementCrossSourceEventPolicy.reconcile(listOf(
             observation("bank-principal", StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT,
-                account = "bank", movement = -5_000L),
+                account = "bank", movement = -5_000L, documentId = "bank-file"),
             observation("bank-fee", StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT,
-                account = "bank", movement = -200L),
-            observation("wallet-credit", StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT)
+                account = "bank", movement = -200L, documentId = "bank-file"),
+            observation("wallet-credit", StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT,
+                documentId = "wallet-file")
         ), owned)
         assertEquals(1, result.transferCandidates.size)
         assertEquals(setOf("bank-principal"), result.transferCandidates.single().outgoingIds)
