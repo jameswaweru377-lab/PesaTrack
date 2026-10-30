@@ -11,12 +11,10 @@ import org.junit.Test
 class BackupRestoreStateViewModelTest {
     @Test fun pendingSavePassphraseSurvivesViewRecreationWithoutSavedInstanceState() {
         val store = ViewModelStore()
-        val first = ViewModelProvider(store, ViewModelProvider.NewInstanceFactory())
-            [BackupRestoreStateViewModel::class.java]
+        val first = ViewModelProvider(store, ViewModelProvider.NewInstanceFactory())[BackupRestoreStateViewModel::class.java]
         first.pendingCreatePassphrase.value = "temporary-secret-only-in-memory"
 
-        val recreated = ViewModelProvider(store, ViewModelProvider.NewInstanceFactory())
-            [BackupRestoreStateViewModel::class.java]
+        val recreated = ViewModelProvider(store, ViewModelProvider.NewInstanceFactory())[BackupRestoreStateViewModel::class.java]
 
         assertSame(first, recreated)
         assertEquals("temporary-secret-only-in-memory", recreated.pendingCreatePassphrase.value)
@@ -36,12 +34,10 @@ class BackupRestoreStateViewModelTest {
 
     @Test fun recreatedScreenCannotStartAnotherRestoreWhileOriginalIsRunning() {
         val store = ViewModelStore()
-        val first = ViewModelProvider(store, ViewModelProvider.NewInstanceFactory())
-            [BackupRestoreStateViewModel::class.java]
+        val first = ViewModelProvider(store, ViewModelProvider.NewInstanceFactory())[BackupRestoreStateViewModel::class.java]
         assertTrue(first.claimRestore())
 
-        val recreated = ViewModelProvider(store, ViewModelProvider.NewInstanceFactory())
-            [BackupRestoreStateViewModel::class.java]
+        val recreated = ViewModelProvider(store, ViewModelProvider.NewInstanceFactory())[BackupRestoreStateViewModel::class.java]
         assertFalse(recreated.claimRestore())
         assertTrue(recreated.busy.value)
         first.finishRestoreJob()
