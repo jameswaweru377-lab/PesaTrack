@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -13,6 +14,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -60,10 +63,28 @@ internal fun EverydayRow(icon: androidx.compose.ui.graphics.vector.ImageVector, 
     }
 }
 @Composable
-internal fun ChoiceSwitch(title: String, description: String, checked: Boolean, change: (Boolean) -> Unit) {
-    PesaCard { Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+internal fun ChoiceSwitch(title: String, description: String, checked: Boolean, enabled: Boolean = true, change: (Boolean) -> Unit) {
+    PesaCard { Row(
+        Modifier.fillMaxWidth().toggleable(value = checked, enabled = enabled, role = Role.Switch,
+            onValueChange = change).padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Column(Modifier.weight(1f).padding(end = 12.dp)) { Text(title, style = MaterialTheme.typography.titleMedium); Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        Switch(checked = checked, onCheckedChange = change)
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            enabled = enabled,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Color(0xFF7027E8),
+                checkedBorderColor = Color(0xFF7027E8),
+                uncheckedThumbColor = Color(0xFF604C8B),
+                uncheckedTrackColor = Color(0xFFE5DDF5),
+                uncheckedBorderColor = Color(0xFF8774A7),
+                disabledUncheckedTrackColor = Color(0xFFE5E1EB),
+                disabledUncheckedThumbColor = Color(0xFF8D849B)
+            )
+        )
     } }
 }
 @Composable
@@ -193,14 +214,5 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
             TextButton(onClick = { smart.resetDiscovery() }) { Text("Show the They Owe Me tip again") }
         }
         item { Text("Amounts are hidden on the lock screen. You can turn each reminder off here or in Android settings.", style = MaterialTheme.typography.bodyMedium) }
-    }
-}
-@Composable
-internal fun HelpPage(padding: PaddingValues, back: () -> Unit, advanced: () -> Unit, title: String = "Help") {
-    EverydayPage(title, padding, back) {
-        item { Text("Missing transactions?", style = MaterialTheme.typography.titleMedium); Text("Check Money message access, then add past transactions. PesaTrack ignores duplicates. Bank-app updates begin after you approve the app.") }
-        item { Text("A balance looks wrong?", style = MaterialTheme.typography.titleMedium); Text("Open the account to check its latest balance and date. Older messages may be missing. An estimate is not a live bank balance.") }
-        item { Text("Sorting needs a correction?", style = MaterialTheme.typography.titleMedium); Text("Open a transaction in Activity to change its category or confirm which account it belongs to.") }
-        item { EverydayRow(Icons.Rounded.Build, "Advanced troubleshooting", "Message tests and repair tools", advanced) }
     }
 }

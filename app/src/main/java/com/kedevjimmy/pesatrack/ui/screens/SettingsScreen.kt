@@ -25,22 +25,34 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
     onSmartRulesClick: () -> Unit, onHistoricalImportClick: () -> Unit, onAdvancedClick: () -> Unit = {}) {
     val context = LocalContext.current
     var page by rememberSaveable { mutableStateOf("settings") }
+    var accessReturnPage by rememberSaveable { mutableStateOf("settings") }
+    var privacyReturnPage by rememberSaveable { mutableStateOf("settings") }
     var lock by remember { mutableStateOf(false) }
     var backup by rememberSaveable { mutableStateOf(false) }
     val back = { page = "settings" }
-    BackHandler(enabled = page != "settings", onBack = { if (page == "archive_files") page = "privacy" else back() })
+    BackHandler(enabled = page != "settings", onBack = {
+        page = when (page) {
+            "archive_files" -> "privacy"
+            "privacy" -> privacyReturnPage
+            "access" -> accessReturnPage
+            else -> "settings"
+        }
+    })
     if (lock) AppLockSettingsSheet(onDismiss = { lock = false }, onChanged = {})
     if (backup) BackupRestoreSheet(onDismiss = { backup = false })
     when (page) {
         "appearance" -> AppearancePage(scaffoldPadding, themeMode, onThemeModeChange, back)
-        "privacy" -> PrivacyPage(scaffoldPadding, back, { page = "access" }, { page = "archive_files" })
+        "privacy" -> PrivacyPage(scaffoldPadding, { page = privacyReturnPage },
+            { accessReturnPage = "privacy"; page = "access" }, { page = "archive_files" })
         "archive_files" -> StatementArchivePrivacyPage(scaffoldPadding, { page = "privacy" })
         "terms" -> LegalInformationPage(scaffoldPadding, back, LegalNotice.TERMS)
         "legal_privacy" -> LegalInformationPage(scaffoldPadding, back, LegalNotice.PRIVACY)
         "financial_notice" -> LegalInformationPage(scaffoldPadding, back, LegalNotice.FINANCIAL)
-        "access" -> MoneyAccessPage(scaffoldPadding, back, onHistoricalImportClick)
+        "access" -> MoneyAccessPage(scaffoldPadding, { page = accessReturnPage }, onHistoricalImportClick)
         "reminders" -> RemindersPage(scaffoldPadding, back)
-        "help" -> HelpPage(scaffoldPadding, back, onAdvancedClick)
+        "help" -> HelpPage(scaffoldPadding, back, onAdvancedClick,
+            onMoneyAccess = { accessReturnPage = "help"; page = "access" },
+            onPrivacy = { privacyReturnPage = "help"; page = "privacy" })
         "about" -> EverydayPage("About PesaTrack", scaffoldPadding, back) {
             item { Text("PesaTrack helps you understand your spending, savings and bills from money messages on this phone.") }
             item { Text("Version " + com.kedevjimmy.pesatrack.BuildConfig.VERSION_NAME) }
@@ -59,7 +71,7 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
                         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                             Text(context.getSharedPreferences("pesatrack_preferences", 0).getString("profile_name", "").orEmpty().ifBlank { "Your profile" },
                                 style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Personal details and money progress", style = MaterialTheme.typography.bodySmall,
+                            Text("Personal details and profile security", style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -77,9 +89,9 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
                 }
             }
             item { SettingsGroup {
-                SettingsCompactRow(Icons.Rounded.Security, "Privacy", "Your data and your choices") { page = "privacy" }
+                SettingsCompactRow(Icons.Rounded.Security, "Privacy", "Your data and your choices") { privacyReturnPage = "settings"; page = "privacy" }
                 SettingsCompactRow(Icons.Rounded.Info, "Privacy Policy", "Pre-release policy and personal-data rights") { page = "legal_privacy" }
-                SettingsCompactRow(Icons.Rounded.Message, "Money message access", "SMS history and bank-app updates") { page = "access" }
+                SettingsCompactRow(Icons.Rounded.Message, "Money message access", "SMS history and bank-app updates") { accessReturnPage = "settings"; page = "access" }
                 SettingsCompactRow(Icons.Rounded.Lock, "App lock", "Protect PesaTrack with a PIN") { lock = true }
                 SettingsCompactRow(Icons.Rounded.Backup, "Backup & restore", "Encrypted backup stored where you choose") { backup = true }
             } }

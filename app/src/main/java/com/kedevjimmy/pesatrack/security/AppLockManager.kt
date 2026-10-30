@@ -24,6 +24,28 @@ class AppLockManager(
         prefs.contains(KEY_PIN_HASH) &&
             prefs.contains(KEY_PIN_SALT)
 
+    /** Biometrics are optional; the PIN remains the required recovery path. */
+    fun isBiometricUnlockEnabled(): Boolean =
+        prefs.getBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, true)
+
+    fun setBiometricUnlockEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, enabled).apply()
+    }
+
+    /** Existing installations continue to use the previous 30-second grace by default. */
+    fun backgroundLockGraceMs(): Long = when (
+        prefs.getLong(KEY_BACKGROUND_LOCK_GRACE_MS, AppLockTimingPolicy.LOCK_GRACE_MS)
+    ) {
+        0L -> 0L
+        60_000L -> 60_000L
+        else -> AppLockTimingPolicy.LOCK_GRACE_MS
+    }
+
+    fun setBackgroundLockGraceMs(graceMs: Long) {
+        require(graceMs == 0L || graceMs == 30_000L || graceMs == 60_000L)
+        prefs.edit().putLong(KEY_BACKGROUND_LOCK_GRACE_MS, graceMs).apply()
+    }
+
     fun setPin(pin: String) {
         requireValidPin(pin)
         val salt =
@@ -264,7 +286,8 @@ class AppLockManager(
                 prefs.getInt(KEY_BACKGROUND_BOOT_COUNT, UNKNOWN_BOOT_COUNT)
                     .takeIf { prefs.contains(KEY_BACKGROUND_BOOT_COUNT) },
             nowElapsedMs = nowElapsedMs,
-            currentBootCount = currentBootCount()
+            currentBootCount = currentBootCount(),
+            graceMs = backgroundLockGraceMs()
         )
     }
 
@@ -332,6 +355,8 @@ class AppLockManager(
             "app_lock_pin_hash"
         private const val KEY_PIN_SALT =
             "app_lock_pin_salt"
+        private const val KEY_BIOMETRIC_UNLOCK_ENABLED = "biometric_unlock_enabled"
+        private const val KEY_BACKGROUND_LOCK_GRACE_MS = "background_lock_grace_ms"
         private const val KEY_LAST_BACKGROUND_EPOCH_MS =
             "last_background_epoch_ms"
         private const val KEY_LAST_BACKGROUND_ELAPSED_MS =

@@ -2,6 +2,20 @@
 
 _Last refreshed: 20 October 2026_
 
+_Profile refinement (30 October 2026; branch review, CI and device checks pending):_
+The approved Profile hierarchy retains the purple hero and local-only identity while
+removing duplicate financial mini-stats, Financial overview and More settings.
+Personal information now offers a bounded local photo-picker/crop/replace/remove
+flow with emoji fallback; names and optional emails keep their existing local
+preferences. Account security exposes PIN management, an opt-out for biometric
+unlock and an explicit 0/30/60-second background lock interval, preserving the
+30-second default and secure-screen protection. Reminders retain their existing
+stores with higher-contrast accessible switches. Help now offers searchable
+topics and read-only permission checks alongside the existing diagnostics route.
+Pure Kotlin crop/timing smoke checks pass; Android CI and manual photo/lock/large-
+text validation are not yet claimed. No statement, budget, backup or ledger logic
+was changed in this refinement.
+
 _Bank PDF account setup UX (30 October 2026; pending PR CI/device verification):_
 Statement Import now identifies a missing/incomplete bank account number before PDF
 selection and lets the user provide the complete number to their existing selected
