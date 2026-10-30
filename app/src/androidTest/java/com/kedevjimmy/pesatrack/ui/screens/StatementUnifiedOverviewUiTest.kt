@@ -30,7 +30,7 @@ class StatementUnifiedOverviewUiTest {
             safeMoneyOutMinor = if (review) null else 3_000L
         )
 
-    @Test fun allAccountLandingShowsCoverageNotInventedMoneyTotals() {
+    @Test fun allAccountLandingShowsCoverageAndWithholdsUncertainCashTotals() {
         val overview = StatementUnifiedOverviewPolicy.project(2026, listOf(
             coverage("wallet", "2026-08"), coverage("equity", "2026-08", review = true)
         ))
@@ -46,11 +46,28 @@ class StatementUnifiedOverviewUiTest {
         } }
         compose.onNodeWithTag("statements-unified-overview").assertExists()
         compose.onNodeWithText("2 accounts on file").assertExists()
-        compose.onNodeWithText("Money in").assertDoesNotExist()
-        compose.onNodeWithText("Money out").assertDoesNotExist()
+        compose.onNodeWithText("Money in").assertExists()
+        compose.onNodeWithText("Money out").assertExists()
+        compose.onNodeWithText("Amounts on hold · review overlaps").assertExists()
+        compose.onNodeWithText("PesaTrack").assertDoesNotExist()
         compose.onNodeWithContentDescription("Equity Bank, Aug 2026: Needs review").assertExists()
         compose.onNodeWithContentDescription("Equity Bank, Aug 2026: Needs review").performClick()
         assertEquals("equity", selected)
+    }
+
+    @Test fun allAccountLandingShowsVerifiedCashMovementsFromImportsOnly() {
+        val overview = StatementUnifiedOverviewPolicy.project(2026, listOf(
+            coverage("wallet", "2026-08"), coverage("equity", "2026-09")
+        ))
+        compose.setContent { PesaTrackTheme {
+            StatementUnifiedOverviewPage(overview, listOf(2026), emptyMap(), setOf("equity"),
+                onSelectYear = {}, onSelectAccount = {}, onImport = {}, onBack = {})
+        } }
+        compose.onNodeWithText("Money in").assertExists()
+        compose.onNodeWithText("Money out").assertExists()
+        compose.onNodeWithText("KES 400").assertExists()
+        compose.onNodeWithText("KES 60").assertExists()
+        compose.onNodeWithText("Gross account movements · includes own transfers").assertExists()
     }
 
     @Test fun emptyHistoryInvitesImportWithoutMockFinancialValues() {
