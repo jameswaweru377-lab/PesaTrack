@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.security
 import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.data.local.AccountStore
@@ -18,6 +19,7 @@ import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
 
 /** Synthetic statement rows only; never put a real receipt or statement in tests. */
 @RunWith(AndroidJUnit4::class)
@@ -159,6 +161,34 @@ class StatementArchiveBackupIntegrationTest {
         assertEquals(2, store.lines(batchId).size)
         val ledger = PesaTrackDatabase.get(app).readableDatabase
         assertEquals(0L, ledger.compileStatement("SELECT count(*) FROM transactions").simpleQueryForLong())
+    }
+
+    @Test fun restoreRefusesValidButSwappedFileAfterTheUserReviewedAnotherBackup() {
+        seedArchive()
+        val selectedFile = File(app.cacheDir, "invented-approved-backup.ptb")
+        try {
+            val approvedBytes = manager.exportEncryptedBytes(password)
+            selectedFile.writeBytes(approvedBytes)
+            val uri = Uri.fromFile(selectedFile)
+            val approved = manager.previewEncryptedForRestore(uri, password)
+            assertEquals(2, approved.preview.statementRows)
+
+            clearStatementArchive()
+            // A different, still valid and correctly encrypted .ptb file is substituted.
+            selectedFile.writeBytes(manager.exportEncryptedBytes(password))
+            val rejected = runCatching {
+                manager.restoreApprovedFile(uri, password, approved)
+            }.exceptionOrNull()
+            assertTrue(rejected is IllegalArgumentException)
+            assertTrue(StatementActivityStore(app).batches().isEmpty())
+
+            // Only the original, user-reviewed encrypted file may restore those rows.
+            selectedFile.writeBytes(approvedBytes)
+            assertEquals(2, manager.restoreApprovedFile(uri, password, approved).statementRows)
+            assertEquals(1, StatementActivityStore(app).batches().size)
+        } finally {
+            selectedFile.delete()
+        }
     }
 
     @Test fun v4LiveArchiveMigratesToV5WithoutRewritingLegacyEvidence() {

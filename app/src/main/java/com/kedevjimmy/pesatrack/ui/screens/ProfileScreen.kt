@@ -319,7 +319,7 @@ private fun ProfileSecurityPage(
     var grace by remember(changed) { mutableLongStateOf(manager.backgroundLockGraceMs()) }
     val available = remember(context) { profileBiometricsAvailable(context) }
     var lock by remember { mutableStateOf(false) }
-    var backup by remember { mutableStateOf(false) }
+    var backup by rememberSaveable { mutableStateOf(false) }
     if (lock) AppLockSettingsSheet(onDismiss = { lock = false; changed++ }, onChanged = { lock = false; changed++ })
     if (backup) BackupRestoreSheet(onDismiss = { backup = false })
 

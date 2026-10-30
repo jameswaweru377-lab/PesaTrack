@@ -28,7 +28,7 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
     var accessReturnPage by rememberSaveable { mutableStateOf("settings") }
     var privacyReturnPage by rememberSaveable { mutableStateOf("settings") }
     var lock by remember { mutableStateOf(false) }
-    var backup by remember { mutableStateOf(false) }
+    var backup by rememberSaveable { mutableStateOf(false) }
     val back = { page = "settings" }
     BackHandler(enabled = page != "settings", onBack = {
         page = when (page) {
