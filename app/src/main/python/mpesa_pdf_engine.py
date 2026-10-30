@@ -371,7 +371,10 @@ def inspect_pdf(base64_pdf: str, password: str = "") -> str:
             'local_review_timeout',
             "informational_balance_mismatch", "crossing_physical_cell",
         }
-        category = str(exc) if isinstance(exc, ValueError) and str(exc) in allowed else "unsupported_or_unverified_pdf"
+        from pdf_opening_error import requires_password
+        category = ("pdf_password_rejected" if requires_password(exc)
+                    else str(exc) if isinstance(exc, ValueError) and str(exc) in allowed
+                    else "unsupported_or_unverified_pdf")
         return json.dumps({
             "status": "blocked", "reason": category,
             "verified_for_sms_ledger_import": False

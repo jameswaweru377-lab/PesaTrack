@@ -16,6 +16,17 @@ Pure Kotlin crop/timing smoke checks pass; Android CI and manual photo/lock/larg
 text validation are not yet claimed. No statement, budget, backup or ledger logic
 was changed in this refinement.
 
+_Conditional PDF password prompt (30 October 2026; pending CI/device verification):_
+Statements Import now first attempts local M-Pesa or bank PDF verification without
+an opening password. Only an explicitly recognized PDFMiner password failure
+opens the existing screenshot-protected, masked password prompt, which permits
+retry after an incorrect entry; unprotected files skip the prompt. Both
+extractors classify the underlying typed PDFMiner error even when wrapped by
+pdfplumber, without revealing source exception text. Original account-ownership,
+whole-statement reconciliation and user-review gates remain unchanged; no
+password is stored or sent online. The synthetic Python tests cover real
+encrypted and unencrypted PDFs, but live Redmi phone acceptance is pending.
+
 _Bank PDF account setup UX (30 October 2026; pending PR CI/device verification):_
 Statement Import now identifies a missing/incomplete bank account number before PDF
 selection and lets the user provide the complete number to their existing selected
