@@ -1,12 +1,19 @@
 package com.kedevjimmy.pesatrack.domain.statements
 
 /**
- * Read-only presentation of imported statement coverage. It deliberately has
- * no combined cash/income/spending totals: a bank-to-wallet transfer can have
- * two independently valid cash legs without representing two financial events.
+ * Read-only presentation of imported statement coverage and safe gross cash
+ * movements. These are NOT external income/spending: a bank-to-wallet transfer
+ * can have two independently valid cash legs without representing new money.
  */
 object StatementUnifiedOverviewPolicy {
     enum class MonthState { ON_FILE, NEEDS_REVIEW, NO_IMPORT }
+    enum class CashStatus { AVAILABLE, NEEDS_REVIEW, UNSUPPORTED_CURRENCY, NO_IMPORT }
+
+    data class CashSummary(
+        val status: CashStatus,
+        val moneyInMinor: Long? = null,
+        val moneyOutMinor: Long? = null
+    )
 
     data class AccountMonth(
         val accountId: String,
@@ -25,6 +32,7 @@ object StatementUnifiedOverviewPolicy {
 
     data class Overview(
         val year: Int,
+        val cashSummary: CashSummary,
         val accountRows: List<AccountRow>,
         val accountMonths: List<AccountMonth>,
         val monthsOnFile: Int,
@@ -73,6 +81,7 @@ object StatementUnifiedOverviewPolicy {
         }
         return Overview(
             year = year,
+            cashSummary = summarizeCash(scoped),
             accountRows = rows,
             accountMonths = months,
             monthsOnFile = months.filter { it.state != MonthState.NO_IMPORT }
@@ -86,5 +95,39 @@ object StatementUnifiedOverviewPolicy {
                 Math.addExact(total, row.unresolvedCandidateCount)
             }
         )
+    }
+
+    /**
+     * Sum only independently verified, same-account deduplicated statement legs.
+     * An uncertain period withholds the entire amount, not just the uncertain
+     * portion. All currencies must be KES; no exchange rates are guessed.
+     */
+    private fun summarizeCash(
+        scoped: List<StatementSourceCoveragePolicy.MonthCoverage>
+    ): CashSummary {
+        if (scoped.isEmpty()) return CashSummary(CashStatus.NO_IMPORT)
+        val repeatedCoverage = scoped.map { Triple(it.accountId, it.currency.uppercase(), it.monthKey) }
+            .distinct().size != scoped.size
+        if (repeatedCoverage || scoped.any {
+                it.status == StatementSourceCoveragePolicy.Status.NEEDS_REVIEW ||
+                    it.unresolvedCandidateCount > 0 ||
+                    it.safeMoneyInMinor == null || it.safeMoneyOutMinor == null ||
+                    it.safeMoneyInMinor < 0L || it.safeMoneyOutMinor < 0L
+            }) return CashSummary(CashStatus.NEEDS_REVIEW)
+        if (scoped.any { !it.currency.equals("KES", ignoreCase = true) })
+            return CashSummary(CashStatus.UNSUPPORTED_CURRENCY)
+        return try {
+            CashSummary(
+                status = CashStatus.AVAILABLE,
+                moneyInMinor = scoped.fold(0L) { sum, row ->
+                    Math.addExact(sum, requireNotNull(row.safeMoneyInMinor))
+                },
+                moneyOutMinor = scoped.fold(0L) { sum, row ->
+                    Math.addExact(sum, requireNotNull(row.safeMoneyOutMinor))
+                }
+            )
+        } catch (_: ArithmeticException) {
+            CashSummary(CashStatus.NEEDS_REVIEW)
+        }
     }
 }

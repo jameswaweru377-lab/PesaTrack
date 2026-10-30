@@ -6,7 +6,8 @@ import org.junit.Test
 class StatementUnifiedOverviewPolicyTest {
     private fun month(
         account: String, key: String, status: StatementSourceCoveragePolicy.Status,
-        currency: String = "KES", repeats: Int = 0, unresolved: Int = 0
+        currency: String = "KES", repeats: Int = 0, unresolved: Int = 0,
+        incoming: Long = 8_000L, outgoing: Long = 5_000L
     ) = StatementSourceCoveragePolicy.MonthCoverage(
         accountId = account,
         currency = currency,
@@ -17,8 +18,8 @@ class StatementUnifiedOverviewPolicyTest {
         confirmedRepeatCopies = repeats,
         unresolvedCandidateCount = unresolved,
         status = status,
-        safeMoneyInMinor = if (status == StatementSourceCoveragePolicy.Status.NEEDS_REVIEW) null else 8_000L,
-        safeMoneyOutMinor = if (status == StatementSourceCoveragePolicy.Status.NEEDS_REVIEW) null else 5_000L
+        safeMoneyInMinor = if (status == StatementSourceCoveragePolicy.Status.NEEDS_REVIEW) null else incoming,
+        safeMoneyOutMinor = if (status == StatementSourceCoveragePolicy.Status.NEEDS_REVIEW) null else outgoing
     )
 
     @Test fun monthsOnFileCountsUnionAcrossAccountsNotTransactionLegs() {
@@ -58,9 +59,65 @@ class StatementUnifiedOverviewPolicyTest {
         assertEquals(2, result.unresolvedCandidates)
         assertEquals(StatementUnifiedOverviewPolicy.MonthState.NEEDS_REVIEW,
             result.accountMonths.single { it.accountId == "bank" && it.month == 9 }.state)
-        assertFalse("An all-accounts money total is not safe before transfer pairing",
-            result.javaClass.declaredFields.any { it.name.contains("money", ignoreCase = true) ||
-                it.name.contains("spending", ignoreCase = true) })
+        assertEquals(StatementUnifiedOverviewPolicy.CashStatus.NEEDS_REVIEW, result.cashSummary.status)
+        assertNull(result.cashSummary.moneyInMinor)
+        assertNull(result.cashSummary.moneyOutMinor)
+    }
+
+    @Test fun safeAccountCashLegsSumAcrossImportedPeriodsWithoutCountingRepeatedCopies() {
+        val result = StatementUnifiedOverviewPolicy.project(2026, listOf(
+            month("wallet", "2026-01", StatementSourceCoveragePolicy.Status.VERIFIED_REPEAT,
+                repeats = 1, incoming = 12_000L, outgoing = 4_000L),
+            month("bank", "2026-01", StatementSourceCoveragePolicy.Status.SINGLE_SOURCE,
+                incoming = 9_000L, outgoing = 6_000L),
+            month("bank", "2026-02", StatementSourceCoveragePolicy.Status.COMPLEMENTARY,
+                incoming = 2_000L, outgoing = 1_000L),
+            month("wallet", "2025-12", StatementSourceCoveragePolicy.Status.SINGLE_SOURCE,
+                incoming = 300_000L, outgoing = 300_000L)
+        ))
+        assertEquals(StatementUnifiedOverviewPolicy.CashStatus.AVAILABLE, result.cashSummary.status)
+        assertEquals(23_000L, result.cashSummary.moneyInMinor)
+        assertEquals(11_000L, result.cashSummary.moneyOutMinor)
+        assertEquals(1, result.verifiedRepeatCopies)
+    }
+
+    @Test fun differentCurrenciesWithholdInsteadOfAddingUnconvertibleMoney() {
+        val result = StatementUnifiedOverviewPolicy.project(2026, listOf(
+            month("wallet", "2026-01", StatementSourceCoveragePolicy.Status.SINGLE_SOURCE),
+            month("bank", "2026-01", StatementSourceCoveragePolicy.Status.SINGLE_SOURCE,
+                currency = "USD")
+        ))
+        assertEquals(StatementUnifiedOverviewPolicy.CashStatus.UNSUPPORTED_CURRENCY,
+            result.cashSummary.status)
+        assertNull(result.cashSummary.moneyInMinor)
+        assertNull(result.cashSummary.moneyOutMinor)
+    }
+
+    @Test fun unverifiedNullAmountsWithholdAllTotalsDespiteOnFileStatus() {
+        val incomplete = month("wallet", "2026-01", StatementSourceCoveragePolicy.Status.SINGLE_SOURCE)
+            .copy(safeMoneyInMinor = null)
+        val result = StatementUnifiedOverviewPolicy.project(2026, listOf(incomplete))
+        assertEquals(StatementUnifiedOverviewPolicy.CashStatus.NEEDS_REVIEW, result.cashSummary.status)
+        assertNull(result.cashSummary.moneyInMinor)
+        assertNull(result.cashSummary.moneyOutMinor)
+    }
+
+    @Test fun duplicateCoverageKeysCannotAccidentallyDoubleAllAccountTotals() {
+        val repeated = month("wallet", "2026-01", StatementSourceCoveragePolicy.Status.SINGLE_SOURCE)
+        val result = StatementUnifiedOverviewPolicy.project(2026, listOf(repeated, repeated))
+        assertEquals(StatementUnifiedOverviewPolicy.CashStatus.NEEDS_REVIEW, result.cashSummary.status)
+        assertNull(result.cashSummary.moneyInMinor)
+    }
+
+    @Test fun overflowingAmountSumIsWithheldInsteadOfWrappingNegative() {
+        val result = StatementUnifiedOverviewPolicy.project(2026, listOf(
+            month("wallet", "2026-01", StatementSourceCoveragePolicy.Status.SINGLE_SOURCE,
+                incoming = Long.MAX_VALUE),
+            month("bank", "2026-01", StatementSourceCoveragePolicy.Status.SINGLE_SOURCE,
+                incoming = 1L)
+        ))
+        assertEquals(StatementUnifiedOverviewPolicy.CashStatus.NEEDS_REVIEW, result.cashSummary.status)
+        assertNull(result.cashSummary.moneyInMinor)
     }
 
     @Test fun differentCurrenciesAndPreviousYearsDoNotInflateMonthCounts() {
@@ -82,5 +139,8 @@ class StatementUnifiedOverviewPolicyTest {
         assertTrue(result.accountMonths.isEmpty())
         assertEquals(0, result.monthsOnFile)
         assertEquals(0, result.monthsNeedingReview)
+        assertEquals(StatementUnifiedOverviewPolicy.CashStatus.NO_IMPORT, result.cashSummary.status)
+        assertNull(result.cashSummary.moneyInMinor)
+        assertNull(result.cashSummary.moneyOutMinor)
     }
 }

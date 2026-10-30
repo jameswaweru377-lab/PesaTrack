@@ -25,11 +25,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.domain.statements.StatementUnifiedOverviewPolicy
-import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
 import java.text.DateFormatSymbols
 import java.util.Locale
 
-/** An all-account statement evidence *index*, not an all-account money ledger. */
+/** An all-account statement evidence index with verified gross cash movements. */
 @Composable
 internal fun StatementUnifiedOverviewPage(
     overview: StatementUnifiedOverviewPolicy.Overview,
@@ -55,23 +54,18 @@ internal fun StatementUnifiedOverviewPage(
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
         item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                PesaLogoMark(size = 31.dp)
-                Spacer(Modifier.width(9.dp))
-                Text("PesaTrack", color = p.ink, fontSize = 21.sp,
-                    fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Statements", fontSize = 29.sp, fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-0.6).sp, color = p.ink)
+                    Text("Explore your imported history.", color = p.muted, fontSize = 14.sp)
+                }
                 Surface(shape = CircleShape, color = Color(0xFFEDEBFF)) {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Rounded.Close, "Close Statements", tint = p.ink)
                     }
                 }
-            }
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Statements", fontSize = 29.sp, fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-0.6).sp, color = p.ink)
-                Text("Explore your imported history.", color = p.muted, fontSize = 14.sp)
             }
         }
         item {
@@ -154,7 +148,7 @@ internal fun StatementUnifiedOverviewPage(
                 Surface(shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
                     Box(Modifier.fillMaxWidth().background(Brush.linearGradient(
                         listOf(Color(0xFF8B43FF), Color(0xFF5014DF), Color(0xFF2941CA))))) {
-                        Canvas(Modifier.fillMaxWidth().height(138.dp)) {
+                        Canvas(Modifier.fillMaxWidth().height(218.dp)) {
                             drawCircle(Color(0xFFBC98FF).copy(alpha = .28f),
                                 radius = size.width * .28f,
                                 center = Offset(size.width * .96f, size.height * .06f))
@@ -162,23 +156,45 @@ internal fun StatementUnifiedOverviewPage(
                                 radius = size.width * .22f,
                                 center = Offset(size.width * .8f, size.height * 1.1f))
                         }
-                        Row(Modifier.fillMaxWidth().padding(18.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Surface(shape = RoundedCornerShape(16.dp),
-                                color = Color.White.copy(alpha = .19f)) {
-                                Icon(Icons.Rounded.Description, null, tint = Color.White,
-                                    modifier = Modifier.padding(14.dp).size(24.dp))
+                        Column(Modifier.fillMaxWidth().padding(18.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(shape = RoundedCornerShape(16.dp),
+                                    color = Color.White.copy(alpha = .19f)) {
+                                    Icon(Icons.Rounded.Description, null, tint = Color.White,
+                                        modifier = Modifier.padding(14.dp).size(24.dp))
+                                }
+                                Spacer(Modifier.width(14.dp))
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Text("Your statement history", color = Color.White.copy(alpha = .94f),
+                                        fontSize = 13.sp)
+                                    Text("${accounts.size} ${if (accounts.size == 1) "account" else "accounts"} on file",
+                                        color = Color.White, fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 23.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text("Imported records · ${overview.year}", color = Color.White.copy(alpha = .86f),
+                                        fontSize = 12.sp)
+                                }
                             }
-                            Spacer(Modifier.width(14.dp))
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                                Text("Your statement history", color = Color.White.copy(alpha = .94f),
-                                    fontSize = 13.sp)
-                                Text("${accounts.size} ${if (accounts.size == 1) "account" else "accounts"} on file",
-                                    color = Color.White, fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 23.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("Imported records · ${overview.year}", color = Color.White.copy(alpha = .86f),
-                                    fontSize = 12.sp)
+                            Spacer(Modifier.height(17.dp))
+                            HorizontalDivider(color = Color.White.copy(alpha = .22f), thickness = .8.dp)
+                            Spacer(Modifier.height(13.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                StatementUnifiedCashMetric("Money in", overview.cashSummary.moneyInMinor,
+                                    Modifier.weight(1f))
+                                StatementUnifiedCashMetric("Money out", overview.cashSummary.moneyOutMinor,
+                                    Modifier.weight(1f))
                             }
+                            Spacer(Modifier.height(10.dp))
+                            Text(when (overview.cashSummary.status) {
+                                StatementUnifiedOverviewPolicy.CashStatus.AVAILABLE ->
+                                    "Gross account movements · includes own transfers"
+                                StatementUnifiedOverviewPolicy.CashStatus.NEEDS_REVIEW ->
+                                    "Amounts on hold · review overlaps"
+                                StatementUnifiedOverviewPolicy.CashStatus.UNSUPPORTED_CURRENCY ->
+                                    "Amounts on hold · multiple currencies"
+                                StatementUnifiedOverviewPolicy.CashStatus.NO_IMPORT ->
+                                    "No imported cash movements"
+                            }, color = Color.White.copy(alpha = .86f), fontSize = 11.sp,
+                                maxLines = 2)
                         }
                     }
                 }
@@ -314,6 +330,17 @@ internal fun StatementUnifiedOverviewPage(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StatementUnifiedCashMetric(label: String, amount: Long?, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Text(label, color = Color.White.copy(alpha = .87f), fontSize = 12.sp,
+            fontWeight = FontWeight.Medium)
+        Text(amount?.let(::statementMoney) ?: "—", color = Color.White,
+            fontSize = 20.sp, fontWeight = FontWeight.ExtraBold,
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
