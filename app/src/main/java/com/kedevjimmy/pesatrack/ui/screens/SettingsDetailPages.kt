@@ -63,7 +63,7 @@ internal fun EverydayRow(icon: androidx.compose.ui.graphics.vector.ImageVector, 
     }
 }
 @Composable
-internal fun ChoiceSwitch(title: String, description: String, checked: Boolean, change: (Boolean) -> Unit, enabled: Boolean = true) {
+internal fun ChoiceSwitch(title: String, description: String, checked: Boolean, enabled: Boolean = true, change: (Boolean) -> Unit) {
     PesaCard { Row(
         Modifier.fillMaxWidth().toggleable(value = checked, enabled = enabled, role = Role.Switch,
             onValueChange = change).padding(16.dp),

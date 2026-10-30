@@ -81,16 +81,20 @@ class ProfilePhotoStore(context: Context) {
         }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
         val degrees = when (orientation) {
             ExifInterface.ORIENTATION_ROTATE_90, ExifInterface.ORIENTATION_TRANSPOSE -> 90f
-            ExifInterface.ORIENTATION_ROTATE_180, ExifInterface.ORIENTATION_FLIP_VERTICAL -> 180f
+            ExifInterface.ORIENTATION_ROTATE_180 -> 180f
             ExifInterface.ORIENTATION_ROTATE_270, ExifInterface.ORIENTATION_TRANSVERSE -> 270f
             else -> 0f
         }
         val mirror = orientation == ExifInterface.ORIENTATION_FLIP_HORIZONTAL ||
+            orientation == ExifInterface.ORIENTATION_FLIP_VERTICAL ||
             orientation == ExifInterface.ORIENTATION_TRANSPOSE ||
             orientation == ExifInterface.ORIENTATION_TRANSVERSE
         if (degrees == 0f && !mirror) decoded else {
             val matrix = Matrix().apply {
-                if (mirror) postScale(-1f, 1f)
+                if (mirror) {
+                    if (orientation == ExifInterface.ORIENTATION_FLIP_VERTICAL) postScale(1f, -1f)
+                    else postScale(-1f, 1f)
+                }
                 postRotate(degrees)
             }
             Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)

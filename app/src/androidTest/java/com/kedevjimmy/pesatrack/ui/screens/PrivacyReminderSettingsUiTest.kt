@@ -41,7 +41,7 @@ class PrivacyReminderSettingsUiTest {
         compose.setContent {
             MaterialTheme {
                 var checked by remember { mutableStateOf(false) }
-                ChoiceSwitch("Sample reminder", "Optional reminder", checked, { checked = it })
+                ChoiceSwitch("Sample reminder", "Optional reminder", checked) { checked = it }
             }
         }
         compose.onNode(isToggleable()).assertIsOff().performClick().assertIsOn()

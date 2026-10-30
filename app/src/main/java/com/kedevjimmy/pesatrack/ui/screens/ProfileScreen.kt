@@ -350,11 +350,10 @@ private fun ProfileSecurityPage(
                     !enabled -> "Set up your app lock PIN first"
                     !available -> "Biometrics are unavailable or not enrolled on this phone"
                     else -> "Use your fingerprint or device biometrics; your PIN still works"
-                }, biometrics && enabled && available, { value ->
+                }, biometrics && enabled && available, enabled = enabled && available) { value ->
                     biometrics = value
                     manager.setBiometricUnlockEnabled(value)
-                }, enabled = enabled && available
-            )
+                }
         }
         item {
             PesaCard {
