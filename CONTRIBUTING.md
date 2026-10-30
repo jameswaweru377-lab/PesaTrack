@@ -8,6 +8,9 @@ Read:
 - `README.md`
 - `CURRENT_STATE.md`
 - `docs/PRODUCT_CHARTER.md`
+- `AGENTS.md`
+- `DESIGN.md`
+- `docs/AUDIT_REMEDIATION_TRACKER.md`
 
 Historical project notes are useful context, but current code and `CURRENT_STATE.md` take precedence when they conflict.
 
@@ -32,7 +35,7 @@ For every Android change, run or rely on CI for:
 
 Run Android instrumentation when explicitly requested for device review. Signed releases also default to build-only validation; enable run_instrumentation only after the user explicitly requests emulator review.
 
-The debug APK is available as the `pesatrack-debug-apk` artifact after build checks succeed. Merges to `main` publish the rolling preview APK after successful build checks without requiring instrumentation. A manual Android CI run defaults to build-only; enabling `run_instrumentation` adds emulator tests. Manual runs retain downloadable artifacts but never replace the rolling APK, so a slower review cannot overwrite a newer preview. The rolling APK is a development preview, not a signed production release.
+The debug APK is available as the `pesatrack-debug-apk` workflow artifact after build checks succeed. Successful `main` pushes also publish one **release-signed** APK under exactly two rolling attachment names: `PesaTrack-Full.apk` and `PesaTrack-Update.apk`. These are identical APKs, not two different patch formats. The `ci-apk` attachments are replaced on each successful signed publication; signing secrets, certificate continuity and increasing version codes are required. A manual Android CI run defaults to build-only; enabling `run_instrumentation` adds emulator tests. Manual runs retain artifacts and do not overwrite `ci-apk`. This private preview is signed, but CI does not prove an in-place upgrade or data retention on a real phone. Read `docs/RELEASE_PROCESS.md` before APK-signing changes.
 
 Build-only and manual emulator-review runs use separate concurrency groups so editing does not cancel an active manual review.
 
@@ -60,4 +63,4 @@ Never commit secrets, signing material or production credentials.
 
 ## UI changes
 
-Preserve the current Home / Activity / Plan / Accounts / More hierarchy unless a separately approved product change requires otherwise. New strings should increasingly move to Android string resources as localization/accessibility work progresses.
+Preserve the four visible bottom tabs **Home / Activity / Plan / More** unless a separately approved product change requires otherwise. Accounts is an internal destination accessible from More/Profile, not a fifth bottom tab. Follow `DESIGN.md` for the current light-first purple direction, and keep historical emerald/dark proposals as history. New strings should increasingly move to Android string resources as localization/accessibility work progresses.
