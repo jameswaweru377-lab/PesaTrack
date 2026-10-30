@@ -8,9 +8,9 @@ Let the Statements evidence layer identify proven overlap with live financial-me
 
 - Activity is the canonical daily ledger; imported PDFs remain separate, immutable statement archives.
 - Compare only eligible original SMS/notification Activity observations, never manual rows or `statement_import` rows that originated in a PDF. The latter would be circular confirmation.
-- Confirmed ownership, exact stable reference, exact amount, currency, account, direction and bounded event time are mandatory. A name, phone fragment, narration or amount/time proximity never proves a transfer.
-- Build unique **cash-leg groups** before linking opposite cash legs. Thus an Activity wallet receipt and a wallet PDF receipt can represent one leg of the same bank-to-wallet transfer rather than becoming an artificial third transfer.
-- Protect exclusions, reversals, refunds, debts, structurally linked records, uncertain sign and unrecognized references; never change ledger categories, balances, the statement archive, or its coverage money figures.
+- Confirmed ownership, exact stable reference, exact amount, currency, account, direction and bounded event time are mandatory even to propose a transfer. A name, phone fragment, narration or amount/time proximity never proves a transfer.
+- Build unique **cash-leg groups** before proposing opposite cash legs. Thus an Activity wallet receipt and a wallet PDF receipt can represent one leg of a possible bank-to-wallet transfer rather than becoming an artificial third transfer. Without independently proved financial roles, a transfer remains a review candidate, never an automatic accounting decision.
+- Protect exclusions, reversals, refunds, debts, structurally linked records, uncertain sign and unrecognized references; never change ledger categories, balances, the statement archive, or its coverage money figures. Protected Activity evidence vetoes a matching PDF-only transfer candidate. Conflicting same-reference amounts across independent PDFs also veto it; principal and fee appearing together in the same document are not conflicting copies.
 - Unsupported/no-reference bank rows remain unlinked and are not inferred from matching amounts. Existing source overlap warnings remain authoritative.
 - Results are a read-only, bounded snapshot accessible on demand to a future review/Insights UI, **not** a new persistent transaction table or automatic financial classification.
 
@@ -22,7 +22,7 @@ Let the Statements evidence layer identify proven overlap with live financial-me
 
 ## Acceptance
 
-- Same-leg Activity + statement proof is distinguishable from owned transfer evidence, including a three-source bank/wallet/Activity example.
+- Same-leg Activity + statement proof is distinguishable from an *owned transfer review candidate*, including a three-source bank/wallet/Activity example.
 - Duplicate Activity or PDF candidates, fee/principal differences and same-reference collisions are ambiguous, never silently resolved.
 - Unconfirmed ownership, missing reference, contradictory sign, dates outside limit, different currency, manual rows, statement-import rows, excluded/loan/refund/reversal events cannot be promoted to proof.
 - Replaying the same snapshot gives identical output. Activity transactions, PDF rows and existing Statements overview totals are never modified.

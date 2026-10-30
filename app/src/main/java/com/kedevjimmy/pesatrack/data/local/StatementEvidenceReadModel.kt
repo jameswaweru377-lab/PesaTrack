@@ -34,8 +34,8 @@ class StatementEvidenceReadModel(context: Context) {
 
     /**
      * For future Insights/review consumers. In contrast to
-     * activitySnapshotBetween(), this uses the Activity store's raw read-only
-     * range query and never triggers its maintenance/reclassification path.
+     * activitySnapshotBetween(), this uses a bounded Activity SQL projection
+     * and never triggers its maintenance/reclassification path.
      */
     fun readWithActivityEvidence(
         startInclusive: Long,
@@ -50,25 +50,14 @@ class StatementEvidenceReadModel(context: Context) {
                 (accountFilter == null || it.id == accountFilter) &&
                 it.type in setOf(AccountType.BANK, AccountType.MOBILE_WALLET)
         }.map { it.id }.toSet()
-        val activity = synchronized(CanonicalStoreLock.monitor) {
-            TransactionStore.get(app).transactionsBetween(startInclusive, endExclusive)
-        }
-        require(activity.size + statements.observations.size <= 20_000) {
+        val remaining = 20_000 - statements.observations.size
+        require(remaining > 0) {
             "This evidence range is too large. Choose a shorter period."
         }
-        val messages = StatementActivityObservationPolicy.project(activity.map { row ->
-            StatementActivityObservationPolicy.ActivityLeg(
-                transactionId = row.id, accountId = row.accountId,
-                sourceKind = row.sourceKind, type = row.type,
-                direction = row.direction, currency = "KES",
-                amountMinor = row.amountMinor, occurredAt = row.occurredAtEpochMs,
-                reference = row.transactionCode, reviewState = row.reviewState,
-                category = row.category,
-                structurallyLinked = row.linkedAccountId != null ||
-                    row.relationType != null || row.relatedTransactionId != null,
-                reversalOfCode = row.reversalOfCode
-            )
-        }, owned)
+        val candidates = StatementOriginalMessageEvidenceReader(app).read(
+            startInclusive, endExclusive, owned, remaining
+        )
+        val messages = StatementActivityObservationPolicy.project(candidates, owned)
         return ActivityEvidenceSnapshot(
             statements = statements,
             originalActivityMessages = messages,

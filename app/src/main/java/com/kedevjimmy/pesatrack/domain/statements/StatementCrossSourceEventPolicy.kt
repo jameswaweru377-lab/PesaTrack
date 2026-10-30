@@ -6,26 +6,31 @@ import kotlin.math.abs
 /**
  * Read-only cash-event proof for future cross-product reporting. A cash leg can
  * have several independently sourced observations, but a transfer has exactly
- * two opposite cash legs of different confirmed owned accounts.
+ * two opposite cash legs of different confirmed owned accounts. The latter is
+ * only a **review candidate** until cash-leg roles are independently verified.
  *
  * Neither this model nor its result is permission to write to Activity, apply
  * categories, suppress a statement row, or publish combined economic totals.
  */
 object StatementCrossSourceEventPolicy {
-    data class OwnedTransfer(
+    data class TransferCandidate(
         val outgoingIds: Set<String>,
         val incomingIds: Set<String>
     )
 
     data class Result(
         val sameLegGroups: List<Set<String>>,
-        val ownedTransfers: List<OwnedTransfer>,
+        val transferCandidates: List<TransferCandidate>,
         val ambiguousIds: Set<String>,
         val unlinkedIds: Set<String>
     )
 
     private data class BucketKey(val reference: String, val currency: String, val magnitude: Long)
     private data class LegKey(val accountId: String, val movement: Long)
+    private data class AccountReferenceKey(
+        val reference: String, val accountId: String,
+        val currency: String, val incoming: Boolean
+    )
     private data class Leg(val rows: List<StatementEvidenceCorrelationPolicy.Observation>) {
         val ids: Set<String> = rows.map { it.id }.toSet()
         val sample = rows.first()
@@ -54,21 +59,66 @@ object StatementCrossSourceEventPolicy {
                 it.movementMinor != 0L && it.movementMinor != Long.MIN_VALUE
         })
 
-        val eligible = observations.filter {
+        val referenced = observations.filter {
             it.ownershipConfirmed && it.accountId in ownedAccountIds &&
-                !it.roleProtected && stableReference(it.reference) != null
+                stableReference(it.reference) != null
+        }
+        val suppressedBuckets = referenced.filter { it.roleProtected }.map {
+            BucketKey(stableReference(it.reference)!!,
+                it.currency.uppercase(Locale.ROOT), abs(it.movementMinor))
+        }.toSet()
+        val eligible = referenced.filterNot { it.roleProtected }
+
+        // Compare competing PDF *documents* by reference before amount bucketing.
+        // An original principal and fee in one document are distinct legitimate
+        // legs; different PDFs that disagree about one reference are not proof.
+        val amountConflicts = mutableSetOf<String>()
+        val byAccountReference = referenced.filter {
+            it.source != StatementEvidenceCorrelationPolicy.Source.ACTIVITY
+        }.groupBy {
+            AccountReferenceKey(stableReference(it.reference)!!, it.accountId,
+                it.currency.uppercase(Locale.ROOT), it.movementMinor > 0L)
+        }
+        for (rows in byAccountReference.values) {
+            if (rows.size > 64) {
+                amountConflicts.addAll(rows.map { it.id })
+                continue
+            }
+            val distinctLegs = rows.groupBy { it.movementMinor }.values.toList()
+            for (i in distinctLegs.indices) for (j in i + 1 until distinctLegs.size) {
+                val first = distinctLegs[i]
+                val second = distinctLegs[j]
+                if (first.map { it.sourceId }.toSet()
+                        .intersect(second.map { it.sourceId }.toSet()).isEmpty() &&
+                    first.any { a -> second.any { b ->
+                        (if (a.occurredAt >= b.occurredAt)
+                            a.occurredAt - b.occurredAt
+                         else b.occurredAt - a.occurredAt) <= MAX_TIME_DIFFERENCE_MS
+                    } }) {
+                    amountConflicts.addAll(first.map { it.id })
+                    amountConflicts.addAll(second.map { it.id })
+                }
+            }
+        }
+        val allByBucket = referenced.groupBy {
+            BucketKey(stableReference(it.reference)!!,
+                it.currency.uppercase(Locale.ROOT), abs(it.movementMinor))
         }
         val byReference = eligible.groupBy {
             BucketKey(stableReference(it.reference)!!,
                 it.currency.uppercase(Locale.ROOT), abs(it.movementMinor))
         }
         val sameLegs = mutableListOf<Set<String>>()
-        val transfers = mutableListOf<OwnedTransfer>()
+        val transfers = mutableListOf<TransferCandidate>()
         val ambiguous = mutableSetOf<String>()
         val proven = mutableSetOf<String>()
 
-        for ((_, bucket) in byReference.toSortedMap(compareBy<BucketKey> { it.reference }
+        for ((key, bucket) in byReference.toSortedMap(compareBy<BucketKey> { it.reference }
                 .thenBy { it.currency }.thenBy { it.magnitude })) {
+            if (key in suppressedBuckets || bucket.any { it.id in amountConflicts }) {
+                ambiguous.addAll(allByBucket.getValue(key).map { it.id })
+                continue
+            }
             if (bucket.size > MAX_BUCKET_ROWS) {
                 ambiguous.addAll(bucket.map { it.id })
                 continue
@@ -121,13 +171,13 @@ object StatementCrossSourceEventPolicy {
 
             val outgoing = legs.first { it.sample.movementMinor < 0L }
             val incoming = legs.first { it.sample.movementMinor > 0L }
-            transfers.add(OwnedTransfer(outgoing.ids, incoming.ids))
+            transfers.add(TransferCandidate(outgoing.ids, incoming.ids))
             proven.addAll(outgoing.ids)
             proven.addAll(incoming.ids)
         }
         return Result(
             sameLegGroups = sameLegs.sortedBy { it.minOrNull().orEmpty() },
-            ownedTransfers = transfers.sortedBy { it.outgoingIds.minOrNull().orEmpty() },
+            transferCandidates = transfers.sortedBy { it.outgoingIds.minOrNull().orEmpty() },
             ambiguousIds = ambiguous,
             unlinkedIds = observations.map { it.id }.toSet() - proven
         )

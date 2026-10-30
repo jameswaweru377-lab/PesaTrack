@@ -25,7 +25,7 @@ class StatementCrossSourceEventPolicyTest {
             atTime = at + 30_000)
         val result = StatementCrossSourceEventPolicy.reconcile(listOf(statement, activity), owned)
         assertEquals(listOf(setOf("activity", "wallet-pdf")), result.sameLegGroups)
-        assertTrue(result.ownedTransfers.isEmpty())
+        assertTrue(result.transferCandidates.isEmpty())
         assertTrue(result.ambiguousIds.isEmpty())
     }
 
@@ -37,9 +37,9 @@ class StatementCrossSourceEventPolicyTest {
             account = "bank", movement = -5_000L, atTime = at + 120_000)
         val result = StatementCrossSourceEventPolicy.reconcile(listOf(bank, wallet, activity), owned)
         assertEquals(listOf(setOf("activity-wallet", "wallet-pdf")), result.sameLegGroups)
-        assertEquals(1, result.ownedTransfers.size)
-        assertEquals(setOf("bank-pdf"), result.ownedTransfers.single().outgoingIds)
-        assertEquals(setOf("activity-wallet", "wallet-pdf"), result.ownedTransfers.single().incomingIds)
+        assertEquals(1, result.transferCandidates.size)
+        assertEquals(setOf("bank-pdf"), result.transferCandidates.single().outgoingIds)
+        assertEquals(setOf("activity-wallet", "wallet-pdf"), result.transferCandidates.single().incomingIds)
         assertTrue(result.ambiguousIds.isEmpty())
     }
 
@@ -50,7 +50,7 @@ class StatementCrossSourceEventPolicyTest {
             observation("wallet-in", StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT,
                 movement = 200L)
         ), owned)
-        assertEquals(1, result.ownedTransfers.size)
+        assertEquals(1, result.transferCandidates.size)
         assertTrue(result.sameLegGroups.isEmpty())
     }
 
@@ -63,7 +63,7 @@ class StatementCrossSourceEventPolicyTest {
             observation("pdf", StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT)
         ), owned)
         assertTrue(result.sameLegGroups.isEmpty())
-        assertTrue(result.ownedTransfers.isEmpty())
+        assertTrue(result.transferCandidates.isEmpty())
         assertEquals(setOf("activity-a", "activity-b", "pdf"), result.ambiguousIds)
     }
 
@@ -91,7 +91,7 @@ class StatementCrossSourceEventPolicyTest {
             observation("wallet", StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT)
         ), owned)
         assertTrue(result.sameLegGroups.isEmpty())
-        assertTrue(result.ownedTransfers.isEmpty())
+        assertTrue(result.transferCandidates.isEmpty())
         assertEquals(setOf("bank", "wallet"), result.unlinkedIds)
     }
 
@@ -114,7 +114,7 @@ class StatementCrossSourceEventPolicyTest {
         for (candidate in other) {
             val result = StatementCrossSourceEventPolicy.reconcile(listOf(base, candidate), owned)
             assertTrue(candidate.id, result.sameLegGroups.isEmpty())
-            assertTrue(candidate.id, result.ownedTransfers.isEmpty())
+            assertTrue(candidate.id, result.transferCandidates.isEmpty())
         }
     }
 
@@ -126,7 +126,7 @@ class StatementCrossSourceEventPolicyTest {
             observation("third", StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT,
                 account = "third", movement = -5_000L)
         ), owned + "third")
-        assertTrue(result.ownedTransfers.isEmpty())
+        assertTrue(result.transferCandidates.isEmpty())
         assertEquals(setOf("wallet", "bank-out", "third"), result.ambiguousIds)
     }
 
@@ -141,7 +141,7 @@ class StatementCrossSourceEventPolicyTest {
                 account = "bank", movement = -5_000L, documentId = "file-a")
         ), owned)
         assertTrue(result.sameLegGroups.isEmpty())
-        assertTrue(result.ownedTransfers.isEmpty())
+        assertTrue(result.transferCandidates.isEmpty())
         assertEquals(4, result.ambiguousIds.size)
     }
 
@@ -153,8 +153,50 @@ class StatementCrossSourceEventPolicyTest {
                 account = "bank", movement = -200L),
             observation("wallet-credit", StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT)
         ), owned)
-        assertEquals(1, result.ownedTransfers.size)
-        assertEquals(setOf("bank-principal"), result.ownedTransfers.single().outgoingIds)
+        assertEquals(1, result.transferCandidates.size)
+        assertEquals(setOf("bank-principal"), result.transferCandidates.single().outgoingIds)
         assertTrue(result.unlinkedIds.contains("bank-fee"))
+    }
+
+    @Test fun protectedActivityLegVetoesOtherwiseMatchingBankToWalletProposal() {
+        for (reason in listOf("excluded", "loan", "refund", "reversal", "structural")) {
+            val result = StatementCrossSourceEventPolicy.reconcile(listOf(
+                observation("protected-activity", StatementEvidenceCorrelationPolicy.Source.ACTIVITY,
+                    verified = false, roleProtected = true),
+                observation("wallet-pdf", StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT),
+                observation("bank-pdf", StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT,
+                    account = "bank", movement = -5_000L)
+            ), owned)
+            assertTrue(reason, result.transferCandidates.isEmpty())
+            assertTrue(reason, result.sameLegGroups.isEmpty())
+            assertTrue(reason, result.ambiguousIds.contains("wallet-pdf"))
+        }
+    }
+
+    @Test fun conflictingIndependentPdfAmountsVetoReferenceTransferProposal() {
+        val result = StatementCrossSourceEventPolicy.reconcile(listOf(
+            observation("wallet-a", StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT,
+                documentId = "wallet-file-a"),
+            observation("wallet-b", StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT,
+                movement = 5_200L, documentId = "wallet-file-b"),
+            observation("bank", StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT,
+                movement = -5_000L, account = "bank", documentId = "bank-file")
+        ), owned)
+        assertTrue(result.transferCandidates.isEmpty())
+        assertTrue(result.sameLegGroups.isEmpty())
+        assertEquals(setOf("wallet-a", "wallet-b", "bank"), result.ambiguousIds)
+    }
+
+    @Test fun principalAndFeeInOnePdfDoNotConflictAcrossReferenceAmountBuckets() {
+        val result = StatementCrossSourceEventPolicy.reconcile(listOf(
+            observation("principal", StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT,
+                account = "bank", movement = -5_000L, documentId = "bank-file"),
+            observation("fee", StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT,
+                account = "bank", movement = -200L, documentId = "bank-file"),
+            observation("wallet", StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT,
+                documentId = "wallet-file")
+        ), owned)
+        assertEquals(1, result.transferCandidates.size)
+        assertTrue(result.ambiguousIds.isEmpty())
     }
 }

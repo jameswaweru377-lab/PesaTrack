@@ -8,8 +8,10 @@ ledger remain independent. A new opt-in read-only correlation snapshot can now
 compare strictly original SMS/notification cash observations against independently
 archived M-Pesa and bank statement legs. It groups verified copies of the same
 account cash leg before proposing an exact-reference, opposite-leg own-account
-transfer; conflicting copies, protected roles, missing bank references and
-unverified source totals never authorize a transfer or Activity mutation.
+**review candidate**, not a confirmed transfer classification. Conflicting
+same-reference amounts in independent PDFs, protected Activity evidence,
+missing bank references and unverified source totals veto those proposals;
+none authorizes an Activity mutation.
 Statement-import and manual ledger entries cannot circularly corroborate their
 own PDF. This does not add a UI review action, persist links, synchronize bank
 categories or build final combined Insights totals. Real-device acceptance and
