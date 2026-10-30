@@ -43,6 +43,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.SecureFlagPolicy
 import com.kedevjimmy.pesatrack.documents.OfflineMpesaPdfReader
 import com.kedevjimmy.pesatrack.documents.OfflineBankTableReader
+import com.kedevjimmy.pesatrack.documents.StatementPdfOpeningPasswordRequiredException
 import com.kedevjimmy.pesatrack.domain.statements.BankStatementAccountIdentityUiPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementAdmissionResult
 import com.kedevjimmy.pesatrack.domain.statements.StatementBankAdmission
@@ -64,6 +65,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  var sourcePdfUri by remember {mutableStateOf<Uri?>(null)}
  var sourcePdfProviderKey by remember {mutableStateOf("SAFARICOM_MPESA")}
  var sourcePdfPassword by remember {mutableStateOf("")}
+ var pdfPasswordWrong by remember {mutableStateOf(false)}
  var stagedPdf by remember {mutableStateOf<OfflineMpesaPdfReader.Prepared?>(null)}
  var stagedBankPdf by remember {mutableStateOf<StagedBankPdf?>(null)}
  var statementPdfApproved by remember {mutableStateOf(false)}
@@ -116,6 +118,39 @@ private fun readStatement(c:Context,uri:Uri):String {
   }catch(e:CancellationException){throw e}catch(e:Exception){dateError=e.message ?: "Could not check entries."}
   finally {if(preparing==source)preparing=null}
  }
+ fun verifyPdfLocally(uri: Uri, password: String, providerKey: String) {
+  sourcePdfUri=null;sourcePdfPassword="";pdfPasswordWrong=false
+  invalidatePreview();reading=true
+  scope.launch {
+   try {
+    if(providerKey=="SAFARICOM_MPESA") {
+     stagedPdf=withContext(Dispatchers.IO){OfflineMpesaPdfReader.inspect(c,uri,password)}
+     done="The full PDF passed physical extraction, official summary and provisional balance checks. Review all rows before saving."
+    } else {
+     val selectedAccount=accounts.firstOrNull{it.id==accountId}
+      ?:error("Choose the account first.")
+     val prepared=withContext(Dispatchers.IO){OfflineBankTableReader.inspect(c,uri,password,providerKey)}
+     val confirmed=withContext(Dispatchers.IO){
+      FinancialUnderstandingStore.get(c).confirmedAccountIds()+
+       AccountOwnershipConsentStore(c).confirmedRevisions().keys
+     }
+     val admission=StatementBankAdmission.verify(
+      StatementSourceProfileRegistry.forProvider(providerKey),selectedAccount,
+      confirmed,providerKey,prepared.document,prepared.tables
+     )
+     val accepted=admission as? StatementAdmissionResult.Accepted
+      ?:error(BankStatementAccountIdentityUiPolicy.safeBlockedMessage((admission as StatementAdmissionResult.Blocked).reason))
+     stagedBankPdf=StagedBankPdf(prepared,accepted)
+     done="This bank statement passed full local extraction, account, balance and totals checks. Review its rows before saving."
+    }
+   }catch(e:CancellationException){throw e}
+   catch(e:StatementPdfOpeningPasswordRequiredException){
+    sourcePdfUri=uri;sourcePdfProviderKey=providerKey;pdfPasswordWrong=password.isNotEmpty()
+   }
+   catch(e:Exception){error=e.message ?: "The PDF did not pass verification. No statement records were saved."}
+   finally{reading=false}
+  }
+ }
  val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->
   if(uri!=null&&!reading&&!importing&&preparing==null){
     activityRowsRequireAccountType=null
@@ -130,7 +165,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  }
  val statementPdfPicker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->
   if(uri!=null&&!busy&&accountId.isNotEmpty()){
-   invalidatePreview();sourcePdfUri=uri;sourcePdfPassword=""
+   verifyPdfLocally(uri,"",sourcePdfProviderKey)
   }
  }
  StatementImportWorkspace(busy,onDismiss) {
@@ -426,48 +461,23 @@ private fun readStatement(c:Context,uri:Uri):String {
  }
  sourcePdfUri?.let { uri ->
   AlertDialog(
-   onDismissRequest={sourcePdfUri=null;sourcePdfPassword=""},
+   onDismissRequest={sourcePdfUri=null;sourcePdfPassword="";pdfPasswordWrong=false},
    properties=DialogProperties(securePolicy=SecureFlagPolicy.SecureOn),
-   title={Text(if(sourcePdfProviderKey=="SAFARICOM_MPESA") "Open M-Pesa statement privately" else "Open bank statement privately")},
+   title={Text("Password required to open PDF")},
    text={Column(verticalArrangement=Arrangement.spacedBy(8.dp)){
-    Text("The PDF and password remain on your phone. Enter its PDF-opening password, if required.")
+    Text("This PDF requires an opening password. Enter it to continue verifying the statement on your phone.")
+    if(pdfPasswordWrong) Text("That password did not unlock this PDF. Please try again.",color=MaterialTheme.colorScheme.error)
     OutlinedTextField(value=sourcePdfPassword,onValueChange={sourcePdfPassword=it.take(256)},
-     label={Text("PDF password (optional)")},
+     label={Text("PDF opening password")},
      visualTransformation=PasswordVisualTransformation(),singleLine=true,
+     keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Password,autoCorrectEnabled=false),
      modifier=Modifier.fillMaxWidth())
    }},
-   dismissButton={TextButton(onClick={sourcePdfUri=null;sourcePdfPassword=""}){Text("Cancel")}},
-   confirmButton={TextButton(onClick={
+   dismissButton={TextButton(onClick={sourcePdfUri=null;sourcePdfPassword="";pdfPasswordWrong=false}){Text("Cancel")}},
+   confirmButton={TextButton(enabled=sourcePdfPassword.isNotEmpty(),onClick={
     val secret=sourcePdfPassword
-    sourcePdfPassword="";sourcePdfUri=null;invalidatePreview();reading=true
-    scope.launch{
-     try{
-      if(sourcePdfProviderKey=="SAFARICOM_MPESA") {
-       stagedPdf=withContext(Dispatchers.IO){OfflineMpesaPdfReader.inspect(c,uri,secret)}
-       done="The full PDF passed physical extraction, official summary and provisional balance checks. Review all rows before saving."
-      } else {
-       val providerKey=sourcePdfProviderKey
-       val selectedAccount=accounts.firstOrNull{it.id==accountId}
-        ?:error("Choose the account first.")
-       val prepared=withContext(Dispatchers.IO){OfflineBankTableReader.inspect(c,uri,secret,providerKey)}
-       val confirmed=withContext(Dispatchers.IO){
-        FinancialUnderstandingStore.get(c).confirmedAccountIds()+
-          AccountOwnershipConsentStore(c).confirmedRevisions().keys
-       }
-       val admission=StatementBankAdmission.verify(
-        StatementSourceProfileRegistry.forProvider(providerKey),selectedAccount,
-        confirmed,providerKey,prepared.document,prepared.tables
-       )
-       val accepted=admission as? StatementAdmissionResult.Accepted
-        ?:error(BankStatementAccountIdentityUiPolicy.safeBlockedMessage((admission as StatementAdmissionResult.Blocked).reason))
-       stagedBankPdf=StagedBankPdf(prepared,accepted)
-       done="This bank statement passed full local extraction, account, balance and totals checks. Review its rows before saving."
-      }
-     }catch(e:CancellationException){throw e}
-     catch(e:Exception){error=e.message ?: "The PDF did not pass verification. No statement records were saved."}
-     finally{reading=false}
-    }
-   }){Text("Verify locally")}}
+    verifyPdfLocally(uri,secret,sourcePdfProviderKey)
+   }){Text("Unlock and verify")}}
   )
  }
 }

@@ -1,18 +1,24 @@
 """No private/customer PDFs: synthetic tables exercising the embedded engine."""
 import io
+import base64
+import json
 import unittest
 from datetime import datetime
 from decimal import Decimal
 from unittest.mock import patch
+from pdfminer.pdfdocument import PDFPasswordIncorrect
 
 from reportlab.pdfgen import canvas
+from reportlab.lib.pdfencrypt import StandardEncryption
 from mpesa_pdf_engine import extract_bytes
 from mpesa_wallet_reconcile import reconcile
 
 
-def draw_pdf(wrong_total=False):
+def draw_pdf(wrong_total=False, encrypted=False):
     output = io.BytesIO()
-    c = canvas.Canvas(output, pagesize=(1000, 700))
+    c = canvas.Canvas(output, pagesize=(1000, 700),
+                     encrypt=StandardEncryption(userPassword="invented-opening-pass", ownerPassword="invented-owner-pass")
+                     if encrypted else None)
     def table(xs, top, header, body, row_height=37):
         ys = [700-top-i*row_height for i in range(len(body)+2)]
         for x in xs:
@@ -45,6 +51,39 @@ def draw_pdf(wrong_total=False):
 
 
 class OfflineMpesaPdfTest(unittest.TestCase):
+    def test_real_encrypted_pdf_requires_password_then_opens_with_correct_password(self):
+        from mpesa_pdf_engine import inspect_pdf
+
+        encoded = base64.b64encode(draw_pdf(encrypted=True)).decode("ascii")
+        locked = json.loads(inspect_pdf(encoded, ""))
+        self.assertEqual("pdf_password_rejected", locked["reason"])
+        wrong = json.loads(inspect_pdf(encoded, "invented-wrong-password"))
+        self.assertEqual("pdf_password_rejected", wrong["reason"])
+        unlocked = json.loads(inspect_pdf(encoded, "invented-opening-pass"))
+        self.assertEqual("ready_for_separate_activity_review", unlocked["status"], unlocked.get("reason"))
+
+    def test_password_rejected_has_safe_specific_reason_for_retry(self):
+        from mpesa_pdf_engine import inspect_pdf
+
+        encoded = base64.b64encode(draw_pdf()).decode("ascii")
+        with patch("pdfplumber.open", side_effect=PDFPasswordIncorrect("PRIVATE_PASSWORD_DETAILS")):
+            result = json.loads(inspect_pdf(encoded, ""))
+
+        self.assertEqual("blocked", result["status"])
+        self.assertEqual("pdf_password_rejected", result["reason"])
+        self.assertNotIn("PRIVATE_PASSWORD_DETAILS", json.dumps(result))
+
+    def test_other_pdf_open_failure_does_not_request_a_password(self):
+        from mpesa_pdf_engine import inspect_pdf
+
+        encoded = base64.b64encode(draw_pdf()).decode("ascii")
+        with patch("pdfplumber.open", side_effect=RuntimeError("PRIVATE_DOCUMENT_DETAILS")):
+            result = json.loads(inspect_pdf(encoded, ""))
+
+        self.assertEqual("blocked", result["status"])
+        self.assertNotEqual("pdf_password_rejected", result["reason"])
+        self.assertNotIn("PRIVATE_DOCUMENT_DETAILS", json.dumps(result))
+
     def test_physical_table_cells_are_extracted_once(self):
         import mpesa_pdf_engine
 

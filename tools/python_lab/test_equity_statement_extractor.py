@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 from pdfminer.pdfdocument import PDFPasswordIncorrect
 from reportlab.pdfgen import canvas
+from reportlab.lib.pdfencrypt import StandardEncryption
 
 from bank_table_extractor import inspect_pdf
 
@@ -17,9 +18,11 @@ HEADERS = ("Date", "Value", "Particulars", "Money Out", "Money In", "Balance")
 def invented_pdf(wrong_total=False, unknown_value=False, missing_footer=False,
                  reversed_account_label=False, colon_summary_labels=False,
                  wide_notice=False, other_account_on_second_page=False,
-                 broken_running_balance=False):
+                 broken_running_balance=False, encrypted=False):
     output = io.BytesIO()
-    pdf = canvas.Canvas(output, pagesize=(WIDTH, HEIGHT))
+    pdf = canvas.Canvas(output, pagesize=(WIDTH, HEIGHT),
+                        encrypt=StandardEncryption(userPassword="invented-opening-pass", ownerPassword="invented-owner-pass")
+                        if encrypted else None)
 
     def word(text, x, top):
         pdf.setFont("Helvetica", 11)
@@ -81,6 +84,15 @@ def invented_pdf(wrong_total=False, unknown_value=False, missing_footer=False,
 
 
 class EquityStatementExtractorTest(unittest.TestCase):
+    def test_real_encrypted_statement_fails_without_password_then_passes_with_one(self):
+        encoded = invented_pdf(encrypted=True)
+        locked = json.loads(inspect_pdf(encoded, "", "KENYAN_BANK_EQUITY"))
+        self.assertEqual("pdf_password_rejected", locked["reason"])
+        wrong = json.loads(inspect_pdf(encoded, "invented-wrong-password", "KENYAN_BANK_EQUITY"))
+        self.assertEqual("pdf_password_rejected", wrong["reason"])
+        unlocked = json.loads(inspect_pdf(encoded, "invented-opening-pass", "KENYAN_BANK_EQUITY"))
+        self.assertEqual("ready_for_bank_review", unlocked["status"], unlocked.get("reason"))
+
     def test_reconstructs_seven_legs_and_independent_fee_without_dropping_cover(self):
         response = json.loads(inspect_pdf(invented_pdf(), "", "KENYAN_BANK_EQUITY"))
         self.assertEqual("ready_for_bank_review", response["status"], response.get("reason"))

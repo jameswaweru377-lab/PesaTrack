@@ -67,6 +67,7 @@ object OfflineMpesaPdfReader {
             val response = Python.getInstance().getModule("mpesa_pdf_engine")
                 .callAttr("inspect_pdf", base64, password).toString()
             val root = JSONObject(response)
+            StatementPdfOpeningPassword.requireUnlocked(root.optString("status"), root.optString("reason"))
             require(root.optString("status") == "ready_for_separate_activity_review") {
                 "PDF did not pass complete local source, totals and balance verification (" +
                     root.optString("reason", "unsupported format") + "). No records were saved."

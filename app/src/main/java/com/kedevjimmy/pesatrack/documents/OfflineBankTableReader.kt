@@ -51,6 +51,7 @@ object OfflineBankTableReader {
                 .toString()
         } finally { raw.fill(0) }
         val root = JSONObject(response)
+        StatementPdfOpeningPassword.requireUnlocked(root.optString("status"), root.optString("reason"))
         require(root.optString("status") == "ready_for_bank_review") {
             "This bank PDF did not pass complete local verification (" +
                 root.optString("reason", "unsupported layout") + "). Nothing was saved."

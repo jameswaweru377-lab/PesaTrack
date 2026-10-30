@@ -280,5 +280,6 @@ def inspect_pdf(base64_data: str, password: str, provider_key: str) -> str:
     except Exception as problem:
         # Only stable stage/class codes may cross the boundary. Exceptions can
         # include private source tokens, document identifiers, or passwords.
-        reason = "pdf_password_rejected" if type(problem).__name__ == "PDFPasswordIncorrect" else stage
+        from pdf_opening_error import requires_password
+        reason = "pdf_password_rejected" if requires_password(problem) else stage
         return json.dumps({"status": "blocked", "reason": reason})
