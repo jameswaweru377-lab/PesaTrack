@@ -2,6 +2,16 @@
 
 _Last refreshed: 20 October 2026_
 
+_Bank PDF account setup UX (30 October 2026; pending PR CI/device verification):_
+Statement Import now identifies a missing/incomplete bank account number before PDF
+selection and lets the user provide the complete number to their existing selected
+local owned account. Stable account-identity refusal codes have private-data-safe,
+actionable messages; the wider institution-picker copy distinguishes optional
+transfer hints from the full number required for verified bank PDFs. The
+document-side admission rule, source ownership checks, archived Statements,
+Activity transactions and database schema are unchanged. Phone acceptance is
+pending; no private account values are retained in repository fixtures.
+
 _Statements ↔ Activity evidence milestone (30 October 2026; pending PR CI/device verification):_
 The existing imported-statement coverage, cash overview and canonical Activity
 ledger remain independent. A new opt-in read-only correlation snapshot can now

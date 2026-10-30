@@ -177,7 +177,7 @@ fun FinancialInstitutionsScreen(
                         )
                     }
                     Text(
-                        "Choose banks and money services you use. The last four digits of an account number can help match transfers. A bank mentioned in a payment may belong to someone else.",
+                            "Choose banks and money services you use. The last four digits can help review transfers, but verified bank PDF imports require the complete account number. A bank mentioned in a payment may belong to someone else.",
                         modifier =
                             Modifier.padding(
                                 top = 8.dp
@@ -601,13 +601,15 @@ private fun InstitutionOwnershipRow(
                             ) {
                                 "Your M-Pesa number"
                             } else {
-                                "Account number / unique last 4+ digits"
+                                "Bank account number (full number for PDF)"
                             }
                         )
                     },
                     supportingText = {
                         Text(
-                            "Optional, but improves own-transfer matching."
+                            if (option.reference.accountTypeHint == AccountType.BANK)
+                                "Optional for transfer review; the full number is required for bank PDF import."
+                            else "Optional, but improves own-transfer matching."
                         )
                     }
                 )
