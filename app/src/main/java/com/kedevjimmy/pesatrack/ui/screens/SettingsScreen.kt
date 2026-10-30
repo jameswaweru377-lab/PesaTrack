@@ -26,7 +26,7 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
     val context = LocalContext.current
     var page by rememberSaveable { mutableStateOf("settings") }
     var lock by remember { mutableStateOf(false) }
-    var backup by remember { mutableStateOf(false) }
+    var backup by rememberSaveable { mutableStateOf(false) }
     val back = { page = "settings" }
     BackHandler(enabled = page != "settings", onBack = { if (page == "archive_files") page = "privacy" else back() })
     if (lock) AppLockSettingsSheet(onDismiss = { lock = false }, onChanged = {})

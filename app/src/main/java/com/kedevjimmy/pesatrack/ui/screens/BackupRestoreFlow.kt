@@ -7,6 +7,7 @@ import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricPrompt
 import android.os.Build
 import android.os.CancellationSignal
+import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -50,10 +51,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,21 +67,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.kedevjimmy.pesatrack.security.AppLockManager
-import com.kedevjimmy.pesatrack.security.BackupPreview
 import com.kedevjimmy.pesatrack.security.BackupRecoveryStatus
-import com.kedevjimmy.pesatrack.security.BackupSummary
 import com.kedevjimmy.pesatrack.security.PesaBackupManager
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-
-private enum class BackupPage { HOME, CREATE, RESTORE }
-private enum class RestoreStep { SELECT, PASSWORD, REVIEW, APP_PIN, NO_DEVICE_LOCK, COMPLETE }
 
 /**
  * The entry remains a bottom sheet, but each sensitive job has its own screen.
@@ -93,43 +90,39 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
     val activity = context as? Activity
     val manager = remember(context) { PesaBackupManager(context) }
     val appLock = remember(context) { AppLockManager(context) }
-    val scope = rememberCoroutineScope()
-    var page by remember { mutableStateOf(BackupPage.HOME) }
-    var restoreStep by remember { mutableStateOf(RestoreStep.SELECT) }
-    var createPassphrase by remember { mutableStateOf("") }
-    var confirmPassphrase by remember { mutableStateOf("") }
-    var pendingCreatePassphrase by remember { mutableStateOf("") }
-    var restorePassphrase by remember { mutableStateOf("") }
-    var appPin by remember { mutableStateOf("") }
-    var selectedUri by remember { mutableStateOf<android.net.Uri?>(null) }
-    var preview by remember { mutableStateOf<BackupPreview?>(null) }
-    var created by remember { mutableStateOf<BackupSummary?>(null) }
-    var acknowledgedReplacement by remember { mutableStateOf(false) }
-    var acknowledgedNoDeviceLock by remember { mutableStateOf(false) }
-    var busy by remember { mutableStateOf(false) }
-    var awaitingCredential by remember { mutableStateOf(false) }
-    var credentialFallbackLaunched by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val state: BackupRestoreStateViewModel = viewModel()
+    var page by state.page
+    var restoreStep by state.restoreStep
+    var createPassphrase by state.createPassphrase
+    var confirmPassphrase by state.confirmPassphrase
+    var pendingCreatePassphrase by state.pendingCreatePassphrase
+    var restorePassphrase by state.restorePassphrase
+    var appPin by state.appPin
+    var selectedUri by state.selectedUri
+    var approvedFile by state.approvedFile
+    var created by state.created
+    var createdFileName by state.createdFileName
+    var createdProvider by state.createdProvider
+    var selectedFileName by state.selectedFileName
+    var acknowledgedReplacement by state.acknowledgedReplacement
+    var acknowledgedNoDeviceLock by state.acknowledgedNoDeviceLock
+    var busy by state.busy
+    var awaitingCredential by state.awaitingCredential
+    var credentialFallbackLaunched by state.credentialFallbackLaunched
+    var error by state.error
+
+    LaunchedEffect(activity) {
+        if (activity != null) state.observeActivity(activity)
+    }
 
     fun clearSensitiveInputs() {
-        createPassphrase = ""
-        confirmPassphrase = ""
-        pendingCreatePassphrase = ""
-        restorePassphrase = ""
-        appPin = ""
-        selectedUri = null
-        preview = null
-        acknowledgedReplacement = false
-        acknowledgedNoDeviceLock = false
-        awaitingCredential = false
-        credentialFallbackLaunched = false
-        error = null
+        state.clearSecrets()
+        created = null
     }
 
     fun leaveFlow() {
         if (!busy && !awaitingCredential) {
             clearSensitiveInputs()
-            created = null
             restoreStep = RestoreStep.SELECT
             page = BackupPage.HOME
         }
@@ -138,26 +131,24 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
     fun finishRestore() {
         val uri = selectedUri ?: return
         val passphrase = restorePassphrase
-        if (busy || preview == null) return
-        busy = true
+        val approved = approvedFile ?: return
+        if (busy || !state.claimRestore()) return
         awaitingCredential = false
         error = null
-        scope.launch {
+        state.viewModelScope.launch {
             runCatching {
                 withContext(Dispatchers.IO) {
-                    manager.restoreEncrypted(uri, passphrase)
+                    manager.restoreApprovedFile(uri, passphrase, approved)
                 }
             }.onSuccess {
                 clearSensitiveInputs()
                 restoreStep = RestoreStep.COMPLETE
-                delay(400)
-                onDismiss()
-                activity?.recreate()
+                state.scheduleLedgerReload()
             }.onFailure {
                 error = it.message ?: "Could not restore this backup. Your existing data was not confirmed replaced."
-                if (BackupRecoveryStatus.failure != null) activity?.recreate()
+                if (BackupRecoveryStatus.failure != null) state.scheduleLedgerReload()
             }
-            busy = BackupRecoveryStatus.failure != null
+            state.finishRestoreJob(keepBlocked = BackupRecoveryStatus.failure != null)
         }
     }
 
@@ -189,7 +180,7 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
     }
 
     fun authorizeRestore() {
-        if (!BackupFlowRules.canRestore(preview != null, acknowledgedReplacement, busy) || awaitingCredential) return
+        if (!BackupFlowRules.canRestore(approvedFile != null, acknowledgedReplacement, busy) || awaitingCredential) return
         val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
         if (keyguard?.isDeviceSecure == true && activity != null) {
             awaitingCredential = true
@@ -236,37 +227,48 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
         val passphrase = pendingCreatePassphrase
         pendingCreatePassphrase = ""
         if (uri != null && passphrase.isNotEmpty()) {
-            busy = true
-            error = null
-            scope.launch {
-                runCatching {
-                    withContext(Dispatchers.IO) {
-                        val summary = manager.exportEncrypted(uri, passphrase)
-                        val reread = manager.previewEncrypted(uri, passphrase)
-                        check(reread.rowCount == summary.rowCount &&
-                            reread.statementRows == summary.statementRows) {
-                            "The saved file could not be verified. Please retry with another location."
+            if (!state.claimBackup()) {
+                error = "Another backup operation is already running. Please wait and try again."
+            } else {
+                error = null
+                state.viewModelScope.launch {
+                    runCatching {
+                        withContext(Dispatchers.IO) {
+                            val summary = manager.exportEncrypted(uri, passphrase)
+                            val reread = manager.previewEncrypted(uri, passphrase)
+                            check(reread.rowCount == summary.rowCount &&
+                                reread.statementRows == summary.statementRows) {
+                                "The saved file could not be verified. Please retry with another location."
+                            }
+                            summary
                         }
-                        summary
+                    }.onSuccess {
+                        created = it
+                        createdFileName = backupDisplayName(context.applicationContext, uri)
+                        createdProvider = backupProviderName(context.applicationContext, uri)
+                        createPassphrase = ""
+                        confirmPassphrase = ""
+                    }.onFailure {
+                        error = "Backup creation or verification failed. If a file was saved, remove it before retrying. " +
+                            (it.message ?: "")
                     }
-                }.onSuccess {
-                    created = it
-                    createPassphrase = ""
-                    confirmPassphrase = ""
-                }.onFailure {
-                    error = "Backup creation or verification failed. If a file was saved, remove it before retrying. " +
-                        (it.message ?: "")
+                    state.finishRestoreJob()
                 }
-                busy = false
             }
+        } else if (uri != null) {
+            error = "Save was interrupted. The selected file may be empty. Remove it before retrying."
+        } else {
+            error = "Backup save cancelled. Nothing was exported."
         }
     }
 
     val openPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
+            page = BackupPage.RESTORE
             selectedUri = uri
+            selectedFileName = backupDisplayName(context, uri)
             restorePassphrase = ""
-            preview = null
+            approvedFile = null
             acknowledgedReplacement = false
             restoreStep = RestoreStep.PASSWORD
             error = null
@@ -290,6 +292,7 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
                     fontWeight = FontWeight.Bold)
                 Text("Keep your money data safe and private.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
+                BackupError(error)
                 BackupActionCard(Icons.Rounded.Backup, "Create backup", "Save a protected .ptb file") {
                     clearSensitiveInputs()
                     page = BackupPage.CREATE
@@ -358,9 +361,16 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
                         Text("Backup saved and verified", style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold)
                         Text("Encrypted file verified by opening it again. Keep your passphrase separate from the file.")
+                        BackupFact("Saved file", createdFileName.ifBlank { "PesaTrack .ptb" })
+                        BackupFact("File provider", createdProvider.ifBlank { "Chosen provider" })
                         BackupFact("Ledger-table rows", created!!.rowCount.toString())
                         BackupFact("Saved statement rows", created!!.statementRows.toString())
-                        Button(onClick = { clearSensitiveInputs(); onDismiss() },
+                        Button(onClick = {
+                            clearSensitiveInputs()
+                            page = BackupPage.HOME
+                            restoreStep = RestoreStep.SELECT
+                            onDismiss()
+                        },
                             modifier = Modifier.fillMaxWidth()) { Text("Done") }
                     }
                 } else {
@@ -380,6 +390,7 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
                             BackupStepLabel("1  Selected     •     2  Unlock     •     3  Review")
                             Text("Backup file selected", style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold)
+                            BackupFact("File", selectedFileName.ifBlank { "Selected .ptb file" })
                             Text("Enter the passphrase used when this file was created.",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             BackupPasswordField(restorePassphrase, "Backup passphrase") {
@@ -396,13 +407,13 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
                                     if (error == null && uri != null) {
                                         busy = true
                                         val passphrase = restorePassphrase
-                                        scope.launch {
+                                        state.viewModelScope.launch {
                                             runCatching {
                                                 withContext(Dispatchers.IO) {
-                                                    manager.previewEncrypted(uri, passphrase)
+                                                    manager.previewEncryptedForRestore(uri, passphrase)
                                                 }
                                             }.onSuccess {
-                                                preview = it
+                                                approvedFile = it
                                                 acknowledgedReplacement = false
                                                 restoreStep = RestoreStep.REVIEW
                                                 error = null
@@ -418,7 +429,7 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
                             OutlinedButton(onClick = {
                                 selectedUri = null
                                 restorePassphrase = ""
-                                preview = null
+                                approvedFile = null
                                 restoreStep = RestoreStep.SELECT
                                 error = null
                                 openPicker.launch(arrayOf("*/*"))
@@ -428,7 +439,7 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
                             }
                         }
                         RestoreStep.REVIEW -> {
-                            val details = preview
+                            val details = approvedFile?.preview
                             if (details != null) {
                                 BackupStepLabel("1  Selected     •     2  Unlocked     •     3  Review")
                                 Text("Review backup", style = MaterialTheme.typography.titleLarge,
@@ -436,6 +447,7 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
                                 BackupFact("Created", formatBackupDate(details.createdAtEpochMs))
                                 BackupFact("Ledger-table rows", details.rowCount.toString())
                                 BackupFact("Saved statement rows", details.statementRows.toString())
+                                BackupFact("Statement history", if (details.statementHistoryIncluded) "Included" else "Not included")
                                 BackupFact("Schema", "v${details.schemaVersion}")
                                 if (!details.statementHistoryIncluded) {
                                     BackupWarning("Older file: statement history is not included. Restore is refused when that would erase statements already saved on this phone.")
@@ -496,6 +508,12 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
                             Text("Restore complete", style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold)
                             Text("PesaTrack is reloading your restored local data.")
+                            Button(onClick = {
+                                clearSensitiveInputs()
+                                restoreStep = RestoreStep.SELECT
+                                page = BackupPage.HOME
+                                onDismiss()
+                            }, modifier = Modifier.fillMaxWidth()) { Text("Done") }
                         }
                     }
                 }
@@ -603,3 +621,20 @@ private fun formatBackupDate(createdAtEpochMs: Long): String =
     if (createdAtEpochMs > 0L) {
         SimpleDateFormat("d MMM yyyy, HH:mm", Locale.getDefault()).format(Date(createdAtEpochMs))
     } else "Unknown"
+
+private fun backupDisplayName(context: Context, uri: android.net.Uri): String =
+    runCatching {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0).orEmpty() else ""
+            }.orEmpty()
+    }.getOrDefault("").ifBlank { uri.lastPathSegment?.substringAfterLast('/') ?: "Backup file" }
+
+@Suppress("DEPRECATION")
+private fun backupProviderName(context: Context, uri: android.net.Uri): String =
+    if (uri.scheme == "file") "Device storage" else runCatching {
+        uri.authority?.let { authority ->
+            context.packageManager.resolveContentProvider(authority, 0)
+                ?.loadLabel(context.packageManager)?.toString()
+        }
+    }.getOrNull().orEmpty().ifBlank { "Selected files provider" }

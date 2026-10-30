@@ -387,7 +387,7 @@ private fun ProfileSecurityPage(
     settings: () -> Unit
 ) {
     var lock by remember { mutableStateOf(false) }
-    var backup by remember { mutableStateOf(false) }
+    var backup by rememberSaveable { mutableStateOf(false) }
     if (lock) AppLockSettingsSheet(onDismiss = { lock = false }, onChanged = { lock = false })
     if (backup) BackupRestoreSheet(onDismiss = { backup = false })
 
