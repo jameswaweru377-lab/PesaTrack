@@ -1,3 +1,5 @@
+> **Historical reference only (superseded).** This document records the 7 October 2026 emerald/charcoal concept. The current approved direction is **light-first, indigo/purple**, with four visible tabs (Home, Activity, Plan, More). Use [the current design standard](../DESIGN.md) and actual theme code for new work. Do not apply this palette to today's screens or assume optional dark mode is enabled.
+
 # Dark Mode V2 — approved design
 
 Approved on 7 October 2026.
