@@ -23,6 +23,7 @@ import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.everyday.*
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.statements.StatementBankHistoryPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementSavedAccountVisibility
 import com.kedevjimmy.pesatrack.domain.statements.StatementSourceCoveragePolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementSourceProfileRegistry
 import java.text.SimpleDateFormat
@@ -72,6 +73,9 @@ internal fun StatementIntelligenceDashboard(
     var savedBatches by remember { mutableStateOf<List<StatementActivityStore.Batch>>(emptyList()) }
     var bankMonthsByAccount by remember {
         mutableStateOf<Map<String, List<StatementBankHistoryPolicy.Month>>>(emptyMap())
+    }
+    var limitedBankSources by remember {
+        mutableStateOf<List<StatementBankArchiveStore.Source>>(emptyList())
     }
     var accountLabels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var categoryLabels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
@@ -128,24 +132,30 @@ internal fun StatementIntelligenceDashboard(
                 val banks = owned.filter { it.type == AccountType.BANK }.mapNotNull { account ->
                     bankReader.monthsFor(account.id).takeIf { it.isNotEmpty() }?.let { account.id to it }
                 }.toMap()
+                val archive = StatementBankArchiveStore(context)
+                val limited = owned.filter { it.type == AccountType.BANK }
+                    .flatMap { archive.limitedSourcesFor(it.id) }
                 Triple(store.sourceMonths() to store.batches(),
                     owned.associate { it.id to it.name },
-                    bridge.categoryLabels() to bridge.categoryKinds()) to banks
+                    bridge.categoryLabels() to bridge.categoryKinds()) to (banks to limited)
             }
             sources = info.first.first.first
             savedBatches = info.first.first.second
             accountLabels = info.first.second
             categoryLabels = info.first.third.first
             categoryKinds = info.first.third.second
-            bankMonthsByAccount = info.second
+            bankMonthsByAccount = info.second.first
+            limitedBankSources = info.second.second
         } catch (e: CancellationException) { throw e }
           catch (_: Exception) { dataError = true }
         finally { busy = false }
     }
 
-    val accounts = remember(sources, bankMonthsByAccount) {
-        (sources.map { it.accountId } + bankMonthsByAccount.keys).distinct()
+    val accountIndex = remember(sources, bankMonthsByAccount, limitedBankSources) {
+        StatementSavedAccountVisibility.index(sources.map { it.accountId },
+            bankMonthsByAccount.keys, limitedBankSources.map { it.accountId }.toSet())
     }
+    val accounts = accountIndex.accountIds
     val allYears = remember(sources, bankMonthsByAccount) {
         (sources.map { it.usage.year } + bankMonthsByAccount.values.flatten()
             .mapNotNull { it.key.substringBefore('-').toIntOrNull() })
@@ -176,7 +186,8 @@ internal fun StatementIntelligenceDashboard(
     }
     val accountId = accountSelection?.takeIf { it in accounts } ?: accounts.firstOrNull()
     val bankMonths = accountId?.let { bankMonthsByAccount[it] }.orEmpty()
-    val bankSelected = bankMonths.isNotEmpty()
+    val bankSelected = accountId?.let(accountIndex::isBank) ?: false
+    val selectedLimitedSources = limitedBankSources.filter { it.accountId == accountId }
     val months = remember(sources, accountId) {
         StatementHistoryReport.selectForAccount(sources, accountId.orEmpty())
     }
@@ -372,7 +383,8 @@ internal fun StatementIntelligenceDashboard(
                             overview = unifiedOverview!!,
                             years = allYears.ifEmpty { listOf(overviewYear) },
                             accountLabels = accountLabels,
-                            bankAccountIds = bankMonthsByAccount.keys,
+                            bankAccountIds = accountIndex.bankAccountIds,
+                            limitedSources = limitedBankSources,
                             onSelectYear = { chosenOverviewYear = it },
                             onSelectAccount = { id ->
                                 accountSelection = id
@@ -393,7 +405,12 @@ internal fun StatementIntelligenceDashboard(
                         )
                     }
                 } else if (bankSelected && accountId != null) {
-                    StatementBankOverviewPage(
+                    if (bankMonths.isEmpty()) StatementLimitedBankOverviewPage(
+                        accountLabel = accountLabels[accountId] ?: "Bank account",
+                        sources = selectedLimitedSources,
+                        onBack = { page = StatementPage.ALL_ACCOUNTS },
+                        onImport = { importing = true }
+                    ) else StatementBankOverviewPage(
                         accountId = accountId,
                         accountLabel = accountLabels[accountId] ?: "Bank account",
                         sourceLabel = StatementSourceProfileRegistry.forProvider(
@@ -1152,6 +1169,12 @@ internal fun StatementIntelligenceDashboard(
     if (importing) StatementImportSheet(
         onDismiss = { importing = false; refreshed++ },
         onChanged = { refreshed++ },
+        onBankSaved = { savedAccountId ->
+            accountSelection = savedAccountId
+            chosenScope = null
+            page = StatementPage.SUMMARY
+            busy = true
+        },
         statementOnly = true
     )
 

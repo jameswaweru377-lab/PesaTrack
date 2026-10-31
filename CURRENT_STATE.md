@@ -15,6 +15,17 @@ wrong-answer rate above the frozen ceiling of 20/600. No categorization logic,
 ledger, permission, network, schema or UI behaviour was changed. See
 `docs/CATEGORIZATION_EXAM_BASELINE.md` for the exact scope and limitations.
 
+_Limited bank source visibility follow-up (31 October 2026; CI/device retest pending):_
+After a historical Equity PDF passed local review, the save action closed
+the import sheet but the Statements landing screen indexed only fully verified
+bank periods. A saved limited-assurance source therefore looked absent.
+The Statements index now includes those accounts as explicitly limited
+source records without adding their amounts to verified cash flow, Activity,
+or unified coverage. Saving a bank PDF also returns to its account's saved
+source view; limited-only banks have a dedicated read-only document list.
+This is a presentation/navigation fix, not a ledger or backup schema change.
+The reported Redmi save/return journey still requires a fresh device retest.
+
 _Historical Equity PDF reader (31 October 2026; CI and device acceptance pending):_
 The graphical-logo, borderless Equity statement uses a separate narrowly
 recognized offline Python extraction profile. The private 14-page sample

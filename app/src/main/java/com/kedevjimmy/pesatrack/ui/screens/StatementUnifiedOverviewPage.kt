@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
 import com.kedevjimmy.pesatrack.domain.statements.StatementUnifiedOverviewPolicy
 import java.text.DateFormatSymbols
 import java.util.Locale
@@ -39,7 +40,8 @@ internal fun StatementUnifiedOverviewPage(
     onSelectAccount: (String) -> Unit,
     onImport: () -> Unit,
     onBack: () -> Unit,
-    onOpenReview: () -> Unit = {}
+    onOpenReview: () -> Unit = {},
+    limitedSources: List<StatementBankArchiveStore.Source> = emptyList()
 ) {
     val p = HomeReferencePalette
     val shortMonths = remember { DateFormatSymbols(Locale.ENGLISH).shortMonths }
@@ -120,7 +122,38 @@ internal fun StatementUnifiedOverviewPage(
                 }
             }
         }
-        if (accounts.isEmpty()) {
+        if (limitedSources.isNotEmpty()) item {
+            StatementUnifiedWhiteCard {
+                Column(Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Limited assurance statements", color = p.ink,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold)
+                    Text("Saved source rows only. Not included in verified cash-flow totals or Activity.",
+                        color = p.muted, style = MaterialTheme.typography.bodySmall)
+                    limitedSources.forEach { source ->
+                        Row(Modifier.fillMaxWidth().clickable { onSelectAccount(source.accountId) }
+                            .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.AccountBalance, null, tint = p.purple)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(accountLabels[source.accountId] ?: "Bank statement",
+                                    color = p.ink, fontWeight = FontWeight.SemiBold)
+                                Text("${source.rows} saved rows · ${statementDate(source.lastAt)}",
+                                    color = p.muted, style = MaterialTheme.typography.bodySmall)
+                            }
+                            Icon(Icons.Rounded.ChevronRight, "Open saved bank statement", tint = p.muted)
+                        }
+                    }
+                }
+            }
+        }
+        if (accounts.isEmpty() && limitedSources.isNotEmpty()) item {
+            TextButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
+                Text("Import another statement")
+            }
+        }
+        if (accounts.isEmpty() && limitedSources.isEmpty()) {
             item {
                 StatementUnifiedWhiteCard {
                     Column(Modifier.fillMaxWidth().padding(23.dp),
@@ -143,7 +176,7 @@ internal fun StatementUnifiedOverviewPage(
                     }
                 }
             }
-        } else {
+        } else if (accounts.isNotEmpty()) {
             item {
                 Surface(shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
                     Box(Modifier.fillMaxWidth().background(Brush.linearGradient(
