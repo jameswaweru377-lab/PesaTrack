@@ -103,6 +103,14 @@ class RecurringPatternPolicyV2Test {
     }
 
     @Test
+    fun weeklyVisitsToAShopAreVariableSpendingNotBillCommitments() {
+        assertTrue(detect(
+            "2026-01-01", "2026-01-08", "2026-01-15", "2026-01-22",
+            category = "SHOPPING"
+        ).isEmpty())
+    }
+
+    @Test
     fun twoPaymentsAreNotEnoughToSuggestAnyCadence() {
         assertTrue(detect("2026-01-05", "2026-02-05").isEmpty())
     }

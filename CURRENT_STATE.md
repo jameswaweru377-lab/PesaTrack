@@ -2,6 +2,22 @@
 
 _Last refreshed: 31 October 2026_
 
+_Recurring-pattern v2 domain proposal (31 October 2026; draft PR, device acceptance pending):_
+An opt-in, pure Kotlin `RecurringPatternPolicy.detectV2` evaluates local
+observations for weekly, fortnightly, fixed day of month (±2 days), month-end
+and approximately four-month termly patterns. It tolerates one missed cadence
+with enough other evidence, keeps the existing 35% amount guard and HIGH/MEDIUM
+confidence tiers, anchors the next date to the calendar, and includes an
+explainable reason for every candidate. Invented JVM fixtures cover leap years,
+skipped events, inadequate history, volatile amounts and irregular shop visits.
+This code is **not connected to live suggestions**: the current bill setup
+cannot accurately represent fortnightly or termly commitments and would
+otherwise risk displaying them as monthly. The existing detector, bill setup,
+transaction ledger and categorization remain unchanged. Connecting v2 to the
+app requires separately approved schedule/UI handling and device verification;
+this change adds no permission, telemetry or network access. See
+`docs/superpowers/specs/2026-10-31-recurring-pattern-v2-design.md`.
+
 _Default offline categorization exam (31 October 2026; baseline verified in JVM CI):_
 A fixed 600-case invented Kenyan corpus now scores the existing built-in
 recognizer and extracted unchanged TransactionStore fallback, without user

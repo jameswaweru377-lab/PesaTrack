@@ -36,8 +36,8 @@
 
 **Interfaces:** `RecurringPatternPolicy.detectV2(observations, nowEpochMs): List<RecurringPatternCandidate>`; candidates carry cadence and a human-readable reason.
 
-- [ ] Write invented fixed-day, month-end, weekly, fortnightly, termly, one-missed, and negative test cases.
-- [ ] Run the focused JVM test and observe a missing `detectV2` method failure.
+- [x] Write invented fixed-day, month-end, weekly, fortnightly, termly, one-missed, and negative test cases.
+- [x] Run the CI JVM compilation and observe missing `detectV2` and cadence failures (Android CI 41199428986).
 
 ### Task 2: Implement the pure policy and pass tests
 
@@ -47,7 +47,7 @@
 
 **Interfaces:** The existing production `detect` remains byte-for-byte untouched.
 
-- [ ] Implement cadence classification with local calendar anchoring and amount/staleness checks.
+- [x] Implement cadence classification with local calendar anchoring and amount/staleness checks.
 - [ ] Run the focused JVM tests; verify exact expected cadences, dates and reason strings.
 - [ ] Run the project-wide JVM tests, Android lint and debug assembly in CI.
 
@@ -56,6 +56,6 @@
 **Files:**
 - Modify `CURRENT_STATE.md`; add this plan and design file.
 
-- [ ] Document domain-only activation limit, no data transfer and next integration gate.
+- [x] Document domain-only activation limit, no data transfer and next integration gate.
 - [ ] Review the PR diff for unintended live financial effects.
-- [ ] Open a separate PR and do not merge it.
+- [x] Open a separate draft PR (#501) and do not merge it.
