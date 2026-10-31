@@ -1,9 +1,11 @@
 """Project v2 updates are optional, bounded, and never an ownership authority."""
 
+import json
 import unittest
+from io import BytesIO
 from unittest.mock import patch
 
-from tools.tracker.project_sync import load_project, main, plan_updates
+from tools.tracker.project_sync import graphql, load_project, main, plan_updates
 
 
 def project(status="Unclaimed", *, include_item=True):
@@ -26,6 +28,18 @@ def report(status="CI passed"):
 
 
 class ProjectSyncTest(unittest.TestCase):
+    def test_graphql_rejection_reports_safe_error_type_without_remote_message(self):
+        response = BytesIO(json.dumps({
+            "errors": [{"type": "INSUFFICIENT_SCOPES",
+                        "message": "private GitHub response that must not be logged"}],
+            "data": {},
+        }).encode("utf-8"))
+        with patch("tools.tracker.project_sync.request.urlopen", return_value=response):
+            with self.assertRaises(RuntimeError) as failure:
+                graphql("invented-token", "query { viewer { login } }", {})
+        self.assertIn("INSUFFICIENT_SCOPES", str(failure.exception))
+        self.assertNotIn("private GitHub response", str(failure.exception))
+
     def test_plans_only_changed_bot_owned_status_field(self):
         updates, missing = plan_updates(project(), report(), "jameswaweru377-lab/PesaTrack")
         self.assertEqual([], missing)
