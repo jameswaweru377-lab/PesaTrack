@@ -5,6 +5,7 @@ import unittest
 from urllib.parse import parse_qs, urlparse
 
 from tools.tracker.github_snapshot import fetch_snapshot
+from tools.tracker.reconcile import reconcile
 
 
 class FakeGitHub:
@@ -104,6 +105,47 @@ class GitHubSnapshotTest(unittest.TestCase):
         self.assertEqual(200, len(result["issues"]))
         self.assertEqual(2, sum("/issues?" in url for url, _, _ in fake.requested))
         self.assertFalse(any("Authorization" in headers for _, headers, _ in fake.requested))
+
+    def test_capped_closed_pr_history_makes_project_evidence_incomplete(self):
+        class ClosedHistory(FakeGitHub):
+            def __call__(self, url, headers, timeout):
+                parsed = urlparse(url)
+                if parsed.path.endswith("/pulls"):
+                    state = parse_qs(parsed.query).get("state", [""])[0]
+                    if state == "open":
+                        return []
+                    if state == "closed":
+                        # No reciprocal Issue PR line and no Tracks line in
+                        # recent history: an older merged PR may be missing.
+                        return [{"number": number, "state": "closed",
+                                 "body": "Historical unlinked change"}
+                                for number in range(100)]
+                return super().__call__(url, headers, timeout)
+
+        snapshot = fetch_snapshot("invented", "test-org/test-repo",
+                                  opener=ClosedHistory(), max_pages=1)
+        self.assertTrue(snapshot["historical_window_limited"])
+        self.assertTrue(snapshot["truncated"])
+        self.assertTrue(reconcile(snapshot)["incomplete"])
+        self.assertEqual("Claimed", reconcile(snapshot)["tasks"][0]["status"])
+
+    def test_uncapped_closed_pr_history_remains_complete(self):
+        class ShortHistory(FakeGitHub):
+            def __call__(self, url, headers, timeout):
+                parsed = urlparse(url)
+                if parsed.path.endswith("/pulls"):
+                    state = parse_qs(parsed.query).get("state", [""])[0]
+                    if state == "closed":
+                        return [{"number": number, "state": "closed",
+                                 "body": "Unlinked history"}
+                                for number in range(99)]
+                return super().__call__(url, headers, timeout)
+
+        snapshot = fetch_snapshot("invented", "test-org/test-repo",
+                                  opener=ShortHistory(), max_pages=1)
+        self.assertFalse(snapshot["historical_window_limited"])
+        self.assertFalse(snapshot["truncated"])
+        self.assertFalse(reconcile(snapshot)["incomplete"])
 
     def test_invalid_repository_does_not_become_http_request(self):
         for repository in ("", "https://evil.com/org/repo", "../../etc/passwd", "one-name"):

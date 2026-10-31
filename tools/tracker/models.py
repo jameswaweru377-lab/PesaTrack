@@ -56,7 +56,8 @@ def explicit_task_status(body: object) -> str | None:
     """Only preserve one recognized human task state; never infer a resolution."""
     if not isinstance(body, str):
         return None
-    values = set(TASK_STATUS_LINE.findall(body))
+    # The regex accepts mixed case; normalize before deduplicating or comparing.
+    values = {value.capitalize() for value in TASK_STATUS_LINE.findall(body)}
     return next(iter(values)) if len(values) == 1 else None
 
 

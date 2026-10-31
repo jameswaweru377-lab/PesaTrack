@@ -141,6 +141,32 @@ class ReconcileTest(unittest.TestCase):
                           "prs": [pr(201)], "checks": [check()]})
         self.assertEqual("Paused", data["tasks"][0]["status"])
 
+    def test_case_insensitive_pause_prevents_an_open_pr_from_overriding_owner(self):
+        for spelling in ("paused", "PAUSED", "PaUsEd"):
+            with self.subTest(spelling=spelling):
+                frozen = issue()
+                frozen["body"] += f"\nTask status: {spelling}"
+                data = reconcile({"checked_at": "2026-10-31T10:00:00Z",
+                                  "issues": [frozen], "prs": [pr(201)],
+                                  "checks": [check()]})
+                self.assertEqual("Paused", data["tasks"][0]["status"])
+
+    def test_equivalent_human_state_lines_are_not_treated_as_conflicts(self):
+        frozen = issue()
+        frozen["body"] += "\nTask status: paused\nTask status: PAUSED"
+        data = reconcile({"checked_at": "2026-10-31T10:00:00Z",
+                          "issues": [frozen], "prs": [pr(201)],
+                          "checks": [check()]})
+        self.assertEqual("Paused", data["tasks"][0]["status"])
+
+    def test_distinct_human_state_lines_remain_ambiguous(self):
+        frozen = issue()
+        frozen["body"] += "\nTask status: Paused\nTask status: Blocked"
+        data = reconcile({"checked_at": "2026-10-31T10:00:00Z",
+                          "issues": [frozen], "prs": [pr(201)],
+                          "checks": [check()]})
+        self.assertEqual("CI passed", data["tasks"][0]["status"])
+
     def test_open_unlinked_prs_are_visible_without_inventing_task_owners(self):
         unlinked = pr(211)
         unlinked["body"] = "A legitimate independent change without a tracker reference"

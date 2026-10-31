@@ -135,14 +135,16 @@ def fetch_snapshot(token: str, repository: str, *, opener=None, max_pages: int =
                 "run_id": run.get("id"), "run_attempt": run.get("run_attempt"),
             })
 
+    closed_history_capped = len(recent_closed) >= max_pages * 100
     return {
         "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "main_sha": main_sha, "issues": issues, "prs": prs,
         "checks": checks, "required_checks": ["Android CI"],
         # Old unreferenced closed PRs are outside the bounded historical window.
         # They are not needed for canonical Issue status when explicit links exist.
-        "historical_window_limited": len(recent_closed) >= max_pages * 100,
+        "historical_window_limited": closed_history_capped,
         "truncated": (incomplete_historical or len(candidates) == 60
                       or len(open_pulls) >= max_pages * 100
+                      or closed_history_capped
                       or len(issues) >= max_pages * 100),
     }
