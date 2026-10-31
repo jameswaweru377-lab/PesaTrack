@@ -47,6 +47,7 @@ import com.kedevjimmy.pesatrack.documents.StatementPdfOpeningPasswordRequiredExc
 import com.kedevjimmy.pesatrack.domain.statements.BankStatementAccountIdentityUiPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementAdmissionResult
 import com.kedevjimmy.pesatrack.domain.statements.StatementBankAdmission
+import com.kedevjimmy.pesatrack.domain.statements.StatementDocumentAssurance
 import com.kedevjimmy.pesatrack.domain.statements.StatementSourceProfileRegistry
 
 private data class StagedBankPdf(
@@ -141,7 +142,9 @@ private fun readStatement(c:Context,uri:Uri):String {
      val accepted=admission as? StatementAdmissionResult.Accepted
       ?:error(BankStatementAccountIdentityUiPolicy.safeBlockedMessage((admission as StatementAdmissionResult.Blocked).reason))
      stagedBankPdf=StagedBankPdf(prepared,accepted)
-     done="This bank statement passed full local extraction, account, balance and totals checks. Review its rows before saving."
+     done=if(accepted.assurance==StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY)
+       "All rows, adjacent balances and the final printed totals reconcile. The opening balance and page totals are unavailable; review this limited-assurance statement before saving."
+     else "This bank statement passed full local extraction, account, balance and totals checks. Review its rows before saving."
     }
    }catch(e:CancellationException){throw e}
    catch(e:StatementPdfOpeningPasswordRequiredException){
@@ -376,18 +379,23 @@ private fun readStatement(c:Context,uri:Uri):String {
    }
   }
   stagedBankPdf?.let { ready ->
+   val limited = ready.admitted.assurance==StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY
    item { PesaCard {
     Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(9.dp)) {
-     Text("Verified bank statement",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
-     Text("${ready.parsed.document.pages} PDF pages · ${ready.admitted.sourceRows} verified cash movements")
+     Text(if(limited)"Limited assurance bank statement" else "Verified bank statement",
+      style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
+     Text("${ready.parsed.document.pages} PDF pages · ${ready.admitted.sourceRows} locally reconciled cash movements")
      Text("Money in ${toolMoney(ready.admitted.moneyInMinor)} · Money out ${toolMoney(ready.admitted.moneyOutMinor)}")
      Text("${statementDate(ready.admitted.legs.minOf{it.occurredAt})} – ${statementDate(ready.admitted.legs.maxOf{it.occurredAt})}",
       style=MaterialTheme.typography.bodySmall)
-     Text("The account identity, opening balance, every running balance and printed totals were checked locally. Money out is not automatically spending; unknown categories remain unknown.",
+     Text(if(limited)
+       "Account identity, every adjacent running balance and the final printed totals match. No printed opening balance or page totals are available. This history will stay in a separate limited-assurance archive, outside verified reports, totals, Activity and automatic matching."
+      else "The account identity, opening balance, every running balance and printed totals were checked locally. Money out is not automatically spending; unknown categories remain unknown.",
       style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      Row(verticalAlignment=Alignment.CenterVertically) {
       Checkbox(checked=statementPdfApproved,onCheckedChange={statementPdfApproved=it},enabled=!busy)
-      Text("I reviewed the source rows. Save only to Statements, never to Activity.",
+      Text(if(limited)"I understand these rows have limited assurance. Save to Statements only, outside verified totals and Activity."
+        else "I reviewed the source rows. Save only to Statements, never to Activity.",
        Modifier.weight(1f),style=MaterialTheme.typography.bodySmall)
      }
      Button(enabled=!busy&&statementPdfApproved,onClick={
@@ -397,7 +405,9 @@ private fun readStatement(c:Context,uri:Uri):String {
         val saved=withContext(Dispatchers.IO) {
          StatementBankArchiveStore(c).save(ready.admitted,ready.parsed.tables)
         }
-        done=if(saved.added)"Saved this verified bank statement. Activity was not changed."
+        done=if(saved.added) if(limited)
+           "Saved limited-assurance bank evidence separately. Verified totals and Activity were not changed."
+          else "Saved this verified bank statement. Activity was not changed."
           else "This statement is already saved; no duplicate was created."
         stagedBankPdf=null;statementPdfApproved=false
         onChanged();onDismiss()

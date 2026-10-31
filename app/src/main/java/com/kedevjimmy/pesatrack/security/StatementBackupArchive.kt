@@ -24,10 +24,13 @@ internal object StatementBackupArchive {
         "statement_category_labels",
         "statement_category_rules"
     )
-    val tablesInRestoreOrder = legacyTablesInRestoreOrder + listOf(
+    val verifiedTablesInRestoreOrder = legacyTablesInRestoreOrder + listOf(
         "statement_sources_v2",
         "statement_legs_v2",
         "statement_category_labels_v2"
+    )
+    val tablesInRestoreOrder = verifiedTablesInRestoreOrder + listOf(
+        "statement_limited_sources_v1", "statement_limited_legs_v1"
     )
 
     // Keep this explicit: a statement schema upgrade requires a reviewed
@@ -50,7 +53,7 @@ internal object StatementBackupArchive {
             "exact_merchant_key", "category_id"
         )
     )
-    val columns = legacyColumns + mapOf(
+    val verifiedColumns = legacyColumns + mapOf(
         "statement_sources_v2" to setOf(
             "id", "account_id", "provider_key", "account_identity_hash",
             "currency", "document_format", "imported_at", "row_count",
@@ -65,10 +68,23 @@ internal object StatementBackupArchive {
             "source_id", "leg_number", "category_id"
         )
     )
+    val columns = verifiedColumns + mapOf(
+        "statement_limited_sources_v1" to setOf(
+            "id", "account_id", "provider_key", "account_identity_hash",
+            "currency", "document_format", "imported_at", "row_count",
+            "first_at", "last_at", "money_in_minor", "money_out_minor", "assurance"
+        ),
+        "statement_limited_legs_v1" to setOf(
+            "source_id", "leg_number", "page_number", "row_number",
+            "occurred_at", "description", "reference", "movement_minor",
+            "running_balance_minor", "source_cells_json"
+        )
+    )
 
     /** Legacy payloads contain precisely the old four tables, never inferred missing rows. */
     fun backupColumnsFor(version: Int): Map<String, Set<String>> = when (version) {
         3, 4 -> legacyColumns
+        5 -> verifiedColumns
         SCHEMA_VERSION -> columns
         else -> throw IllegalArgumentException("Unsupported saved statement history schema.")
     }
@@ -84,8 +100,10 @@ internal object StatementBackupArchive {
         if (archive.batches().isNotEmpty() || archive.categoryRules().isNotEmpty()) return true
         val db = StatementArchiveDb(context)
         return try {
-            db.readableDatabase.rawQuery("SELECT 1 FROM statement_sources_v2 LIMIT 1", null)
-                .use { it.moveToFirst() }
+            db.readableDatabase.rawQuery(
+                "SELECT 1 FROM statement_sources_v2 UNION ALL " +
+                    "SELECT 1 FROM statement_limited_sources_v1 LIMIT 1", null
+            ).use { it.moveToFirst() }
         } finally { db.close() }
     }
 

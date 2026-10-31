@@ -125,4 +125,33 @@ class StatementBankArchiveIntegrationTest {
         assertEquals(0L, PesaTrackDatabase.get(app).readableDatabase
             .compileStatement("SELECT COUNT(*) FROM transactions").simpleQueryForLong())
     }
+
+    @Test fun limitedLegacyArchiveIsSeparateFromVerifiedReportsAndIdempotent() {
+        val bank = AccountOwnershipConsentStore(app).createOwnedAccount(
+            "Invented Equity", AccountType.BANK)
+        AccountStore.get(app).updateDetails(bank.id, "001234567890", null)
+        val profile = StatementSourceProfileRegistry.forProvider("KENYAN_BANK_EQUITY")!!
+        val legacyPages = listOf(StatementTablePage(1,
+            listOf("Transaction Details", "Payment reference", "Date", "Credit", "Debit", "Balance"),
+            listOf(
+                listOf("Invented deposit", "EXAMPLE00001", "01/09/2026", "100.00", "", "100.00"),
+                listOf("Invented payment", "EXAMPLE00002", "02/09/2026", "", "20.00", "80.00")
+            )))
+        val admitted = StatementBankAdmission.verify(
+            profile, AccountStore.get(app).listAccounts().first { it.id == bank.id },
+            setOf(bank.id), profile.providerKey,
+            StatementDocumentProof(profile.providerKey, "001234567890", "KES", "PDF",
+                true, 1, emptyMap(), StatementPrintedTotal(2_000L, 10_000L), null,
+                StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY),
+            legacyPages
+        ) as StatementAdmissionResult.Accepted
+        val saved = store.save(admitted, legacyPages)
+        assertTrue(saved.added)
+        assertFalse(store.save(admitted, legacyPages).added)
+        assertTrue(store.sourcesFor(bank.id).isEmpty())
+        assertEquals(1, store.limitedSourcesFor(bank.id).size)
+        assertEquals(2, store.limitedLegsFor(saved.sourceId).size)
+        assertEquals(0L, PesaTrackDatabase.get(app).readableDatabase
+            .compileStatement("SELECT COUNT(*) FROM transactions").simpleQueryForLong())
+    }
 }

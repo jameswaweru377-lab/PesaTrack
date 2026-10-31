@@ -7,6 +7,7 @@ import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
 import com.kedevjimmy.pesatrack.domain.evidence.OfflinePdfAdmission
 import com.kedevjimmy.pesatrack.domain.statements.StatementDocumentProof
+import com.kedevjimmy.pesatrack.domain.statements.StatementDocumentAssurance
 import com.kedevjimmy.pesatrack.domain.statements.StatementPrintedTotal
 import com.kedevjimmy.pesatrack.domain.statements.StatementTablePage
 import java.io.ByteArrayOutputStream
@@ -77,7 +78,13 @@ object OfflineBankTableReader {
             pages = count, printedPageTotals = perPage,
             printedGrandTotal = StatementPrintedTotal(grand.getLong("moneyOutMinor"),
                 grand.getLong("moneyInMinor")),
-            openingBalanceMinor = source.getLong("openingBalanceMinor")
+            openingBalanceMinor = if (source.isNull("openingBalanceMinor")) null
+                else source.getLong("openingBalanceMinor"),
+            assurance = when (source.optString("assurance")) {
+                "grand_total_and_chain_only" -> StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY
+                "" -> StatementDocumentAssurance.FULL
+                else -> error("Unknown bank document assurance; no data saved.")
+            }
         )
         val physical = root.getJSONArray("tables")
         require(physical.length() in 1..160)

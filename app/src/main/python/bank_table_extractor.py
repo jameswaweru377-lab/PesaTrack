@@ -257,7 +257,16 @@ def inspect_pdf(base64_data: str, password: str, provider_key: str) -> str:
             tables = []
             for index, page in enumerate(pdf.pages, 1):
                 stage = "pdf_page_extraction_failed"
-                source_id, result = _read_page(page, index, profile, deadline)
+                try:
+                    source_id, result = _read_page(page, index, profile, deadline)
+                except Blocked as original:
+                    if str(original) != "unverified_issuer" or provider_key != "KENYAN_BANK_EQUITY":
+                        raise
+                    from equity_legacy_extractor import LegacyBlocked, inspect_legacy
+                    try:
+                        return json.dumps(inspect_legacy(pdf, profile, deadline))
+                    except LegacyBlocked as legacy:
+                        raise Blocked(str(legacy)) from None
                 if identity is not None and identity != source_id:
                     raise Blocked("account_changes_between_pages")
                 identity = source_id

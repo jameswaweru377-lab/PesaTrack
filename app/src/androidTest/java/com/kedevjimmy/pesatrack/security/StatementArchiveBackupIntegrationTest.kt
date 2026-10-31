@@ -111,6 +111,7 @@ class StatementArchiveBackupIntegrationTest {
 
     private fun clearStatementArchive() = archive { db ->
         listOf(
+            "statement_limited_legs_v1", "statement_limited_sources_v1",
             "statement_category_labels_v2", "statement_legs_v2", "statement_sources_v2",
             "statement_category_labels", "statement_activity_lines", "statement_category_rules", "statement_batches"
         ).forEach { db.delete(it, null, null) }
@@ -132,6 +133,26 @@ class StatementArchiveBackupIntegrationTest {
             put("description", "Invented bank movement")
             put("movement_minor", 1000L); put("running_balance_minor", 1000L)
             put("source_cells_json", "[\"01-01-2026\",\"\",\"Invented bank movement\",\"\",\"10.00\",\"10.00 Cr\"]")
+        })
+    }
+
+    private fun seedLimitedEvidence() = archive { db ->
+        db.insertOrThrow("statement_limited_sources_v1", null, ContentValues().apply {
+            put("id", "d".repeat(64)); put("account_id", "invented-owned-bank")
+            put("provider_key", "KENYAN_BANK_EQUITY"); put("account_identity_hash", "e".repeat(64))
+            put("currency", "KES"); put("document_format", "PDF")
+            put("imported_at", 1_780_000_000_000L); put("row_count", 1)
+            put("first_at", 1_780_000_000_000L); put("last_at", 1_780_000_000_000L)
+            put("money_in_minor", 1_000L); put("money_out_minor", 0L)
+            put("assurance", "GRAND_TOTAL_AND_CHAIN_ONLY")
+        })
+        db.insertOrThrow("statement_limited_legs_v1", null, ContentValues().apply {
+            put("source_id", "d".repeat(64)); put("leg_number", 0)
+            put("page_number", 1); put("row_number", 1)
+            put("occurred_at", 1_780_000_000_000L)
+            put("description", "Invented older bank movement")
+            put("movement_minor", 1_000L); put("running_balance_minor", 1_000L)
+            put("source_cells_json", "{\"headers\":[\"Example\"],\"cells\":[\"Invented\"]}")
         })
     }
 
@@ -288,6 +309,56 @@ class StatementArchiveBackupIntegrationTest {
             .compileStatement("SELECT COUNT(*) FROM transactions").simpleQueryForLong())
     }
 
+    @Test fun currentBackupRestoresLimitedEvidenceWithoutPromotingItToVerifiedHistory() {
+        seedLimitedEvidence()
+        val encrypted = manager.exportEncryptedBytes(password)
+        assertEquals(1, manager.previewEncryptedBytes(encrypted, password).statementRows)
+        clearStatementArchive()
+        assertEquals(1, manager.restoreEncryptedBytes(encrypted, password).statementRows)
+        archive { db ->
+            assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_limited_sources_v1")
+                .simpleQueryForLong())
+            assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_limited_legs_v1")
+                .simpleQueryForLong())
+            assertEquals(0L, db.compileStatement("SELECT COUNT(*) FROM statement_sources_v2")
+                .simpleQueryForLong())
+        }
+    }
+
+    @Test fun v5BackupRestoresVerifiedRowsAndLeavesNewLimitedTablesEmpty() {
+        seedBankEvidence()
+        val v5 = EncryptedBackupFixture.rewrite(manager.exportEncryptedBytes(password), password) { root ->
+            val section = root.getAsJsonObject("statementArchive")
+            section.addProperty("schemaVersion", 5)
+            val tables = section.getAsJsonObject("tables")
+            listOf("statement_limited_sources_v1", "statement_limited_legs_v1").forEach(tables::remove)
+        }
+        clearStatementArchive()
+        assertEquals(1, manager.restoreEncryptedBytes(v5, password).statementRows)
+        archive { db ->
+            assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_sources_v2")
+                .simpleQueryForLong())
+            assertEquals(0L, db.compileStatement("SELECT COUNT(*) FROM statement_limited_sources_v1")
+                .simpleQueryForLong())
+        }
+    }
+
+    @Test fun upgradeFromV5PreservesVerifiedEvidenceAndCreatesLimitedTables() {
+        seedBankEvidence()
+        archive { db ->
+            db.execSQL("DROP TABLE statement_limited_legs_v1")
+            db.execSQL("DROP TABLE statement_limited_sources_v1")
+            db.version = 5
+        }
+        archive { db ->
+            assertEquals(6, db.version)
+            assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_sources_v2")
+                .simpleQueryForLong())
+            assertEquals(0L, db.compileStatement("SELECT COUNT(*) FROM statement_limited_sources_v1")
+                .simpleQueryForLong())
+        }
+    }
+
     @Test fun legacyV3AndV4PayloadsRestoreOldEvidenceAndClearNewEvidence() {
         seedArchive()
         for (oldVersion in listOf(3, 4)) {
@@ -296,6 +367,8 @@ class StatementArchiveBackupIntegrationTest {
                 archive.addProperty("schemaVersion", oldVersion)
                 val tables = archive.getAsJsonObject("tables")
                 listOf("statement_sources_v2", "statement_legs_v2", "statement_category_labels_v2")
+                    .forEach(tables::remove)
+                listOf("statement_limited_sources_v1", "statement_limited_legs_v1")
                     .forEach(tables::remove)
             }
             seedBankEvidence()

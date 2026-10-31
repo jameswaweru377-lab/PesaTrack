@@ -7,7 +7,7 @@ import android.database.sqlite.SQLiteOpenHelper
 /** One lossless schema for legacy M-Pesa evidence and independent bank evidence. */
 internal class StatementArchiveDb(context: Context) :
     SQLiteOpenHelper(context, "pesatrack_statement_activity.db", null, VERSION) {
-    companion object { const val VERSION = 5 }
+    companion object { const val VERSION = 6 }
 
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
@@ -44,6 +44,7 @@ internal class StatementArchiveDb(context: Context) :
         createGlobalHistoryIndex(db)
         createLegacyCategories(db)
         createBankEvidence(db)
+        createLimitedBankEvidence(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -55,6 +56,7 @@ internal class StatementArchiveDb(context: Context) :
         if (oldVersion < 3) createLegacyCategories(db)
         if (oldVersion < 4) createGlobalHistoryIndex(db)
         if (oldVersion < 5) createBankEvidence(db)
+        if (oldVersion < 6) createLimitedBankEvidence(db)
     }
 
     private fun createLegacyCategories(db: SQLiteDatabase) {
@@ -117,5 +119,41 @@ internal class StatementArchiveDb(context: Context) :
         )""".trimIndent())
         db.execSQL("CREATE INDEX IF NOT EXISTS statement_sources_v2_account ON statement_sources_v2(account_id, last_at DESC)")
         db.execSQL("CREATE INDEX IF NOT EXISTS statement_legs_v2_time ON statement_legs_v2(source_id, occurred_at DESC)")
+    }
+
+    /** Additive lower-assurance history: deliberately separate from verified totals. */
+    private fun createLimitedBankEvidence(db: SQLiteDatabase) {
+        db.execSQL("""CREATE TABLE IF NOT EXISTS statement_limited_sources_v1 (
+            id TEXT PRIMARY KEY NOT NULL,
+            account_id TEXT NOT NULL,
+            provider_key TEXT NOT NULL,
+            account_identity_hash TEXT NOT NULL,
+            currency TEXT NOT NULL,
+            document_format TEXT NOT NULL,
+            imported_at INTEGER NOT NULL,
+            row_count INTEGER NOT NULL CHECK(row_count > 0),
+            first_at INTEGER NOT NULL,
+            last_at INTEGER NOT NULL,
+            money_in_minor INTEGER NOT NULL CHECK(money_in_minor >= 0),
+            money_out_minor INTEGER NOT NULL CHECK(money_out_minor >= 0),
+            assurance TEXT NOT NULL CHECK(assurance = 'GRAND_TOTAL_AND_CHAIN_ONLY'),
+            CHECK(first_at <= last_at)
+        )""".trimIndent())
+        db.execSQL("""CREATE TABLE IF NOT EXISTS statement_limited_legs_v1 (
+            source_id TEXT NOT NULL REFERENCES statement_limited_sources_v1(id) ON DELETE CASCADE,
+            leg_number INTEGER NOT NULL,
+            page_number INTEGER NOT NULL,
+            row_number INTEGER NOT NULL,
+            occurred_at INTEGER NOT NULL,
+            description TEXT NOT NULL,
+            reference TEXT,
+            movement_minor INTEGER NOT NULL,
+            running_balance_minor INTEGER NOT NULL,
+            source_cells_json TEXT NOT NULL,
+            PRIMARY KEY(source_id, leg_number),
+            UNIQUE(source_id, page_number, row_number)
+        )""".trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS statement_limited_sources_account " +
+            "ON statement_limited_sources_v1(account_id, last_at DESC)")
     }
 }

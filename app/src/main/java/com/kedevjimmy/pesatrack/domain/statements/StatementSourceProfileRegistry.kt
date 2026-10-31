@@ -21,7 +21,10 @@ object StatementSourceProfileRegistry {
             currency = "KES",
             table = StatementFormatProfile(
                 // Value is still unconfirmed; never admit a populated value as an amount.
-                aliases = mapOf("Value" to StatementField.VALUE_DATE),
+                aliases = mapOf(
+                    "Value" to StatementField.VALUE_DATE,
+                    "Payment reference" to StatementField.REFERENCE
+                ),
                 allowCreditDebitBalanceSuffix = true
             ),
             // Verified against the private selectable-text issuer PDF in a

@@ -92,4 +92,37 @@ class StatementBankAdmissionTest {
         )
         assertTrue(result.toString(), result is StatementAdmissionResult.Accepted)
     }
+
+    @Test fun printedGrandTotalAndCompleteChainPermitOnlyLimitedAssurance() {
+        val limited = document.copy(
+            pages = 1,
+            assurance = StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY,
+            openingBalanceMinor = null,
+            printedPageTotals = emptyMap()
+        )
+        val accepted = admit(proof = limited) as StatementAdmissionResult.Accepted
+        assertEquals(StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY, accepted.assurance)
+        assertNull(accepted.openingBalanceMinor)
+        assertEquals(5_000L, accepted.moneyInMinor)
+        assertEquals(2_000L, accepted.moneyOutMinor)
+    }
+
+    @Test fun limitedAssuranceDoesNotBypassIssuerCoverageOrGrandTotals() {
+        val limited = document.copy(
+            assurance = StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY,
+            openingBalanceMinor = null,
+            printedPageTotals = emptyMap()
+        )
+        assertEquals(StatementAdmissionResult.Reason.INCOMPLETE_DOCUMENT,
+            (admit(proof = limited.copy(allSourceRegionsAccountedFor = false))
+                as StatementAdmissionResult.Blocked).reason)
+        assertEquals(StatementAdmissionResult.Reason.TOTAL_MISMATCH,
+            (admit(proof = limited.copy(printedGrandTotal = StatementPrintedTotal(2_001, 5_000)))
+                as StatementAdmissionResult.Blocked).reason)
+        assertEquals(StatementAdmissionResult.Reason.INCOMPLETE_DOCUMENT,
+            (admit(proof = limited.copy(pages = 2)) as StatementAdmissionResult.Blocked).reason)
+        assertEquals(StatementAdmissionResult.Reason.WRONG_ACCOUNT,
+            (admit(proof = limited.copy(detectedProviderKey = "KENYAN_BANK_KCB"))
+                as StatementAdmissionResult.Blocked).reason)
+    }
 }
