@@ -1,0 +1,49 @@
+name: PesaTrack Restricted Safe Auto-Merge
+
+on:
+  workflow_run:
+    workflows: ["Android CI"]
+    types: [completed]
+  schedule:
+    - cron: "37 * * * *"
+  workflow_dispatch:
+
+# The workflow's default GITHUB_TOKEN must never merge: such a push would not
+# trigger Android CI's normal signed-APK release job.
+permissions:
+  contents: read
+
+concurrency:
+  group: pesatrack-restricted-safe-automerge
+  cancel-in-progress: false
+
+jobs:
+  eligible-pr:
+    if: ${{ github.repository == 'jameswaweru377-lab/PesaTrack' && vars.PESATRACK_SAFE_AUTOMERGE_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout trusted default branch only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Create repository-scoped installation token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          client-id: ${{ vars.PESATRACK_SAFE_AUTOMERGE_CLIENT_ID }}
+          private-key: ${{ secrets.PESATRACK_SAFE_AUTOMERGE_PRIVATE_KEY }}
+          owner: jameswaweru377-lab
+          repositories: PesaTrack
+          # GitHub's merge-PR REST endpoint requires Contents: write.
+          permission-contents: write
+          permission-issues: read
+          permission-pull-requests: read
+          permission-actions: read
+
+      - name: Re-evaluate current main and merge at most one approved addition
+        env:
+          PESATRACK_AUTOMERGE_APP_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: python3 -m tools.tracker.restricted_merge --repository "$GITHUB_REPOSITORY" --apply

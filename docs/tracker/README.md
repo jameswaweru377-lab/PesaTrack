@@ -32,6 +32,30 @@ The checked-in reconciler defaults to **dry run/read only**. Synchronizing issue
 
 For how chats claim work, see [CHAT_OWNERSHIP.md](CHAT_OWNERSHIP.md). The [audit provenance register](AUDIT_SOURCES.md) and [42-finding import manifest](AUDIT_MANIFEST.json) support a controlled, repeatable preview. Use the [Command Center chat starter](COMMAND_CENTER_STARTER.md) for one coordinating ChatGPT chat.
 
+## Restricted safe auto-merge (opt-in, off by default)
+
+The separate **PesaTrack Restricted Safe Auto-Merge** workflow can recover a forgotten, already approved PR **only** when every safeguard passes. It never reads ChatGPT conversations. Its evidence comes from the PR, linked tracker Issue, current `main`, overlapping PRs and exact-commit CI results.
+
+**Scope:** only entirely new `docs/tracker/*.md` files or entirely new `tools/tracker/tests/*.py` files. Existing-file edits, Android tests, app code, financial rules, workflows, security, migrations and releases remain manual. A stale branch, conflicting PR, missing required check or unknown state is never merged.
+
+**Owner opt-in for an individual PR:**
+
+1. Link an **open** Issue labeled `pesatrack-tracker`. Put matching `Tracks #<issue number>` and `Chat owner: CHAT-<ALIAS>` lines in the PR, and `Chat owner: CHAT-<ALIAS>` in the Issue. Keep the PR open, non-draft and current with `main`.
+2. Once satisfied with the exact commit, add label `pesatrack-safe-automerge` to that PR.
+3. As GitHub user `jameswaweru377-lab`, post one Issue-style comment **on the PR**, replacing the placeholder with the full current 40-character **head commit SHA**:
+
+   `PESATRACK SAFE AUTO-MERGE APPROVED: <full PR head SHA>`
+
+   Any new push to the PR invalidates that approval. The bot never adds a label or consent comment itself.
+
+**Owner setup to activate the separate workflow:**
+
+1. Create a dedicated GitHub App, installed **only** for `jameswaweru377-lab/PesaTrack`, with **Contents: read and write** (GitHub requires write to merge), **Issues: read**, **Actions: read**, and **Pull requests: read**. Do not grant access to unrelated repositories. The App has broader repository write authority than the bot's allowed paths, so protect its private key carefully.
+2. Under repository **Settings → Secrets and variables → Actions**, set variable `PESATRACK_SAFE_AUTOMERGE_CLIENT_ID` to the App's Client ID, and secret `PESATRACK_SAFE_AUTOMERGE_PRIVATE_KEY` to its private key. Never paste the key into a chat, Issue or PR.
+3. After reviewing this workflow on `main`, explicitly set repository variable `PESATRACK_SAFE_AUTOMERGE_ENABLED` to `true`. It is absent/disabled by default. Remove or set it to `false` to stop all future auto-merges.
+
+The automated check runs after Android CI completion, hourly as a fallback, and when manually dispatched. **It merges at most one PR per run** after revalidating the approval, branch head, checks and current `main`. It uses the GitHub App token instead of `GITHUB_TOKEN`, preserving the normal `main` push event that publishes signed APKs. View each result under **Actions → PesaTrack Restricted Safe Auto-Merge**; the existing hourly read-only tracker remains unchanged. No historical PR is opted in automatically.
+
 ## One-time GitHub setup (owner action pending)
 
 The **PesaTrack Development Tracker** GitHub Project board is **not verified as created**. The repository connector can read Issues and PRs, but does not currently expose Project v2 creation or configuration. Do not present a made-up Project URL or duplicate a board that might already exist.
