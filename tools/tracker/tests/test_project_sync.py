@@ -63,11 +63,26 @@ class ProjectSyncTest(unittest.TestCase):
             candidate["id"] = "PVT_other"
             return {"user": {"projectV2": candidate}}
 
-        with self.assertRaisesRegex(ValueError, "Project ID"):
+        with self.assertRaises(ValueError) as mismatch:
             load_project(
                 "invented-token", "PVT_invented", caller=fake,
                 owner="jameswaweru377-lab", number=1,
             )
+        self.assertIn("Project ID", str(mismatch.exception))
+        self.assertIn("PVT_other", str(mismatch.exception))
+
+    def test_owner_lookup_never_logs_malformed_project_identifiers(self):
+        def fake(token, query, variables):
+            if "project" in variables:
+                raise RuntimeError("GitHub Project query was rejected (NOT_FOUND)")
+            candidate = dict(graphql_project())
+            candidate["id"] = "PVT_other\nPRIVATE_DATA=do-not-log"
+            return {"user": {"projectV2": candidate}}
+
+        with self.assertRaises(ValueError) as mismatch:
+            load_project("invented-token", "PVT_invented", caller=fake,
+                         owner="jameswaweru377-lab", number=1)
+        self.assertNotIn("PRIVATE_DATA", str(mismatch.exception))
 
     def test_graphql_rejection_reports_safe_error_type_without_remote_message(self):
         response = BytesIO(json.dumps({
