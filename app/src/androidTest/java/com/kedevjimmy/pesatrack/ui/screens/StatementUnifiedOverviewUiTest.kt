@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
 import com.kedevjimmy.pesatrack.domain.statements.StatementSourceCoveragePolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementUnifiedOverviewPolicy
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
@@ -80,5 +81,47 @@ class StatementUnifiedOverviewUiTest {
         compose.onNodeWithText("No statements imported yet").assertExists()
         compose.onNodeWithText("Import statement").performClick()
         assertEquals(1, imports)
+    }
+
+    @Test fun limitedOnlySavedEquityStatementHasAVisibleAccountEntry() {
+        val overview = StatementUnifiedOverviewPolicy.project(2026, emptyList())
+        var selected = ""
+        compose.setContent { PesaTrackTheme {
+            StatementUnifiedOverviewPage(
+                overview, listOf(2026), mapOf("invented-equity" to "Equity Bank"), emptySet(),
+                onSelectYear = {}, onSelectAccount = { selected = it },
+                onImport = {}, onBack = {},
+                limitedSources = listOf(StatementBankArchiveStore.Source(
+                    id = "a".repeat(64), accountId = "invented-equity",
+                    providerKey = "KENYAN_BANK_EQUITY", currency = "KES", format = "PDF",
+                    importedAt = 1_780_000_000_000L, firstAt = 1_780_000_000_000L,
+                    lastAt = 1_780_000_060_000L, rows = 2,
+                    moneyInMinor = 1_000L, moneyOutMinor = 250L
+                ))
+            )
+        } }
+        compose.onNodeWithText("Limited assurance statements").assertExists()
+        compose.onNodeWithText("No statements imported yet").assertDoesNotExist()
+        compose.onNodeWithText("Equity Bank").performClick()
+        assertEquals("invented-equity", selected)
+    }
+
+    @Test fun limitedOnlyBankPageOpensTheSavedSourceReview() {
+        val saved = StatementBankArchiveStore.Source(
+            id = "b".repeat(64), accountId = "invented-equity",
+            providerKey = "KENYAN_BANK_EQUITY", currency = "KES", format = "PDF",
+            importedAt = 1_780_000_000_000L, firstAt = 1_780_000_000_000L,
+            lastAt = 1_780_000_060_000L, rows = 2,
+            moneyInMinor = 1_000L, moneyOutMinor = 250L
+        )
+        compose.setContent { PesaTrackTheme {
+            StatementLimitedBankOverviewPage(
+                accountLabel = "Invented Equity", sources = listOf(saved),
+                onBack = {}, onImport = {}
+            )
+        } }
+        compose.onNodeWithText("Limited assurance only").assertExists()
+        compose.onNodeWithText("2 saved source rows").performClick()
+        compose.onNodeWithText("Not independently fully verified").assertExists()
     }
 }

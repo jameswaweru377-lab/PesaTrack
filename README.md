@@ -37,6 +37,7 @@ The authoritative scope is in [docs/PRODUCT_CHARTER.md](docs/PRODUCT_CHARTER.md)
 - Bills and local reminders
 - Reports and CSV export
 - CSV statement import with duplicate/date review, plus local Android15+ PDF password unlock and extraction. Supported M-Pesa text rows offer editable confirmed import; labelled payroll fields offer reviewed journal entry. Arbitrary layouts, scanned OCR and older-Android PDF extraction remain unsupported; device acceptance remains pending.
+- Historical graphical-header Equity PDFs can enter a separately labelled limited-assurance Statement archive after local balance-chain and printed grand-total checks. They remain visible as saved source documents, excluded from verified bank cash-flow totals and Activity. They do not supply missing opening balances or per-page totals.
 - Salary setup and manual salary receipts
 - Dedicated Paycheck Analysis linked from Activity, Salary and Reports: privately reviewed payroll journal with gross/net, deductions and reported SACCO figures.
 - Long-text PDF imports: bounded 8 MiB / 160 pages / 500,000 extracted characters / 5,000 statement rows; native Android reader transfers safe small IPC chunks. Payroll outflow abbreviations and rounding carry-forward are reviewed without copying computed tax-relief amounts into deductions. CSV files retain their 2 MiB cap; scanned and unfamiliar PDF layouts remain unsupported.
