@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.BuildConfig
 import com.kedevjimmy.pesatrack.data.profile.ProfilePhotoStore
+import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.security.AppLockManager
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
@@ -40,6 +42,9 @@ fun ProfileScreen(
     onDataHealthClick: (() -> Unit)? = null,
     onGoalsClick: (() -> Unit)? = null,
     onHistoricalImportClick: (() -> Unit)? = null,
+    homeCache: HomeScreenCache? = null,
+    onPlanClick: (() -> Unit)? = null,
+    onActivityClick: (() -> Unit)? = null,
     onPageChanged: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -47,6 +52,12 @@ fun ProfileScreen(
     var page by rememberSaveable { mutableStateOf("home") }
     var privacyReturnPage by rememberSaveable { mutableStateOf("security") }
     var accessReturnPage by rememberSaveable { mutableStateOf("security") }
+    var legalReturnPage by rememberSaveable { mutableStateOf("about") }
+    val ledgerRevision by LedgerUpdateBus.state.collectAsState()
+    val financialSignals = remember(context, homeCache, ledgerRevision.revision, page) {
+        profileFinancialSignals(context, homeCache, ledgerRevision.revision)
+    }
+    val financialPresentation = presentProfileMoneyHabits(financialSignals)
 
     LaunchedEffect(page) {
         onPageChanged(page)
@@ -60,7 +71,8 @@ fun ProfileScreen(
             "privacy" -> privacyReturnPage
             "access" -> accessReturnPage
             "archive" -> "privacy"
-            "policy", "terms", "financial_notice" -> "about"
+            "policy" -> legalReturnPage
+            "terms", "financial_notice" -> "about"
             else -> "home"
         }
     }
@@ -71,6 +83,18 @@ fun ProfileScreen(
     }
 
     when (page) {
+        "habits" -> ProfileMoneyHabitsDetails(
+            padding = scaffoldPadding,
+            back = { page = "home" },
+            signals = financialSignals,
+            onAction = { destination ->
+                when (destination) {
+                    "activity" -> (onActivityClick ?: onSettingsClick).invoke()
+                    "accounts", "debts" -> (onAccountsClick ?: onSettingsClick).invoke()
+                    else -> (onPlanClick ?: onGoalsClick ?: onSettingsClick).invoke()
+                }
+            }
+        )
         "security" -> ProfileSecurityPage(
             padding = scaffoldPadding,
             back = { page = "home" },
@@ -98,7 +122,8 @@ fun ProfileScreen(
             scaffoldPadding,
             { page = privacyReturnPage },
             { accessReturnPage = "privacy"; page = "access" },
-            { page = "archive" }
+            { page = "archive" },
+            privacyPolicy = { legalReturnPage = "privacy"; page = "policy" }
         )
         "archive" -> StatementArchivePrivacyPage(scaffoldPadding) { page = "privacy" }
         "access" -> MoneyAccessPage(
@@ -106,14 +131,15 @@ fun ProfileScreen(
             { page = accessReturnPage },
             onHistoricalImportClick ?: onSettingsClick
         )
-        "policy" -> LegalInformationPage(scaffoldPadding, { page = "about" }, LegalNotice.PRIVACY)
+        "policy" -> LegalInformationPage(scaffoldPadding, { page = legalReturnPage }, LegalNotice.PRIVACY)
         "terms" -> LegalInformationPage(scaffoldPadding, { page = "about" }, LegalNotice.TERMS)
         "financial_notice" -> LegalInformationPage(scaffoldPadding, { page = "about" }, LegalNotice.FINANCIAL)
         else -> ProfileHomeScreen(
             padding = scaffoldPadding,
             name = prefs.getString("profile_name", "").orEmpty().ifBlank { "Your profile" },
-            email = prefs.getString("profile_email", "").orEmpty(),
             avatar = prefs.getString("profile_avatar", "🌿") ?: "🌿",
+            moneyHabits = financialPresentation,
+            onMoneyHabits = { page = "habits" },
             personal = { page = "personal" },
             security = { page = "security" },
             notifications = { page = "notifications" },
@@ -128,8 +154,9 @@ fun ProfileScreen(
 private fun ProfileHomeScreen(
     padding: PaddingValues,
     name: String,
-    email: String,
     avatar: String,
+    moneyHabits: ProfileMoneyHabitsPresentation,
+    onMoneyHabits: () -> Unit,
     personal: () -> Unit,
     security: () -> Unit,
     notifications: () -> Unit,
@@ -140,72 +167,48 @@ private fun ProfileHomeScreen(
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(13.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            ProfileGradientBanner(name = name, email = email, avatar = avatar, onEdit = personal)
+            ProfileGradientBanner(name = name, avatar = avatar, onEdit = personal)
         }
         item {
-            PesaCard {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconBubble(Icons.Rounded.AutoAwesome, background = pesaToneContainer("violet"),
-                        tint = pesaToneContent("violet"), size = 42.dp)
-                    Column(Modifier.weight(1f).padding(horizontal = 11.dp)) {
-                        Text("Better money habits.", style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold)
-                        Text("Brighter future.", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Icon(Icons.Rounded.TrendingUp, contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(23.dp))
-                }
-            }
+            ProfileMoneyHabitsCard(moneyHabits, onMoneyHabits)
         }
         item { SectionHeader("Your account") }
         item {
             ProfileMenuGroup(
                 listOf(
                     ProfileMenuItem(Icons.Rounded.Person, "Personal information",
-                        "Name, avatar and optional email", "violet", personal),
-                    ProfileMenuItem(Icons.Rounded.Security, "Account security",
-                        "App lock, backups and privacy", "red", security),
+                        "Photo, name & email", "violet", personal),
+                    ProfileMenuItem(Icons.Rounded.Security, "App lock & security",
+                        "PIN, fingerprint & lock timing", "green", security),
                     ProfileMenuItem(Icons.Rounded.NotificationsActive, "Notifications",
-                        "Bills, budgets and savings reminders", "amber", notifications),
+                        "Bills, budgets & reminders", "red", notifications),
                     ProfileMenuItem(Icons.Rounded.Palette, "Appearance",
-                        "Light theme and visual preferences", "blue", appearance),
-                    ProfileMenuItem(Icons.Rounded.SupportAgent, "Help & support",
-                        "Guidance and troubleshooting", "violet", support),
-                    ProfileMenuItem(Icons.Rounded.Info, "About PesaTrack",
-                        "App details and important notices", "blue", about)
+                        "Light theme & display", "amber", appearance)
                 )
             )
         }
+        item { SectionHeader("Support") }
         item {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Icon(Icons.Rounded.PhoneAndroid, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                Text("  Your financial records stay on this phone",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            ProfileMenuGroup(listOf(
+                ProfileMenuItem(Icons.Rounded.SupportAgent, "Help & support",
+                    "Guides & troubleshooting", "blue", support),
+                ProfileMenuItem(Icons.Rounded.Info, "About PesaTrack",
+                    "Version, privacy & app details", "violet", about)
+            ))
         }
     }
 }
 
 @Composable
-private fun ProfileGradientBanner(name: String, email: String, avatar: String, onEdit: () -> Unit) {
+private fun ProfileGradientBanner(name: String, avatar: String, onEdit: () -> Unit) {
     val context = LocalContext.current
     val photo = remember(context) { ProfilePhotoStore(context).load() }
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(26.dp),
+        shape = MaterialTheme.shapes.large,
         color = Color.Transparent,
         contentColor = Color.White,
         shadowElevation = 3.dp
@@ -215,12 +218,12 @@ private fun ProfileGradientBanner(name: String, email: String, avatar: String, o
                 Brush.linearGradient(
                     listOf(Color(0xFF8B43FF), Color(0xFF6825E8), Color(0xFF4C3BCB))
                 )
-            ).padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(15.dp)
+            ).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
-                    modifier = Modifier.size(68.dp),
+                    modifier = Modifier.size(72.dp),
                     shape = CircleShape,
                     color = Color.White.copy(alpha = .18f),
                     border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = .82f))
@@ -235,29 +238,19 @@ private fun ProfileGradientBanner(name: String, email: String, avatar: String, o
                     }
                 }
                 Column(Modifier.weight(1f).padding(horizontal = 13.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text(email.ifBlank { "Your details are saved on this phone" },
-                        style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .84f))
-                    Surface(shape = RoundedCornerShape(50.dp), color = Color.White.copy(alpha = .17f)) {
-                        Row(Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                            horizontalArrangement = Arrangement.spacedBy(5.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Shield, contentDescription = null,
-                                tint = Color.White, modifier = Modifier.size(13.dp))
-                            Text("Stored on this phone", style = MaterialTheme.typography.labelSmall,
-                                color = Color.White)
-                        }
+                    Text("Only on this device", style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = .88f))
+                    OutlinedButton(onClick = onEdit,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .8f))) {
+                        Text("Edit profile")
                     }
                 }
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Rounded.Edit, contentDescription = "Edit profile", tint = Color.White)
-                }
             }
-            Text("Your money, your plans.", style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold)
-            Text("Keep your details, privacy and financial picture in one place.",
-                style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = .86f))
+            Text("Your money, your plans.", style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = .9f))
         }
     }
 }
@@ -326,30 +319,33 @@ private fun ProfileSecurityPage(
     EverydayPage("App lock & security", padding, back) {
         item {
             PesaCard {
-                Column(Modifier.fillMaxWidth().padding(17.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Row(Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
                     IconBubble(Icons.Rounded.Shield, size = 58.dp,
                         background = pesaToneContainer("violet"), tint = pesaToneContent("violet"))
-                    Text(if (enabled) "Your app lock is on" else "Protect your financial records",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold)
-                    Text("Your financial records stay on this phone. Control how PesaTrack asks you to unlock it.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(Modifier.padding(start = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(if (enabled) "Your app is protected" else "Your privacy comes first",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold)
+                        Text(if (enabled) "App lock is on. You're in control."
+                            else "Add a PIN to help keep your records private.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
         }
-        item { SectionHeader("App protection") }
+        item { SectionHeader("Unlock PesaTrack") }
         item { EverydayRow(Icons.Rounded.Lock, "App lock PIN",
-            if (enabled) "Change or remove your PIN" else "Set a 6–8 digit PIN to protect your records") { lock = true } }
+            if (enabled) "Change or remove your PIN" else "Set a PIN to protect your records") { lock = true } }
         item {
             ChoiceSwitch(
                 "Unlock with biometrics",
                 when {
                     !enabled -> "Set up your app lock PIN first"
                     !available -> "Biometrics are unavailable or not enrolled on this phone"
-                    else -> "Use your fingerprint or device biometrics; your PIN still works"
+                    else -> "Use your fingerprint. Your PIN still works."
                 }, biometrics && enabled && available, enabled = enabled && available) { value ->
                     biometrics = value
                     manager.setBiometricUnlockEnabled(value)
@@ -359,9 +355,9 @@ private fun ProfileSecurityPage(
             PesaCard {
                 Column(Modifier.fillMaxWidth().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Text("Lock when I leave PesaTrack", style = MaterialTheme.typography.titleSmall,
+                    Text("Ask for PIN again", style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold)
-                    Text("Choose when the app should ask for your PIN again.",
+                    Text("After you leave PesaTrack:",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
                         listOf(0L to "Immediately", 30_000L to "30 sec", 60_000L to "1 min")
@@ -382,9 +378,9 @@ private fun ProfileSecurityPage(
         }
         item { SectionHeader("Privacy & recovery") }
         item { ProfileMenuGroup(listOf(
-            ProfileMenuItem(Icons.Rounded.Backup, "Backup & restore", "Create or restore an encrypted backup", "blue") { backup = true },
+            ProfileMenuItem(Icons.Rounded.Backup, "Encrypted backup & restore", "Keep a private copy of your records", "violet") { backup = true },
             ProfileMenuItem(Icons.Rounded.Security, "Privacy & data", "Review privacy choices and saved data", "green", privacy),
-            ProfileMenuItem(Icons.Rounded.Message, "Money message access", "Choose which money messages PesaTrack can read", "amber", moneyAccess)
+            ProfileMenuItem(Icons.Rounded.Message, "Money message access", "Choose which messages the app can read", "amber", moneyAccess)
         )) }
     }
 }
@@ -399,48 +395,7 @@ private fun profileBiometricsAvailable(context: android.content.Context): Boolea
 }
 
 @Composable
-private fun ProfileAppearancePage(padding: PaddingValues, back: () -> Unit) {
-    EverydayPage("Appearance", padding, back) {
-        item {
-            Text("PesaTrack uses the approved light appearance throughout Home, Activity, Plan and Profile.",
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        item {
-            PesaCard {
-                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconBubble(Icons.Rounded.WbSunny, size = 48.dp,
-                        background = pesaToneContainer("violet"), tint = pesaToneContent("violet"))
-                    Column(Modifier.weight(1f).padding(horizontal = 13.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Light", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Bright surfaces with soft lavender cards and purple accents",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Icon(Icons.Rounded.CheckCircle, contentDescription = "Light theme selected",
-                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(25.dp))
-                }
-            }
-        }
-        item {
-            PesaCard {
-                Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconBubble(Icons.Rounded.Palette, size = 40.dp,
-                        background = pesaToneContainer("blue"), tint = pesaToneContent("blue"))
-                    Column(Modifier.weight(1f).padding(horizontal = 11.dp)) {
-                        Text("PesaTrack purple", style = MaterialTheme.typography.titleSmall)
-                        Text("The selected accent used across the app",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Surface(shape = CircleShape, color = Color(0xFF7625FF), modifier = Modifier.size(24.dp)) {}
-                }
-            }
-        }
-    }
-}
-
-
-@Composable
-private fun ProfileAboutPage(
+internal fun ProfileAboutPage(
     padding: PaddingValues,
     back: () -> Unit,
     privacyPolicy: () -> Unit,
@@ -451,26 +406,56 @@ private fun ProfileAboutPage(
         item {
             PesaCard {
                 Column(Modifier.fillMaxWidth().padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        com.kedevjimmy.pesatrack.ui.components.PesaLogoMark(size = 54.dp)
-                        Column(Modifier.padding(start = 12.dp)) {
+                        com.kedevjimmy.pesatrack.ui.components.PesaLogoMark(size = 58.dp)
+                        Column(Modifier.padding(start = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("PesaTrack", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Text("Version " + BuildConfig.VERSION_NAME, style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Your money, better days.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary)
                         }
                     }
-                    Text("Personal finance, made simple. Track, plan and build a better tomorrow.",
+                    Text("Understand your money, plan ahead and feel more in control.",
                         style = MaterialTheme.typography.bodyMedium)
-                    Text("Made with care in Kenya", style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary)
+                    Surface(color = pesaToneContainer("violet"), shape = MaterialTheme.shapes.small) {
+                        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Info, contentDescription = null,
+                                tint = pesaToneContent("violet"), modifier = Modifier.size(18.dp))
+                            Text("Version " + BuildConfig.VERSION_NAME,
+                                modifier = Modifier.padding(start = 8.dp),
+                                color = pesaToneContent("violet"),
+                                style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
                 }
             }
         }
+        item { SectionHeader("Good to know") }
         item { ProfileMenuGroup(listOf(
-            ProfileMenuItem(Icons.Rounded.Policy, "Privacy policy", "How PesaTrack handles your data", "violet", privacyPolicy),
-            ProfileMenuItem(Icons.Rounded.Description, "Terms of service", "Your responsibilities and rights", "blue", terms),
-            ProfileMenuItem(Icons.Rounded.Info, "Financial information notice", "Accuracy and financial decisions", "amber", financialNotice)
+            ProfileMenuItem(Icons.Rounded.Policy, "Privacy policy", "Your data, your choices", "violet", privacyPolicy),
+            ProfileMenuItem(Icons.Rounded.Description, "Terms of service", "Using PesaTrack responsibly", "blue", terms),
+            ProfileMenuItem(Icons.Rounded.Info, "About money guidance", "How to understand the insights", "amber", financialNotice)
         )) }
+        item {
+            PesaCard {
+                Row(Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    IconBubble(Icons.Rounded.Favorite, size = 48.dp,
+                        background = pesaToneContainer("green"),
+                        tint = pesaToneContent("green"))
+                    Column(Modifier.padding(start = 12.dp)) {
+                        Text("Made with care in Kenya",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold)
+                        Text("Built for everyday money decisions.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
     }
 }

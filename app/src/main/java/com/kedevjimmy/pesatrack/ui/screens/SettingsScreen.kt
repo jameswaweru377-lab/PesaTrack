@@ -27,6 +27,7 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
     var page by rememberSaveable { mutableStateOf("settings") }
     var accessReturnPage by rememberSaveable { mutableStateOf("settings") }
     var privacyReturnPage by rememberSaveable { mutableStateOf("settings") }
+    var legalReturnPage by rememberSaveable { mutableStateOf("settings") }
     var lock by remember { mutableStateOf(false) }
     var backup by rememberSaveable { mutableStateOf(false) }
     val back = { page = "settings" }
@@ -35,6 +36,7 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
             "archive_files" -> "privacy"
             "privacy" -> privacyReturnPage
             "access" -> accessReturnPage
+            "terms", "legal_privacy", "financial_notice" -> legalReturnPage
             else -> "settings"
         }
     })
@@ -45,19 +47,18 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
         "privacy" -> PrivacyPage(scaffoldPadding, { page = privacyReturnPage },
             { accessReturnPage = "privacy"; page = "access" }, { page = "archive_files" })
         "archive_files" -> StatementArchivePrivacyPage(scaffoldPadding, { page = "privacy" })
-        "terms" -> LegalInformationPage(scaffoldPadding, back, LegalNotice.TERMS)
-        "legal_privacy" -> LegalInformationPage(scaffoldPadding, back, LegalNotice.PRIVACY)
-        "financial_notice" -> LegalInformationPage(scaffoldPadding, back, LegalNotice.FINANCIAL)
+        "terms" -> LegalInformationPage(scaffoldPadding, { page = legalReturnPage }, LegalNotice.TERMS)
+        "legal_privacy" -> LegalInformationPage(scaffoldPadding, { page = legalReturnPage }, LegalNotice.PRIVACY)
+        "financial_notice" -> LegalInformationPage(scaffoldPadding, { page = legalReturnPage }, LegalNotice.FINANCIAL)
         "access" -> MoneyAccessPage(scaffoldPadding, { page = accessReturnPage }, onHistoricalImportClick)
         "reminders" -> RemindersPage(scaffoldPadding, back)
         "help" -> HelpPage(scaffoldPadding, back, onAdvancedClick,
             onMoneyAccess = { accessReturnPage = "help"; page = "access" },
             onPrivacy = { privacyReturnPage = "help"; page = "privacy" })
-        "about" -> EverydayPage("About PesaTrack", scaffoldPadding, back) {
-            item { Text("PesaTrack helps you understand your spending, savings and bills from money messages on this phone.") }
-            item { Text("Version " + com.kedevjimmy.pesatrack.BuildConfig.VERSION_NAME) }
-            item { Text("Balances reflect the messages and entries available to PesaTrack. Check your bank or M-Pesa app for the latest balance.") }
-        }
+        "about" -> ProfileAboutPage(scaffoldPadding, back,
+            privacyPolicy = { legalReturnPage = "about"; page = "legal_privacy" },
+            terms = { legalReturnPage = "about"; page = "terms" },
+            financialNotice = { legalReturnPage = "about"; page = "financial_notice" })
         else -> EverydayPage("Settings", scaffoldPadding, onBack) {
             item {
                 PesaCard(Modifier.fillMaxWidth().clickable(onClick = onProfileClick)) {
@@ -90,7 +91,7 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
             }
             item { SettingsGroup {
                 SettingsCompactRow(Icons.Rounded.Security, "Privacy", "Your data and your choices") { privacyReturnPage = "settings"; page = "privacy" }
-                SettingsCompactRow(Icons.Rounded.Info, "Privacy Policy", "Pre-release policy and personal-data rights") { page = "legal_privacy" }
+                SettingsCompactRow(Icons.Rounded.Info, "Privacy Policy", "Pre-release policy and personal-data rights") { legalReturnPage = "settings"; page = "legal_privacy" }
                 SettingsCompactRow(Icons.Rounded.Message, "Money message access", "SMS history and bank-app updates") { accessReturnPage = "settings"; page = "access" }
                 SettingsCompactRow(Icons.Rounded.Lock, "App lock", "Protect PesaTrack with a PIN") { lock = true }
                 SettingsCompactRow(Icons.Rounded.Backup, "Backup & restore", "Encrypted backup stored where you choose") { backup = true }
@@ -101,8 +102,8 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
             item { SettingsGroup {
                 SettingsCompactRow(Icons.Rounded.Tune, "Automatic sorting", "Salary, regular payments and transfers", onSmartRulesClick)
                 SettingsCompactRow(Icons.Rounded.HelpOutline, "Help", "Answers and troubleshooting") { page = "help" }
-                SettingsCompactRow(Icons.Rounded.Info, "Terms of Service", "Pre-release draft · Your responsibilities and rights") { page = "terms" }
-                SettingsCompactRow(Icons.Rounded.Info, "Financial information notice", "Accuracy, debt evidence and financial decisions") { page = "financial_notice" }
+                SettingsCompactRow(Icons.Rounded.Info, "Terms of Service", "Pre-release draft · Your responsibilities and rights") { legalReturnPage = "settings"; page = "terms" }
+                SettingsCompactRow(Icons.Rounded.Info, "Financial information notice", "Accuracy, debt evidence and financial decisions") { legalReturnPage = "settings"; page = "financial_notice" }
                 SettingsCompactRow(Icons.Rounded.Info, "About PesaTrack", "App information") { page = "about" }
             } }
             item { Text("Each setting opens a focused page. Sensitive actions explain what changes before you confirm.",

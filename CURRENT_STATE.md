@@ -15,6 +15,20 @@ wrong-answer rate above the frozen ceiling of 20/600. No categorization logic,
 ledger, permission, network, schema or UI behaviour was changed. See
 `docs/CATEGORIZATION_EXAM_BASELINE.md` for the exact scope and limitations.
 
+_Premium Profile and internal pages (31 October 2026; feature branch, CI/device checks pending):_
+The six approved Profile design boards are being translated into the existing
+Compose routes: identity and local photo details, Better money habits,
+app-lock/security, reminders, Appearance/privacy, help/troubleshooting and
+About. Better money habits reads the currently loaded, same-revision Home
+snapshot and uses the existing local financial-signal evaluator; absent or
+stale evidence shows an explicit insufficient-information state, never an
+invented positive result. Personal details now retain the form after a
+successful local save and show a brief confirmation; failures keep the edits.
+Existing encrypted backup/restore, app-lock internals, ledger decisions and
+four-tab navigation are unchanged. Phone-only readability, Android settings
+actions and CI results remain to be verified; no new import-notification
+service or global motion toggle is claimed.
+
 _Native unfamiliar-statement preview Slice B1 (31 October 2026; draft PR #495, CI/device acceptance pending):_
 The isolated Android 35+ PDF text service is wired to a **read-only** unfamiliar
 bank PDF preview. A selected bank account can inspect all pages with complete
