@@ -2,6 +2,8 @@ package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
@@ -39,7 +41,8 @@ class StatementOverviewDashboardUiTest {
             StatementOverviewPage(model, {}, {}, {}, {}, {}, {}, {}, { _, _ -> }, {}, {})
         } }
         compose.onNodeWithText("M-Pesa").assertExists()
-        compose.onNodeWithText("KES 12,345").assertExists()
+        // The exact amount appears in both the overview and category summary.
+        compose.onAllNodesWithText("KES 12,345").onFirst().assertExists()
         compose.onNodeWithTag("statements-overview").performScrollToNode(hasText("Groceries"))
         compose.onNodeWithText("Monthly spending").assertExists()
         compose.onNodeWithText("Groceries").assertExists()

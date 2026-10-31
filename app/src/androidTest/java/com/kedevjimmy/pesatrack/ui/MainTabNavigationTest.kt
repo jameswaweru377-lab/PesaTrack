@@ -37,7 +37,7 @@ class MainTabNavigationTest {
         ).performClick()
 
         compose.waitUntil(15_000L) {
-            compose.onAllNodes(hasText("Search transactions"))
+            compose.onAllNodes(hasText("Search transactions, merchants..."))
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
@@ -55,11 +55,11 @@ class MainTabNavigationTest {
         ).performClick()
 
         compose.waitUntil(15_000L) {
-            compose.onAllNodes(hasText("Search transactions"))
+            compose.onAllNodes(hasText("Search transactions, merchants..."))
                 .fetchSemanticsNodes().isNotEmpty()
         }
 
-        compose.onNode(hasText("Search transactions"))
+        compose.onNode(hasText("Search transactions, merchants..."))
             .assertIsDisplayed()
     }
 }

@@ -34,8 +34,7 @@ class EstimatedDebtSettlementUiTest {
     @Test fun accountsRetainsZeroEstimateAsAnActiveDebtAwaitingConfirmation() {
         seedEstimatedZero()
         compose.setContent { PesaTrackTheme { AccountsScreen(PaddingValues(), onDebtsClick = {}) } }
-        waitFor("Last known account balances")
-        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("Synthetic repayment lender"))
+        scrollToWhenPresent("Synthetic repayment lender")
         compose.onNodeWithText("Synthetic repayment lender").assertExists()
         compose.onNodeWithText("Settlement confirmation pending").assertExists()
         compose.onNodeWithText("No active tracked debt").assertDoesNotExist()
@@ -45,8 +44,7 @@ class EstimatedDebtSettlementUiTest {
     @Test fun homeRetainsZeroEstimateAsAnActiveDebtAwaitingConfirmation() {
         seedEstimatedZero()
         compose.setContent { PesaTrackTheme { HomeScreen(PaddingValues()) } }
-        waitFor("Account balances")
-        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("1 active debt account"))
+        scrollToWhenPresent("1 active debt account")
         compose.onNodeWithText("1 active debt account").assertExists()
         compose.onNodeWithText("0 active debt accounts").assertDoesNotExist()
         compose.onNodeWithText("None").assertDoesNotExist()
@@ -66,8 +64,7 @@ class EstimatedDebtSettlementUiTest {
         // Keep the schema's untouched Fuliza seed to check production eligibility.
         PesaTrackDatabase.get(context).writableDatabase
         compose.setContent { PesaTrackTheme { HomeScreen(PaddingValues()) } }
-        waitFor("Account balances")
-        compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText("0 active debt accounts"))
+        scrollToWhenPresent("0 active debt accounts")
         compose.onNodeWithText("0 active debt accounts").assertExists()
         compose.onNodeWithText("1 active debt account").assertDoesNotExist()
     }
@@ -100,6 +97,17 @@ class EstimatedDebtSettlementUiTest {
     private fun waitFor(text: String) {
         compose.waitUntil(15_000) {
             compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun scrollToWhenPresent(text: String) {
+        compose.waitUntil(15_000) {
+            try {
+                compose.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(text))
+                true
+            } catch (_: AssertionError) {
+                false
+            }
         }
     }
 }

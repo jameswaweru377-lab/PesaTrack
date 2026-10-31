@@ -66,6 +66,7 @@ class TransactionDetailJourneyTest {
         compose.onNodeWithText("Transaction facts").performClick()
         list.performScrollToNode(hasText("Total outflow"))
         compose.onNodeWithText("KES 2,023.00").assertIsDisplayed()
+        list.performScrollToNode(hasText("Balance unknown"))
         compose.onNodeWithText("Balance unknown").assertIsDisplayed()
         list.performScrollToNode(hasText("Change"))
         compose.onNodeWithText("Change").performClick()

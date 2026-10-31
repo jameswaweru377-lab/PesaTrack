@@ -23,7 +23,6 @@ import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.ui.screens.BudgetScreen
-import com.kedevjimmy.pesatrack.ui.screens.PlanScreen
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import org.junit.After
 import org.junit.Before
@@ -55,7 +54,7 @@ class BudgetSpendingParityUiTest {
 
     @Test fun planBudgetIncludesExpenseFee() {
         insert("BUDGETFEE01", MoneyDirection.EXPENSE, 100_000L, 2_000L)
-        compose.setContent { PesaTrackTheme { PlanScreen(PaddingValues()) } }
+        compose.setContent { PesaTrackTheme { BudgetScreen(PaddingValues(), onBack = {}) } }
         awaitBudgetLoaded()
         compose.onNodeWithText("KES 1,020 / KES 5,000").performScrollTo().assertExists()
     }
@@ -64,10 +63,8 @@ class BudgetSpendingParityUiTest {
         // A user-authoritative category alone cannot turn a receipt into spending.
         insert("BUDGETINC01", MoneyDirection.INCOME, 100_000L, 0L)
         compose.setContent { PesaTrackTheme { BudgetScreen(PaddingValues(), onBack = {}) } }
-        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Your budgets"))
         awaitBudgetLoaded()
-        compose.onNodeWithText("Spent KES 0").performScrollTo().assertExists()
-        compose.onNodeWithText("KES 5,000 limit").assertExists()
+        compose.onNodeWithText("KES 0 / KES 5,000").performScrollTo().assertExists()
     }
 
     @Test fun removingABudgetRequiresConfirmationAndCancellationPreservesIt() {
@@ -103,7 +100,7 @@ class BudgetSpendingParityUiTest {
             },
             "id = ?", arrayOf(refund.id.toString())
         )
-        compose.setContent { PesaTrackTheme { PlanScreen(PaddingValues()) } }
+        compose.setContent { PesaTrackTheme { BudgetScreen(PaddingValues(), onBack = {}) } }
         awaitBudgetLoaded()
         compose.onNodeWithText("KES 800 / KES 5,000").performScrollTo().assertExists()
     }

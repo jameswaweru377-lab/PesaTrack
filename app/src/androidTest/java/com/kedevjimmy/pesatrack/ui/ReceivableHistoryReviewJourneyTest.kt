@@ -71,9 +71,11 @@ class ReceivableHistoryReviewJourneyTest {
         compose.onNodeWithTag("history-query").performTextInput("Sample Borrower")
         compose.onNodeWithText("Search transactions").assertIsEnabled().performClick()
         compose.waitUntil(5000) {
-            compose.onAllNodesWithText("Search covers imported history. Statement files must be imported into Activity first; similar names can belong to different people.")
+            compose.onAllNodes(hasText("Activity transactions can be linked after review.", substring = true))
                 .fetchSemanticsNodes().isNotEmpty()
         }
+        compose.onNodeWithTag("receivable-history-list")
+            .performScrollToNode(hasText("Matching full name — confirm identity"))
         compose.onNodeWithText("Matching full name — confirm identity").assertIsDisplayed()
     }
 
@@ -83,8 +85,10 @@ class ReceivableHistoryReviewJourneyTest {
         compose.onNodeWithTag("history-query").performTextInput("0712000000")
         compose.onNodeWithText("Search transactions").assertIsEnabled().performClick()
         compose.waitUntil(5000) {
-            compose.onAllNodesWithText("Matching phone number").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithTag("select-page-loans").fetchSemanticsNodes().isNotEmpty()
         }
+        compose.onNodeWithTag("receivable-history-list")
+            .performScrollToNode(hasText("Matching phone number"))
         compose.onNodeWithText("Matching phone number").assertIsDisplayed()
     }
 
