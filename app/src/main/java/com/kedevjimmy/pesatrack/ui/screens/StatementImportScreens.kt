@@ -59,7 +59,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  val bytes=c.contentResolver.openInputStream(uri)?.use {input->val out=ByteArrayOutputStream();val buffer=ByteArray(8192);while(true){val n=input.read(buffer);if(n<0)break;require(out.size()+n<=StatementCsv.MAX_BYTES){"Choose a CSV smaller than 2 MB."};out.write(buffer,0,n)};out.toByteArray()} ?: error("Could not open the file.")
  return Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString()
 }
-@Composable internal fun StatementImportSheet(onDismiss:()->Unit,onChanged:()->Unit,onPaycheckClick:()->Unit = {},statementOnly:Boolean = false,onOpenStatements:(()->Unit)? = null) {
+@Composable internal fun StatementImportSheet(onDismiss:()->Unit,onChanged:()->Unit,onPaycheckClick:()->Unit = {},statementOnly:Boolean = false,onOpenStatements:(()->Unit)? = null,onBankSaved:((String)->Unit)? = null) {
  val c=LocalContext.current;val store=remember {EverydayMoneyStore(c)};val scope=rememberCoroutineScope()
  var accounts by remember {mutableStateOf<List<MoneyAccount>>(emptyList())};var accountId by rememberSaveable {mutableStateOf("")}
  var rows by remember {mutableStateOf<List<StatementRow>>(emptyList())};var preview by remember {mutableStateOf<List<EverydayMoneyStore.Preview>>(emptyList())}
@@ -270,7 +270,7 @@ private fun readStatement(c:Context,uri:Uri):String {
        }
       }
      }
-     Text("Your PDF is checked privately on this device. Only verified rows are saved to Statements; Activity balances stay separate.",
+     Text("Your PDF is checked privately on this device. Verified and limited-assurance history stay separate; Activity balances do not change.",
       style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
     }
    }
@@ -410,6 +410,7 @@ private fun readStatement(c:Context,uri:Uri):String {
           else "Saved this verified bank statement. Activity was not changed."
           else "This statement is already saved; no duplicate was created."
         stagedBankPdf=null;statementPdfApproved=false
+        onBankSaved?.invoke(ready.admitted.accountId)
         onChanged();onDismiss()
         if(!statementOnly) onOpenStatements?.invoke()
        }catch(e:CancellationException){throw e}
