@@ -71,7 +71,17 @@ def graphql(token: str, query: str, variables: dict) -> dict:
         raise RuntimeError(f"Project access failed with HTTP {exc.code}") from None
     except (error.URLError, TimeoutError):
         raise RuntimeError("GitHub Project API is unavailable") from None
-    if not isinstance(result, dict) or result.get("errors") or not isinstance(result.get("data"), dict):
+    if isinstance(result, dict) and result.get("errors"):
+        # GraphQL messages can contain private project or issue details. Keep
+        # only bounded, machine-readable error categories in public CI logs.
+        categories = set()
+        for item in result["errors"] if isinstance(result["errors"], list) else []:
+            category = item.get("type") if isinstance(item, dict) else None
+            if isinstance(category, str) and re.fullmatch(r"[A-Z_]{3,40}", category):
+                categories.add(category)
+        label = ", ".join(sorted(categories)) if categories else "UNCLASSIFIED"
+        raise RuntimeError(f"GitHub Project query was rejected ({label})")
+    if not isinstance(result, dict) or not isinstance(result.get("data"), dict):
         raise RuntimeError("GitHub Project query was rejected")
     return result["data"]
 
