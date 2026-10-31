@@ -1,3 +1,5 @@
+Before any task, read AGENT_WORKING_METHOD.md and follow it. If it conflicts with another document, the code and test evidence win, and you must fix the document in the same change.
+
 # PesaTrack — Agent Development Instructions
 
 ## Mission
