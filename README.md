@@ -17,7 +17,9 @@
 
 ---
 
-PesaTrack helps you understand money coming in, going out, and moving between your accounts. It organizes supported M-Pesa and financial-message evidence, reviewed statement imports, and your own entries into a personal ledger—without making a cloud account the centre of your finances.
+PesaTrack helps you understand money coming in, going out, and moving between your accounts. It builds a personal ledger from supported financial-message evidence and your own entries, while keeping imported statement records available for separate verification and review—without making a cloud account the centre of your finances.
+
+Saved statement archives are separate evidence: saving a bank PDF does not automatically add its rows to Activity or to verified cash-flow totals. Eligible imports require their own review and verification.
 
 **Accuracy comes first:** when a transaction, balance, or document cannot be verified confidently, PesaTrack asks for review or shows the limitation instead of inventing a number.
 
