@@ -46,6 +46,18 @@ four-tab navigation are unchanged. Phone-only readability, Android settings
 actions and CI results remain to be verified; no new import-notification
 service or global motion toggle is claimed.
 
+_Profile visual-accuracy follow-up (31 October 2026; awaiting CI and device review):_
+The initial six-board Profile PR #503 merged, but a phone review found important
+visual mismatches. This separate correction restores the illustrated violet
+identity/security banners, green leaf and status chip on Better money habits,
+green/coral health-state cards, tinted grouped rows, dedicated notification
+and privacy hierarchy, four-tab Appearance preview, guided help steps, the
+centered About identity, and an inline green Profile saved confirmation.
+It retains the same local health evaluator and the original PIN, biometrics,
+backup, settings and reminder stores. The design-only mockup's import-update
+toggle and whole-app reduce-motion toggle are not represented as working
+toggles until their app-wide behavior is implemented and verified.
+
 _Native unfamiliar-statement preview Slice B1 (31 October 2026; draft PR #495, CI/device acceptance pending):_
 The isolated Android 35+ PDF text service is wired to a **read-only** unfamiliar
 bank PDF preview. A selected bank account can inspect all pages with complete

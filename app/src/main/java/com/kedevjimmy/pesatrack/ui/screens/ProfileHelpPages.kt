@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.Icons
@@ -14,6 +16,21 @@ import androidx.compose.material.icons.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Message
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.VerifiedUser
+import androidx.compose.material.icons.rounded.FindInPage
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.CompareArrows
+import androidx.compose.material.icons.rounded.CloudUpload
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.WarningAmber
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -37,6 +54,7 @@ import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
+import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
 
 private data class ProfileHelpTopic(
     val title: String,
@@ -94,7 +112,8 @@ internal fun HelpPage(
     advanced: () -> Unit,
     title: String = "Help & support",
     onMoneyAccess: (() -> Unit)? = null,
-    onPrivacy: (() -> Unit)? = null
+    onPrivacy: (() -> Unit)? = null,
+    onHistory: (() -> Unit)? = null
 ) {
     var query by remember { mutableStateOf("") }
     var topic by remember { mutableStateOf<ProfileHelpTopic?>(null) }
@@ -104,7 +123,7 @@ internal fun HelpPage(
     if (topic != null || troubleshooting) BackHandler(onBack = returnToHelp)
 
     when {
-        troubleshooting -> ProfileTroubleshootingPage(padding, returnToHelp, advanced, onMoneyAccess)
+        troubleshooting -> ProfileTroubleshootingPage(padding, returnToHelp, advanced, onMoneyAccess, onHistory)
         topic != null -> {
             val selected = topic ?: return
             EverydayPage(selected.title, padding, returnToHelp) {
@@ -133,53 +152,60 @@ internal fun HelpPage(
                 }
             }
         }
-        else -> EverydayPage(title, padding, back) {
+        else -> ProfilePremiumPage(title, padding, back) {
             item {
-                PesaCard {
-                    Column(Modifier.fillMaxWidth().padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconBubble(Icons.Rounded.HelpOutline, size = 48.dp,
-                                background = pesaToneContainer("violet"),
-                                tint = pesaToneContent("violet"))
-                            Column(Modifier.padding(start = 12.dp)) {
-                                Text("How can we help?", style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold)
-                                Text("Find simple answers, right here.",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        OutlinedTextField(value = query, onValueChange = { query = it.take(80) },
-                            label = { Text("Search help topics") },
-                            leadingIcon = { androidx.compose.material3.Icon(Icons.Rounded.Search, null) },
-                            singleLine = true, modifier = Modifier.fillMaxWidth())
-                    }
-                }
+                ProfileBanner("Let's get things working", "Find answers in a few taps.",
+                    Icons.Rounded.HelpOutline, art = ProfileHeroArt.QUESTION)
             }
-            item { SectionHeader("Quick help") }
-            item { EverydayRow(Icons.Rounded.Build, "Guided troubleshooting",
-                "Find what's missing in a few steps") { troubleshooting = true } }
+            item {
+                OutlinedTextField(value = query, onValueChange = { query = it.take(80) },
+                    placeholder = { Text("Search for help") },
+                    leadingIcon = { androidx.compose.material3.Icon(Icons.Rounded.Search, null,
+                        tint = C.muted) }, singleLine = true,
+                    shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth())
+            }
             val matching = helpTopics.filter {
                 query.isBlank() || it.title.contains(query, ignoreCase = true) ||
                     it.summary.contains(query, ignoreCase = true)
             }
             if (matching.isEmpty()) {
                 item { PesaCard {
-                    Text("No results yet. Try a shorter word, or use Guided troubleshooting.",
+                    Text("No results. Try a shorter word, or open troubleshooting below.",
                         modifier = Modifier.padding(16.dp))
                 } }
             } else {
-                item { SectionHeader("Popular questions") }
-                matching.forEach { entry ->
-                    item { EverydayRow(Icons.Rounded.HelpOutline, entry.title, entry.summary) { topic = entry } }
+                item { ProfileSection("Popular help") }
+                item { ProfilePremiumGroup(matching.map { entry ->
+                    val visual = when (entry.title) {
+                        "Missing transactions" -> Triple(Icons.Rounded.Search, "Missing transactions", ProfileTone.VIOLET)
+                        "Import a statement" -> Triple(Icons.Rounded.Description, "Statement imports", ProfileTone.BLUE)
+                        "Incorrect account balance" -> Triple(Icons.Rounded.CompareArrows, "Balances & transfers", ProfileTone.GREEN)
+                        "Backup and restore" -> Triple(Icons.Rounded.CloudUpload, "Backup & restore", ProfileTone.AMBER)
+                        "PIN and fingerprint" -> Triple(Icons.Rounded.Lock, "App lock & privacy", ProfileTone.PINK)
+                        else -> Triple(Icons.Rounded.HelpOutline, entry.title, ProfileTone.VIOLET)
+                    }
+                    ProfilePremiumItem(visual.first, visual.second, when (entry.title) {
+                        "Missing transactions" -> "Find money messages that didn't appear"
+                        "Import a statement" -> "Fix a PDF that won't import"
+                        "Incorrect account balance" -> "Understand mismatched amounts"
+                        "Backup and restore" -> "Keep your records safe"
+                        "PIN and fingerprint" -> "Unlock and protect PesaTrack"
+                        else -> entry.summary
+                    }, visual.third, onClick = { topic = entry })
+                }) }
+            }
+            item {
+                OutlinedButton(onClick = { troubleshooting = true },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, C.violet)) {
+                    androidx.compose.material3.Icon(Icons.Rounded.Settings, null, tint = C.violet)
+                    Text("Advanced troubleshooting", modifier = Modifier.padding(start = 12.dp),
+                        color = C.violet, fontWeight = FontWeight.Bold)
+                    androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                    androidx.compose.material3.Icon(Icons.Rounded.ChevronRight, null, tint = C.violet)
                 }
             }
-            item { SectionHeader("More help") }
-            item { EverydayRow(Icons.Rounded.VerifiedUser, "Advanced diagnostics",
-                "See more detailed checks", advanced) }
-            item { Text("Your financial records stay on your phone. You decide what to share.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }
@@ -189,7 +215,8 @@ private fun ProfileTroubleshootingPage(
     padding: PaddingValues,
     back: () -> Unit,
     advanced: () -> Unit,
-    onMoneyAccess: (() -> Unit)?
+    onMoneyAccess: (() -> Unit)?,
+    onHistory: (() -> Unit)?
 ) {
     val context = LocalContext.current
     var revision by remember { mutableIntStateOf(0) }
@@ -198,52 +225,82 @@ private fun ProfileTroubleshootingPage(
     val listenerAllowed = remember(revision) {
         NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
     }
-    EverydayPage("Troubleshooting", padding, back) {
+    ProfilePremiumPage("Troubleshooting", padding, back) {
         item {
-            PesaCard {
-                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconBubble(Icons.Rounded.Build, size = 48.dp,
-                        background = pesaToneContainer("blue"),
-                        tint = pesaToneContent("blue"))
+            ProfileBanner("Find missing transactions", "We'll check the usual causes.",
+                Icons.Rounded.Build, art = ProfileHeroArt.WRENCH)
+        }
+        item {
+            ProfileTroubleshootStep("1", "Check message access", "Make sure PesaTrack can read SMS",
+                "Check", ProfileTone.VIOLET, onMoneyAccess)
+        }
+        item {
+            ProfileTroubleshootStep("2", "Check allowed sources", "Choose the apps to follow",
+                "Choose apps", ProfileTone.BLUE, onMoneyAccess)
+        }
+        item {
+            ProfileTroubleshootStep("3", "Add older transactions",
+                "Import messages or a statement", "Import history", ProfileTone.GREEN, onHistory)
+        }
+        item {
+            Surface(color = C.orangeSoft.copy(alpha = .65f), shape = RoundedCornerShape(16.dp)) {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Top) {
+                    ProfileTile(Icons.Rounded.WarningAmber, ProfileTone.AMBER, 40.dp)
                     Column(Modifier.padding(start = 12.dp)) {
-                        Text("Let's sort this out", style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold)
-                        Text("Safe checks for missing money updates.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Nothing is changed without asking you.",
+                            color = C.ink, fontWeight = FontWeight.Bold)
+                        Text("We only check and show what we find. You stay in control of your data.",
+                            color = C.muted, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
         }
-        item { Text("These checks only look at access. They never change your records.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant) }
         item {
-            Button(onClick = { checked = true; revision++ }, modifier = Modifier.fillMaxWidth()) {
-                Text(if (checked) "Run checks again" else "Run safe checks")
+            ProfileGradientButton(if (checked) "Run safe checks again" else "Run safe checks") {
+                checked = true; revision++
             }
         }
         if (checked) item {
-            PesaCard {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("What we found", style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold)
-                    Text("Money SMS: " + (if (smsApproved) "Allowed" else "Needs permission"))
-                    Text("Bank-app updates: " + (if (listenerAllowed) "Allowed" else "Needs permission"))
-                    Text(if (smsApproved && listenerAllowed)
-                        "Access looks ready. Check Activity for items needing review."
-                        else "Open Money message access to review what's allowed.")
+            Surface(color = C.greenSoft, shape = RoundedCornerShape(16.dp)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("What we found", color = C.ink, fontWeight = FontWeight.Bold)
+                    Text("Money messages: ${if (smsApproved) "Allowed" else "Permission needed"}", color = C.muted)
+                    Text("Bank-app updates: ${if (listenerAllowed) "Allowed" else "Permission needed"}", color = C.muted)
                 }
             }
         }
-        if (onMoneyAccess != null) {
-            item { EverydayRow(Icons.Rounded.Message, "Manage money message access",
-                "Review each source and choose what to allow", onMoneyAccess) }
+        item {
+            OutlinedButton(onClick = advanced, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, C.violet)) {
+                Text("View diagnostics", color = C.violet)
+            }
         }
-        item { EverydayRow(Icons.Rounded.Build, "Advanced diagnostics",
-            "Open existing checks; confirm before any repair", advanced) }
-        item { Text("Still missing something? Check Activity → Needs Review, or import older transactions.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    }
+}
+
+@Composable
+private fun ProfileTroubleshootStep(number: String, title: String, subtitle: String,
+    label: String, tone: ProfileTone, action: (() -> Unit)?) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Surface(shape = androidx.compose.foundation.shape.CircleShape,
+            color = tone.wash(), modifier = Modifier.size(40.dp)) {
+            androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                Text(number, color = tone.ink(), fontWeight = FontWeight.Bold)
+            }
+        }
+        Surface(Modifier.weight(1f).padding(start = 8.dp), color = Color.White,
+            shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
+            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(title, color = C.ink, fontWeight = FontWeight.Bold)
+                    Text(subtitle, color = C.muted, style = MaterialTheme.typography.bodySmall)
+                }
+                Button(onClick = { action?.invoke() }, enabled = action != null,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = C.violet)) { Text(label) }
+            }
+        }
     }
 }

@@ -42,6 +42,7 @@ import com.kedevjimmy.pesatrack.planning.PlanningReminders
 import com.kedevjimmy.pesatrack.planning.ReviewAttentionReminders
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 import com.kedevjimmy.pesatrack.R
+import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
 
 @Composable
 internal fun EverydayPage(title: String, padding: PaddingValues, onBack: () -> Unit, content: LazyListScope.() -> Unit) {
@@ -117,40 +118,38 @@ internal fun PrivacyPage(padding: PaddingValues, back: () -> Unit, access: () ->
     var details by rememberSaveable { mutableStateOf(false) }
     var backup by rememberSaveable { mutableStateOf(false) }
     if (backup) BackupRestoreSheet(onDismiss = { backup = false })
-    EverydayPage("Privacy & data", padding, back) {
+    ProfilePremiumPage("Privacy & data", padding, back) {
         item {
-            PesaCard {
-                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconBubble(Icons.Rounded.Shield, size = 58.dp,
-                        background = pesaToneContainer("violet"),
-                        tint = pesaToneContent("violet"))
-                    Column(Modifier.padding(start = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Your data belongs to you", style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold)
-                        Text("Your money records are kept on this phone.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
+            ProfileBanner("Your data belongs to you",
+                "PesaTrack keeps your records on this phone.", Icons.Rounded.GppGood,
+                art = ProfileHeroArt.SHIELD)
         }
-        item { SectionHeader("What the app can read") }
-        item { EverydayRow(Icons.Rounded.Message, "Money messages",
-            "Only the sources you allow", access) }
-        item { EverydayRow(Icons.Rounded.Inventory2, "Bank statements",
-            "Only the files you choose to import", manageStatements) }
-        item { SectionHeader("Keep your records safe") }
-        item { EverydayRow(Icons.Rounded.Backup, "Encrypted backup & restore",
-            "Save or restore a private copy") { backup = true } }
-        if (privacyPolicy != null) item {
-            EverydayRow(Icons.Rounded.Policy, "Privacy policy",
-                "How PesaTrack handles your data", privacyPolicy)
-        }
-        item { SectionHeader("Your choices") }
-        item { ChoiceSwitch("Help identify businesses online",
-            "Optional. Sends only a cleaned business name, never your messages or amounts.",
-            lookup) { lookup = it; prefs.setOnlineLookupEnabled(it) } }
+        item { ProfileSection("What the app can read") }
+        item { ProfilePremiumGroup(listOf(
+            ProfilePremiumItem(Icons.Rounded.Sms, "Money messages",
+                "Only with your permission", ProfileTone.VIOLET, onClick = access),
+            ProfilePremiumItem(Icons.Rounded.Description, "Bank statements",
+                "Files you choose to import", ProfileTone.GREEN, onClick = manageStatements),
+            ProfilePremiumItem(Icons.Rounded.Smartphone, "Phone permissions",
+                "Review access", ProfileTone.PINK, onClick = {
+                    context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:${context.packageName}")))
+                })
+        )) }
+        item { ProfileSection("Keep your records safe") }
+        item { ProfilePremiumGroup(listOfNotNull(
+            ProfilePremiumItem(Icons.Rounded.Lock, "Encrypted backup & restore",
+                "Save or restore a private copy", ProfileTone.VIOLET, onClick = { backup = true }),
+            privacyPolicy?.let { ProfilePremiumItem(Icons.Rounded.GppGood, "Privacy policy",
+                "See how your data is handled", ProfileTone.BLUE, onClick = it) }
+        )) }
+        item { ProfileHint("You're in control of what PesaTrack can access.", Icons.Rounded.VerifiedUser) }
+        item { ProfileSection("Optional online help") }
+        item { ProfilePremiumGroup(listOf(ProfilePremiumItem(Icons.Rounded.TravelExplore,
+            "Help identify businesses", "Only share a cleaned business name if you choose",
+            ProfileTone.BLUE, checked = lookup, onToggle = {
+                lookup = it; prefs.setOnlineLookupEnabled(it)
+            }))) }
         item { TextButton(onClick = { details = !details }) {
             Text(if (details) "Show less" else "How my data is handled")
         } }
@@ -220,23 +219,11 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it }
     val settings = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { allowed = NotificationManagerCompat.from(context).areNotificationsEnabled() }
     fun ask() { if (Build.VERSION.SDK_INT >= 33 && !allowed) permission.launch(Manifest.permission.POST_NOTIFICATIONS) }
-    EverydayPage(title, padding, back) {
+    ProfilePremiumPage(title, padding, back) {
         item {
-            PesaCard {
-                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconBubble(Icons.Rounded.NotificationsActive, size = 58.dp,
-                        background = pesaToneContainer("violet"),
-                        tint = pesaToneContent("violet"))
-                    Column(Modifier.padding(start = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Stay one step ahead", style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold)
-                        Text("A little reminder when it matters.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
+            ProfileBanner("Reminders that matter",
+                "Choose what PesaTrack reminds you about.", Icons.Rounded.NotificationsActive,
+                art = ProfileHeroArt.BELL)
         }
         if (!allowed) item {
             PesaCard {
@@ -250,42 +237,55 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
                 }
             }
         }
-        item { SectionHeader("Plan reminders") }
-        item { ChoiceSwitch("Upcoming bills", "Remind me before a scheduled bill is due", billOn) { billOn = it; bills.setGlobalReminderLeadDays(lead, it); if(it) ask() } }
-        item { Text("Remind me before a bill", style = MaterialTheme.typography.titleSmall)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { listOf(1,3,7).forEach { days -> FilterChip(selected = lead == days, enabled = billOn, onClick = { lead = days; bills.setGlobalReminderLeadDays(days, billOn) }, label = { Text(pluralStringResource(R.plurals.bill_reminder_days, days, days)) }) } } }
-        item { ChoiceSwitch("Budget warnings", "When spending reaches or passes your budget", budgetOn) { budgetOn = it; PlanningReminders.setEnabled(context, "budgets", it); if(it) ask() } }
-        item { ChoiceSwitch("Savings reminders", "When a monthly goal still needs a contribution", goalOn) { goalOn = it; PlanningReminders.setEnabled(context, "goals", it); if(it) ask() } }
-        item { SectionHeader("Things to review") }
-        item { ChoiceSwitch("Transactions to review", "A gentle reminder about items needing your attention", activityReviewOn) { activityReviewOn = it; ReviewAttentionReminders.setEnabled(context, it); if(it) ask() } }
-        item { ChoiceSwitch("Account review alerts", "When an account needs your confirmation",accountReviewOn) {
-            accountReviewOn = it; com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(context,com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.ACCOUNT,it); if (it) ask()
-        } }
-        item { ChoiceSwitch("Money owed to me", "When a possible repayment needs checking",paymentOn) {
-            paymentOn = it; com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(context,com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.PAYMENT,it); if (it) ask()
-        } }
-        item { SectionHeader("Other updates") }
-        item { ChoiceSwitch("Helpful tips", "Occasional tips about PesaTrack features",discoveryOn) {
-            discoveryOn = it; com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(context,com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.DISCOVERY,it)
-        } }
         item {
-            PesaCard {
-                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Inventory2, null, tint = MaterialTheme.colorScheme.primary)
-                    Column(Modifier.padding(start = 12.dp)) {
-                        Text("Statement imports", style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold)
-                        Text("You'll see the result when each import finishes.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+            ProfilePremiumGroup(listOf(
+                ProfilePremiumItem(Icons.Rounded.Event, "Upcoming bills", "Get reminded before due dates",
+                    ProfileTone.BLUE, checked = billOn, onToggle = {
+                        billOn = it; bills.setGlobalReminderLeadDays(lead, it); if (it) ask()
+                    }),
+                ProfilePremiumItem(Icons.Rounded.WarningAmber, "Budget warnings",
+                    "Be alerted when you're close to your limit", ProfileTone.PINK,
+                    checked = budgetOn, onToggle = {
+                        budgetOn = it; PlanningReminders.setEnabled(context, "budgets", it); if (it) ask()
+                    }),
+                ProfilePremiumItem(Icons.Rounded.Savings, "Savings reminders",
+                    "Stay on track with your goals", ProfileTone.GREEN,
+                    checked = goalOn, onToggle = {
+                        goalOn = it; PlanningReminders.setEnabled(context, "goals", it); if (it) ask()
+                    }),
+                ProfilePremiumItem(Icons.Rounded.RateReview, "Needs review",
+                    "See items that need your attention", ProfileTone.VIOLET,
+                    checked = activityReviewOn, onToggle = {
+                        activityReviewOn = it; ReviewAttentionReminders.setEnabled(context, it); if (it) ask()
+                    }),
+                ProfilePremiumItem(Icons.Rounded.Groups, "They owe me",
+                    "Get reminded about outstanding payments", ProfileTone.AMBER,
+                    checked = paymentOn, onToggle = {
+                        paymentOn = it
+                        com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(
+                            context, com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.PAYMENT, it)
+                        if (it) ask()
+                    }),
+                ProfilePremiumItem(Icons.Rounded.CloudDownload, "Import updates",
+                    "See the result after your local imports", ProfileTone.BLUE,
+                    onClick = { moreOptions = true })
+            ))
+        }
+        item { ProfilePremiumGroup(listOf(ProfilePremiumItem(
+            Icons.Rounded.Schedule, "Reminder timing", "Choose when alerts arrive",
+            ProfileTone.VIOLET, onClick = { moreOptions = !moreOptions }
+        ))) }
+        item { ProfileHint("Money amounts stay hidden on your lock screen.") }
+        if (moreOptions) item {
+            ProfileSection("Reminder timing")
+            Text("Before a bill is due", color = C.ink, fontWeight = FontWeight.Bold)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(1,3,7).forEach { days ->
+                    FilterChip(selected = lead == days, enabled = billOn, onClick = {
+                        lead = days; bills.setGlobalReminderLeadDays(days, billOn)
+                    }, label = { Text(pluralStringResource(R.plurals.bill_reminder_days, days, days)) })
                 }
             }
-        }
-        item { OutlinedButton(onClick = { moreOptions = !moreOptions }, modifier = Modifier.fillMaxWidth()) {
-            Text(if (moreOptions) "Hide reminder options" else "More reminder options")
-        } }
-        if (moreOptions) item {
             Text("How reminders appear",style = MaterialTheme.typography.titleMedium)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("banner" to "Banner if allowed","quiet" to "Quiet summary","off" to "Off").forEach { (value,label) ->
@@ -304,8 +304,24 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
             }) { Text(if (snoozed) "Resume smart alerts" else "Snooze smart alerts for a day") }
             TextButton(onClick = { smart.resetDiscovery() }) { Text("Show the They Owe Me tip again") }
         }
-        item { Text("Money amounts are hidden on the lock screen. Your phone may delay reminders to save battery.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (moreOptions) item {
+            ProfilePremiumGroup(listOf(
+                ProfilePremiumItem(Icons.Rounded.AccountCircle, "Account review alerts",
+                    "Accounts needing confirmation", ProfileTone.BLUE,
+                    checked = accountReviewOn, onToggle = {
+                        accountReviewOn = it
+                        com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(
+                            context, com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.ACCOUNT, it)
+                        if (it) ask()
+                    }),
+                ProfilePremiumItem(Icons.Rounded.TipsAndUpdates, "Helpful tips",
+                    "Occasional app suggestions", ProfileTone.GREEN,
+                    checked = discoveryOn, onToggle = {
+                        discoveryOn = it
+                        com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(
+                            context, com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.DISCOVERY, it)
+                    })
+            ))
+        }
     }
 }

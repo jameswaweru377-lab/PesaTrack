@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddAPhoto
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -49,6 +50,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
 import com.kedevjimmy.pesatrack.data.profile.ProfilePhotoStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -82,21 +85,28 @@ internal fun ProfilePhotoPicker(avatar: String, onPhotoSaved: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(
-            Modifier.size(112.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(Modifier.size(156.dp), contentAlignment = Alignment.Center) {
+          Box(Modifier.size(148.dp).clip(CircleShape).background(C.lilac),
+            contentAlignment = Alignment.Center) {
             val photo = savedPhoto
             if (photo != null) {
-                Image(photo.asImageBitmap(), "Your profile photo", Modifier.size(112.dp), contentScale = ContentScale.Crop)
+                Image(photo.asImageBitmap(), "Your profile photo", Modifier.size(148.dp), contentScale = ContentScale.Crop)
             } else {
                 Text(avatar, style = MaterialTheme.typography.headlineLarge)
             }
+          }
+          Box(Modifier.align(Alignment.BottomEnd).size(40.dp)
+              .clip(CircleShape).background(C.violet), contentAlignment = Alignment.Center) {
+              Icon(Icons.Rounded.AddAPhoto, "Change profile photo", tint = Color.White,
+                  modifier = Modifier.size(24.dp))
+          }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = {
                 picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-            }, enabled = !busy) {
+            }, enabled = !busy, shape = RoundedCornerShape(16.dp),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = C.lilac, contentColor = C.violet)) {
                 Icon(Icons.Rounded.AddAPhoto, null, modifier = Modifier.size(18.dp))
                 Text(if (savedPhoto == null) "Choose photo" else "Change photo", Modifier.padding(start = 7.dp))
             }
@@ -111,14 +121,16 @@ internal fun ProfilePhotoPicker(avatar: String, onPhotoSaved: () -> Unit) {
                         } else error = "Couldn't remove this photo. Try again."
                         busy = false
                     }
-                }, enabled = !busy) {
+                }, enabled = !busy, shape = RoundedCornerShape(16.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                        contentColor = C.red)) {
                     Icon(Icons.Rounded.DeleteOutline, null, modifier = Modifier.size(18.dp))
                     Text("Remove", Modifier.padding(start = 6.dp))
                 }
             }
         }
         Text("Choose and crop a photo from your device", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+            color = C.muted)
         if (busy) CircularProgressIndicator(Modifier.size(24.dp))
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
