@@ -1,134 +1,75 @@
-# PesaTrack
+<div align="center">
+  <img src="docs/assets/pesatrack-mark.svg" alt="PesaTrack P logo" width="108" height="108">
 
-PesaTrack is a **private, local-first Android money intelligence app for Kenya**. It turns financial SMS and notification evidence into a trustworthy personal ledger and answers practical questions about cash flow, transfers, balances, debts, salary cycles and commitments.
+  # PesaTrack
 
-The product is deliberately not trying to become a bank, social network, investment broker, generic spreadsheet, AI chatbot or cloud-first finance platform.
+  **Your money, better days.**
 
-## Product boundary
+  A privacy-first Android money companion built for everyday life in Kenya.
 
-The authoritative scope is in [docs/PRODUCT_CHARTER.md](docs/PRODUCT_CHARTER.md). The current engineering snapshot is in [CURRENT_STATE.md](CURRENT_STATE.md).
+  [![Android](https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com/about/versions/nougat)
+  ![Kotlin](https://img.shields.io/badge/Kotlin-Jetpack%20Compose-7F52FF?logo=kotlin&logoColor=white)
+  ![Local-first](https://img.shields.io/badge/Data-local--first-6D28D9)
+  ![Status](https://img.shields.io/badge/Status-pre--release-F59E0B)
 
-**PesaTrack is**
-- a provider-neutral financial-message understanding engine;
-- a canonical local personal ledger;
-- account, balance, debt, refund and transfer intelligence;
-- salary/pay-cycle, budget, bill and saving-goal context built from trusted ledger state;
-- reports and CSV export based on the same Activity ledger;
-- explainable review and learning when certainty is insufficient;
-- optional privacy-safe merchant/entity enrichment.
+  [**Download a preview**](https://github.com/jameswaweru377-lab/PesaTrack/releases/tag/ci-apk) · [Features](#what-you-can-do) · [Privacy](#privacy-by-design) · [Development](#project-and-development)
+</div>
 
-**PesaTrack is not**
-- a social/community app;
-- a stock/crypto trading or payment-initiation app;
-- a bank-sync product that invents unavailable data;
-- an LLM accounting authority;
-- a cloud-first service.
+---
 
-## Current live user surfaces
+PesaTrack helps you understand money coming in, going out, and moving between your accounts. It organizes supported M-Pesa and financial-message evidence, reviewed statement imports, and your own entries into a personal ledger—without making a cloud account the centre of your finances.
 
-- Onboarding and guided financial-data setup
-- Home
-- Activity and transaction details
-- Plan / payday context
-- Optional "Money until next salary" pre-payday range on Plan: confirmed
-  payday or clearly estimated pay window; requires credible local balance,
-  three completed cycles, and reviewed commitments. No anticipated salary is
-  counted before it arrives. Device acceptance is pending.
-- Budgets and categories
-- Accounts and observed balances
-- Debts and relationship review
-- Saving goals
-- Bills and local reminders
-- Reports and CSV export
-- CSV statement import with duplicate/date review, plus local Android15+ PDF password unlock and extraction. Supported M-Pesa text rows offer editable confirmed import; labelled payroll fields offer reviewed journal entry. Arbitrary layouts, scanned OCR and older-Android PDF extraction remain unsupported; device acceptance remains pending.
-- Historical graphical-header Equity PDFs can enter a separately labelled limited-assurance Statement archive after local balance-chain and printed grand-total checks. Both limited-only and mixed verified/limited account views show per-PDF grand-total reconciled Money In/Out, net movement and monthly breakdowns, with saved rows checked before financial values appear. They remain excluded from fully verified bank cash-flow totals and Activity, and do not supply missing independently printed opening balances or per-page totals. These per-document amounts are never combined across overlapping PDFs.
-- Salary setup and manual salary receipts
-- Dedicated Paycheck Analysis linked from Activity, Salary and Reports: privately reviewed payroll journal with gross/net, deductions and reported SACCO figures.
-- Long-text PDF imports: bounded 8 MiB / 160 pages / 500,000 extracted characters / 5,000 statement rows; native Android reader transfers safe small IPC chunks. Payroll outflow abbreviations and rounding carry-forward are reviewed without copying computed tax-relief amounts into deductions. CSV files retain their 2 MiB cap; scanned and unfamiliar PDF layouts remain unsupported.
-- Payslip review pre-fills recognised employer/month/gross/net/deductions when supported; gross cash earnings and taxable pay remain distinct. Unknown deduction rows from explicitly marked deduction tables need review. Gross-to-net mismatches must be resolved manually, never fabricated.
- Android15+ local PDF selection has a 3 MiB cap; raw PDF text is never shown. Earnings breakdowns are preview-only. Payroll never proves cash receipt.
-- Identity review
-- Historical financial SMS import
-- Financial notification connection status
-- Data Health / Message Lab
-- Settings, theme, Smart Rules, app lock and encrypted backup/restore
-- Profile with the approved illustrated six-board layout, local photo/name
-  details and save confirmation, Better money habits guidance drawn
-  from the same local financial-health rules as Home, privacy choices,
-  reminders, Help and About. Unavailable or stale evidence is shown as
-  incomplete rather than a guessed score.
+**Accuracy comes first:** when a transaction, balance, or document cannot be verified confidently, PesaTrack asks for review or shows the limitation instead of inventing a number.
 
-Legacy routes may remain only for compatibility with older navigation state.
+## What you can do
 
-## Financial intelligence architecture
+| | Feature | What it helps with |
+| --- | --- | --- |
+| 💸 | **Track activity** | Review income, spending, transfers, fees, refunds, and transaction details from supported sources. |
+| 🧾 | **Import statements** | Review supported M-Pesa and bank statement files with duplicate and verification safeguards. Unsupported or incomplete formats are not silently accepted. |
+| 📊 | **Understand your cash flow** | Explore Money In, Money Out, categories, account context, and reports based on recorded evidence. |
+| 🎯 | **Plan ahead** | Organize budgets, bills, saving goals, and payday context without treating expected income as money already received. |
+| 🤝 | **Keep track of debts** | Distinguish loans and repayments from ordinary purchases and transfers, with user confirmation where needed. |
+| 🔐 | **Keep control of your data** | Use local storage, optional app lock, encrypted user-created backups, and privacy controls. |
 
-Financial messages flow through a provider-neutral pipeline:
+### Four places to find what matters
 
-`capture -> relevance -> normalization -> candidate extraction -> relationship resolution -> canonical financial records -> ledger/correlation -> review/learning`
+**Home** for the overview · **Activity** for your ledger · **Plan** for commitments and goals · **More** for accounts, statements, reports and settings.
 
-Message Packs are bounded deterministic language evidence. They are not allowed to become a provider-by-provider business-logic maze.
+> **Screenshots:** A gallery of real, privacy-safe screens will be added after device capture and review. No personal transactions, account numbers, or private statement details will be published as examples.
 
-Message Lab and Message Inspector are developer/diagnostic tools, not accounting authority. Evidence can suggest parser work, but it cannot silently activate parsing or write ledger state.
+## Privacy by design
 
-## Privacy
+- **Local-first:** the on-device SQLite data is the source of truth for personal financial records.
+- **Optional access:** historical SMS and financial-notification access depend on the permissions you choose to grant.
+- **No raw financial-message uploads:** optional online merchant lookup is off by default and uses a sanitized business descriptor when enabled.
+- **Your exports:** backups are passphrase-encrypted; exported reports and files need the same care as other financial documents.
 
-SQLite on the device is the source of truth. Raw financial messages are not sent to the optional enrichment service.
+An app-lock PIN protects access to the app's interface; it **does not encrypt the ordinary local databases**. See the [security policy](SECURITY.md) and [pre-release privacy-policy source](docs/PRIVACY_POLICY.md) for details.
 
-Online merchant/entity lookup is **off by default**. If the user enables it, only a sanitized business descriptor may leave the device. The sanitation layer rejects likely phone numbers, transaction codes, email addresses, long numeric references and likely personal names. Amounts, balances, account numbers and full SMS bodies are not sent.
+## Try the Android preview
 
-The public enrichment Worker is rate limited, and provider credentials remain server-side.
+1. Open the [PesaTrack rolling preview release](https://github.com/jameswaweru377-lab/PesaTrack/releases/tag/ci-apk).
+2. Choose **`PesaTrack-Full.apk`** for a new installation, or **`PesaTrack-Update.apk`** for an existing compatible installation. The release process publishes two names for the same signed build; the name alone does not guarantee an in-place update.
+3. Review Android's installation and permission prompts, then set up only the financial sources you want to use.
 
-## Engineering status
+**Before updating:** protect your data with a verified backup. A phone running an older debug-signed APK may not accept the release-signed update. Do not uninstall or erase app data just to force an update. See the [release and signing guide](docs/RELEASE_PROCESS.md).
 
-- Database schema: **v40**
-- Android minSdk: **24**
-- target/compile SDK: **36**
-- Current CI runs:
-  - Worker syntax/contract checks;
-  - Android JVM unit tests;
-  - Android lint;
-  - debug APK assembly;
-- Android instrumentation on API 35 is paused and only runs through an explicitly requested manual review with run_instrumentation enabled. PR updates and main publication use build checks without automatic emulator execution.
-- Pushes to main publish one release-signed APK under two rolling attachment names, `PesaTrack-Full.apk` and `PesaTrack-Update.apk`, after build, lint and unit tests pass. Publication requires protected release-signing secrets; absent secrets block it. These are identical APKs, and an existing debug-signed phone installation may require a separately approved, backed-up migration. CI does not prove the update has been tested on a physical phone.
-- Canonical ingestion uses an explicit SQLite transaction boundary with rollback coverage.
-- Migration coverage includes fresh v38 plus selected historical upgrades including v1, v30, v31/v32 and populated v37 to v38; encrypted legacy/current restore is covered.
-- App lock, biometric unlock and passphrase-encrypted backup/restore are implemented.
+The preview targets **Android 7.0+ on supported ARM64 devices** and remains under active development. Device compatibility, banking-message coverage, and statement formats vary. PesaTrack is not a bank, a payment app, or a substitute for original provider records.
 
-## Development progress dashboard
+## Project and development
 
-- [Tracker guide and task-status definitions](docs/tracker/README.md) — ownership, audit evidence, CI and device-acceptance rules.
-- [PesaTrack tracker Issues](https://github.com/jameswaweru377-lab/PesaTrack/issues?q=label%3Apesatrack-tracker) — canonical tasks once their labels and import previews are approved.
-- [Development Tracker read-only Actions report](https://github.com/jameswaweru377-lab/PesaTrack/actions/workflows/development-tracker.yml) — lightweight, timestamped summaries after the tracker workflow is merged.
+PesaTrack is built primarily with **Kotlin, Jetpack Compose, and SQLite**. Supported PDF processing runs locally, and an optional enrichment Worker provides non-authoritative merchant hints. Personal financial decisions are made by deterministic local logic and explicit user review—not by an online chatbot.
 
-The visual GitHub Projects **board setup pending** step is described in the tracker guide. Do not treat an empty labeled-Issues view as proof that all audit findings are resolved.
+- [Product charter](docs/PRODUCT_CHARTER.md) — what PesaTrack is building and what it deliberately avoids.
+- [Current engineering state](CURRENT_STATE.md) — verified progress, limitations, and pending acceptance.
+- [Development tracker](docs/tracker/README.md) — tasks, ownership, and review rules.
+- [Release process](docs/RELEASE_PROCESS.md) — signed APKs and safe update expectations.
 
-## Release and security documents
+Found a bug or have an idea? Read [Contributing](CONTRIBUTING.md). For a vulnerability, use the private-reporting instructions in [Security](SECURITY.md). Community spaces follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
-- [Current engineering state](CURRENT_STATE.md)
-- [Security policy](SECURITY.md)
-- [Contributing rules](CONTRIBUTING.md)
-- [Agent working method](AGENT_WORKING_METHOD.md)
-- [Privacy policy source — pre-release review](docs/PRIVACY_POLICY.md)
-- [Terms of Service — pre-release draft](docs/TERMS_OF_SERVICE_DRAFT.md)
-- [Legal, ODPC and SMS permission release gate](docs/LEGAL_RELEASE_GATE.md)
-- [Google Play release checklist](docs/PLAY_RELEASE_CHECKLIST.md)
-- [Signed release process](docs/RELEASE_PROCESS.md)
+## Source code and rights
 
-## Current hardening priorities
+**Publicly visible does not mean open-source licensed.** PesaTrack's original source code is published for inspection, but no general permission to reuse, modify, redistribute, or commercialize it is granted. See [LICENSE](LICENSE) for the proprietary copyright notice and third-party exceptions.
 
-Before public release, the project is prioritizing:
-- branch protection and stale-branch cleanup;
-- release signing/versioning and a committed Gradle wrapper;
-- publishing the privacy policy and completing Play Console declarations;
-- real-device Redmi/Xiaomi acceptance;
-- performance work for long-history import and large ledgers;
-- decomposition of the largest stores and Compose screens;
-- broader API/migration/performance test matrices.
-
-See [CURRENT_STATE.md](CURRENT_STATE.md) for the source-of-truth engineering snapshot and [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) for chronological implementation history.
-
-## Owed to me history review
-
-Personal receivables use a separate local journal. Find in transactions searches imported M-Pesa and bank Activity history by name or phone. Separately saved PDF statement archive matches are visible as read-only evidence; they do not create a cash movement or a debt unless the user follows the controlled Activity import and individual loan review flow. Loans and possible repayments require explicit user confirmation; gifts/not-loan decisions are remembered per person. Bulk selection includes only eligible displayed outgoing rows and all selected records are previewed before an atomic save. Shared bills preserve the user's remaining expense category and fees; original cash movements are never duplicated. Activity exposes Owed to me/Repayments filters and debt labels. Schema 37 adds personal_receivable_review_exclusions; encrypted backups from schema 34–36 are bridged with missing tables empty.
-
-Implementation verification is tracked in the history-review PR. Android instrumentation and device acceptance remain unrun unless explicitly requested. Build/lint/unit evidence does not prove physical-device migration or user journeys.
+Copyright © 2026 James Waweru and respective rights holders. All rights reserved.
