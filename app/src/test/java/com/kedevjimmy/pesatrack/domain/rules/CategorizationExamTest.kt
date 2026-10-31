@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.domain.rules
 
 import com.google.gson.JsonParser
+import com.google.gson.Gson
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
@@ -124,13 +125,32 @@ class CategorizationExamTest {
             "overall" to all.asMap(),
             "by_transaction_kind" to perKind.mapValues { it.value.asMap() }
         )
-        println("CATEGORIZATION_EXAM_RESULT=$report")
+        println("CATEGORIZATION_EXAM_RESULT=${Gson().toJson(report)}")
         assertTrue(
             "Wrong-answer rate increased: ${all.wrong}/${all.total()} versus " +
-                "${baseline.get("wrong").asInt}/${baseline.get("total").asInt}",
+                "${baseline.get("wrong_ceiling").asInt}/${baseline.get("total").asInt}",
             all.wrong * baseline.get("total").asInt <=
-                baseline.get("wrong").asInt * all.total()
+                baseline.get("wrong_ceiling").asInt * all.total()
         )
+        // This snapshot is deliberately reviewed when the categorizer changes.
+        // A better result may update the snapshot, but cannot raise the wrong ceiling.
+        assertEquals(baseline.get("correct").asInt, all.correct)
+        assertEquals(baseline.get("wrong").asInt, all.wrong)
+        assertEquals(baseline.get("needs_review").asInt, all.needsReview)
+        assertEquals(
+            baseline.get("unclassified_without_review").asInt,
+            all.unclassifiedWithoutReview
+        )
+        val byKind = baseline.getAsJsonObject("by_transaction_kind")
+        perKind.forEach { (kind, count) ->
+            val recorded = byKind.getAsJsonObject(kind)
+            assertEquals(kind, recorded.get("total").asInt, count.total())
+            assertEquals(kind, recorded.get("correct").asInt, count.correct)
+            assertEquals(kind, recorded.get("wrong").asInt, count.wrong)
+            assertEquals(kind, recorded.get("needs_review").asInt, count.needsReview)
+            assertEquals(kind, recorded.get("unclassified_without_review").asInt,
+                count.unclassifiedWithoutReview)
+        }
     }
 
     private fun grade(sample: Case, prediction: Prediction): Outcome = when {

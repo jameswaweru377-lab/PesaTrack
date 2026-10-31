@@ -1,9 +1,23 @@
 {
   "corpus_sha256": "6a94022bc5a633a4fa988aa9c7987c7cf12edf8403cc0c24ff45b088ee539fd3",
   "total": 600,
-  "correct": 0,
-  "wrong": 0,
-  "needs_review": 0,
-  "unclassified_without_review": 0,
-  "note": "Initial red-test sentinel; replace with measured immutable baseline after first CI run."
+  "correct": 85,
+  "wrong": 20,
+  "wrong_ceiling": 20,
+  "needs_review": 135,
+  "unclassified_without_review": 360,
+  "by_transaction_kind": {
+    "paybill": {"total": 60, "correct": 0, "wrong": 0, "needs_review": 0, "unclassified_without_review": 60},
+    "till": {"total": 60, "correct": 0, "wrong": 0, "needs_review": 0, "unclassified_without_review": 60},
+    "person_to_person": {"total": 60, "correct": 0, "wrong": 0, "needs_review": 0, "unclassified_without_review": 60},
+    "fuliza": {"total": 60, "correct": 0, "wrong": 0, "needs_review": 60, "unclassified_without_review": 0},
+    "fees": {"total": 60, "correct": 0, "wrong": 10, "needs_review": 50, "unclassified_without_review": 0},
+    "reversals": {"total": 60, "correct": 25, "wrong": 10, "needs_review": 25, "unclassified_without_review": 0},
+    "airtime": {"total": 60, "correct": 60, "wrong": 0, "needs_review": 0, "unclassified_without_review": 0},
+    "salary": {"total": 60, "correct": 0, "wrong": 0, "needs_review": 0, "unclassified_without_review": 60},
+    "rent": {"total": 60, "correct": 0, "wrong": 0, "needs_review": 0, "unclassified_without_review": 60},
+    "school_fees": {"total": 60, "correct": 0, "wrong": 0, "needs_review": 0, "unclassified_without_review": 60}
+  },
+  "scope": "Default offline built-in recognition and production fallback; no user rules, remote-cache hints or full SMS ingestion.",
+  "note": "Frozen initial estimate subject to full JVM verification; update only with reviewed evidence. The ceiling must never silently increase."
 }
