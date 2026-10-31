@@ -87,13 +87,6 @@ val releaseSigningConfigured =
     ).all { it != null }
 
 
-// The x86_64 ABI is included only for explicitly requested emulator review builds.
-val includeInstrumentationX86_64 =
-    providers.gradleProperty("PESATRACK_INSTRUMENTATION_X86_64")
-        .map { it == "true" }
-        .orElse(false)
-        .get()
-
 android {
     namespace = "com.kedevjimmy.pesatrack"
     compileSdk = 36
@@ -108,11 +101,8 @@ android {
                 .replace("\"", "\\\"")}\""
         )
         minSdk = 24
-        // Keep the normal phone APK ARM64-only; add x86_64 only for manual emulator review.
-        ndk {
-            abiFilters += listOf("arm64-v8a")
-            if (includeInstrumentationX86_64) abiFilters += "x86_64"
-        }
+        // Embedded Python native dependencies were resolved for ARM64.
+        ndk { abiFilters += listOf("arm64-v8a") }
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
