@@ -45,6 +45,32 @@ query($project: ID!, $cursor: String) {
 }
 """
 
+# The Project is private and user-owned. GitHub documents this direct
+# owner/number lookup as the supported way to verify a personal Project ID.
+# Only use it if the node-ID query returns NOT_FOUND; never relax ID checks.
+OWNER_PROJECT_QUERY = """
+query($owner: String!, $number: Int!, $cursor: String) {
+  user(login: $owner) {
+    projectV2(number: $number) {
+      id title
+      fields(first: 100) { nodes {
+        ... on ProjectV2SingleSelectField { id name options { id name } }
+      } }
+      items(first: 100, after: $cursor) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          id isArchived
+          content { ... on Issue { number repository { nameWithOwner } } }
+          fieldValueByName(name: "Tracker status") {
+            ... on ProjectV2ItemFieldSingleSelectValue { name }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
 UPDATE_QUERY = """
 mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
   updateProjectV2ItemFieldValue(input: {
@@ -86,7 +112,8 @@ def graphql(token: str, query: str, variables: dict) -> dict:
     return result["data"]
 
 
-def load_project(token: str, project_id: str, *, caller=graphql) -> dict:
+def load_project(token: str, project_id: str, *, caller=graphql,
+                 owner: str | None = None, number: int | None = None) -> dict:
     """Read a bounded snapshot before any optional mutation."""
     if not PROJECT_ID.fullmatch(project_id):
         raise ValueError("A verified GitHub Project v2 node ID is required")
@@ -95,8 +122,24 @@ def load_project(token: str, project_id: str, *, caller=graphql) -> dict:
     fields = []
     title = ""
     for page in range(5):
-        result = caller(token, PROJECT_QUERY, {"project": project_id, "cursor": cursor})
-        project = result.get("node")
+        try:
+            result = caller(token, PROJECT_QUERY, {"project": project_id, "cursor": cursor})
+            project = result.get("node")
+        except RuntimeError as exc:
+            if (str(exc) != "GitHub Project query was rejected (NOT_FOUND)"
+                    or not owner or not isinstance(number, int)):
+                raise
+            try:
+                fallback = caller(token, OWNER_PROJECT_QUERY, {
+                    "owner": owner, "number": number, "cursor": cursor,
+                })
+            except RuntimeError as lookup_exc:
+                raise RuntimeError(
+                    f"Private Project owner lookup also failed: {lookup_exc}"
+                ) from None
+            project = (fallback.get("user") or {}).get("projectV2")
+            if isinstance(project, dict) and project.get("id") != project_id:
+                raise ValueError("Configured Project ID differs from the owner/number lookup")
         if not isinstance(project, dict) or project.get("id") != project_id:
             raise ValueError("The configured Project could not be verified")
         title = project.get("title")
@@ -178,7 +221,8 @@ def main(argv=None) -> int:
         report = reconcile(fetch_snapshot(os.environ.get("GITHUB_TOKEN", ""), args.repository))
         if report["incomplete"]:
             raise RuntimeError("Tracker evidence is incomplete; refusing Project updates")
-        project = load_project(token, args.project_id)
+        project = load_project(token, args.project_id,
+                               owner=args.repository.split("/")[0], number=1)
         changes, missing = plan_updates(project, report, args.repository)
         print(f"Project status mirror: {len(changes)} updates planned; "
               f"{len(missing)} Issues awaiting Project auto-add.")
