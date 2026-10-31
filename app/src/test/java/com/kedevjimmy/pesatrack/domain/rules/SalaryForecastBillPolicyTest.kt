@@ -13,7 +13,7 @@ class SalaryForecastBillPolicyTest {
         val through = day(2026, Calendar.NOVEMBER, 4)
         val rows = SalaryForecastBillPolicy.occurrences(
             bill = SalaryForecastBill("wifi", "Weekly internet", 20_000L,
-                SalaryForecastBillCadence.WEEKLY, dayOfWeek = Calendar.MONDAY, paidThisMonth = 2),
+                SalaryForecastBillCadence.WEEKLY, dayOfWeek = Calendar.MONDAY, paidMinorThisMonth = 40_000L),
             nowEpochMs = from, throughEpochMs = through, timeZone = utc
         )
         assertEquals(3, rows.size) // Oct 19, Oct 26, Nov 2; Oct 5 and 12 paid
@@ -24,7 +24,7 @@ class SalaryForecastBillPolicyTest {
     @Test fun monthEndDayClampsAcrossFebruaryAndDoesNotDoubleCountPaidBill() {
         val rows = SalaryForecastBillPolicy.occurrences(
             bill = SalaryForecastBill("rent", "Rent", 1_000_000L,
-                SalaryForecastBillCadence.MONTHLY, dayOfMonth = 31, paidThisMonth = 1),
+                SalaryForecastBillCadence.MONTHLY, dayOfMonth = 31, paidMinorThisMonth = 1_000_000L),
             nowEpochMs = day(2027, Calendar.JANUARY, 25),
             throughEpochMs = day(2027, Calendar.MARCH, 1), timeZone = utc
         )
@@ -42,6 +42,16 @@ class SalaryForecastBillPolicyTest {
         )
         assertEquals(1, rows.size)
         assertEquals(now, rows.single().dueEpochMs)
+    }
+
+    @Test fun partiallyPaidBillUsesOnlyRemainingAmount() {
+        val rows = SalaryForecastBillPolicy.occurrences(
+            SalaryForecastBill("rent", "Rent", 1_000_000L,
+                SalaryForecastBillCadence.MONTHLY, dayOfMonth = 10, paidMinorThisMonth = 200_000L),
+            nowEpochMs = day(2026, Calendar.OCTOBER, 20),
+            throughEpochMs = day(2026, Calendar.OCTOBER, 31), timeZone = utc
+        )
+        assertEquals(800_000L, rows.single().amountMinor)
     }
 
     private fun day(year: Int, month: Int, day: Int): Long = Calendar.getInstance(utc).apply {

@@ -290,6 +290,9 @@ fun PlanScreen(
             }
         }
         item {
+            MoneyUntilSalaryCard(snapshot)
+        }
+        item {
             VibrantPlanSurface {
                 val budgetCount = financialProgress?.budgets?.size ?: monthlyBudgets.size
                 val goalCount = financialProgress?.goals?.size ?: savingsGoals.size

@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.domain.rules
 
+import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
 import java.math.BigInteger
 import java.util.concurrent.TimeUnit
 
@@ -7,7 +8,8 @@ data class SalarySpendingCycle(
     val startEpochMs: Long,
     val endEpochMs: Long?,
     val variableSpendingMinor: Long,
-    val unreviewedCount: Int = 0
+    val unreviewedCount: Int = 0,
+    val variableTransactionCount: Int = 3
 )
 
 data class SalaryForecastCommitment(
@@ -76,6 +78,7 @@ object SalaryForecastPolicy {
         buildList {
             if (from == null || to == null) add("Confirm the next payday or set a usual payday window.")
             else if (from > to || to < facts.nowEpochMs) add("The payday has passed. Confirm a new payday or salary receipt.")
+            else if (to - facts.nowEpochMs > 45L * dayMs) add("A payday over 45 days away needs a new plan.")
             val age = facts.balanceAsOfEpochMs?.let { facts.nowEpochMs - it }
             if (facts.balanceMinor == null || age == null || age < 0L || age > dayMs) {
                 add("Confirm a complete fresh spendable balance (within 24 hours).")
@@ -94,7 +97,7 @@ object SalaryForecastPolicy {
         val end = cycle.endEpochMs ?: return false
         val days = TimeUnit.MILLISECONDS.toDays(end - cycle.startEpochMs)
         return days in 14..45 && end <= now && cycle.unreviewedCount == 0 &&
-            cycle.variableSpendingMinor >= 0L
+            cycle.variableSpendingMinor > 0L && cycle.variableTransactionCount >= 3
     }
 
     private fun project(
@@ -131,7 +134,7 @@ object SalaryForecastPolicy {
         val cycleDays = TimeUnit.MILLISECONDS.toDays(requireNotNull(cycle.endEpochMs) - cycle.startEpochMs)
         val numerator = BigInteger.valueOf(cycle.variableSpendingMinor).multiply(BigInteger.valueOf(days))
         val adjusted = if (roundUp) numerator.add(BigInteger.valueOf(cycleDays - 1L)) else numerator
-        return adjusted.divide(BigInteger.valueOf(cycleDays)).longValueExact()
+        return CheckedMoney.exact(adjusted.divide(BigInteger.valueOf(cycleDays)))
     }
 
     private fun sumCommitments(items: List<SalaryForecastCommitment>, dueThrough: Long): Long =
