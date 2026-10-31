@@ -13,11 +13,20 @@ fi
 
 jq -er --argjson titles "$show_titles" '
   def safe_title:
-    (.title // "" | tostring) as $value |
-    if (($value | test("^[A-Za-z0-9 ,.:;()/_+\u0027-]{1,140}$")) and
-        ($value | test("https?://|[0-9]{9,}"; "i") | not))
-    then $value
-    else "[title withheld: unsafe characters]"
+    (.title // "" | tostring) as $raw |
+    if ($raw | test("https?://|[0-9]{9,}|[A-Za-z0-9]{24,}|/(data|home|workspace)/|<(script|style|iframe|svg|object)[ >]|javascript:|on[a-z]+="; "i"))
+    then "[title withheld: unsafe characters]"
+    else
+      ($raw
+        | gsub("<[^>]{1,140}>"; " ")
+        | gsub("&[A-Za-z0-9#]{1,16};"; " ")
+        | gsub("[^A-Za-z0-9 ,.:;()/_+!?=\u0027-]"; " ")
+        | gsub(" +"; " ")
+        | gsub("^ +| +$"; "")) as $clean |
+      if ($clean | test("^[A-Za-z0-9 ,.:;()/_+!?=\u0027-]{1,180}$"))
+      then $clean
+      else "[title withheld: unsafe characters]"
+      end
     end;
 
   .appsec as $app |
