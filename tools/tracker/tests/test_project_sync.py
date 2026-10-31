@@ -27,7 +27,48 @@ def report(status="CI passed"):
                        "owner": "CHAT-STATEMENTS", "device_acceptance": "not_verified"}]}
 
 
+def graphql_project():
+    return {
+        "id": "PVT_invented", "title": "PesaTrack Development Tracker",
+        "fields": {"nodes": [{"id": "PVTSSF_invented", "name": "Tracker status",
+                              "options": [{"id": "opt_ci", "name": "CI passed"}]}]},
+        "items": {"nodes": [], "pageInfo": {"hasNextPage": False, "endCursor": None}},
+    }
+
+
 class ProjectSyncTest(unittest.TestCase):
+    def test_not_found_node_falls_back_to_verified_private_owner_project(self):
+        calls = []
+
+        def fake(token, query, variables):
+            calls.append(variables)
+            if "project" in variables:
+                raise RuntimeError("GitHub Project query was rejected (NOT_FOUND)")
+            self.assertEqual("jameswaweru377-lab", variables["owner"])
+            self.assertEqual(1, variables["number"])
+            return {"user": {"projectV2": graphql_project()}}
+
+        loaded = load_project(
+            "invented-token", "PVT_invented", caller=fake,
+            owner="jameswaweru377-lab", number=1,
+        )
+        self.assertEqual("PVT_invented", loaded["id"])
+        self.assertEqual(2, len(calls))
+
+    def test_owner_lookup_rejects_different_project_id(self):
+        def fake(token, query, variables):
+            if "project" in variables:
+                raise RuntimeError("GitHub Project query was rejected (NOT_FOUND)")
+            candidate = dict(graphql_project())
+            candidate["id"] = "PVT_other"
+            return {"user": {"projectV2": candidate}}
+
+        with self.assertRaisesRegex(ValueError, "Project ID"):
+            load_project(
+                "invented-token", "PVT_invented", caller=fake,
+                owner="jameswaweru377-lab", number=1,
+            )
+
     def test_graphql_rejection_reports_safe_error_type_without_remote_message(self):
         response = BytesIO(json.dumps({
             "errors": [{"type": "INSUFFICIENT_SCOPES",
