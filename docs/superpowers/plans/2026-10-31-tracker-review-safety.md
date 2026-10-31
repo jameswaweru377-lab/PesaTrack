@@ -5,8 +5,9 @@
 **Goal:** Correct two P2 tracker review findings without silent Project status regressions.
 
 **Architecture:** Preserve the existing read-only GitHub adapter and reconciler.
-Normalize only documented human status names in the parser; propagate bounded
-closed-history truncation to the existing global incomplete gate. No new services.
+Normalize documented human status names in the parser; preserve capped history
+as a separate advisory flag and protect per-task stronger Project evidence
+without stopping unrelated safe updates. No new services.
 
 **Tech Stack:** Python standard library and `unittest`.
 
@@ -15,7 +16,8 @@ closed-history truncation to the existing global incomplete gate. No new service
 ## Global Constraints
 
 - Existing canonical GitHub Issues remain authoritative.
-- Project synchronization stays disabled by default and fails closed on incomplete evidence.
+- Project synchronization remains owner-controlled; incomplete full snapshots
+  fail closed, while bounded history protects individual uncertain downgrades.
 - No new Android checks, network access, secrets, or financial behavior.
 
 ## Review Focus
@@ -23,8 +25,9 @@ closed-history truncation to the existing global incomplete gate. No new service
 - Mixed-case `Paused` with an open passing PR must still be `Paused`.
 - Duplicate status lines with equivalent spelling must remain one state.
 - Two different status lines must remain ambiguous.
-- A full closed-history page cap must refuse Project synchronization.
+- A full closed-history page cap must refuse individual uncertain downgrades.
 - A non-capped closed-history response must preserve normal reporting.
+- A capped page must not block independent safe progress or manual pauses.
 
 ---
 
@@ -45,9 +48,11 @@ closed-history truncation to the existing global incomplete gate. No new service
 
 **Interface:** `fetch_snapshot(token: str, repository: str, *, opener=None, max_pages: int = 3) -> dict`
 
-- [ ] Add failing fake-API tests: exactly capped closed history means `truncated: true`, uncapped history remains complete.
+- [x] Initial failing fake-API tests: capped closed history was incorrectly trusted, uncapped remained complete.
 - [ ] Run focused test and confirm the expected assertion failure.
-- [ ] Include closed-history cap in the existing incomplete evidence signal, retaining its advisory display flag.
+- [x] Record capped closed history separately from the full incomplete signal.
+- [x] Add test-first per-task Project guard: preserve stronger evidence on capped history, while allowing unrelated updates, CI failures, and human pauses.
+- [x] Update the Project mirror's status-plan result to surface withheld task numbers without mutating them.
 - [ ] Run focused tests and then full tracker `unittest` suite.
 - [ ] Run `python3 tools/security_scan.py` and `git diff --check`.
 - [ ] Commit the narrow changes, open a scoped PR linked to #513, and inspect exact-head GitHub CI/review before merging.

@@ -11,22 +11,27 @@ or the optional Project synchronization default (off).
 - A single explicitly supported human task state is canonical regardless of
   letter case, so `Task status: paused` has the same effect as `Paused`.
   Conflicting distinct states remain unknown, never guessed.
-- A truncated closed-PR history is incomplete evidence: an older merged PR
-  might exist without a reciprocal `PR: #...` line in its Issue. In this case
-  a read-only report may still show a warning, but the optional Project mirror
-  must not overwrite an existing status from that partial snapshot.
+- A capped closed-PR history is incomplete *historical* evidence: an older
+  merged PR might exist without a reciprocal `PR: #...` line in its Issue.
+  The optional Project mirror must preserve higher-confidence existing status
+  evidence when the capped history would otherwise downgrade it, while safe
+  unrelated updates continue. Skipped task numbers appear in workflow logs.
 - Keep bounded GitHub API requests and existing opt-in safeguards unchanged.
 
 ## Approaches
 
-1. **Chosen: conservative guard at the data boundary.** Canonicalize the
-   recognized human state and mark capped closed history as incomplete. Simple,
-   testable, fail-closed, though large history may block Project sync until
-   linkage coverage or collection is improved separately.
+1. **Chosen (refined after owner approval): per-task evidence guard.**
+   Canonicalize recognized human states. Preserve stronger existing Project
+   evidence when closed PR history is capped, but allow unrelated progress
+   updates and explicit human pauses. This keeps the already-active Project
+   mirror useful without letting absent historical PRs erase verified work.
 2. Resolve all old PR links automatically. More complete reporting, but
    requires unbounded historical discovery and is not safe within this fix.
 3. Ignore the cap and trust visible PRs. Fast, but could downgrade a merged
    task; rejected.
+4. Block all Project writes whenever old PR history is capped. Safe against
+   downgrades, but would stop the already-working mirror in a mature repository;
+   rejected after observing the live 31 October 2026 workflow.
 
 ## Acceptance
 

@@ -112,12 +112,54 @@ class ProjectSyncTest(unittest.TestCase):
         self.assertNotIn("private GitHub response", str(failure.exception))
 
     def test_plans_only_changed_bot_owned_status_field(self):
-        updates, missing = plan_updates(project(), report(), "jameswaweru377-lab/PesaTrack")
+        updates, missing, skipped = plan_updates(project(), report(), "jameswaweru377-lab/PesaTrack")
         self.assertEqual([], missing)
+        self.assertEqual([], skipped)
         self.assertEqual([{"issue_number": 123, "item_id": "PVTI_invented",
                            "field_id": "PVTSSF_invented", "option_id": "opt_ci"}], updates)
-        self.assertEqual(([], []), plan_updates(project("CI passed"), report(),
-                                               "jameswaweru377-lab/PesaTrack"))
+        self.assertEqual(([], [], []), plan_updates(project("CI passed"), report(),
+                                                   "jameswaweru377-lab/PesaTrack"))
+
+    def test_capped_history_skips_only_unsafe_status_downgrades(self):
+        existing = project("Merged — needs acceptance")
+        existing["items"].append({**existing["items"][0],
+                                  "id": "PVTI_124", "number": 124,
+                                  "current_status": "Unclaimed"})
+        observed = report("Claimed")
+        observed["historical_window_limited"] = True
+        observed["tasks"].append({"issue_number": 124, "status": "CI passed"})
+        existing["fields"][0]["options"].append({"id": "opt_claimed", "name": "Claimed"})
+
+        updates, missing, skipped = plan_updates(
+            existing, observed, "jameswaweru377-lab/PesaTrack")
+
+        self.assertEqual([], missing)
+        self.assertEqual([123], skipped)
+        self.assertEqual([124], [entry["issue_number"] for entry in updates])
+        self.assertEqual("opt_ci", updates[0]["option_id"])
+
+    def test_capped_history_keeps_ci_changes_and_explicit_human_pauses(self):
+        existing = project("CI passed")
+        existing["fields"][0]["options"].extend([
+            {"id": "opt_failed", "name": "CI failed"},
+            {"id": "opt_paused", "name": "Paused"},
+        ])
+        for status in ("CI failed", "Paused"):
+            with self.subTest(status=status):
+                observed = report(status)
+                observed["historical_window_limited"] = True
+                updates, missing, skipped = plan_updates(
+                    existing, observed, "jameswaweru377-lab/PesaTrack")
+                self.assertEqual(([], []), (missing, skipped))
+                self.assertEqual([123], [entry["issue_number"] for entry in updates])
+
+    def test_uncapped_history_allows_explicit_task_reopening(self):
+        existing = project("Merged — needs acceptance")
+        existing["fields"][0]["options"].append({"id": "opt_claimed", "name": "Claimed"})
+        updates, missing, skipped = plan_updates(
+            existing, report("Claimed"), "jameswaweru377-lab/PesaTrack")
+        self.assertEqual(([], []), (missing, skipped))
+        self.assertEqual([123], [entry["issue_number"] for entry in updates])
 
     def test_unknown_status_or_missing_field_fails_before_any_remote_write(self):
         with self.assertRaisesRegex(ValueError, "option"):
@@ -128,20 +170,21 @@ class ProjectSyncTest(unittest.TestCase):
             plan_updates(missing_field, report(), "jameswaweru377-lab/PesaTrack")
 
     def test_unregistered_issue_requires_project_auto_add_not_create(self):
-        updates, missing = plan_updates(project(include_item=False), report(),
-                                        "jameswaweru377-lab/PesaTrack")
+        updates, missing, skipped = plan_updates(project(include_item=False), report(),
+                                                 "jameswaweru377-lab/PesaTrack")
         self.assertEqual([], updates)
         self.assertEqual([123], missing)
+        self.assertEqual([], skipped)
 
     def test_foreign_issue_and_archived_item_are_never_modified(self):
         data = project()
         data["items"][0]["repository"] = "another-owner/another-repository"
-        self.assertEqual(([], [123]), plan_updates(data, report(),
-                                                   "jameswaweru377-lab/PesaTrack"))
+        self.assertEqual(([], [123], []), plan_updates(data, report(),
+                                                       "jameswaweru377-lab/PesaTrack"))
         data = project()
         data["items"][0]["archived"] = True
-        self.assertEqual(([], [123]), plan_updates(data, report(),
-                                                   "jameswaweru377-lab/PesaTrack"))
+        self.assertEqual(([], [123], []), plan_updates(data, report(),
+                                                       "jameswaweru377-lab/PesaTrack"))
 
     def test_duplicate_issue_items_and_wrong_project_identity_abort(self):
         data = project()

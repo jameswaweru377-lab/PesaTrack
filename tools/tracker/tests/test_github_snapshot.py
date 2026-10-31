@@ -106,7 +106,7 @@ class GitHubSnapshotTest(unittest.TestCase):
         self.assertEqual(2, sum("/issues?" in url for url, _, _ in fake.requested))
         self.assertFalse(any("Authorization" in headers for _, headers, _ in fake.requested))
 
-    def test_capped_closed_pr_history_makes_project_evidence_incomplete(self):
+    def test_capped_closed_pr_history_is_flagged_for_guarded_project_updates(self):
         class ClosedHistory(FakeGitHub):
             def __call__(self, url, headers, timeout):
                 parsed = urlparse(url)
@@ -125,8 +125,8 @@ class GitHubSnapshotTest(unittest.TestCase):
         snapshot = fetch_snapshot("invented", "test-org/test-repo",
                                   opener=ClosedHistory(), max_pages=1)
         self.assertTrue(snapshot["historical_window_limited"])
-        self.assertTrue(snapshot["truncated"])
-        self.assertTrue(reconcile(snapshot)["incomplete"])
+        self.assertFalse(snapshot["truncated"])
+        self.assertFalse(reconcile(snapshot)["incomplete"])
         self.assertEqual("Claimed", reconcile(snapshot)["tasks"][0]["status"])
 
     def test_uncapped_closed_pr_history_remains_complete(self):
