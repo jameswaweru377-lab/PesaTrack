@@ -1,0 +1,9 @@
+{
+  "corpus_sha256": "6a94022bc5a633a4fa988aa9c7987c7cf12edf8403cc0c24ff45b088ee539fd3",
+  "total": 600,
+  "correct": 0,
+  "wrong": 0,
+  "needs_review": 0,
+  "unclassified_without_review": 0,
+  "note": "Initial red-test sentinel; replace with measured immutable baseline after first CI run."
+}
