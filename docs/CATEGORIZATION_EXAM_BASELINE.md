@@ -46,6 +46,8 @@ fallback in the JVM unit-test suite on every pull request. It checks the fixed
 ceiling of 20/600 (3.33%). Unreviewed case changes cannot dilute the rate.
 Intentional improvements require recording and reviewing the new measured
 snapshot; the wrong-answer ceiling may decrease but must not silently rise.
+The original 600-case snapshot passed Android CI run 41177373457 with 1,316
+JVM tests, zero failures and one skipped test.
 
 This is a diagnostic of default category behavior, **not** a claim that
 PesaTrack's complete ingestion, Fuliza accounting, statement imports, personal
