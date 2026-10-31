@@ -186,6 +186,7 @@ class PersonalReceivableIntegrationTest {
         val payment = transaction(20 + oldVersion, 50_000L, "EXPENSE")
         val legacy = db
         dropB2Tables(legacy)
+        dropPost38Tables(legacy)
         if (oldVersion == 35) legacy.execSQL(
             "INSERT INTO transaction_allocations(transaction_id, position, category, amount_minor) VALUES (?, 0, 'EATING_OUT', 50000)",
             arrayOf<Any>(payment))
@@ -406,6 +407,7 @@ class PersonalReceivableIntegrationTest {
         val person = receivables.confirmHistory(null,"Sample Borrower","0712000000",
             listOf(ReceivableHistorySelection(transactions.getById(outgoing)!!,"LENT",80000)),emptyList())
         dropB2Tables(db)
+        dropPost38Tables(db)
         db.execSQL("DROP TABLE personal_receivable_review_exclusions")
         db.execSQL("DROP TRIGGER IF EXISTS trg_delete_receivable_review")
         db.version = 36
@@ -425,6 +427,14 @@ class PersonalReceivableIntegrationTest {
             manager.restoreEncryptedBytes(newBackup,"invented-history-passphrase")
             assertEquals(setOf(gift),ReceivableHistoryRepository(context).exclusions(person))
             assertEquals(80000L,receivables.people().single().outstandingMinor)
+        }
+    }
+
+    /** Keep fabricated legacy backups consistent with their claimed schema version. */
+    private fun dropPost38Tables(database: android.database.sqlite.SQLiteDatabase) {
+        listOf("evidence_link_audit", "evidence_links", "evidence_observations",
+            "payroll_lines", "payroll_records").forEach { table ->
+            database.execSQL("DROP TABLE IF EXISTS $table")
         }
     }
 
