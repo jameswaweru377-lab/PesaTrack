@@ -22,9 +22,7 @@ data class RecurringPatternObservation(
     val occurredAtEpochMs: Long,
     val counterparty: String?,
     val counterpartyPhone: String?,
-    val accountId: String?,
-    val cadence: RecurringPatternCadence = RecurringPatternCadence.MONTHLY_FIXED_DAY,
-    val reason: String = ""
+    val accountId: String?
 )
 
 data class RecurringPatternCandidate(
@@ -41,5 +39,7 @@ data class RecurringPatternCandidate(
     val representativeTransactionId: Long,
     val counterparty: String?,
     val counterpartyPhone: String?,
-    val accountId: String?
+    val accountId: String?,
+    val cadence: RecurringPatternCadence = RecurringPatternCadence.MONTHLY_FIXED_DAY,
+    val reason: String = ""
 )
