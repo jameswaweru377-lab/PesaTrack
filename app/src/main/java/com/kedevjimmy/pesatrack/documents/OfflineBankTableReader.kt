@@ -13,6 +13,11 @@ import com.kedevjimmy.pesatrack.domain.statements.StatementTablePage
 import java.io.ByteArrayOutputStream
 import org.json.JSONObject
 
+/** Stable parser refusal; never contains raw PDF text or account identifiers. */
+class StatementBankInspectionBlocked(val reasonCode: String) : IllegalArgumentException(
+    "This bank PDF did not pass complete local verification ($reasonCode). Nothing was saved."
+)
+
 /** Read-only on-device issuer table review; no Activity, network or database writes. */
 object OfflineBankTableReader {
     data class Prepared(
@@ -53,9 +58,11 @@ object OfflineBankTableReader {
         } finally { raw.fill(0) }
         val root = JSONObject(response)
         StatementPdfOpeningPassword.requireUnlocked(root.optString("status"), root.optString("reason"))
-        require(root.optString("status") == "ready_for_bank_review") {
-            "This bank PDF did not pass complete local verification (" +
-                root.optString("reason", "unsupported layout") + "). Nothing was saved."
+        if (root.optString("status") != "ready_for_bank_review") {
+            val rawReason = root.optString("reason")
+            val safeReason = rawReason.takeIf { it.matches(Regex("[a-z][a-z0-9_]{0,63}")) }
+                ?: "unknown_failure"
+            throw StatementBankInspectionBlocked(safeReason)
         }
         val source = root.getJSONObject("document")
         val count = source.getInt("pages")
