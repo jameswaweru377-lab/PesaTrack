@@ -57,8 +57,10 @@ jobs:
           PESATRACK_TRACKER_PROJECT_ID: ${{ vars.PESATRACK_TRACKER_PROJECT_ID }}
         run: python3 -m tools.tracker.project_sync --repository "$GITHUB_REPOSITORY"
       - name: Mirror canonical Issues to the approved Project tracker field
-        # Fork PRs receive no repository secrets; their metadata must never trigger privileged writes.
-        if: ${{ vars.PESATRACK_TRACKER_PROJECT_SYNC_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        # Fork and Dependabot PRs have no Actions Project secret, even when
+        # Dependabot's head branch belongs to this repository. Keep their
+        # advisory summaries, but never attempt privileged Project writes.
+        if: ${{ vars.PESATRACK_TRACKER_PROJECT_SYNC_ENABLED == 'true' && github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')) }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
           PESATRACK_TRACKER_PROJECTS_TOKEN: ${{ secrets.PESATRACK_TRACKER_PROJECTS_TOKEN }}

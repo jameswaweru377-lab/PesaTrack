@@ -49,6 +49,17 @@ class WorkflowContractTest(unittest.TestCase):
         self.assertIn("--apply", step["run"])
         self.assertEqual("read", workflow["permissions"]["issues"])
 
+    def test_dependabot_prs_keep_reporting_without_privileged_project_writes(self):
+        workflow = yaml.load((ROOT / ".github/workflows/development-tracker.yml").read_text(),
+                             Loader=yaml.BaseLoader)
+        steps = workflow["jobs"]["report"]["steps"]
+        self.assertIn("pull_request", workflow["on"])
+        self.assertIn("tools.tracker.cli", steps[1]["run"])
+        mirror_condition = steps[-1]["if"]
+        self.assertIn("github.actor != 'dependabot[bot]'", mirror_condition)
+        self.assertIn("github.event.pull_request.user.login != 'dependabot[bot]'",
+                      mirror_condition)
+
 
 if __name__ == "__main__":
     unittest.main()
