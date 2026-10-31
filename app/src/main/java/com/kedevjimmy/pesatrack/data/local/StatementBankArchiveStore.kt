@@ -5,6 +5,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.statements.StatementAdmissionResult
+import com.kedevjimmy.pesatrack.domain.statements.StatementDocumentAssurance
 import com.kedevjimmy.pesatrack.domain.statements.StatementBankCategoryLabelPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementTablePage
 import com.kedevjimmy.pesatrack.domain.statements.StatementTableResult
@@ -100,6 +101,8 @@ class StatementBankArchiveStore(context: Context) {
         val identityHash = MessageDigest.getInstance("SHA-256")
             .digest(admitted.accountIdentityHashMaterial.toByteArray(Charsets.UTF_8))
             .joinToString("") { "%02x".format(it) }
+        if (admitted.assurance == StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY)
+            return saveLimited(admitted, sourceId, identityHash, cellByPosition)
         val helper = StatementArchiveDb(app)
         try {
             val db = helper.writableDatabase
@@ -143,6 +146,97 @@ class StatementBankArchiveStore(context: Context) {
                 db.setTransactionSuccessful()
                 return SaveResult(true, sourceId)
             } finally { db.endTransaction() }
+        } finally { helper.close() }
+    }
+
+    private fun saveLimited(
+        admitted: StatementAdmissionResult.Accepted,
+        sourceId: String,
+        identityHash: String,
+        cells: Map<Pair<Int, Int>, Pair<List<String>, List<String>>>
+    ): SaveResult {
+        val helper = StatementArchiveDb(app)
+        try {
+            val db = helper.writableDatabase
+            db.beginTransaction()
+            try {
+                val exists = db.rawQuery(
+                    "SELECT 1 FROM statement_limited_sources_v1 WHERE id=? LIMIT 1",
+                    arrayOf(sourceId)
+                ).use { it.moveToFirst() }
+                if (exists) {
+                    db.setTransactionSuccessful()
+                    return SaveResult(false, sourceId)
+                }
+                db.insertOrThrow("statement_limited_sources_v1", null, ContentValues().apply {
+                    put("id", sourceId); put("account_id", admitted.accountId)
+                    put("provider_key", admitted.profile.providerKey)
+                    put("account_identity_hash", identityHash)
+                    put("currency", admitted.profile.currency)
+                    put("document_format", admitted.documentFormat)
+                    put("imported_at", System.currentTimeMillis())
+                    put("row_count", admitted.sourceRows)
+                    put("first_at", admitted.legs.minOf { it.occurredAt })
+                    put("last_at", admitted.legs.maxOf { it.occurredAt })
+                    put("money_in_minor", admitted.moneyInMinor)
+                    put("money_out_minor", admitted.moneyOutMinor)
+                    put("assurance", admitted.assurance.name)
+                })
+                admitted.legs.forEachIndexed { number, leg ->
+                    val original = requireNotNull(cells[leg.pageNumber to leg.rowNumber])
+                    db.insertOrThrow("statement_limited_legs_v1", null, ContentValues().apply {
+                        put("source_id", sourceId); put("leg_number", number)
+                        put("page_number", leg.pageNumber); put("row_number", leg.rowNumber)
+                        put("occurred_at", leg.occurredAt)
+                        put("description", leg.description); put("reference", leg.reference)
+                        put("movement_minor", leg.movementMinor)
+                        put("running_balance_minor", leg.runningBalanceMinor)
+                        put("source_cells_json", JSONObject().apply {
+                            put("headers", JSONArray(original.first))
+                            put("cells", JSONArray(original.second))
+                        }.toString())
+                    })
+                }
+                db.setTransactionSuccessful()
+                return SaveResult(true, sourceId)
+            } finally { db.endTransaction() }
+        } finally { helper.close() }
+    }
+
+    fun limitedSourcesFor(accountId: String): List<Source> {
+        val helper = StatementArchiveDb(app)
+        try {
+            return helper.readableDatabase.rawQuery(
+                """SELECT id,account_id,provider_key,currency,document_format,imported_at,first_at,last_at,
+                    row_count,money_in_minor,money_out_minor FROM statement_limited_sources_v1
+                    WHERE account_id=? ORDER BY last_at DESC,id""".trimIndent(), arrayOf(accountId)
+            ).use { c -> buildList {
+                while (c.moveToNext()) add(Source(c.getString(0), c.getString(1), c.getString(2),
+                    c.getString(3), c.getString(4), c.getLong(5), c.getLong(6), c.getLong(7),
+                    c.getInt(8), c.getLong(9), c.getLong(10)))
+            } }
+        } finally { helper.close() }
+    }
+
+    fun limitedLegsFor(sourceId: String): List<Leg> {
+        val helper = StatementArchiveDb(app)
+        try {
+            return helper.readableDatabase.rawQuery(
+                """SELECT source_id,leg_number,page_number,row_number,occurred_at,
+                    description,reference,movement_minor,running_balance_minor,source_cells_json
+                    FROM statement_limited_legs_v1 WHERE source_id=? ORDER BY leg_number""".trimIndent(),
+                arrayOf(sourceId)
+            ).use { c -> buildList {
+                while (c.moveToNext()) {
+                    val original = JSONObject(c.getString(9))
+                    fun strings(key: String): List<String> = original.getJSONArray(key).let { array ->
+                        List(array.length()) { index -> array.getString(index) }
+                    }
+                    add(Leg(c.getString(0), c.getInt(1), c.getInt(2), c.getInt(3),
+                        c.getLong(4), c.getString(5), if (c.isNull(6)) null else c.getString(6),
+                        c.getLong(7), c.getLong(8), strings("headers"), strings("cells"), null))
+                }
+            } }
         } finally { helper.close() }
     }
 

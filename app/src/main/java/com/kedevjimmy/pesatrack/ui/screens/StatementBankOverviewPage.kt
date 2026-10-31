@@ -48,6 +48,21 @@ internal fun StatementBankOverviewPage(
     val scope = rememberCoroutineScope()
     val bankCategories = remember(context) { CategoryStore.get(context).all() }
     val bankCategoryLabels = remember(bankCategories) { bankCategories.associate { it.id to it.label } }
+    var limitedSources by remember(accountId) {
+        mutableStateOf<List<StatementBankArchiveStore.Source>>(emptyList())
+    }
+    var limitedSelected by remember(accountId) {
+        mutableStateOf<StatementBankArchiveStore.Source?>(null)
+    }
+    LaunchedEffect(accountId, months) {
+        limitedSources = withContext(Dispatchers.IO) {
+            StatementBankArchiveStore(context).limitedSourcesFor(accountId)
+        }
+    }
+    limitedSelected?.let { selected ->
+        StatementLimitedSourcePage(selected) { limitedSelected = null }
+        return
+    }
     val years = remember(months) { months.map { it.key.substringBefore('-').toInt() }.distinct().sortedDescending() }
     var year by remember(accountId, initialYear) {
         mutableStateOf<Int?>(initialYear?.takeIf { it in years } ?: years.firstOrNull())
@@ -212,6 +227,28 @@ internal fun StatementBankOverviewPage(
                         }
                         Text(statementMoney(entry.moneyOutMinor),fontWeight=FontWeight.SemiBold,color=p.ink)
                         Icon(Icons.Rounded.ChevronRight,null,tint=p.muted)
+                    }
+                }
+            }
+            if(limitedSources.isNotEmpty()) {
+                item {
+                    Text("Limited assurance documents",fontWeight=FontWeight.Bold,color=p.ink,
+                        style=MaterialTheme.typography.titleLarge)
+                    Text("Reconciled source rows only. These documents are excluded from verified cash-flow charts and Activity.",
+                        color=p.muted,style=MaterialTheme.typography.bodySmall)
+                }
+                items(limitedSources,key={"limited:${it.id}"}) { source ->
+                    StatementInsightCard {
+                        Row(Modifier.fillMaxWidth().clickable { limitedSelected = source },
+                            verticalAlignment=Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Limited assurance · ${source.rows} rows",
+                                    fontWeight=FontWeight.SemiBold,color=p.ink)
+                                Text("${statementDate(source.firstAt)} – ${statementDate(source.lastAt)}",
+                                    color=p.muted,style=MaterialTheme.typography.bodySmall)
+                            }
+                            Icon(Icons.Rounded.ChevronRight,"View source rows",tint=p.muted)
+                        }
                     }
                 }
             }

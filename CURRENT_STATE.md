@@ -1,6 +1,21 @@
 # PesaTrack Current State
 
-_Last refreshed: 20 October 2026_
+_Last refreshed: 31 October 2026_
+
+_Historical Equity PDF reader (31 October 2026; CI and device acceptance pending):_
+The graphical-logo, borderless Equity statement uses a separate narrowly
+recognized offline Python extraction profile. The private 14-page sample
+produces 200 dated rows; 199 adjacent running-balance checks and the printed
+grand credit/debit/closing totals reconcile. It does not print an independent
+opening balance or per-page totals, so it **cannot** receive the fully verified
+bank-evidence status. With explicit user review it can be saved to an additive
+version-6 *limited-assurance* archive, isolated from verified bank reports,
+Activity, inferred categories and automatic matching. Encrypted backup/restore
+includes that separate evidence; older version-3/4/5 statement payloads retain
+their respective schemas. The original private PDF stays out of source control
+and CI, which use invented synthetic fixtures. Python contract tests pass
+locally; Kotlin CI, device migration, backup restoration and Android acceptance
+are not yet claimed at this point.
 
 _Profile refinement (30 October 2026; branch review, CI and device checks pending):_
 The approved Profile hierarchy retains the purple hero and local-only identity while

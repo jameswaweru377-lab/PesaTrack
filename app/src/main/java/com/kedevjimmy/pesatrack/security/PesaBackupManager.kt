@@ -426,8 +426,10 @@ class PesaBackupManager(
     }
 
     private fun statementRowCount(root: JsonObject): Int = statementTables(root)?.let { tables ->
-        Math.addExact(tables.getAsJsonArray("statement_activity_lines")?.size() ?: 0,
-            tables.getAsJsonArray("statement_legs_v2")?.size() ?: 0)
+        Math.addExact(Math.addExact(
+            tables.getAsJsonArray("statement_activity_lines")?.size() ?: 0,
+            tables.getAsJsonArray("statement_legs_v2")?.size() ?: 0),
+            tables.getAsJsonArray("statement_limited_legs_v1")?.size() ?: 0)
     } ?: 0
 
     private fun validateBackupSchema(
@@ -664,7 +666,8 @@ class PesaBackupManager(
                             putCell(values, column, element.asJsonObject)
                         }
                         database.insertOrThrow(StatementBackupArchive.qualified(table), null, values)
-                        if (table == "statement_activity_lines" || table == "statement_legs_v2")
+                        if (table == "statement_activity_lines" || table == "statement_legs_v2" ||
+                            table == "statement_limited_legs_v1")
                             restoredStatementRows++
                     }
                 }
