@@ -5,16 +5,20 @@ import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import androidx.annotation.RequiresApi
+import java.security.KeyPair
+import java.security.KeyPairGenerator
 import java.security.KeyStore
+import java.security.PrivateKey
+import java.security.PublicKey
 import java.security.SecureRandom
-import javax.crypto.Cipher
-import javax.crypto.KeyGenerator
-import javax.crypto.SecretKey
+import java.security.Signature
+import java.security.spec.ECGenParameterSpec
 
 /**
- * One biometric approval must complete an Android Keystore operation for this
- * particular request. A success callback without the matching CryptoObject
- * never grants access. PIN and phone-lock recovery remain separate paths.
+ * One biometric approval must sign a fresh challenge with an Android Keystore
+ * private key. Its signature is checked independently with the public key.
+ * A forged success callback (or a fake signing result) cannot grant access.
+ * PIN and phone-lock recovery remain separate paths.
  */
 @RequiresApi(Build.VERSION_CODES.P)
 class BiometricCryptoGate(private val purpose: Purpose) {
@@ -28,18 +32,18 @@ class BiometricCryptoGate(private val purpose: Purpose) {
     fun prepare(): BiometricPrompt.CryptoObject? {
         pending = null
         return runCatching {
-            val key = getOrCreateKey() ?: return@runCatching null
-            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.ENCRYPT_MODE, key)
-            pending = OneShotCryptoProof(cipher)
-            BiometricPrompt.CryptoObject(cipher)
+            val pair = getOrCreateKeyPair() ?: return@runCatching null
+            val signer = Signature.getInstance("SHA256withECDSA")
+            signer.initSign(pair.private)
+            pending = OneShotCryptoProof(signer, pair.public)
+            BiometricPrompt.CryptoObject(signer)
         }.getOrNull()
     }
 
     fun confirm(result: BiometricPrompt.AuthenticationResult): Boolean {
         val proof = pending ?: return false
         pending = null
-        return proof.verify(result.cryptoObject?.cipher)
+        return proof.verify(result.cryptoObject?.signature)
     }
 
     fun cancel() {
@@ -47,18 +51,21 @@ class BiometricCryptoGate(private val purpose: Purpose) {
     }
 
     /** Existing invalidated key material must never be silently recreated. */
-    private fun getOrCreateKey(): SecretKey? {
+    private fun getOrCreateKeyPair(): KeyPair? {
         val store = keyStore()
         val existing = store.getKey(purpose.alias, null)
-        if (existing is SecretKey) return existing
+        if (existing is PrivateKey) {
+            val public = store.getCertificate(purpose.alias)?.publicKey ?: return null
+            return KeyPair(public, existing)
+        }
         if (store.containsAlias(purpose.alias)) return null // Invalid keys fail closed.
 
         val builder = KeyGenParameterSpec.Builder(
             purpose.alias,
-            KeyProperties.PURPOSE_ENCRYPT
+            KeyProperties.PURPOSE_SIGN
         )
-            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
+            .setDigests(KeyProperties.DIGEST_SHA256)
             .setKeySize(256)
             .setUserAuthenticationRequired(true)
             .setInvalidatedByBiometricEnrollment(true)
@@ -69,9 +76,9 @@ class BiometricCryptoGate(private val purpose: Purpose) {
             @Suppress("DEPRECATION")
             builder.setUserAuthenticationValidityDurationSeconds(-1)
         }
-        return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+        return KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore")
             .apply { init(builder.build()) }
-            .generateKey()
+            .generateKeyPair()
     }
 
     companion object {
@@ -85,20 +92,26 @@ class BiometricCryptoGate(private val purpose: Purpose) {
     }
 }
 
-/** Testable, single-use proof. The Keystore cipher cannot finish until biometrics authorize it. */
-internal class OneShotCryptoProof(private val expected: Cipher) {
+/** Testable single-use proof; signing requires biometrics, verification does not. */
+internal class OneShotCryptoProof(
+    private val expected: Signature,
+    private val publicKey: PublicKey
+) {
     private var attempted = false
+    private val challenge = ByteArray(32).also { SecureRandom().nextBytes(it) }
 
     @Synchronized
-    fun verify(received: Cipher?): Boolean {
+    fun verify(received: Signature?): Boolean {
         if (attempted) return false
         attempted = true
-        if (received !== expected) return false
-
-        val challenge = ByteArray(32).also { SecureRandom().nextBytes(it) }
         return try {
-            // GCM adds a 128-bit tag; merely receiving a callback is insufficient.
-            received.doFinal(challenge).size == challenge.size + 16
+            if (received !== expected) return false
+            received.update(challenge)
+            val signed = received.sign() // Keystore denies signing without biometric auth.
+            val verifier = Signature.getInstance("SHA256withECDSA")
+            verifier.initVerify(publicKey)
+            verifier.update(challenge)
+            verifier.verify(signed)
         } catch (_: Exception) {
             false
         } finally {
