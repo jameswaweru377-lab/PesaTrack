@@ -1,7 +1,7 @@
 # Universal Statement Engine V2 — verified automatic import for unfamiliar layouts
 
 **Design date:** 31 October 2026  
-**Status:** Option 2 approved by owner; native Slice A implementation authorized. Live archive admission and OCR are separately gated and not yet approved for rollout.  
+**Status:** Option 2 approved by owner; native Slice A implementation authorized. Live archive admission and OCR are separately gated and not yet approved for rollout.
 **Selected product behavior:** Option 2 — archive a fully verified statement automatically, while leaving uncertain transaction meaning for review.
 
 ## Intent
