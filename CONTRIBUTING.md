@@ -5,6 +5,8 @@ PesaTrack is a local-first Android personal-finance application. Changes must pr
 ## Before changing code
 
 Read:
+- `AGENT_WORKING_METHOD.md`
+- `AGENTS.md`
 - `README.md`
 - `CURRENT_STATE.md`
 - `docs/PRODUCT_CHARTER.md`
@@ -60,4 +62,4 @@ Never commit secrets, signing material or production credentials.
 
 ## UI changes
 
-Preserve the current Home / Activity / Plan / Accounts / More hierarchy unless a separately approved product change requires otherwise. New strings should increasingly move to Android string resources as localization/accessibility work progresses.
+Preserve the four visible bottom tabs **Home / Activity / Plan / More** unless a separately approved product change requires otherwise. Accounts is an internal destination accessible from More/Profile, not a fifth bottom tab. New strings should increasingly move to Android string resources as localization/accessibility work progresses.

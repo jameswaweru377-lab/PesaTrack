@@ -267,7 +267,7 @@ Not yet public-store ready. Remaining release blockers include:
 
 ## Architecture rule for next work
 
-Do not start another broad feature or visual redesign phase before hardening/decomposition. Preserve the current Home / Activity / Plan / Accounts / More product hierarchy and keep parser expansion evidence-driven.
+Improve architecture incrementally during approved feature and fix work: extract focused responsibilities only in related code, preserve financial behavior and tests, and avoid whole-app rewrites. Preserve the four visible bottom tabs Home / Activity / Plan / More (Accounts remains an internal destination), and keep parser expansion evidence-driven.
 
 ## Owed to me history review
 
