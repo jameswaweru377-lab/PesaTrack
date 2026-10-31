@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
+import com.kedevjimmy.pesatrack.domain.statements.StatementGrandTotalReconciledPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementSourceCoveragePolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementUnifiedOverviewPolicy
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
@@ -133,12 +134,11 @@ class StatementUnifiedOverviewUiTest {
             lastAt = 1_780_000_060_000L, rows = 2,
             moneyInMinor = 1_000L, moneyOutMinor = 250L
         )
-        val policy = com.kedevjimmy.pesatrack.domain.statements.StatementGrandTotalReconciledPolicy
         val rows = listOf(
-            policy.Row(source.id, 0, source.firstAt, 1_000L),
-            policy.Row(source.id, 1, source.lastAt, -250L)
+            StatementGrandTotalReconciledPolicy.Row(source.id, 0, source.firstAt, 1_000L),
+            StatementGrandTotalReconciledPolicy.Row(source.id, 1, source.lastAt, -250L)
         )
-        val verified = policy.project(source.id, 2, 1_000L, 250L, rows)!!
+        val verified = StatementGrandTotalReconciledPolicy.project(source.id, 2, 1_000L, 250L, rows)!!
         compose.setContent { PesaTrackTheme {
             StatementGrandTotalReconciledSourceCardContent(source, verified, checked = true, onSelect = {})
         } }
@@ -153,9 +153,10 @@ class StatementUnifiedOverviewUiTest {
             lastAt = 1_780_000_060_000L, rows = 2,
             moneyInMinor = 1_000L, moneyOutMinor = 250L
         )
-        val policy = com.kedevjimmy.pesatrack.domain.statements.StatementGrandTotalReconciledPolicy
-        val missingSecondRow = listOf(policy.Row(source.id, 0, source.firstAt, 1_000L))
-        val rejected = policy.project(source.id, source.rows, source.moneyInMinor,
+        val missingSecondRow = listOf(StatementGrandTotalReconciledPolicy.Row(
+            source.id, 0, source.firstAt, 1_000L
+        ))
+        val rejected = StatementGrandTotalReconciledPolicy.project(source.id, source.rows, source.moneyInMinor,
             source.moneyOutMinor, missingSecondRow)
         compose.setContent { PesaTrackTheme {
             StatementGrandTotalReconciledSourceCardContent(source, rejected, checked = true,
@@ -166,9 +167,9 @@ class StatementUnifiedOverviewUiTest {
     }
 
     @Test fun reconciledSourceSummaryShowsGrossTotalsAndMonthlyBreakdown() {
-        val report = com.kedevjimmy.pesatrack.domain.statements.StatementGrandTotalReconciledPolicy.Report(
+        val report = StatementGrandTotalReconciledPolicy.Report(
             rows = 2, moneyInMinor = 1_000L, moneyOutMinor = 250L, netMinor = 750L,
-            months = listOf(com.kedevjimmy.pesatrack.domain.statements.StatementGrandTotalReconciledPolicy.Month(
+            months = listOf(StatementGrandTotalReconciledPolicy.Month(
                 "2026-09", 2, 1_000L, 250L
             ))
         )
