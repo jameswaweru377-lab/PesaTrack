@@ -16,7 +16,8 @@ class StatementFallbackAdmissionPolicyTest {
             listOf("02-09-2026", "", "Invented charge", "20.00", "", "30.00 Cr")
         )))
     private val legs = (UniversalStatementTableInterpreter.interpret(
-        pages, 0L, profile.table) as StatementTableResult.Accepted).legs
+        pages, openingBalanceMinor = 0L, profile = profile.table
+    ) as StatementTableResult.Accepted).legs
     private val candidate = StatementProbeResult.Provisional(pages, legs, 2, false)
     private val proof = StatementDocumentProof(
         detectedProviderKey = profile.providerKey,
@@ -69,6 +70,20 @@ class StatementFallbackAdmissionPolicyTest {
         assertEquals(5_000L, accepted.moneyInMinor)
         assertEquals(2_000L, accepted.moneyOutMinor)
         assertEquals(2, accepted.sourceRows)
+    }
+
+    @Test fun independentlyPrintedOpeningAnchorsPreviouslyUnanchoredNativeProbe() {
+        val withoutOpening = UniversalStatementTableInterpreter.interpret(
+            pages, openingBalanceMinor = null, profile = profile.table
+        ) as StatementTableResult.Accepted
+        assertTrue(withoutOpening.oldestLegUnanchored)
+        val live = candidate.copy(
+            legs = withoutOpening.legs,
+            sourceRows = withoutOpening.sourceRows,
+            oldestLegUnanchored = withoutOpening.oldestLegUnanchored
+        )
+        val accepted = verify(probe = live) as StatementAdmissionResult.Accepted
+        assertEquals(StatementDocumentAssurance.FULL, accepted.assurance)
     }
 
     @Test fun mutatedProbeTablesAfterProofRefuses() {
