@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -242,7 +243,6 @@ internal fun ProfileMoneyHabitsCard(
                 tint = C.muted)
         }
       }
-        }
     }
 }
 

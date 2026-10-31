@@ -361,7 +361,7 @@ private fun ProfileSecurityPage(
                     "See what's kept on this phone", ProfileTone.PINK, onClick = privacy)
             ))
         }
-        item { ProfileHint("Your backup password is separate from your PIN.", Icons.Rounded.InfoOutline) }
+        item { ProfileHint("Your backup password is separate from your PIN.", Icons.Rounded.Info) }
         item { TextButton(onClick = moneyAccess) { Text("Manage money message access") } }
     }
 }

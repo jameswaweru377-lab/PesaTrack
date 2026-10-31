@@ -136,7 +136,10 @@ internal fun ProfilePremiumGroup(items: List<ProfilePremiumItem>) {
     ) {
         Column {
             items.forEachIndexed { index, item ->
-                val click = if (item.checked != null) ({ item.onToggle?.invoke(!item.checked) })
+                val click: (() -> Unit)? = if (item.checked != null) ({
+                    item.onToggle?.invoke(item.checked != true)
+                    Unit
+                })
                     else item.onClick
                 Row(
                     modifier = Modifier.fillMaxWidth()
@@ -274,7 +277,7 @@ internal fun ProfileHint(message: String, icon: ImageVector = Icons.Rounded.Lock
 }
 
 @Composable
-internal fun ProfileGradientButton(text: String, action: () -> Unit, enabled: Boolean = true) {
+internal fun ProfileGradientButton(text: String, enabled: Boolean = true, action: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
             .clip(RoundedCornerShape(PesaDesignTokens.innerRadius))
