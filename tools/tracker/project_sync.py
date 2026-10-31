@@ -139,7 +139,12 @@ def load_project(token: str, project_id: str, *, caller=graphql,
                 ) from None
             project = (fallback.get("user") or {}).get("projectV2")
             if isinstance(project, dict) and project.get("id") != project_id:
-                raise ValueError("Configured Project ID differs from the owner/number lookup")
+                actual_id = project.get("id")
+                if not isinstance(actual_id, str) or not PROJECT_ID.fullmatch(actual_id):
+                    raise ValueError("Owner lookup returned an invalid Project ID")
+                raise ValueError(
+                    f"Configured Project ID differs; verified Project ID: {actual_id}"
+                )
         if not isinstance(project, dict) or project.get("id") != project_id:
             raise ValueError("The configured Project could not be verified")
         title = project.get("title")
