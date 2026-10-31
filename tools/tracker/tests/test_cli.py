@@ -19,6 +19,22 @@ class TrackerCliTest(unittest.TestCase):
                                             "truncated": True}))
         self.assertIn("incomplete", report)
 
+    def test_report_displays_unlinked_active_prs_separately_from_tasks(self):
+        data = reconcile({"checked_at": "2026-10-31T10:00:00Z", "issues": [],
+                          "prs": [{"number": 201, "state": "open", "body": "No task link",
+                                   "files": [], "head_sha": "a" * 40}], "checks": []})
+        report = report_markdown(data)
+        self.assertIn("Untracked open PRs: 1", report)
+        self.assertIn("#201", report)
+
+    def test_progress_counts_are_issue_evidence_not_chat_presence(self):
+        data = reconcile({"checked_at": "2026-10-31T10:00:00Z",
+                          "issues": [{"number": 7, "body": "Chat owner: Unclaimed\nTask status: Untriaged"}],
+                          "prs": [], "checks": []})
+        report = report_markdown(data)
+        self.assertIn("Untriaged: 1", report)
+        self.assertIn("not live ChatGPT presence", report)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -126,6 +126,36 @@ class ReconcileTest(unittest.TestCase):
         task = reconcile({**base, "checks": [old_fail, new_pass, pending]})["tasks"][0]
         self.assertEqual("pending", task["ci"])
 
+    def test_explicit_untriaged_and_paused_states_are_not_silently_claimed(self):
+        first = issue(owner="Unclaimed")
+        first["body"] += "\nTask status: Untriaged"
+        second = issue(number=101, owner="CHAT-UI")
+        second["body"] += "\nTask status: Paused"
+        data = reconcile({"checked_at": "2026-10-31T10:00:00Z", "issues": [first, second]})
+        self.assertEqual(["Untriaged", "Paused"], [t["status"] for t in data["tasks"]])
+
+    def test_human_pause_blocks_an_automatic_ci_pass_status(self):
+        frozen = issue()
+        frozen["body"] += "\nTask status: Paused"
+        data = reconcile({"checked_at": "2026-10-31T10:00:00Z", "issues": [frozen],
+                          "prs": [pr(201)], "checks": [check()]})
+        self.assertEqual("Paused", data["tasks"][0]["status"])
+
+    def test_open_unlinked_prs_are_visible_without_inventing_task_owners(self):
+        unlinked = pr(211)
+        unlinked["body"] = "A legitimate independent change without a tracker reference"
+        data = reconcile({"checked_at": "2026-10-31T10:00:00Z", "issues": [issue()],
+                          "prs": [pr(201), unlinked], "checks": [check()]})
+        self.assertEqual([211], data["untracked_open_prs"])
+        self.assertEqual("CHAT-STATEMENTS", data["tasks"][0]["owner"])
+
+    def test_auto_merge_label_is_request_only_not_proof_of_approval(self):
+        proposed = pr(201)
+        proposed["labels"] = ["pesatrack-safe-automerge"]
+        data = reconcile({"checked_at": "2026-10-31T10:00:00Z",
+                          "issues": [issue()], "prs": [proposed], "checks": [check()]})
+        self.assertEqual("requested — gates unverified", data["tasks"][0]["prs"][0]["auto_merge"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -30,7 +30,15 @@ An issue should record: source, severity (P0–P3), area, acceptance checks, cha
 
 The checked-in reconciler defaults to **dry run/read only**. Synchronizing issue metadata or applying historical imports requires a separate reviewed approval, the least-privilege token, and a human-checked target list. The GitHub Project board is only a view; GitHub Issues remain authoritative.
 
-For how chats claim work, see [CHAT_OWNERSHIP.md](CHAT_OWNERSHIP.md). The [audit provenance register](AUDIT_SOURCES.md) and [42-finding import manifest](AUDIT_MANIFEST.json) support a controlled, repeatable preview. Use the [Command Center chat starter](COMMAND_CENTER_STARTER.md) for one coordinating ChatGPT chat.
+For how chats claim work, see [CHAT_OWNERSHIP.md](CHAT_OWNERSHIP.md) and the [shared ChatGPT Project instructions](CHATGPT_PROJECT_INSTRUCTIONS.md). The [audit provenance register](AUDIT_SOURCES.md) and [42-finding import manifest](AUDIT_MANIFEST.json) support a controlled, repeatable preview. Use the [Command Center chat starter](COMMAND_CENTER_STARTER.md) for one coordinating ChatGPT chat.
+
+## Event-driven Command Center updates
+
+[Open the live tracker runs](https://github.com/jameswaweru377-lab/PesaTrack/actions/workflows/development-tracker.yml).
+
+The lightweight **Development Tracker (Read-only)** workflow refreshes after labeled Issue changes, PR changes, a `main` push and Android CI completion. Its existing hourly schedule at UTC minute 17 is a fallback. GitHub Actions scheduling cannot guarantee one-minute reports (five minutes is the shortest supported cron interval, and scheduled starts may be delayed). No Android build, emulator or release job is added to this workflow.
+
+Each ChatGPT/Codex chat must explicitly edit the canonical Issue to claim its task. A GitHub workflow cannot know whether a ChatGPT tab is currently active. The report distinguishes human `Task status: Untriaged/Paused` decisions, the recorded `Chat owner: CHAT-...` alias, open PRs not linked to approved Issues, PR overlap, and exact-commit CI. An auto-merge label is shown as *requested, gates unverified*; the restricted merge workflow still independently requires James's approval and its GitHub App token. The progress counts come from registered Issues, not inferred chat activity. The tracker does not create Issues or approve merges.
 
 ## Restricted safe auto-merge (opt-in, off by default)
 
@@ -64,6 +72,17 @@ The **PesaTrack Development Tracker** GitHub Project board is **not verified as 
 2. On your GitHub profile, open **Projects** and check whether **PesaTrack Development Tracker** already exists. If it does, reuse it. Otherwise choose **New project → Board** and **Create a project** named exactly `PesaTrack Development Tracker` under `jameswaweru377-lab`. Keep access private until you choose otherwise.
 3. Add the repository's labeled task Issues to that board. Configure the built-in Project **auto-add** workflow for repository `jameswaweru377-lab/PesaTrack` and label `pesatrack-tracker`; do not auto-close an Issue on a PR merge.
 4. Add or confirm board fields for `Status`, `Priority`, `Area`, `Chat owner` and `Last review`. Suggested statuses are listed above; only supported GitHub Issue/PR evidence changes a status.
-5. Run historical import **preview** and have the owner approve its `create/link/review` counts against current Issues. No issue creation or Project writes are wired into the hourly workflow.
+5. Run historical import **preview** and have the owner approve its `create/link/review` counts against current Issues. No historical Issues are created by the hourly workflow.
 
-After the label and board exist, the tracker workflow provides periodic advisory summaries (GitHub Actions → **Development Tracker (Read-only)**). It uses standard Python only, has a four-minute job timeout and does not run Gradle or publish APKs. The report may show no tasks until approved Issues have the label. The Project URL must be recorded only after actually verifying it.
+After the label and board exist, the tracker workflow provides event-driven advisory summaries (GitHub Actions → **Development Tracker (Read-only)**). It uses standard Python only, has a four-minute job timeout and does not run Gradle or publish APKs. The report may show no tasks until approved Issues have the label. The Project URL must be recorded only after actually verifying it.
+
+### Optional Project v2 status mirror — disabled until owner setup
+
+The Project remains a view. The new `tools/tracker/project_sync.py` can update **only** a dedicated, bot-owned single-select field named exactly `Tracker status`. It never creates a Project, adds cards, edits Issue bodies, changes a human `Status` field or merges a PR. To support Project charts, configure these options under `Tracker status` (exact names): `Untriaged`, `Unclaimed`, `Claimed`, `In progress`, `PR open`, `CI failed`, `CI passed`, `Merged — needs acceptance`, `Verified`, `Blocked`, `Paused`, `Superseded`. Preserve the built-in human `Status` field separately.
+
+1. Verify the existing user Project's identity and copy its **Project v2 node ID** (starts `PVT_`); do not guess or create a duplicate board. Ensure built-in auto-add includes only labeled `pesatrack-tracker` Issues. GitHub Project charts can then group by `Tracker status`.
+2. Configure a separate least-privilege Project-authorized credential in repository Actions secret `PESATRACK_TRACKER_PROJECTS_TOKEN`, and an Actions variable `PESATRACK_TRACKER_PROJECT_ID` with the verified node ID. Grant Project access only as required. Do **not** reuse the release-signing secrets or restricted auto-merge GitHub App private key; never paste tokens into chats or Issues.
+3. While synchronization is off, choose **Actions → Development Tracker (Read-only) → Run workflow → Preview project**. This reads the configured Project and prints the proposed task numbers without modifying cards. Fix any missing field/option, duplicate card, wrong Project or missing auto-add first. A capped or incomplete Issue/PR snapshot fails closed.
+4. Only after reviewing that preview, set repository variable `PESATRACK_TRACKER_PROJECT_SYNC_ENABLED` to `true`. The same lightweight event run then mirrors the `Tracker status` field. Unset or change this variable to `false` to stop Project writes immediately.
+
+Only GitHub Projects metadata (task IDs and public task states) is mirrored. The real financial ledger stays on the phone. At present, Project existence and credential configuration are **not verified**, so this connection is prepared but not activated.

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from .models import checked_at, device_acceptance, final_verified, issue_pr_refs, owner_from_body, task_refs
+from .models import (checked_at, device_acceptance, explicit_task_status,
+                     final_verified, issue_pr_refs, owner_from_body, task_refs)
 
 
 def _status_for_sha(head_sha: str, checks: list[dict], required: list[str]) -> str:
@@ -84,6 +85,14 @@ def reconcile(snapshot: dict) -> dict:
                 if isinstance(path, str) and len(path) <= 300:
                     path_to_open_prs[path].add(number)
 
+    tracked_issue_numbers = {issue.get("number") for issue in issues}
+    linked_numbers = {p.get("number") for number, matches in by_task.items()
+                      if number in tracked_issue_numbers for p in matches}
+    untracked_open_prs = sorted(p["number"] for p in prs
+                                if isinstance(p.get("number"), int)
+                                and p.get("state") == "open" and not p.get("merged_at")
+                                and p["number"] not in linked_numbers)
+
     for path, numbers in sorted(path_to_open_prs.items()):
         if len(numbers) > 1:
             warnings.append(f"Open PRs {', '.join('#' + str(n) for n in sorted(numbers))} both touch {path}; coordinate, do not auto-merge.")
@@ -117,18 +126,25 @@ def reconcile(snapshot: dict) -> dict:
                 "head_sha": pull.get("head_sha"), "base_sha": pull.get("base_sha"),
                 "merge_commit_sha": pull.get("merge_commit_sha") if merged else None,
                 "ci": ci,
+                # A label requests consideration, not approval or merge eligibility.
+                "auto_merge": ("requested — gates unverified"
+                               if "pesatrack-safe-automerge" in (pull.get("labels") or [])
+                               else "not requested"),
             })
 
         combined = _combine_ci(ci_results)
         all_merged = bool(related) and all(p.get("merged_at") for p in related)
-        if all_merged:
+        manual_status = explicit_task_status(issue.get("body"))
+        if manual_status in {"Blocked", "Paused", "Superseded"}:
+            status = manual_status
+        elif all_merged:
             status = ("Verified" if combined == "passed" and device in
                       {"verified", "not_applicable"} and final_verified(issue.get("body"))
                       else "Merged — needs acceptance")
         elif related:
             status = {"passed": "CI passed", "failed": "CI failed"}.get(combined, "PR open")
         else:
-            status = "Unclaimed" if owner == "Unclaimed" else "Claimed"
+            status = manual_status or ("Unclaimed" if owner == "Unclaimed" else "Claimed")
         if issue.get("state") == "closed" and status != "Verified":
             task_warnings.append("GitHub Issue is closed but acceptance is not proven; recheck manually.")
         tasks.append({
@@ -144,4 +160,6 @@ def reconcile(snapshot: dict) -> dict:
             warnings.append(f"PR #{pull['number']} has no Tracks/Refs task linkage; verify ownership.")
     return {"checked_at": checked_at(snapshot.get("checked_at")),
             "tasks": tasks, "warnings": warnings,
+            "untracked_open_prs": untracked_open_prs,
+            "historical_window_limited": bool(snapshot.get("historical_window_limited")),
             "incomplete": bool(snapshot.get("truncated"))}

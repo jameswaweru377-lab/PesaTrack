@@ -9,6 +9,7 @@ TRACKS_LINE = re.compile(r"(?im)^(?:Tracks|Refs)\s+#([1-9][0-9]*)\s*$")
 ISSUE_PR_LINE = re.compile(r"(?im)^(?:PR|Related PRs?):\s*([^\r\n]+)$")
 DEVICE_LINE = re.compile(r"(?im)^Device acceptance:\s*([^\r\n]+)")
 FINAL_LINE = re.compile(r"(?im)^Final verification:\s*verified\s*$")
+TASK_STATUS_LINE = re.compile(r"(?im)^Task status:\s*(Untriaged|Unclaimed|Claimed|In progress|Blocked|Paused|Superseded)\s*$")
 
 
 def owner_from_body(body: object) -> str | None:
@@ -49,6 +50,14 @@ def device_acceptance(body: object) -> str:
 
 def final_verified(body: object) -> bool:
     return isinstance(body, str) and FINAL_LINE.search(body) is not None
+
+
+def explicit_task_status(body: object) -> str | None:
+    """Only preserve one recognized human task state; never infer a resolution."""
+    if not isinstance(body, str):
+        return None
+    values = set(TASK_STATUS_LINE.findall(body))
+    return next(iter(values)) if len(values) == 1 else None
 
 
 def checked_at(value: object) -> str:
