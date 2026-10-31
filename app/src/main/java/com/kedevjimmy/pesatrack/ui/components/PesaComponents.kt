@@ -77,9 +77,12 @@ fun BrandWordmark(
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.spacedBy(PesaDesignTokens.wordmarkGap)
     ) {
-        PesaLogoMark(size = if (compact) 36.dp else 44.dp)
+        PesaLogoMark(
+            size = if (compact) PesaDesignTokens.compactWordmarkLogoSize
+            else PesaDesignTokens.regularWordmarkLogoSize
+        )
         Column {
             Text(
                 "PesaTrack",
@@ -112,13 +115,13 @@ fun PesaCard(
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
         border = BorderStroke(
-            1.dp,
+            PesaDesignTokens.cardOutlineWidth,
             MaterialTheme.colorScheme.outline.copy(
                 alpha = if (isPesaDarkTheme()) .34f else .58f
             )
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isPesaDarkTheme()) 0.dp else 2.dp
+            defaultElevation = if (isPesaDarkTheme()) 0.dp else PesaDesignTokens.lightCardElevation
         )
     ) {
         content()
@@ -143,7 +146,7 @@ fun SectionHeader(
                     Icons.Rounded.ChevronRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(19.dp)
+                    modifier = Modifier.size(PesaDesignTokens.sectionActionIconSize)
                 )
             }
         }
@@ -155,7 +158,7 @@ fun IconBubble(
     icon: ImageVector,
     tint: Color = MaterialTheme.colorScheme.primary,
     background: Color = MaterialTheme.colorScheme.primaryContainer,
-    size: Dp = 42.dp
+    size: Dp = PesaDesignTokens.iconBubble
 ) {
     Surface(
         modifier = Modifier.size(size),
@@ -178,7 +181,10 @@ fun SmallStatusPill(
     Surface(shape = RoundedCornerShape(50), color = bg) {
         Text(
             text,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+            modifier = Modifier.padding(
+                horizontal = PesaDesignTokens.statusPillHorizontalPadding,
+                vertical = PesaDesignTokens.statusPillVerticalPadding
+            ),
             style = MaterialTheme.typography.labelMedium,
             color = fg
         )

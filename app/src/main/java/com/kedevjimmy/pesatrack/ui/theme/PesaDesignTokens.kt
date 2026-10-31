@@ -32,4 +32,15 @@ object PesaDesignTokens {
 
     val iconBubble =
         42.dp
+
+    // Shared component details. These preserve the approved dimensions
+    // while keeping future reuse independent of one-off literals.
+    val compactWordmarkLogoSize = 36.dp
+    val regularWordmarkLogoSize = 44.dp
+    val wordmarkGap = 10.dp
+    val cardOutlineWidth = 1.dp
+    val lightCardElevation = 2.dp
+    val sectionActionIconSize = 19.dp
+    val statusPillHorizontalPadding = 10.dp
+    val statusPillVerticalPadding = 5.dp
 }
