@@ -77,7 +77,7 @@ class BiometricCryptoGate(private val purpose: Purpose) {
             builder.setUserAuthenticationValidityDurationSeconds(-1)
         }
         return KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_EC, "AndroidKeyStore")
-            .apply { init(builder.build()) }
+            .apply { initialize(builder.build()) }
             .generateKeyPair()
     }
 
