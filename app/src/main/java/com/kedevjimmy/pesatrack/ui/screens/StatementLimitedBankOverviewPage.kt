@@ -16,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
 
-/** Saved, lower-assurance bank evidence stays browseable without verified reports. */
+/** Saved grand-total reconciled evidence stays source-specific, outside verified reports. */
 @Composable
 internal fun StatementLimitedBankOverviewPage(
     accountLabel: String,
@@ -46,8 +46,8 @@ internal fun StatementLimitedBankOverviewPage(
         }
         item {
             StatementInsightCard {
-                Text("Limited assurance only", fontWeight = FontWeight.SemiBold, color = p.ink)
-                Text("These statements were saved locally, but have no independently verified opening balance or page totals. They are excluded from verified reports and Activity.",
+                Text("Grand-total reconciled · source only", fontWeight = FontWeight.SemiBold, color = p.ink)
+                Text("The printed grand totals and adjacent balances matched at import. No independently printed opening balance or page totals were available. Each PDF is shown separately to avoid overlapping totals; these rows remain outside fully verified reports and Activity.",
                     color = p.muted, style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -60,6 +60,8 @@ internal fun StatementLimitedBankOverviewPage(
                             fontWeight = FontWeight.SemiBold)
                         Text("${statementDate(source.firstAt)} – ${statementDate(source.lastAt)}",
                             color = p.muted, style = MaterialTheme.typography.bodySmall)
+                        Text("Money in ${statementMoney(source.moneyInMinor)} · Money out ${statementMoney(source.moneyOutMinor)}",
+                            color = p.ink, style = MaterialTheme.typography.bodySmall)
                     }
                     Icon(Icons.Rounded.ChevronRight, "View source rows", tint = p.muted)
                 }

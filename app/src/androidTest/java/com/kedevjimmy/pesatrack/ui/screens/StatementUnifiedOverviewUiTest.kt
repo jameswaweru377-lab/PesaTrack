@@ -120,8 +120,25 @@ class StatementUnifiedOverviewUiTest {
                 onBack = {}, onImport = {}
             )
         } }
-        compose.onNodeWithText("Limited assurance only").assertExists()
+        compose.onNodeWithText("Grand-total reconciled · source only").assertExists()
+        compose.onNodeWithText("Money in KES 10 · Money out KES 2.5").assertExists()
         compose.onNodeWithText("2 saved source rows").performClick()
-        compose.onNodeWithText("Not independently fully verified").assertExists()
+        compose.onNodeWithText("Not a fully verified bank report").assertExists()
+    }
+
+    @Test fun reconciledSourceSummaryShowsGrossTotalsAndMonthlyBreakdown() {
+        val report = com.kedevjimmy.pesatrack.domain.statements.StatementGrandTotalReconciledPolicy.Report(
+            rows = 2, moneyInMinor = 1_000L, moneyOutMinor = 250L, netMinor = 750L,
+            months = listOf(com.kedevjimmy.pesatrack.domain.statements.StatementGrandTotalReconciledPolicy.Month(
+                "2026-09", 2, 1_000L, 250L
+            ))
+        )
+        compose.setContent { PesaTrackTheme {
+            StatementGrandTotalReconciledSummary(report)
+        } }
+        compose.onNodeWithText("Money in · KES 10").assertExists()
+        compose.onNodeWithText("Money out · KES 2.5").assertExists()
+        compose.onNodeWithText("Net movement · KES 7.5").assertExists()
+        compose.onNodeWithText("2026-09 · 2 rows").assertExists()
     }
 }
