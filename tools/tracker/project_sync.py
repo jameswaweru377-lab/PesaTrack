@@ -221,14 +221,17 @@ def plan_updates(project: dict, report: dict, repository: str) -> tuple[list[dic
                                      and task.get("merged") is True
                                      and any(isinstance(pr, dict) and pr.get("state") == "merged"
                                              for pr in (task.get("prs") or [])))
+            known_open_evidence = (status in {"PR open", "CI failed", "CI passed"}
+                                   and any(isinstance(pr, dict) and pr.get("state") == "open"
+                                           for pr in (task.get("prs") or [])))
             if (report.get("historical_window_limited") is True
                     and current_tier is not None and proposed_tier is not None
                     and proposed_tier < current_tier
-                    and not known_merged_evidence):
+                    and not known_merged_evidence and not known_open_evidence):
                 # A merged PR may be outside the bounded closed-PR window.
-                # Preserve the stronger observed Project evidence, but allow
-                # current merged-PR CI/device acceptance evidence to revoke
-                # an earlier Verified state.
+                # Preserve stronger observed Project evidence, except when a
+                # linked current PR or merged-PR acceptance evidence proves
+                # that the earlier state must change.
                 skipped.append(number)
                 continue
             updates.append({"issue_number": number, "item_id": item["id"],

@@ -30,6 +30,8 @@ without stopping unrelated safe updates. No new services.
 - A capped page must not block independent safe progress or manual pauses.
 - Current failed CI or withdrawn device acceptance for a known merged PR must
   revoke an earlier `Verified` status even when historical pages are capped.
+- A new explicitly linked open PR must reopen prior merged or verified task
+  status even when historical pages are capped.
 
 ---
 

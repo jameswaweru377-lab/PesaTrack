@@ -183,6 +183,26 @@ class ProjectSyncTest(unittest.TestCase):
         self.assertEqual(([], []), (updates, missing))
         self.assertEqual([123], skipped)
 
+    def test_capped_history_allows_current_linked_open_pr_to_reopen_task(self):
+        for old_status in ("Verified", "Merged — needs acceptance"):
+            for new_status in ("PR open", "CI failed", "CI passed"):
+                with self.subTest(old_status=old_status, new_status=new_status):
+                    existing = project(old_status)
+                    existing["fields"][0]["options"].extend([
+                        {"id": "opt_pr", "name": "PR open"},
+                        {"id": "opt_failed", "name": "CI failed"},
+                    ])
+                    observed = report(new_status)
+                    observed["historical_window_limited"] = True
+                    observed["tasks"][0]["merged"] = False
+                    observed["tasks"][0]["prs"] = [{"number": 520, "state": "open"}]
+
+                    updates, missing, skipped = plan_updates(
+                        existing, observed, "jameswaweru377-lab/PesaTrack")
+
+                    self.assertEqual(([], []), (missing, skipped))
+                    self.assertEqual([123], [entry["issue_number"] for entry in updates])
+
     def test_uncapped_history_allows_explicit_task_reopening(self):
         existing = project("Merged — needs acceptance")
         existing["fields"][0]["options"].append({"id": "opt_claimed", "name": "Claimed"})

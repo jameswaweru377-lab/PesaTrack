@@ -17,7 +17,9 @@ or the optional Project synchronization default (off).
   evidence when the capped history would otherwise downgrade it, while safe
   unrelated updates continue. If current, linked merged-PR evidence proves
   verification was lost (failed CI or withdrawn device acceptance), the board
-  must reflect that downgrade. Skipped task numbers appear in workflow logs.
+  must reflect that downgrade. A newly linked open PR must similarly reopen
+  a previously merged or verified board item. Skipped task numbers appear in
+  workflow logs.
 - Keep bounded GitHub API requests and existing opt-in safeguards unchanged.
 
 ## Approaches
