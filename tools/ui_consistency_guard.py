@@ -14,10 +14,11 @@ import sys
 
 
 UI_PATH = re.compile(r"^app/src/main/java/.+/ui/.+\.kt$")
-HUNK_START = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+HUNK_START = re.compile(r"^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
 RAW_COLOR = re.compile(r"\bColor\s*\(\s*0x[0-9a-fA-F]{6,8}\s*\)")
 RAW_RADIUS = re.compile(
-    r"\b(?:RoundedCornerShape|CutCornerShape)\s*\(\s*\d+(?:\.\d+)?\.dp\s*\)"
+    r"\b(?:RoundedCornerShape|CutCornerShape)\s*\([^)]*?\b\d+(?:\.\d+)?\.dp",
+    re.DOTALL,
 )
 
 
@@ -29,8 +30,23 @@ class Violation:
     expression: str
 
 
+def _scan_style_lines(filename: str, lines: list[tuple[int, str]]) -> list[Violation]:
+    if not lines:
+        return []
+    source = "\n".join(
+        "" if text.lstrip().startswith(("//", "*")) else text
+        for _, text in lines
+    )
+    violations = []
+    for rule, pattern in (("raw-color", RAW_COLOR), ("raw-corner-radius", RAW_RADIUS)):
+        for match in pattern.finditer(source):
+            line_index = source.count("\n", 0, match.start())
+            violations.append(Violation(filename, lines[line_index][0], rule, match.group()))
+    return violations
+
+
 def scan_added_ui_lines(diff_text: str) -> list[Violation]:
-    """Inspect a git diff; legacy and removed lines are never violations."""
+    """Inspect a complete git diff; reject broken hunks instead of passing."""
     if not diff_text.strip():
         return []
 
@@ -38,40 +54,86 @@ def scan_added_ui_lines(diff_text: str) -> list[Violation]:
     current_file = None
     next_line = None
     seen_diff = False
+    saw_destination = False
+    saw_hunk = False
+    remaining_old = None
+    remaining_new = None
+    added_lines = []
+
+    def flush_added_lines():
+        nonlocal added_lines
+        if current_file is not None:
+            violations.extend(_scan_style_lines(current_file, added_lines))
+        added_lines = []
+
+    def finish_hunk():
+        flush_added_lines()
+        if remaining_old is not None and (remaining_old != 0 or remaining_new != 0):
+            raise ValueError("Truncated diff hunk")
+
+    def finish_file():
+        finish_hunk()
+        if saw_destination and not saw_hunk:
+            raise ValueError("Diff file header has no hunk")
 
     for line in diff_text.splitlines():
         if line.startswith("diff --git "):
+            if seen_diff:
+                finish_file()
             seen_diff = True
             current_file = None
             next_line = None
+            saw_destination = False
+            saw_hunk = False
+            remaining_old = None
+            remaining_new = None
         elif line.startswith("+++ "):
+            if not seen_diff:
+                raise ValueError("Destination has no diff header")
             destination = line[4:]
             path = destination[2:] if destination.startswith("b/") else None
             current_file = path if path and UI_PATH.fullmatch(path) else None
+            saw_destination = True
         elif line.startswith("--- ") or line.startswith(("index ", "new file mode ", "deleted file mode ", "similarity index ", "rename from ", "rename to ")):
             continue
         elif line.startswith("@@"):
+            if not seen_diff or not saw_destination:
+                raise ValueError("Hunk has no destination")
+            finish_hunk()
             match = HUNK_START.match(line)
             if not match:
                 raise ValueError("Invalid diff hunk header")
-            next_line = int(match.group(1))
+            remaining_old = int(match.group(1)) if match.group(1) is not None else 1
+            next_line = int(match.group(2))
+            remaining_new = int(match.group(3)) if match.group(3) is not None else 1
+            saw_hunk = True
         elif line.startswith("+") and next_line is not None:
+            if remaining_new <= 0:
+                raise ValueError("Diff contains extra added lines")
             content = line[1:]
-            if current_file is not None and not content.lstrip().startswith(("//", "*")):
-                for rule, pattern in (("raw-color", RAW_COLOR), ("raw-corner-radius", RAW_RADIUS)):
-                    for match in pattern.finditer(content):
-                        violations.append(Violation(current_file, next_line, rule, match.group()))
+            added_lines.append((next_line, content))
             next_line += 1
+            remaining_new -= 1
         elif line.startswith(" ") and next_line is not None:
+            flush_added_lines()
+            remaining_old -= 1
+            remaining_new -= 1
             next_line += 1
-        elif line.startswith("-") or line.startswith("\\ No newline"):
+        elif line.startswith("-") and next_line is not None:
+            flush_added_lines()
+            remaining_old -= 1
+        elif line.startswith("\\ No newline"):
             continue
-        elif line and next_line is not None:
+        elif line:
             raise ValueError("Unexpected diff line")
+
+        if remaining_old is not None and (remaining_old < 0 or remaining_new < 0):
+            raise ValueError("Diff hunk has more lines than declared")
 
     if not seen_diff:
         raise ValueError("Input is not a git diff")
-    return violations
+    finish_file()
+    return sorted(violations, key=lambda item: (item.file, item.line))
 
 
 def scan_untracked_ui_files() -> list[Violation]:
@@ -93,12 +155,8 @@ def scan_untracked_ui_files() -> list[Violation]:
         path = Path(filename)
         if path.is_symlink() or path.stat().st_size > 1_048_576:
             raise ValueError("Untracked UI file is not a regular bounded source file")
-        for line_number, source_line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-            if source_line.lstrip().startswith(("//", "*")):
-                continue
-            for rule, pattern in (("raw-color", RAW_COLOR), ("raw-corner-radius", RAW_RADIUS)):
-                for match in pattern.finditer(source_line):
-                    violations.append(Violation(filename, line_number, rule, match.group()))
+        source_lines = list(enumerate(path.read_text(encoding="utf-8").splitlines(), start=1))
+        violations.extend(_scan_style_lines(filename, source_lines))
     return violations
 
 

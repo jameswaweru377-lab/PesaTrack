@@ -13,12 +13,14 @@ UI_FILE = "app/src/main/java/com/kedevjimmy/pesatrack/ui/components/Demo.kt"
 
 
 def sample_diff(*lines, filename=UI_FILE):
+    old_count = sum(line.startswith(("-", " ")) for line in lines)
+    new_count = sum(line.startswith(("+", " ")) for line in lines)
     return "\n".join(
         [
             f"diff --git a/{filename} b/{filename}",
             f"--- a/{filename}",
             f"+++ b/{filename}",
-            "@@ -1,0 +2,2 @@",
+            f"@@ -1,{old_count} +2,{new_count} @@",
             *lines,
             "",
         ]
@@ -62,6 +64,30 @@ class UiConsistencyGuardTest(unittest.TestCase):
     def test_rejects_malformed_diff_instead_of_reporting_clean(self):
         with self.assertRaises(ValueError):
             scan_added_ui_lines("this is not a git diff")
+
+    def test_rejects_header_without_hunk_instead_of_silently_passing(self):
+        invalid = sample_diff("+val bad = Color(0xFF123456)").replace(
+            "@@ -1,0 +2,1 @@\n", ""
+        )
+        with self.assertRaises(ValueError):
+            scan_added_ui_lines(invalid)
+
+    def test_rejects_truncated_hunk_instead_of_reporting_clean(self):
+        invalid = sample_diff("+val bad = Color(0xFF123456)").replace(
+            "@@ -1,0 +2,1 @@", "@@ -1,0 +2,2 @@"
+        )
+        with self.assertRaises(ValueError):
+            scan_added_ui_lines(invalid)
+
+    def test_detects_named_corner_arguments_and_multiline_colors(self):
+        violations = scan_added_ui_lines(sample_diff(
+            "+val rounded = RoundedCornerShape(topStart = 21.dp, topEnd = 23.dp)",
+            "+val custom = Color(",
+            "+    0xFF123456",
+            "+)",
+        ))
+        self.assertEqual(["raw-corner-radius", "raw-color"], [v.rule for v in violations])
+        self.assertEqual([2, 3], [v.line for v in violations])
 
     def test_cli_invalid_base_is_a_failure_even_in_report_mode(self):
         script = Path(__file__).with_name("ui_consistency_guard.py")
