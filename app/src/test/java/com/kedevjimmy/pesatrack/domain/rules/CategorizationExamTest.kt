@@ -99,6 +99,17 @@ class CategorizationExamTest {
     }
 
     @Test
+    fun wrongMoneyDirectionIsWrongEvenWhenCategoryIsUnspecified() {
+        val sample = cases().first { it.kind == "salary" }
+        val prediction = Prediction(
+            direction = MoneyDirection.EXPENSE,
+            category = TransactionCategory.UNCATEGORIZED,
+            reviewState = ReviewState.AUTO_CLASSIFIED
+        )
+        assertEquals(Outcome.WRONG, grade(sample, prediction))
+    }
+
+    @Test
     fun defaultOfflineExamWrongRateNeverExceedsFrozenBaseline() {
         val originalBytes = resource("/categorization-exam-v1.tsv")
         val digest = MessageDigest.getInstance("SHA-256").digest(originalBytes)
@@ -155,6 +166,7 @@ class CategorizationExamTest {
 
     private fun grade(sample: Case, prediction: Prediction): Outcome = when {
         prediction.reviewState == ReviewState.NEEDS_REVIEW -> Outcome.NEEDS_REVIEW
+        prediction.direction != sample.direction -> Outcome.WRONG
         prediction.category == TransactionCategory.UNCATEGORIZED ->
             Outcome.UNCLASSIFIED_WITHOUT_REVIEW
         prediction.direction == sample.direction && prediction.category == sample.category ->
