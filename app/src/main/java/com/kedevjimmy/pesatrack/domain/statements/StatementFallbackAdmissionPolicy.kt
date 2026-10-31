@@ -22,10 +22,10 @@ object StatementFallbackAdmissionPolicy {
         val admitted = StatementBankAdmission.verify(
             profile, account, confirmedIds, providerKey, verifiedProof, probe.tables
         )
+        // Independent FULL proof may anchor a previously unanchored native preview;
+        // it must never alter a candidate's financial legs or source row count.
         if (admitted is StatementAdmissionResult.Accepted &&
-            (admitted.legs != probe.legs || admitted.sourceRows != probe.sourceRows ||
-                probe.oldestLegUnanchored != (admitted.assurance ==
-                    StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY)))
+            (admitted.legs != probe.legs || admitted.sourceRows != probe.sourceRows))
             return blocked(StatementAdmissionResult.Reason.UNVERIFIED_BALANCE)
         return admitted
     }

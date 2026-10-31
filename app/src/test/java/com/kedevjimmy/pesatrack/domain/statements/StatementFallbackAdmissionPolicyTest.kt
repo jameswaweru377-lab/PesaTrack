@@ -86,6 +86,14 @@ class StatementFallbackAdmissionPolicyTest {
         assertEquals(StatementDocumentAssurance.FULL, accepted.assurance)
     }
 
+    @Test fun contradictoryPrintedOpeningCannotAnchorProvisionalProbe() {
+        assertEquals(StatementAdmissionResult.Reason.UNVERIFIED_BALANCE,
+            reason(verify(
+                probe = candidate.copy(oldestLegUnanchored = true),
+                document = proof.copy(openingBalanceMinor = 1L)
+            )))
+    }
+
     @Test fun mutatedProbeTablesAfterProofRefuses() {
         val replaced = candidate.copy(legs = candidate.legs.dropLast(1))
         assertEquals(StatementAdmissionResult.Reason.UNVERIFIED_BALANCE,

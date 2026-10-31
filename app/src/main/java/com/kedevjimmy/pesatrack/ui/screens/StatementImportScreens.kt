@@ -134,9 +134,7 @@ private fun readStatement(c:Context,uri:Uri):String {
   val result=OfflineNativeBankProbeReader.inspect(c,uri,password)
   if(accountId==target && documentToken==token) {
    provisionalBankPdf=StatementProvisionalSelection(target,token,result)
-   done=if(result is NativeBankProbeResult.Provisional)
-    "Read-only table preview prepared. This bank PDF was not saved."
-    else null
+   done=null
   }
  }
  fun verifyPdfLocally(uri: Uri, password: String, providerKey: String) {
@@ -156,7 +154,7 @@ private fun readStatement(c:Context,uri:Uri):String {
      val prepared=try {
       withContext(Dispatchers.IO){OfflineBankTableReader.inspect(c,uri,password,providerKey)}
      }catch(e:StatementBankInspectionBlocked){
-      if(StatementFallbackProbeGate.mayRunReadOnlyProbe(
+      if(android.os.Build.VERSION.SDK_INT>=35 && StatementFallbackProbeGate.mayRunReadOnlyProbe(
           StatementKnownImportReasonPolicy.classify(e.reasonCode))) {
        inspectUnfamiliarPdf(uri,password,target,token)
        return@launch
@@ -240,6 +238,7 @@ private fun readStatement(c:Context,uri:Uri):String {
           }
           if(accountId==target) {
            accounts=refreshed;bankAccountNumberDraft="";bankAccountEditingId=null
+           provisionalBankPdf=null;documentToken++
            // Identity metadata does not change an already-reviewed CSV's rows or date selection.
            done="Bank account number saved on this device. You can now choose the bank PDF."
           }
