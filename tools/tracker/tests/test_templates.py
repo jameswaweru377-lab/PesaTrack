@@ -53,6 +53,11 @@ class TrackerTemplatesTest(unittest.TestCase):
         self.assertIn("development-tracker.yml", readme + tracker)
         self.assertIn("31 October 2026", tracker)
 
+    def test_android_ci_runs_tracker_regressions_on_each_pr(self):
+        workflow = (ROOT / ".github/workflows/android-ci.yml").read_text(encoding="utf-8")
+        self.assertIn("PyYAML==6.0.3", workflow)
+        self.assertIn("python3 -B -m unittest discover -s tools/tracker/tests -q", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

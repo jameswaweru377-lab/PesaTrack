@@ -42,6 +42,11 @@ jobs:
         with:
           python-version: "3.13"
 
+      - name: Test Command Center tracker safeguards
+        run: |
+          python3 -m pip install --disable-pip-version-check 'PyYAML==6.0.3'
+          python3 -B -m unittest discover -s tools/tracker/tests -q
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
 
