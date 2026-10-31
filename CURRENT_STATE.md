@@ -2,6 +2,19 @@
 
 _Last refreshed: 31 October 2026_
 
+_Default offline categorization exam (31 October 2026; baseline verified in JVM CI):_
+A fixed 600-case invented Kenyan corpus now scores the existing built-in
+recognizer and extracted unchanged TransactionStore fallback, without user
+SmartRules or cached remote hints. The baseline records correct, wrong,
+explicit Needs Review and uncategorized-without-review separately, overall
+and across ten transaction kinds. The initial frozen snapshot is 85 correct,
+20 wrong, 135 needs review and 360 uncategorized-without-review; Android CI
+run 41177373457 confirmed the frozen baseline with 1,316 JVM tests, zero
+failures and one skipped test. The JVM exam rejects corpus drift and a
+wrong-answer rate above the frozen ceiling of 20/600. No categorization logic,
+ledger, permission, network, schema or UI behaviour was changed. See
+`docs/CATEGORIZATION_EXAM_BASELINE.md` for the exact scope and limitations.
+
 _Native unfamiliar-statement preview Slice B1 (31 October 2026; draft PR #495, CI/device acceptance pending):_
 The isolated Android 35+ PDF text service is wired to a **read-only** unfamiliar
 bank PDF preview. A selected bank account can inspect all pages with complete

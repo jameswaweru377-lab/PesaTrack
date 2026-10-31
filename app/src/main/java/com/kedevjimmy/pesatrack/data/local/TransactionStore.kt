@@ -24,6 +24,7 @@ import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.rules.KenyanTransactionRecognizer
+import com.kedevjimmy.pesatrack.domain.rules.DefaultCategoryFallbackPolicy
 import com.kedevjimmy.pesatrack.domain.rules.MirrorTransactionMatcher
 import com.kedevjimmy.pesatrack.domain.rules.MirrorTransactionObservation
 import com.kedevjimmy.pesatrack.domain.rules.OwnAccountTransferDetector
@@ -4261,46 +4262,12 @@ class TransactionStore private constructor(context: Context) {
             return it
         }
 
-        val fallback = when (parsed.type) {
-            MpesaTransactionType.WITHDRAWAL -> Triple(
-                MoneyDirection.TRANSFER,
-                TransactionCategory.CASH,
-                ReviewState.AUTO_CLASSIFIED
-            )
-            MpesaTransactionType.AIRTIME -> Triple(
-                MoneyDirection.EXPENSE,
-                TransactionCategory.PHONE_AND_DATA,
-                ReviewState.AUTO_CLASSIFIED
-            )
-            MpesaTransactionType.REVERSAL -> Triple(
-                MoneyDirection.NEUTRAL,
-                TransactionCategory.OTHER,
-                if (parsed.reversalOfCode != null) ReviewState.AUTO_CLASSIFIED else ReviewState.NEEDS_REVIEW
-            )
-            MpesaTransactionType.RECEIVED,
-            MpesaTransactionType.DEPOSIT -> Triple(
-                MoneyDirection.INCOME,
-                TransactionCategory.UNCATEGORIZED,
-                ReviewState.AUTO_CLASSIFIED
-            )
-            MpesaTransactionType.SENT_MONEY,
-            MpesaTransactionType.PAY_BILL,
-            MpesaTransactionType.BUY_GOODS -> Triple(
-                MoneyDirection.EXPENSE,
-                TransactionCategory.UNCATEGORIZED,
-                ReviewState.AUTO_CLASSIFIED
-            )
-            MpesaTransactionType.OTHER -> Triple(
-                MoneyDirection.NEUTRAL,
-                TransactionCategory.UNCATEGORIZED,
-                ReviewState.NEEDS_REVIEW
-            )
-        }
+        val fallback = DefaultCategoryFallbackPolicy.classify(parsed)
 
         return Classification(
-            direction = fallback.first,
-            category = fallback.second,
-            reviewState = fallback.third,
+            direction = fallback.direction,
+            category = fallback.category,
+            reviewState = fallback.reviewState,
             ruleId = null,
             planningMonth = PlanningPeriodResolver.resolve(occurredAtEpochMs, 0)
         )
