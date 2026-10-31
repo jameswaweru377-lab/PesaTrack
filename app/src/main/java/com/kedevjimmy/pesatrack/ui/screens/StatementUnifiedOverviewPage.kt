@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
+import com.kedevjimmy.pesatrack.domain.statements.StatementSavedAccountVisibility
 import com.kedevjimmy.pesatrack.domain.statements.StatementUnifiedOverviewPolicy
 import java.text.DateFormatSymbols
 import java.util.Locale
@@ -48,6 +49,12 @@ internal fun StatementUnifiedOverviewPage(
     var yearMenu by remember { mutableStateOf(false) }
     var accountMenu by remember { mutableStateOf(false) }
     val accounts = overview.accountRows
+    val accountInventory = remember(accounts, limitedSources) {
+        StatementSavedAccountVisibility.overview(
+            reportAccountIds = accounts.map { it.accountId },
+            limitedAccountIds = limitedSources.map { it.accountId }
+        )
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(p.canvas)
@@ -96,7 +103,7 @@ internal fun StatementUnifiedOverviewPage(
                 }
                 Box(Modifier.weight(.58f)) {
                     Surface(color = Color.White, shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth().clickable(enabled = accounts.isNotEmpty()) {
+                        modifier = Modifier.fillMaxWidth().clickable(enabled = accountInventory.accountIds.isNotEmpty()) {
                             accountMenu = true
                         }) {
                         Row(Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
@@ -112,11 +119,12 @@ internal fun StatementUnifiedOverviewPage(
                         }
                     }
                     DropdownMenu(expanded = accountMenu, onDismissRequest = { accountMenu = false }) {
-                        accounts.forEach { row ->
+                        accountInventory.accountIds.forEach { id ->
                             DropdownMenuItem(text = {
-                                Text(displayStatementAccountLabel(accountLabels[row.accountId],
-                                    row.accountId in bankAccountIds))
-                            }, onClick = { accountMenu = false; onSelectAccount(row.accountId) })
+                                val limitedBadge = if (id in accountInventory.limitedOnlyIds) " · Limited" else ""
+                                Text(displayStatementAccountLabel(accountLabels[id],
+                                    id in bankAccountIds) + limitedBadge)
+                            }, onClick = { accountMenu = false; onSelectAccount(id) })
                         }
                     }
                 }
@@ -126,7 +134,7 @@ internal fun StatementUnifiedOverviewPage(
             StatementUnifiedWhiteCard {
                 Column(Modifier.fillMaxWidth().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Limited assurance statements", color = p.ink,
+                    Text("Limited assurance statements · all years", color = p.ink,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold)
                     Text("Saved source rows only. Not included in verified cash-flow totals or Activity.",
@@ -200,10 +208,12 @@ internal fun StatementUnifiedOverviewPage(
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                     Text("Your statement history", color = Color.White.copy(alpha = .94f),
                                         fontSize = 13.sp)
-                                    Text("${accounts.size} ${if (accounts.size == 1) "account" else "accounts"} on file",
+                                    Text("${accountInventory.accountIds.size} ${if (accountInventory.accountIds.size == 1) "account" else "accounts"} on file",
                                         color = Color.White, fontWeight = FontWeight.ExtraBold,
                                         fontSize = 23.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text("Imported records · ${overview.year}", color = Color.White.copy(alpha = .86f),
+                                    Text(if (accountInventory.limitedOnlyIds.isNotEmpty())
+                                        "${accountInventory.reportCount} in reports · ${accountInventory.limitedOnlyIds.size} limited-only"
+                                        else "Imported records · ${overview.year}", color = Color.White.copy(alpha = .86f),
                                         fontSize = 12.sp)
                                 }
                             }

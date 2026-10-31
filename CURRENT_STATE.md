@@ -15,6 +15,18 @@ wrong-answer rate above the frozen ceiling of 20/600. No categorization logic,
 ledger, permission, network, schema or UI behaviour was changed. See
 `docs/CATEGORIZATION_EXAM_BASELINE.md` for the exact scope and limitations.
 
+_Saved-bank visibility and unfamiliar PDF diagnostics (31 October 2026; PR and device retest pending):_
+The Statements account picker and account-on-file count now include bank accounts
+that hold only limited-assurance evidence, without treating those records as
+verified report cash movements. Limited-only accounts are labelled distinctly;
+their saved documents remain in the separate read-only source view. Native
+unfamiliar-PDF inspection still refuses missing page/coordinate evidence, but
+the refusal can show its first affected page and fixed, non-sensitive Android
+geometry reason counts. Neither change makes incomplete documents importable,
+changes ledger balances or transmits document data. These changes require CI
+and physical-device confirmation; the specific unfamiliar PDF still needs a
+private, evidence-based parser diagnosis before row preview can be enabled.
+
 _Native unfamiliar-statement preview Slice B1 (31 October 2026; draft PR #495, CI/device acceptance pending):_
 The isolated Android 35+ PDF text service is wired to a **read-only** unfamiliar
 bank PDF preview. A selected bank account can inspect all pages with complete
