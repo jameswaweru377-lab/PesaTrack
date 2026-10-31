@@ -89,6 +89,7 @@ The public enrichment Worker is rate limited, and provider credentials remain se
 - [Current engineering state](CURRENT_STATE.md)
 - [Security policy](SECURITY.md)
 - [Contributing rules](CONTRIBUTING.md)
+- [Agent working method](AGENT_WORKING_METHOD.md)
 - [Privacy policy source — pre-release review](docs/PRIVACY_POLICY.md)
 - [Terms of Service — pre-release draft](docs/TERMS_OF_SERVICE_DRAFT.md)
 - [Legal, ODPC and SMS permission release gate](docs/LEGAL_RELEASE_GATE.md)
