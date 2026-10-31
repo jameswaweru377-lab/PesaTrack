@@ -11,6 +11,7 @@ import android.content.Intent
 import android.view.WindowManager
 import com.kedevjimmy.pesatrack.salary.SalaryReminders
 import com.kedevjimmy.pesatrack.security.AppLockManager
+import com.kedevjimmy.pesatrack.security.BiometricCryptoGate
 import com.kedevjimmy.pesatrack.planning.BillSchedules
 import com.kedevjimmy.pesatrack.planning.ReviewAttentionReminders
 import androidx.activity.ComponentActivity
@@ -172,6 +173,11 @@ class MainActivity : ComponentActivity() {
                                 appLockManager
                                     .verifyPin(pin)
                             if (unlocked) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                                    BiometricCryptoGate.rearmAfterTrustedFallback(
+                                        BiometricCryptoGate.Purpose.APP_UNLOCK
+                                    )
+                                }
                                 appLockManager
                                     .markUnlocked()
                                 appLocked =
@@ -314,12 +320,13 @@ class MainActivity : ComponentActivity() {
             Build.VERSION.SDK_INT >=
             Build.VERSION_CODES.Q
         ) {
-            getSystemService(
-                BiometricManager::class.java
-            )
-                ?.canAuthenticate() ==
-                BiometricManager
-                    .BIOMETRIC_SUCCESS
+            val manager = getSystemService(BiometricManager::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                manager?.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
+                    BiometricManager.BIOMETRIC_SUCCESS
+            } else {
+                manager?.canAuthenticate() == BiometricManager.BIOMETRIC_SUCCESS
+            }
         } else {
             packageManager
                 .hasSystemFeature(
@@ -336,6 +343,9 @@ class MainActivity : ComponentActivity() {
         ) {
             return
         }
+        if (!appLocked || !appLockManager.isEnabled() || !canUseBiometrics()) return
+        val gate = BiometricCryptoGate(BiometricCryptoGate.Purpose.APP_UNLOCK)
+        val crypto = gate.prepare() ?: return // The existing PIN remains available.
 
         val prompt =
             BiometricPrompt.Builder(this)
@@ -352,6 +362,7 @@ class MainActivity : ComponentActivity() {
                 .build()
 
         prompt.authenticate(
+            crypto,
             CancellationSignal(),
             mainExecutor,
             object :
@@ -366,9 +377,14 @@ class MainActivity : ComponentActivity() {
                         .onAuthenticationSucceeded(
                             result
                         )
-                    appLockManager
-                        .markUnlocked()
-                    appLocked = false
+                    if (gate.confirm(result) && appLocked && appLockManager.isEnabled()) {
+                        appLockManager.markUnlocked()
+                        appLocked = false
+                    }
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    gate.cancel()
                 }
             }
         )
