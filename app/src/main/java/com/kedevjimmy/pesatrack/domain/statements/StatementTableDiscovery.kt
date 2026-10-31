@@ -17,13 +17,19 @@ object StatementPdfLines {
                 it.right<=it.left || it.bottom<=it.top
         })return null
         val groups=mutableListOf<MutableList<PdfTextFragment>>()
+        val midpointTotals=mutableListOf<Double>()
         for(word in words.sortedWith(compareBy<PdfTextFragment> {(it.top+it.bottom)/2f}.thenBy {it.left})) {
             val previous=groups.lastOrNull()
-            val old=previous?.map {(it.top+it.bottom)/2f}?.average()?.toFloat()
+            val old=previous?.let {(midpointTotals.last()/it.size).toFloat()}
+            val midpoint=(word.top+word.bottom)/2f
             val tolerance=maxOf(1.5f,minOf(3.4f,(word.bottom-word.top)*0.38f))
-            if(old==null || abs((word.top+word.bottom)/2f-old)>tolerance)
+            if(old==null || abs(midpoint-old)>tolerance) {
                 groups.add(mutableListOf(word))
-            else previous.add(word)
+                midpointTotals.add(midpoint.toDouble())
+            } else {
+                previous.add(word)
+                midpointTotals[midpointTotals.lastIndex]+=midpoint.toDouble()
+            }
             if(groups.size>20_000)return null
         }
         return groups.map {StatementPhysicalLine(
@@ -51,6 +57,8 @@ object StatementTableDiscovery {
         setOf(StatementField.DATE,StatementField.DESCRIPTION,StatementField.DEBIT,StatementField.CREDIT,StatementField.BALANCE),
         setOf(StatementField.DATE,StatementField.DESCRIPTION,StatementField.AMOUNT,StatementField.DIRECTION,StatementField.BALANCE)
     )
+    private val explicitSignedSchema=setOf(
+        StatementField.DATE,StatementField.DESCRIPTION,StatementField.AMOUNT,StatementField.BALANCE)
     private val optional=setOf(StatementField.REFERENCE,StatementField.STATUS,StatementField.VALUE_DATE,
         StatementField.FEE,StatementField.INFORMATION)
 
@@ -81,7 +89,15 @@ object StatementTableDiscovery {
         fun reject(reason:StatementGeometryProblem)=StatementTableDiscoveryResult.Blocked(pageNumber,reason)
         if(pageNumber !in 1..160)return reject(StatementGeometryProblem.INVALID_BOUNDS)
         val lines=StatementPdfLines.group(words) ?:return reject(StatementGeometryProblem.INVALID_BOUNDS)
-        val bands=schemas.flatMap {headers(lines,it,profile,optional)}.distinctBy {it.start to it.end}.sortedBy {it.start}
+        val signed=headers(lines,explicitSignedSchema,profile,optional).filter { band ->
+            band.columns.columns.any { column ->
+                column.field==StatementField.AMOUNT &&
+                    column.heading.joinToString(" ") { it.text.trim() }
+                        .replace(Regex("\\s+")," ").equals("Signed Amount",ignoreCase=true)
+            }
+        }
+        val bands=(schemas.flatMap {headers(lines,it,profile,optional)}+signed)
+            .distinctBy {it.start to it.end}.sortedBy {it.start}
         if(bands.isEmpty())return reject(StatementGeometryProblem.INVALID_HEADER)
         if(bands.zipWithNext().any {(a,b)->a.end>=b.start})return reject(StatementGeometryProblem.INVALID_HEADER)
         val allHeaderWords=bands.flatMap {it.columns.columns.flatMap {column->column.heading}}.toSet()
