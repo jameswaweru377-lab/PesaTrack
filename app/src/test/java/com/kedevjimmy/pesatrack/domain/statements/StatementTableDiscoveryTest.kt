@@ -12,6 +12,12 @@ class StatementTableDiscoveryTest {
     private fun row(y:Float=80f,date:String="2026-01-01")=listOf(
         box(date,10f,y,70f),box("Invented shop",120f,y,100f),
         box("10.00",300f,y),box("-",380f,y,5f),box("90.00",460f,y))
+    private fun signedHeader(label:String="Signed Amount")=listOf(
+        box("Date",10f,50f),box("Description",120f,50f,90f),
+        box(label,300f,50f,90f),box("Balance",460f,50f))
+    private fun signedRow(y:Float,date:String,amount:String,balance:String)=listOf(
+        box(date,10f,y,70f),box("Invented counterparty",120f,y,100f),
+        box(amount,300f,y),box(balance,460f,y))
     private fun found(words:List<PdfTextFragment>):StatementTableDiscoveryResult.Found =
         StatementTableDiscovery.discover(1,words) as StatementTableDiscoveryResult.Found
 
@@ -44,6 +50,24 @@ class StatementTableDiscoveryTest {
         val heads=header().filterNot {it.text=="Debit"}+
             box("Paid",300f,50f,22f)+box("Out",325f,50f,20f)
         assertEquals("Paid Out",found(heads+row()).tables.single().headers[2])
+    }
+    @Test fun signedAmountHeadingIsDiscoverableAndBalanceReconciles() {
+        val words=signedHeader()+signedRow(80f,"2026-01-01","-10.00","90.00")+
+            signedRow(110f,"2026-01-02","+20.00","110.00")
+        val tables=found(words).tables
+        val accepted=UniversalStatementTableInterpreter.interpret(tables,openingBalanceMinor=10_000L)
+            as StatementTableResult.Accepted
+        assertEquals(listOf(-1_000L,2_000L),accepted.legs.map {it.movementMinor})
+        assertEquals(2,accepted.sourceRows)
+    }
+    @Test fun genericAmountWithoutDirectionIsNotDiscoverable() {
+        val words=signedHeader("Amount")+signedRow(80f,"2026-01-01","-10.00","90.00")
+        assertTrue(StatementTableDiscovery.discover(1,words) is StatementTableDiscoveryResult.Blocked)
+    }
+    @Test fun unknownNumericColumnStillBlocksSignedLayout() {
+        val words=signedHeader()+box("Adjustment",560f,50f,75f)+
+            signedRow(80f,"2026-01-01","-10.00","90.00")+box("5.00",560f,80f)
+        assertTrue(StatementTableDiscovery.discover(1,words) is StatementTableDiscoveryResult.Blocked)
     }
     @Test fun noTableIsExplicitFailure() {
         assertTrue(StatementTableDiscovery.discover(1,row()) is StatementTableDiscoveryResult.Blocked)
