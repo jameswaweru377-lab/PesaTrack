@@ -2,6 +2,22 @@
 
 _Last refreshed: 31 October 2026_
 
+_Universal statement discovery Slice A (31 October 2026; isolated PR, CI/device acceptance pending):_
+A new pure Kotlin, read-only probe can provisionally reconstruct unfamiliar
+selectable-text tables with either explicit Signed Amount and Balance columns
+or the existing independently headed money layouts. It checks bounded complete
+page sequences, physical column ownership and the entire adjacent running-
+balance chain before returning *untrusted candidate evidence*. Unsupported
+layouts, unreadable pages, unverified movements and incomplete files never
+produce an importable record. A separate typed fallback rule permits a
+read-only probe only after an explicit unsupported-layout result, not after
+issuer, account, password or financial-verification refusals. This work is **not
+connected to the live PDF picker** and proves no issuer, account ownership or
+complete document totals. It does not persist Statements, alter Activity,
+import arbitrary banks, learn formats, perform OCR on scans or send financial
+data to the cloud. Invented synthetic unit tests cover multi-page layouts and
+fail-closed cases; end-to-end and physical Redmi acceptance remain future work.
+
 _Limited bank source visibility follow-up (31 October 2026; CI/device retest pending):_
 After a historical Equity PDF passed local review, the save action closed
 the import sheet but the Statements landing screen indexed only fully verified

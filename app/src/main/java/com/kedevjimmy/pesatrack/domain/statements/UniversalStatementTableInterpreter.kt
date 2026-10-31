@@ -285,6 +285,8 @@ object UniversalStatementTableInterpreter {
                     else null
                     if (sign != null && signed < 0 && sign > 0)
                         return blocked(StatementBlockReason.AMBIGUOUS_DIRECTION, page.pageNumber, rowNumber)
+                    if (sign != null && signed == Long.MIN_VALUE)
+                        return blocked(StatementBlockReason.INVALID_AMOUNT, page.pageNumber, rowNumber)
                     if (sign == null) movement = signed
                     else {
                         val magnitude = if (signed < 0) Math.negateExact(signed) else signed

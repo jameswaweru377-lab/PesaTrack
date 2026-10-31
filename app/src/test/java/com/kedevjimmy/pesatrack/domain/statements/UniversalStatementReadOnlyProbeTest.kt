@@ -29,6 +29,17 @@ class UniversalStatementReadOnlyProbeTest {
         box(debit, 300f, y), box(credit, 380f, y), box(balance, 460f, y)
     )
 
+    private fun directedHeader() = listOf(
+        box("Date", 10f, 50f), box("Description", 120f, 50f, 95f),
+        box("Amount", 300f, 50f), box("Direction", 380f, 50f, 70f),
+        box("Balance", 480f, 50f)
+    )
+
+    private fun directedRow(y: Float, date: String, movement: String, direction: String, balance: String) = listOf(
+        box(date, 10f, y, 75f), box("Invented ATM", 120f, y, 95f),
+        box(movement, 300f, y), box(direction, 380f, y), box(balance, 480f, y)
+    )
+
     private fun firstPage() = StatementProbePage(1, signedHeader() +
         signedRow(80f, "2026-01-01", "-10.00", "90.00") +
         signedRow(110f, "2026-01-02", "+20.00", "110.00"))
@@ -102,6 +113,13 @@ class UniversalStatementReadOnlyProbeTest {
         val result = blocked(listOf(firstPage(), broken))
         assertEquals(StatementProbeReason.UNRECOGNIZED_TABLE, result.reason)
         assertEquals(2, result.pageNumber)
+    }
+
+    @Test fun unrepresentableDirectedMagnitudeIsBlockedWithoutArithmeticCrash() {
+        val page = StatementProbePage(1, directedHeader() +
+            directedRow(80f, "2026-01-01", "-92233720368547758.08", "DR", "90.00") +
+            directedRow(110f, "2026-01-02", "10.00", "CR", "100.00"))
+        assertEquals(StatementProbeReason.UNVERIFIED_MOVEMENTS, blocked(listOf(page)).reason)
     }
 
     @Test fun fragmentAndPageCapsRejectBeforeInterpretingPartials() {

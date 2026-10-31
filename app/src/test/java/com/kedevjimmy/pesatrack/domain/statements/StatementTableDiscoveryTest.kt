@@ -21,6 +21,13 @@ class StatementTableDiscoveryTest {
     private fun found(words:List<PdfTextFragment>):StatementTableDiscoveryResult.Found =
         StatementTableDiscovery.discover(1,words) as StatementTableDiscoveryResult.Found
 
+    @Test fun largePhysicalLineRetainsEveryFragmentInOrder() {
+        val words=(0 until 3_000).map {i->box("invented$i",i*2f,40f,1f)}
+        val grouped=StatementPdfLines.group(words)!!
+        assertEquals(1,grouped.size)
+        assertEquals(words,grouped.single().words)
+    }
+
     @Test fun discoversBorderlessTableAndRetainsEveryCellRectangle() {
         val table=found(listOf(box("Private name",10f,10f))+header()+row()).tables.single()
         assertEquals(listOf("Date","Narration","Debit","Credit","Balance"),table.headers)

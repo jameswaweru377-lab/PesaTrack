@@ -17,13 +17,19 @@ object StatementPdfLines {
                 it.right<=it.left || it.bottom<=it.top
         })return null
         val groups=mutableListOf<MutableList<PdfTextFragment>>()
+        val midpointTotals=mutableListOf<Double>()
         for(word in words.sortedWith(compareBy<PdfTextFragment> {(it.top+it.bottom)/2f}.thenBy {it.left})) {
             val previous=groups.lastOrNull()
-            val old=previous?.map {(it.top+it.bottom)/2f}?.average()?.toFloat()
+            val old=previous?.let {(midpointTotals.last()/it.size).toFloat()}
+            val midpoint=(word.top+word.bottom)/2f
             val tolerance=maxOf(1.5f,minOf(3.4f,(word.bottom-word.top)*0.38f))
-            if(old==null || abs((word.top+word.bottom)/2f-old)>tolerance)
+            if(old==null || abs(midpoint-old)>tolerance) {
                 groups.add(mutableListOf(word))
-            else previous.add(word)
+                midpointTotals.add(midpoint.toDouble())
+            } else {
+                previous.add(word)
+                midpointTotals[midpointTotals.lastIndex]+=midpoint.toDouble()
+            }
             if(groups.size>20_000)return null
         }
         return groups.map {StatementPhysicalLine(
