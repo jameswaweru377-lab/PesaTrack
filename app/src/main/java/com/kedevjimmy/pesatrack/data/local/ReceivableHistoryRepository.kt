@@ -81,7 +81,7 @@ class ReceivableHistoryRepository(context: Context) {
                     """SELECT t.id FROM transactions t
                        WHERE (LOWER(COALESCE(t.counterparty,'')) LIKE LOWER(?) ESCAPE '\'
                           OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(t.counterparty_phone,''),' ',''),'-',''),'+',''),'(',''),')','') LIKE ?
-                          ${if (embeddedStatementPhone != null) "OR (t.source_kind='statement_import' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(t.counterparty,''),' ',''),'-',''),'+',''),'(',''),')',''),'.','') LIKE ?)" else ""})
+                          ${if (embeddedStatementPhone != null) "OR (t.source_kind='statement_import' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(t.counterparty,''),' ',''),'-',''),'+',''),'(',''),')',''),'.','') LIKE ?)" else ""}
                           )
                           $sourceClause
                           $dateClause

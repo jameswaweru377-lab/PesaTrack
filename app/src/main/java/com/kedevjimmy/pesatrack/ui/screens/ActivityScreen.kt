@@ -1056,6 +1056,15 @@ fun ActivityScreen(
                     )
                 }
             }
+            // The detailed breakdown is opt-in; the approved compact Activity
+            // summary remains the default and the ledger stays available below.
+            val detailedSnapshot = displaySnapshot
+            val detailedPrevious = displayPrevious
+            if (showDetailedSummary && detailedSnapshot != null && detailedPrevious != null) {
+                item(key = "activity-detailed-summary") {
+                    ActivitySummaryCard(detailedSnapshot, detailedPrevious, periodLabel)
+                }
+            }
             item(key = "activity-attention-card") {
                 Box(Modifier.padding(bottom = 10.dp)) {
                     ActivityReferenceAttention(
