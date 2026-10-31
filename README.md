@@ -94,6 +94,14 @@ The public enrichment Worker is rate limited, and provider credentials remain se
 - Migration coverage includes fresh v38 plus selected historical upgrades including v1, v30, v31/v32 and populated v37 to v38; encrypted legacy/current restore is covered.
 - App lock, biometric unlock and passphrase-encrypted backup/restore are implemented.
 
+## Development progress dashboard
+
+- [Tracker guide and task-status definitions](docs/tracker/README.md) — ownership, audit evidence, CI and device-acceptance rules.
+- [PesaTrack tracker Issues](https://github.com/jameswaweru377-lab/PesaTrack/issues?q=label%3Apesatrack-tracker) — canonical tasks once their labels and import previews are approved.
+- [Development Tracker read-only Actions report](https://github.com/jameswaweru377-lab/PesaTrack/actions/workflows/development-tracker.yml) — lightweight, timestamped summaries after the tracker workflow is merged.
+
+The visual GitHub Projects **board setup pending** step is described in the tracker guide. Do not treat an empty labeled-Issues view as proof that all audit findings are resolved.
+
 ## Release and security documents
 
 - [Current engineering state](CURRENT_STATE.md)
