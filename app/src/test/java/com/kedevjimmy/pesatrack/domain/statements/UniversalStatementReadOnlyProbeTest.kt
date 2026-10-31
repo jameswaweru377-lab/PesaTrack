@@ -122,6 +122,15 @@ class UniversalStatementReadOnlyProbeTest {
         assertEquals(StatementProbeReason.UNVERIFIED_MOVEMENTS, blocked(listOf(page)).reason)
     }
 
+    @Test fun minimumLongSignedMovementIsNeverProvisional() {
+        val page = StatementProbePage(1, signedHeader() +
+            signedRow(80f, "2026-01-01", "-92233720368547758.08", "-92233720368547758.08") +
+            signedRow(110f, "2026-01-02", "+10.00", "-92233720368547748.08"))
+        val result = UniversalStatementReadOnlyProbe.inspect(listOf(page), openingBalanceMinor = 0L)
+            as StatementProbeResult.Blocked
+        assertEquals(StatementProbeReason.UNVERIFIED_MOVEMENTS, result.reason)
+    }
+
     @Test fun fragmentAndPageCapsRejectBeforeInterpretingPartials() {
         val tooManyFragments = List(32_001) { box("invented", 10f, it.toFloat()) }
         assertEquals(StatementProbeReason.INVALID_PAGE_SEQUENCE,
