@@ -48,6 +48,10 @@ The authoritative scope is in [docs/PRODUCT_CHARTER.md](docs/PRODUCT_CHARTER.md)
 - Financial notification connection status
 - Data Health / Message Lab
 - Settings, theme, Smart Rules, app lock and encrypted backup/restore
+- Profile with local photo/name details, Better money habits guidance drawn
+  from the same local financial-health rules as Home, privacy choices,
+  reminders, Help and About. Unavailable or stale evidence is shown as
+  incomplete rather than a guessed score.
 
 Legacy routes may remain only for compatibility with older navigation state.
 

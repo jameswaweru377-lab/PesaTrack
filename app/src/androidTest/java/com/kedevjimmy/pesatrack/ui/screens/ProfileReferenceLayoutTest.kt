@@ -41,12 +41,13 @@ class ProfileReferenceLayoutTest {
 
         listOf(
             "Personal information",
-            "Account security",
+            "App lock & security",
             "Notifications",
             "Appearance",
             "Help & support",
             "About PesaTrack",
-            "Stored on this phone"
+            "Better money habits",
+            "Not enough information yet"
         ).forEach { compose.onNodeWithText(it).assertExists() }
         compose.onNodeWithText("Financial overview").assertDoesNotExist()
         compose.onNodeWithText("More settings").assertDoesNotExist()
@@ -58,19 +59,19 @@ class ProfileReferenceLayoutTest {
 
         compose.onNodeWithText("Appearance").performClick()
         compose.onNodeWithText("Light").assertIsDisplayed()
-        compose.onNodeWithText("PesaTrack purple").assertIsDisplayed()
+        compose.onNodeWithText("Text size").performScrollTo().assertIsDisplayed()
         compose.onNodeWithContentDescription("Back").performClick()
 
         compose.onNodeWithText("Personal information").performClick()
-        compose.onNodeWithText("Your name").assertIsDisplayed()
+        compose.onNodeWithText("Display name").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Choose photo").assertIsDisplayed()
-        compose.onNodeWithText("Save details").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("Save changes").performScrollTo().assertIsDisplayed()
     }
 
     @Test
     fun securityAndHelpHaveRealDestinations() {
         showProfile()
-        compose.onNodeWithText("Account security").performScrollTo().performClick()
+        compose.onNodeWithText("App lock & security").performScrollTo().performClick()
         compose.onNodeWithText("App lock & security").assertIsDisplayed()
         compose.onNodeWithText("App lock PIN").assertIsDisplayed()
         compose.onNodeWithText("Unlock with biometrics").assertIsDisplayed()
@@ -78,6 +79,14 @@ class ProfileReferenceLayoutTest {
         compose.onNodeWithText("Help & support").performScrollTo().performClick()
         compose.onNodeWithText("Search help topics").assertIsDisplayed()
         compose.onNodeWithText("Guided troubleshooting").performClick()
-        compose.onNodeWithText("Check missing money updates").assertIsDisplayed()
+        compose.onNodeWithText("Run safe checks").assertIsDisplayed()
+    }
+
+    @Test
+    fun moneyHabitsHasExplainedEmptyStateAndAction() {
+        showProfile()
+        compose.onNodeWithText("Better money habits").performClick()
+        compose.onNodeWithText("Not enough information yet").assertIsDisplayed()
+        compose.onNodeWithText("What we can see").performScrollTo().assertIsDisplayed()
     }
 }
