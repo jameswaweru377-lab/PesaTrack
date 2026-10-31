@@ -54,6 +54,38 @@ class GitHubSnapshotTest(unittest.TestCase):
         self.assertTrue(all(h["Authorization"] == "Bearer invented-token" for _, h, _ in fake.requested))
         self.assertTrue(all(timeout <= 12 for _, _, timeout in fake.requested))
 
+    def test_pr_opt_in_label_is_normalized_without_assuming_automerge_approval(self):
+        class Labeled(FakeGitHub):
+            def __call__(self, url, headers, timeout):
+                result = super().__call__(url, headers, timeout)
+                if urlparse(url).path.endswith("/pulls"):
+                    result[0]["labels"] = [{"name": "pesatrack-safe-automerge"}]
+                return result
+
+        result = fetch_snapshot("", "test-org/test-repo", opener=Labeled())
+        self.assertEqual(["pesatrack-safe-automerge"], result["prs"][0]["labels"])
+
+    def test_open_prs_are_fetched_independently_of_large_closed_pr_history(self):
+        class Historic(FakeGitHub):
+            def __call__(self, url, headers, timeout):
+                parsed = urlparse(url)
+                if parsed.path.endswith("/pulls"):
+                    state = parse_qs(parsed.query).get("state", ["all"])[0]
+                    if state == "open":
+                        return [{"number": 301, "state": "open", "body": "Unlinked change",
+                                 "head": {"sha": "a" * 40}, "base": {"sha": "b" * 40}}]
+                    if state == "closed":
+                        return []
+                    return [{"number": n, "state": "closed", "body": "Historical",
+                             "head": {"sha": "a" * 40}, "base": {"sha": "b" * 40}}
+                            for n in range(100)]
+                if parsed.path.endswith("/pulls/301/files"):
+                    return [{"filename": "app/src/Separate.kt"}]
+                return super().__call__(url, headers, timeout)
+
+        result = fetch_snapshot("", "test-org/test-repo", opener=Historic(), max_pages=2)
+        self.assertIn(301, [pull["number"] for pull in result["prs"]])
+
     def test_http_pagination_is_bounded_and_does_not_fetch_every_old_pr_file(self):
         class ManyPages(FakeGitHub):
             def __call__(self, url, headers, timeout):

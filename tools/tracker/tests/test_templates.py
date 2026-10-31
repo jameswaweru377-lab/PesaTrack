@@ -46,10 +46,11 @@ class TrackerTemplatesTest(unittest.TestCase):
 
     def test_repository_readme_has_public_tracker_entry_points_without_fake_board(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        tracker = (ROOT / "docs/tracker/README.md").read_text(encoding="utf-8")
         self.assertIn("docs/tracker/README.md", readme)
-        self.assertIn("PesaTrack/issues", readme)
-        self.assertIn("development-tracker.yml", readme)
-        self.assertIn("board setup pending", readme.lower())
+        self.assertIn("PesaTrack/issues", readme + tracker)
+        self.assertIn("development-tracker.yml", readme + tracker)
+        self.assertIn("not verified as created", tracker)
 
 
 if __name__ == "__main__":

@@ -1,14 +1,24 @@
 name: Development Tracker (Read-only)
 
 on:
+  issues:
+    types: [opened, reopened, edited, labeled, unlabeled, closed]
   pull_request:
     types: [opened, reopened, synchronize, edited, closed]
+  push:
+    branches: [main]
   workflow_run:
     workflows: ["Android CI"]
     types: [completed]
   schedule:
     - cron: "17 * * * *"
   workflow_dispatch:
+    inputs:
+      preview_project:
+        description: Preview configured Project status changes without writing
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -17,8 +27,8 @@ permissions:
   actions: read
 
 concurrency:
-  group: development-tracker-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: false
+  group: development-tracker-${{ github.repository }}
+  cancel-in-progress: true
 
 jobs:
   report:
@@ -39,3 +49,19 @@ jobs:
           else
             echo "Tracker not installed on main yet; initial PR advisory run skipped safely."
           fi
+      - name: Preview approved Project tracker-field updates
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.preview_project == true && vars.PESATRACK_TRACKER_PROJECT_SYNC_ENABLED != 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PESATRACK_TRACKER_PROJECTS_TOKEN: ${{ secrets.PESATRACK_TRACKER_PROJECTS_TOKEN }}
+          PESATRACK_TRACKER_PROJECT_ID: ${{ vars.PESATRACK_TRACKER_PROJECT_ID }}
+        run: python3 -m tools.tracker.project_sync --repository "$GITHUB_REPOSITORY"
+      - name: Mirror canonical Issues to the approved Project tracker field
+        # Fork PRs receive no repository secrets; their metadata must never trigger privileged writes.
+        if: ${{ vars.PESATRACK_TRACKER_PROJECT_SYNC_ENABLED == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PESATRACK_TRACKER_PROJECTS_TOKEN: ${{ secrets.PESATRACK_TRACKER_PROJECTS_TOKEN }}
+          PESATRACK_TRACKER_PROJECT_ID: ${{ vars.PESATRACK_TRACKER_PROJECT_ID }}
+          PESATRACK_TRACKER_PROJECT_SYNC_ENABLED: ${{ vars.PESATRACK_TRACKER_PROJECT_SYNC_ENABLED }}
+        run: python3 -m tools.tracker.project_sync --repository "$GITHUB_REPOSITORY" --apply

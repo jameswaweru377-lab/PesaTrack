@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,7 @@ from .reconcile import reconcile
 
 def report_markdown(data: dict) -> str:
     tasks = data["tasks"]
+    counts = Counter(task["status"] for task in tasks)
     merged = sum(t["status"] == "Merged — needs acceptance" for t in tasks)
     failures = sum(t["ci"] == "failed" for t in tasks)
     unclaimed = sum(t["owner"] == "Unclaimed" for t in tasks)
@@ -22,6 +24,11 @@ def report_markdown(data: dict) -> str:
         f"Checked at: {data['checked_at']}",
         f"Canonical tasks: {len(tasks)}. Merged needing acceptance: {merged}. "
         f"CI failed: {failures}. Unclaimed: {unclaimed}.", "",
+        f"Untracked open PRs: {len(data.get('untracked_open_prs', []))}. "
+        "They need a canonical task link before claiming ownership.", "",
+        "Progress by canonical Issue (not live ChatGPT presence): " +
+        ", ".join(f"{status}: {count}" for status, count in sorted(counts.items()))
+        if counts else "No approved task Issues registered yet.", "",
         "| Task | Owner | Status | CI | Device |",
         "|---|---|---|---|---|",
     ]
@@ -32,6 +39,9 @@ def report_markdown(data: dict) -> str:
         lines.extend(["", "**Coverage incomplete:** GitHub pagination or PR evaluation "
                       "was capped. Some historical work may be missing; do not treat "
                       "this report as a complete inventory."])
+    if data.get("historical_window_limited"):
+        lines.extend(["", "Historical PR search is bounded. Older unlinked closed PRs may "
+                      "not appear; canonical Issue PR references are resolved separately."])
     for t in tasks:
         # Output only bounded identifiers/status values, never raw Issue bodies.
         lines.append(
@@ -41,6 +51,11 @@ def report_markdown(data: dict) -> str:
     if data["warnings"]:
         lines.extend(["", f"Cross-PR collision/linkage warnings: {len(data['warnings'])}.",
                       "Review the private workflow logs and GitHub issue/PR links before editing."])
+    untracked = data.get("untracked_open_prs", [])
+    if untracked:
+        lines.extend(["", "Unlinked open PR numbers (bounded): " +
+                      ", ".join(f"#{number}" for number in untracked[:25]) +
+                      (" (more omitted)" if len(untracked) > 25 else "")])
     return "\n".join(lines) + "\n"
 
 

@@ -19,3 +19,5 @@ For a regular update, present (1) changes since the last verified check, (2) cri
 ---
 
 The tracker GitHub Action is independent of Android CI. Its read-only summary is a secondary hint, not an authority over current GitHub objects. A status snapshot can become stale even minutes after it was produced.
+
+The [shared ChatGPT Project instructions](CHATGPT_PROJECT_INSTRUCTIONS.md) tell each implementation chat how to claim its own Issue. Neither this coordinating chat nor the tracker can discover live ChatGPT sessions automatically. Project status mirroring is optional and updates only a dedicated `Tracker status` field after owner configuration; it does not control restricted auto-merge.

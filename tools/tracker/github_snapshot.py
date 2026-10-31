@@ -70,14 +70,18 @@ def fetch_snapshot(token: str, repository: str, *, opener=None, max_pages: int =
         if "pull_request" not in item and isinstance(item.get("number"), int)
     ]
 
-    all_pulls = paged("pulls", state="all")
+    # Open PRs must not disappear behind hundreds of recently closed PRs.
+    # Collect them independently, then add only relevant recent/explicit history.
+    open_pulls = [pull for pull in paged("pulls", state="open")
+                  if pull.get("state") == "open"]
+    recent_closed = [pull for pull in paged("pulls", state="closed")
+                     if pull.get("state") != "open"]
     tracked = {item["number"] for item in issues}
     explicitly_linked_prs = set().union(*(issue_pr_refs(item.get("body")) for item in issues))
-    candidates = [
-        pull for pull in all_pulls
-        if pull.get("state") == "open" or task_refs(pull.get("body")) & tracked
-        or pull.get("number") in explicitly_linked_prs
-    ][:60]
+    relevant_closed = [pull for pull in recent_closed
+                       if task_refs(pull.get("body")) & tracked
+                       or pull.get("number") in explicitly_linked_prs]
+    candidates = (open_pulls + relevant_closed)[:60]
     # Historical PRs eventually fall outside the bounded recent-PR pages.
     # Fetch only explicit references (never guessed references) with a strict cap.
     recent_numbers = {pull.get("number") for pull in candidates}
@@ -112,9 +116,15 @@ def fetch_snapshot(token: str, repository: str, *, opener=None, max_pages: int =
             "base_sha": (pull.get("base") or {}).get("sha"),
             "merge_commit_sha": pull.get("merge_commit_sha"),
             "merged_at": pull.get("merged_at"),
+            "labels": [item.get("name") for item in pull.get("labels", [])
+                       if isinstance(item, dict) and isinstance(item.get("name"), str)],
             "files": [row["filename"] for row in files if isinstance(row.get("filename"), str)],
         }
         prs.append(normalized)
+        relevant_to_task = (bool(task_refs(pull.get("body")) & tracked)
+                            or number in explicitly_linked_prs)
+        if not relevant_to_task:
+            continue
         runs = get("actions/runs", head_sha=head_sha, per_page=100, event="pull_request")
         for run in runs.get("workflow_runs", []):
             if run.get("head_sha") != head_sha:
@@ -129,7 +139,10 @@ def fetch_snapshot(token: str, repository: str, *, opener=None, max_pages: int =
         "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "main_sha": main_sha, "issues": issues, "prs": prs,
         "checks": checks, "required_checks": ["Android CI"],
+        # Old unreferenced closed PRs are outside the bounded historical window.
+        # They are not needed for canonical Issue status when explicit links exist.
+        "historical_window_limited": len(recent_closed) >= max_pages * 100,
         "truncated": (incomplete_historical or len(candidates) == 60
-                      or len(all_pulls) >= max_pages * 100
+                      or len(open_pulls) >= max_pages * 100
                       or len(issues) >= max_pages * 100),
     }

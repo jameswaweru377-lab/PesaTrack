@@ -13,6 +13,12 @@ Use a short public alias such as `CHAT-BACKUP`, `CHAT-STATEMENTS`, `CHAT-PROFILE
 
 If another owner already claimed the issue, stop and coordinate in GitHub rather than overwriting its claim. Two PRs touching a file require review but are not proof of a semantic conflict. Do not publish private ChatGPT links, user account numbers, personal financial data, receipts, PDFs or secrets in Issues, PRs or Actions logs.
 
+## Connection to live chats
+
+There is no trustworthy GitHub event that means a ChatGPT chat opened, started sampling, or stopped. A recorded `CHAT-...` alias is a **claim**, not evidence the chat is running at this instant. Give each implementation chat the [ChatGPT Project instructions](CHATGPT_PROJECT_INSTRUCTIONS.md). The chat claims its Issue with the authorized GitHub connector **before writing code**. Editing or labeling a `pesatrack-tracker` Issue triggers a lightweight tracker report; PR/main/CI events also refresh the report. The hourly cron is only a fallback; one-minute GitHub Actions schedules are unsupported.
+
+Keep the claim until explicit completion, pause or handoff. The Command Center reads current GitHub state when asked; its report is a timestamped snapshot, not a live presence service.
+
 ## Handoff
 
 Leave the same Issue open with an explicit handoff note: old owner, new owner, scope, latest verified PR/commit/CI, unrun tests, and exact next step. Do not automatically close an issue after merge. When device verification is pending, write `Device acceptance: not verified` and say which journey remains.
