@@ -84,6 +84,21 @@ class ProjectSyncTest(unittest.TestCase):
                          owner="jameswaweru377-lab", number=1)
         self.assertNotIn("PRIVATE_DATA", str(mismatch.exception))
 
+    def test_owner_lookup_reports_bounded_base64_project_ids(self):
+        for expected_id in ("PVT_safe-url_id", "PVT_safe+standard/id="):
+            with self.subTest(expected_id=expected_id):
+                def fake(token, query, variables):
+                    if "project" in variables:
+                        raise RuntimeError("GitHub Project query was rejected (NOT_FOUND)")
+                    candidate = dict(graphql_project())
+                    candidate["id"] = expected_id
+                    return {"user": {"projectV2": candidate}}
+
+                with self.assertRaises(ValueError) as mismatch:
+                    load_project("invented-token", "PVT_invented", caller=fake,
+                                 owner="jameswaweru377-lab", number=1)
+                self.assertIn(expected_id, str(mismatch.exception))
+
     def test_graphql_rejection_reports_safe_error_type_without_remote_message(self):
         response = BytesIO(json.dumps({
             "errors": [{"type": "INSUFFICIENT_SCOPES",
