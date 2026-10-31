@@ -30,6 +30,10 @@ The authoritative scope is in [docs/PRODUCT_CHARTER.md](docs/PRODUCT_CHARTER.md)
 - Home
 - Activity and transaction details
 - Plan / payday context
+- Optional "Money until next salary" pre-payday range on Plan: confirmed
+  payday or clearly estimated pay window; requires credible local balance,
+  three completed cycles, and reviewed commitments. No anticipated salary is
+  counted before it arrives. Device acceptance is pending.
 - Budgets and categories
 - Accounts and observed balances
 - Debts and relationship review

@@ -2,6 +2,39 @@
 
 _Last refreshed: 31 October 2026_
 
+_Money until next salary (Task 3; draft PR #507, Android CI and device acceptance pending):_
+Plan has a separate local-only forecast card, using either a **user-confirmed
+next payday and expected amount** or the existing **estimated usual salary
+window**, clearly labelled. Future salary is never added to current cash.
+A projected low–high pre-payday remainder is offered only with fresh and
+complete spendable account evidence (or an explicit user-confirmed total),
+three fully reviewed completed salary cycles, trusted variable expenditure
+and fees, and confirmed bills and commitments. Active loan/Fuliza repayments
+require an explicit user-confirmed amount due before payday; uncertain
+amounts/dates, missing balances and thin history stop the numerical forecast.
+Manual amounts expire after 24 hours, after a salary-cycle change or after
+ledger changes. The approved Plan design, original Safe today calculation,
+salary receipts, categorization, statements, debt ledger, database schema,
+permissions and network behavior are not changed. The expected amount is
+informational only, not cash. Synthetic JVM policy tests, Android CI and
+Redmi acceptance must be reported separately; this is not yet verified on
+a phone.
+
+_Targeted salary accuracy audit (31 October 2026):_
+The Salary setup page defaults to day 24–28, which may wrongly send genuine
+29th–1st receipts into pay-cycle review for users with a later pay window;
+the owner may adjust this in Salary Source, and changing the default or
+classification policy needs separate consent and tests. A December salary
+paid around the 21st is likewise outside the usual window and correctly
+needs explicit user review under existing policy. Multiple enabled salary
+rules are accepted by `PayCycleStore` while the Salary screen displays only
+the newest rule; this requires a separate authoritative-source review.
+Existing Safe today is derived from tracked pay-cycle funds and average cycle
+length, not a directly observed multi-account available balance, so it must
+not be advertised as a verified wallet amount. Debt balances alone lack a
+next repayment date and instalment amount. These existing calculations are
+left unchanged while their compatibility is evaluated separately.
+
 _Recurring-pattern v2 domain proposal (31 October 2026; draft PR, device acceptance pending):_
 An opt-in, pure Kotlin `RecurringPatternPolicy.detectV2` evaluates local
 observations for weekly, fortnightly, fixed day of month (±2 days), month-end
