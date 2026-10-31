@@ -27,4 +27,25 @@ class StatementSavedAccountVisibilityTest {
         assertTrue(index.isBank("invented-equity"))
         assertFalse(index.isBank("unknown"))
     }
+
+    @Test fun limitedOnlyBankAppearsInOverviewCountAndAccountPicker() {
+        val overview = StatementSavedAccountVisibility.overview(
+            reportAccountIds = listOf("invented-wallet"),
+            limitedAccountIds = listOf("invented-equity")
+        )
+        assertEquals(listOf("invented-wallet", "invented-equity"), overview.accountIds)
+        assertEquals(2, overview.accountIds.size)
+        assertEquals(1, overview.reportCount)
+        assertEquals(setOf("invented-equity"), overview.limitedOnlyIds)
+    }
+
+    @Test fun bankWithBothVerifiedAndLimitedHistoryIsNeverCountedTwice() {
+        val overview = StatementSavedAccountVisibility.overview(
+            reportAccountIds = listOf("invented-wallet", "invented-bank"),
+            limitedAccountIds = listOf("invented-bank", "invented-bank")
+        )
+        assertEquals(listOf("invented-wallet", "invented-bank"), overview.accountIds)
+        assertEquals(2, overview.reportCount)
+        assertTrue(overview.limitedOnlyIds.isEmpty())
+    }
 }
