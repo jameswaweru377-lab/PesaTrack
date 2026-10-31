@@ -19,7 +19,7 @@ from .reconcile import reconcile
 
 PROJECT_TITLE = "PesaTrack Development Tracker"
 FIELD_NAME = "Tracker status"
-PROJECT_ID = re.compile(r"PVT_[A-Za-z0-9_]+\Z")
+PROJECT_ID = re.compile(r"PVT_[A-Za-z0-9_+/=\-]{1,120}\Z")
 GRAPHQL_URL = "https://api.github.com/graphql"
 
 PROJECT_QUERY = """
