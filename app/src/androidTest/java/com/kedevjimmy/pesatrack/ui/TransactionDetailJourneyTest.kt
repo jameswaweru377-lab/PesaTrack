@@ -79,7 +79,10 @@ class TransactionDetailJourneyTest {
             TransactionStore.get(context).getById(payment.id)?.category ==
                 CategoryStore.get(context).canonicalId(TransactionCategory.TRANSPORT.name)
         }
-        list.performScrollToNode(hasText("Add note or receipt"))
+        // The note/receipt action lives in the transaction header's overflow
+        // menu in the approved redesign, not in the details list.
+        list.performScrollToIndex(0)
+        compose.onNodeWithContentDescription("Transaction menu").performClick()
         compose.onNodeWithText("Add note or receipt").performClick()
         compose.onNodeWithText("Personal note").performTextInput("Weekly shopping")
         compose.onNodeWithText("Save").performClick()
