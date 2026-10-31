@@ -17,7 +17,7 @@
 | Needs attention | Pale peach rounded card, orange document icon, category-review count and right chevron | HomeReferenceDesign.kt |
 | Upcoming | White rounded parent, purple See all, side-by-side lavender bill and mint salary mini-cards, calendar icons, due subtitles and amounts | HomeReferenceDesign.kt |
 | Recent activity | White rounded parent, purple See all; up to four icon-coded transaction rows, times, amounts, separators and right chevrons | HomeReferenceDesign.kt |
-| Navigation | Floating-feel white rounded bar, Home purple gradient, Activity/Plan/Accounts/More gray icon+label; OS draws the bottom gesture indicator | AppScaffold.kt, HomeReferenceDesign.kt |
+| Navigation | Floating-feel white rounded **four-tab** bar: Home, Activity, Plan and More; selected tab uses purple gradient. Accounts remains available through More/Profile, not as a fifth bottom tab. Android draws the bottom gesture indicator | AppScaffold.kt, HomeReferenceDesign.kt |
 
 ## Financial integrity and responsive rules
 
@@ -36,7 +36,7 @@ are Android-native; they are not replaced by fake iOS artwork.
 ## Final acceptance / outstanding checks
 
 - [x] Source-code section-by-section visual hierarchy and labels audited
-- [x] Home-specific top and bottom bars avoid redesigning other screens
+- [x] Shared four-tab top/bottom chrome retained; this table reflects the current approved navigation rather than the older five-tab mockup
 - [x] Buttons route to real app destinations, hero eye works
 - [x] Data stays live; screenshot fixture amounts limited to UI tests
 - [ ] Screenshot captured from real Android build and compared pixel-by-pixel
