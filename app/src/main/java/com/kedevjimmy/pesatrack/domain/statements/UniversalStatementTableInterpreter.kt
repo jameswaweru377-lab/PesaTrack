@@ -114,6 +114,7 @@ object UniversalStatementTableInterpreter {
         "DEPOSIT" to StatementField.CREDIT,
         "MONEY IN" to StatementField.CREDIT,
         "AMOUNT" to StatementField.AMOUNT,
+        "SIGNED AMOUNT" to StatementField.AMOUNT,
         "TRANSACTION AMOUNT" to StatementField.AMOUNT,
         "DR CR" to StatementField.DIRECTION,
         "DEBIT CREDIT" to StatementField.DIRECTION,
