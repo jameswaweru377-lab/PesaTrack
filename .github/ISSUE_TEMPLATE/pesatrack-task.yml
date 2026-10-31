@@ -1,0 +1,58 @@
+name: PesaTrack task
+description: Track a scoped feature, audit finding or verified defect without private financial data
+title: "[PT] "
+labels: ["pesatrack-tracker"]
+body:
+  - type: markdown
+    attributes:
+      value: "Use synthetic examples only. Never paste private financial information, ChatGPT URLs, credentials or original statements."
+  - type: input
+    id: source
+    attributes:
+      label: Source / original audit ID
+      description: "For example VC-01, R4, a bug report or a user-approved design."
+      placeholder: "Audit 2026-10-31 / VC-01"
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options: ["P0 — release blocker", "P1 — important", "P2 — planned", "P3 — opportunistic", "Untriaged"]
+    validations:
+      required: true
+  - type: input
+    id: area
+    attributes:
+      label: Area
+      placeholder: "Statements, Activity, Backup, Release, Profile…"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance checks
+      description: "What code, CI and device/deployment evidence would prove this done?"
+    validations:
+      required: true
+  - type: input
+    id: chat_owner
+    attributes:
+      label: Chat owner
+      placeholder: "CHAT-STATEMENTS or Unclaimed"
+    validations:
+      required: true
+  - type: textarea
+    id: affected_paths
+    attributes:
+      label: Affected paths / likely collisions
+      description: "Approximate paths are fine. Unknown is better than guessing."
+    validations:
+      required: true
+  - type: textarea
+    id: device_status
+    attributes:
+      label: Device and deployment acceptance
+      value: "Not verified; no device/deployment evidence recorded."
+    validations:
+      required: true

@@ -77,6 +77,7 @@ Apply these rules when completing an approved feature or fix. Improve only the r
 - See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) for the update policy, current limitations and safe rollout checks. Changing workflows, signing or publishing releases requires separate task-specific approval.
 
 ## Concurrent development
+- Before editing, check the canonical task Issue and its `Chat owner: CHAT-<TOPIC>` claim using [the development tracker](docs/tracker/README.md). Put `Tracks #<issue>` and the same alias in the PR; treat overlapping claims and paths as coordination warnings, not permission to overwrite another chat.
 - Do not modify another agent's active branch, worktree, PR or in-progress task.
 - Check the target branch before writing.
 - Keep unrelated changes on separate branches and PRs.
