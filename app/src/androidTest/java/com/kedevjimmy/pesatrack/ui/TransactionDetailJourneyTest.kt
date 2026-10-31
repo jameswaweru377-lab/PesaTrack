@@ -68,10 +68,12 @@ class TransactionDetailJourneyTest {
         compose.onNodeWithText("KES 2,023.00").assertIsDisplayed()
         list.performScrollToNode(hasText("Balance unknown"))
         compose.onNodeWithText("Balance unknown").assertIsDisplayed()
-        list.performScrollToNode(hasText("Change"))
-        compose.onNodeWithText("Change").performClick()
-        compose.onNodeWithText("Add category").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Transport", useUnmergedTree = true).performScrollTo().performClick()
+        // Current design opens the category sheet from the review action.
+        list.performScrollToNode(hasText("No, choose a different category"))
+        compose.onNodeWithText("No, choose a different category").performClick()
+        compose.onNodeWithText("Choose a category").assertIsDisplayed()
+        compose.onNodeWithTag("category-selection-list").performScrollToNode(hasText("Transport"))
+        compose.onNodeWithText("Transport").performClick()
         compose.onNodeWithText("Save Category").performClick()
         compose.waitUntil(5000) {
             TransactionStore.get(context).getById(payment.id)?.category ==

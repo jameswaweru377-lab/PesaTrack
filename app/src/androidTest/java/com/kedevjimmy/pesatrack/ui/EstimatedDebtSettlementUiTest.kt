@@ -11,7 +11,6 @@ import com.kedevjimmy.pesatrack.domain.interpretation.*
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.ui.screens.AccountsScreen
 import com.kedevjimmy.pesatrack.ui.screens.DebtsScreen
-import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import org.junit.*
 import org.junit.Assert.*
@@ -41,13 +40,15 @@ class EstimatedDebtSettlementUiTest {
         compose.onNodeWithText("None").assertDoesNotExist()
     }
 
-    @Test fun homeRetainsZeroEstimateAsAnActiveDebtAwaitingConfirmation() {
+    @Test fun debtsOverviewRetainsZeroEstimateInTheActiveCount() {
         seedEstimatedZero()
-        compose.setContent { PesaTrackTheme { HomeScreen(PaddingValues()) } }
-        scrollToWhenPresent("1 active debt account")
+        // The approved compact Home no longer presents debt counts. The
+        // dedicated Debts page must still report estimated zero as active.
+        compose.setContent { PesaTrackTheme { DebtsScreen(PaddingValues(), {}) } }
+        waitFor("1 active debt account")
         compose.onNodeWithText("1 active debt account").assertExists()
-        compose.onNodeWithText("0 active debt accounts").assertDoesNotExist()
-        compose.onNodeWithText("None").assertDoesNotExist()
+        compose.onNodeWithText("Confirmation pending").assertExists()
+        compose.onNodeWithText("No outstanding debt is currently recorded.").assertDoesNotExist()
     }
 
     @Test fun debtPageKeepsZeroEstimateOutOfSettledDebts() {
@@ -60,12 +61,12 @@ class EstimatedDebtSettlementUiTest {
         compose.onNodeWithText("You're clear here").assertDoesNotExist()
     }
 
-    @Test fun untouchedSeedDoesNotInventActiveDebtOnHome() {
+    @Test fun untouchedSeedDoesNotInventActiveDebtOnDebtsPage() {
         // Keep the schema's untouched Fuliza seed to check production eligibility.
         PesaTrackDatabase.get(context).writableDatabase
-        compose.setContent { PesaTrackTheme { HomeScreen(PaddingValues()) } }
-        scrollToWhenPresent("0 active debt accounts")
-        compose.onNodeWithText("0 active debt accounts").assertExists()
+        compose.setContent { PesaTrackTheme { DebtsScreen(PaddingValues(), {}) } }
+        scrollToWhenPresent("No outstanding debt is currently recorded.")
+        compose.onNodeWithText("No outstanding debt is currently recorded.").assertExists()
         compose.onNodeWithText("1 active debt account").assertDoesNotExist()
     }
 
