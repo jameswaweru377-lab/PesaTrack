@@ -5,6 +5,14 @@ enum class RecurringPatternConfidence {
     MEDIUM
 }
 
+enum class RecurringPatternCadence {
+    WEEKLY,
+    FORTNIGHTLY,
+    MONTHLY_FIXED_DAY,
+    MONTHLY_LAST_DAY,
+    TERMLY
+}
+
 data class RecurringPatternObservation(
     val transactionId: Long,
     val identityKey: String,
@@ -31,5 +39,7 @@ data class RecurringPatternCandidate(
     val representativeTransactionId: Long,
     val counterparty: String?,
     val counterpartyPhone: String?,
-    val accountId: String?
+    val accountId: String?,
+    val cadence: RecurringPatternCadence = RecurringPatternCadence.MONTHLY_FIXED_DAY,
+    val reason: String = ""
 )

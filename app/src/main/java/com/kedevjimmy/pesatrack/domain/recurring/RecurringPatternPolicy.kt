@@ -12,6 +12,13 @@ object RecurringPatternPolicy {
     const val MAX_MONTHLY_INTERVAL_DAYS = 38
     const val MAX_STALE_DAYS = 60
 
+    /** Opt-in domain v2; the current UI and store still call [detect]. */
+    fun detectV2(
+        observations: List<RecurringPatternObservation>,
+        nowEpochMs: Long
+    ): List<RecurringPatternCandidate> =
+        RecurringPatternV2Policy.detect(observations, nowEpochMs)
+
     fun detect(
         observations:
             List<RecurringPatternObservation>,
