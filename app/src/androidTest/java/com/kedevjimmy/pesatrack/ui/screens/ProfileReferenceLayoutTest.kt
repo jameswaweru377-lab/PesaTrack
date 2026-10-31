@@ -73,12 +73,13 @@ class ProfileReferenceLayoutTest {
         showProfile()
         compose.onNodeWithText("App lock & security").performScrollTo().performClick()
         compose.onNodeWithText("App lock & security").assertIsDisplayed()
-        compose.onNodeWithText("App lock PIN").assertIsDisplayed()
-        compose.onNodeWithText("Unlock with biometrics").assertIsDisplayed()
+        compose.onNodeWithText("Your money stays private").assertIsDisplayed()
+        compose.onNodeWithText("App PIN").assertIsDisplayed()
+        compose.onNodeWithText("Use fingerprint").assertIsDisplayed()
         compose.onNodeWithContentDescription("Back").performClick()
         compose.onNodeWithText("Help & support").performScrollTo().performClick()
-        compose.onNodeWithText("Search help topics").assertIsDisplayed()
-        compose.onNodeWithText("Guided troubleshooting").performClick()
+        compose.onNodeWithText("Search for help").assertIsDisplayed()
+        compose.onNodeWithText("Advanced troubleshooting").performClick()
         compose.onNodeWithText("Run safe checks").assertIsDisplayed()
     }
 
@@ -87,6 +88,22 @@ class ProfileReferenceLayoutTest {
         showProfile()
         compose.onNodeWithText("Better money habits").performClick()
         compose.onNodeWithText("Not enough information yet").assertIsDisplayed()
-        compose.onNodeWithText("What we can see").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("WHAT WE CAN SEE").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun aboutAndNotificationsFollowApprovedBoardHierarchy() {
+        showProfile()
+        compose.onNodeWithText("About PesaTrack").performScrollTo().performClick()
+        compose.onNodeWithText("Your money, better days.").assertExists()
+        compose.onNodeWithText("Made for everyday money").assertExists()
+        compose.onNodeWithText("Licenses").performScrollTo().assertExists()
+        compose.onNodeWithContentDescription("Back").performClick()
+
+        compose.onNodeWithText("Notifications").performScrollTo().performClick()
+        compose.onNodeWithText("Reminders that matter").assertExists()
+        compose.onNodeWithText("Needs review").assertExists()
+        compose.onNodeWithText("They owe me").performScrollTo().assertExists()
+        compose.onNodeWithText("Reminder timing").performScrollTo().assertExists()
     }
 }

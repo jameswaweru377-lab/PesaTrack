@@ -11,6 +11,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Accessibility
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -40,6 +47,7 @@ import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
+import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
 
 @Composable
 internal fun ProfileAppearancePage(padding: PaddingValues, back: () -> Unit) {
@@ -55,89 +63,72 @@ internal fun ProfileAppearancePage(padding: PaddingValues, back: () -> Unit) {
             error = "Your phone doesn't allow that setting to open here."
         }
     }
-    EverydayPage("Appearance", padding, back) {
+    ProfilePremiumPage("Appearance", padding, back) {
         item {
-            PesaCard {
-                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconBubble(Icons.Rounded.Palette, size = 58.dp,
-                        background = pesaToneContainer("violet"),
-                        tint = pesaToneContent("violet"))
-                    Column(Modifier.padding(start = 16.dp)) {
-                        Text("Make PesaTrack feel like yours",
-                            style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text("A clear, calm look for your money.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
+            ProfileBanner("Make PesaTrack feel like yours",
+                "Choose how the app looks and feels on your device.", Icons.Rounded.Palette,
+                art = ProfileHeroArt.PALETTE)
         }
-        item { SectionHeader("App preview") }
         item {
             PesaCard {
                 Column(Modifier.fillMaxWidth().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("PesaTrack", style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Surface(shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.primaryContainer) {
-                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                            Text("Available after commitments",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer)
-                            Text("Your money, your plans.",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        }
-                    }
-                    val tabs = listOf(
-                        Triple("Home", Icons.Rounded.Home, true),
-                        Triple("Activity", Icons.Rounded.List, false),
-                        Triple("Plan", Icons.Rounded.PieChart, false),
-                        Triple("More", Icons.Rounded.MoreHoriz, false)
-                    )
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        tabs.forEach { (name, icon, selected) ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp),
-                                    tint = if (selected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(name, style = MaterialTheme.typography.labelSmall,
-                                    color = if (selected) MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("App preview", color = C.muted, style = MaterialTheme.typography.bodyMedium)
+                    Surface(color = C.lilac, shape = RoundedCornerShape(16.dp)) {
+                      Column(Modifier.fillMaxWidth().padding(24.dp),
+                          verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Surface(color = Color.White, shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
+                          Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                com.kedevjimmy.pesatrack.ui.components.PesaLogoMark(size = 28.dp)
+                                Text("PesaTrack", Modifier.weight(1f).padding(start = 8.dp),
+                                    color = C.ink, fontWeight = FontWeight.Bold)
+                                Icon(Icons.Rounded.Notifications, null, tint = C.ink)
+                            }
+                            Box(Modifier.fillMaxWidth().height(86.dp).clip(RoundedCornerShape(16.dp))
+                                .background(Brush.horizontalGradient(listOf(C.violetBright, C.violetDeep)))) {
+                                Row(Modifier.fillMaxWidth().padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White,
+                                        modifier = Modifier.size(32.dp))
+                                    Column(Modifier.padding(start = 12.dp)) {
+                                        Text("Your money", color = Color.White, fontWeight = FontWeight.Bold)
+                                        Text("A clearer picture", color = Color.White.copy(alpha = .85f))
+                                    }
+                                }
+                            }
+                            val tabs = listOf(
+                                Triple("Home", Icons.Rounded.Home, ProfileTone.VIOLET),
+                                Triple("Activity", Icons.Rounded.List, ProfileTone.GREEN),
+                                Triple("Plan", Icons.Rounded.PieChart, ProfileTone.PINK),
+                                Triple("More", Icons.Rounded.MoreHoriz, ProfileTone.BLUE)
+                            )
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                tabs.forEach { (name, icon, tone) ->
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        ProfileTile(icon, tone, 36.dp)
+                                        Text(name, color = C.muted, style = MaterialTheme.typography.labelSmall)
+                                    }
+                                }
                             }
                         }
+                      }
                     }
                 }
             }
         }
-        item { SectionHeader("Theme") }
+        item { ProfileSection("Theme") }
         item {
-            PesaCard {
-                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconBubble(Icons.Rounded.WbSunny, size = 48.dp,
-                        background = pesaToneContainer("violet"),
-                        tint = pesaToneContent("violet"))
-                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                        Text("Light", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Bright and easy to read",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Icon(Icons.Rounded.CheckCircle, contentDescription = "Light theme selected",
-                        tint = MaterialTheme.colorScheme.primary)
-                }
-            }
+            ProfilePremiumGroup(listOf(ProfilePremiumItem(Icons.Rounded.WbSunny, "Light",
+                "Bright and easy to read", ProfileTone.VIOLET, selected = true)))
         }
-        item { SectionHeader("Reading") }
-        item { EverydayRow(Icons.Rounded.TextFields, "Text size",
-            "Follow my phone · Change in display settings") {
-            openPhoneSettings(Settings.ACTION_DISPLAY_SETTINGS)
-        } }
-        item { EverydayRow(Icons.Rounded.Accessibility, "Reduce animations",
-            "Manage on your phone, if available") {
-            openPhoneSettings(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-        } }
+        item { ProfileSection("Reading") }
+        item { ProfilePremiumGroup(listOf(
+            ProfilePremiumItem(Icons.Rounded.TextFields, "Text size", "Follow my phone",
+                ProfileTone.BLUE, onClick = { openPhoneSettings(Settings.ACTION_DISPLAY_SETTINGS) }),
+            ProfilePremiumItem(Icons.Rounded.Waves, "Reduce movement", "Make screens feel calmer",
+                ProfileTone.GREEN, onClick = { openPhoneSettings(Settings.ACTION_ACCESSIBILITY_SETTINGS) })
+        )) }
         if (error != null) item {
             Text(error.orEmpty(), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error)
