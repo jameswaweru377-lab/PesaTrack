@@ -64,7 +64,7 @@ The preview targets **Android 7.0+ on supported ARM64 devices** and remains unde
 PesaTrack is built primarily with **Kotlin, Jetpack Compose, and SQLite**. Supported PDF processing runs locally, and an optional enrichment Worker provides non-authoritative merchant hints. Personal financial decisions are made by deterministic local logic and explicit user review—not by an online chatbot.
 
 - [Product charter](docs/PRODUCT_CHARTER.md) — what PesaTrack is building and what it deliberately avoids.
-- [Current engineering state](CURRENT_STATE.md) — verified progress, limitations, and pending acceptance.
+- [Current engineering state](CURRENT_STATE.md) — engineering progress, limitations, and pending acceptance.
 - [Development tracker](docs/tracker/README.md) — tasks, ownership, and review rules.
 - [Release process](docs/RELEASE_PROCESS.md) — signed APKs and safe update expectations.
 
