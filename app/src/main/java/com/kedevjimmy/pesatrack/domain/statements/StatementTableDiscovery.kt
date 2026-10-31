@@ -51,6 +51,8 @@ object StatementTableDiscovery {
         setOf(StatementField.DATE,StatementField.DESCRIPTION,StatementField.DEBIT,StatementField.CREDIT,StatementField.BALANCE),
         setOf(StatementField.DATE,StatementField.DESCRIPTION,StatementField.AMOUNT,StatementField.DIRECTION,StatementField.BALANCE)
     )
+    private val explicitSignedSchema=setOf(
+        StatementField.DATE,StatementField.DESCRIPTION,StatementField.AMOUNT,StatementField.BALANCE)
     private val optional=setOf(StatementField.REFERENCE,StatementField.STATUS,StatementField.VALUE_DATE,
         StatementField.FEE,StatementField.INFORMATION)
 
@@ -81,7 +83,15 @@ object StatementTableDiscovery {
         fun reject(reason:StatementGeometryProblem)=StatementTableDiscoveryResult.Blocked(pageNumber,reason)
         if(pageNumber !in 1..160)return reject(StatementGeometryProblem.INVALID_BOUNDS)
         val lines=StatementPdfLines.group(words) ?:return reject(StatementGeometryProblem.INVALID_BOUNDS)
-        val bands=schemas.flatMap {headers(lines,it,profile,optional)}.distinctBy {it.start to it.end}.sortedBy {it.start}
+        val signed=headers(lines,explicitSignedSchema,profile,optional).filter { band ->
+            band.columns.columns.any { column ->
+                column.field==StatementField.AMOUNT &&
+                    column.heading.joinToString(" ") { it.text.trim() }
+                        .replace(Regex("\\s+")," ").equals("Signed Amount",ignoreCase=true)
+            }
+        }
+        val bands=(schemas.flatMap {headers(lines,it,profile,optional)}+signed)
+            .distinctBy {it.start to it.end}.sortedBy {it.start}
         if(bands.isEmpty())return reject(StatementGeometryProblem.INVALID_HEADER)
         if(bands.zipWithNext().any {(a,b)->a.end>=b.start})return reject(StatementGeometryProblem.INVALID_HEADER)
         val allHeaderWords=bands.flatMap {it.columns.columns.flatMap {column->column.heading}}.toSet()
