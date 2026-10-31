@@ -55,6 +55,15 @@ class StatementFallbackAdmissionPolicyTest {
             reason(verify(document = proof.copy(printedPageTotals = emptyMap()))))
     }
 
+    @Test fun limitedAssuranceNeverAutoAdmitsThroughGenericFallback() {
+        val limited = proof.copy(
+            assurance = StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY,
+            openingBalanceMinor = null, printedPageTotals = emptyMap()
+        )
+        assertEquals(StatementAdmissionResult.Reason.INCOMPLETE_DOCUMENT,
+            reason(verify(document = limited)))
+    }
+
     @Test fun completeIndependentProofDelegatesToBankAdmission() {
         val accepted = verify() as StatementAdmissionResult.Accepted
         assertEquals(5_000L, accepted.moneyInMinor)

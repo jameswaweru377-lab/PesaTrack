@@ -2,6 +2,21 @@
 
 _Last refreshed: 31 October 2026_
 
+_Native unfamiliar-statement preview Slice B1 (31 October 2026; draft PR #495, CI/device acceptance pending):_
+The isolated Android 35+ PDF text service is wired to a **read-only** unfamiliar
+bank PDF preview. A selected bank account can inspect all pages with complete
+native coordinate evidence; missing pages/positions, scanned documents and
+unreconciled movements are refused without saving. A known Equity layout error
+can enter this preview only for an explicit, typed layout failure. Issuer,
+account, password and financial-proof refusals cannot be downgraded. The
+provisional preview is bound to the selected account/file and has **no Save
+button**. A separate pure admission policy requires independent issuer,
+full-account, currency, complete-region and printed-total proof, then reuses
+the existing bank admission gate. No new issuer has that proof yet, so this
+draft does **not** automatically archive unfamiliar banks, classify money,
+alter Activity, add OCR, expand device support or change backup schemas.
+No CI, device or first-bank pilot success is claimed by this document.
+
 _Universal statement discovery Slice A (31 October 2026; isolated PR, CI/device acceptance pending):_
 A new pure Kotlin, read-only probe can provisionally reconstruct unfamiliar
 selectable-text tables with either explicit Signed Amount and Balance columns
@@ -11,9 +26,9 @@ balance chain before returning *untrusted candidate evidence*. Unsupported
 layouts, unreadable pages, unverified movements and incomplete files never
 produce an importable record. A separate typed fallback rule permits a
 read-only probe only after an explicit unsupported-layout result, not after
-issuer, account, password or financial-verification refusals. This work is **not
-connected to the live PDF picker** and proves no issuer, account ownership or
-complete document totals. It does not persist Statements, alter Activity,
+issuer, account, password or financial-verification refusals. Slice A alone did
+not connect to the live picker or prove issuer, account ownership or complete
+document totals. It does not persist Statements, alter Activity,
 import arbitrary banks, learn formats, perform OCR on scans or send financial
 data to the cloud. Invented synthetic unit tests cover multi-page layouts and
 fail-closed cases; end-to-end and physical Redmi acceptance remain future work.
