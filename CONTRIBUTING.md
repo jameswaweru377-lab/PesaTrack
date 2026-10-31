@@ -1,65 +1,33 @@
 # Contributing to PesaTrack
 
-PesaTrack is a local-first Android personal-finance application. Changes must preserve accounting correctness, privacy and deterministic financial interpretation.
+Thanks for taking an interest in PesaTrack. Useful bug reports, documentation feedback, and careful technical discussion are welcome.
 
-## Before changing code
+**Important:** The source is publicly visible but **not open-source licensed**. The [proprietary source-code notice](LICENSE) does not grant permission to reuse code in another project. Please discuss a proposed code contribution with the maintainer **before** investing in a pull request; any necessary permission or contribution-rights agreement must be settled separately in writing. Do not assume that opening or accepting a PR transfers copyright.
 
-Read:
-- `AGENT_WORKING_METHOD.md`
-- `AGENTS.md`
-- `README.md`
-- `CURRENT_STATE.md`
-- `docs/PRODUCT_CHARTER.md`
+## Start with an issue
 
-Historical project notes are useful context, but current code and `CURRENT_STATE.md` take precedence when they conflict.
+- Check existing [issues](https://github.com/jameswaweru377-lab/PesaTrack/issues) and active pull requests for duplicates or overlapping work.
+- Describe the problem, the expected result, the app version or commit, and whether it was verified on a real device.
+- Use **invented financial examples**. Never attach genuine SMS messages, statements, payslips, account identifiers, screenshots with private records, or credentials.
+- For a security weakness, **do not open a detailed public issue**. Follow [Security](SECURITY.md).
 
-## Branch and pull-request workflow
+## If a code change is agreed
 
-1. Branch from current `main`.
-2. Keep one coherent risk area per pull request and batch related edits before review.
-3. PR updates and merges run build, lint, unit tests and debug APK assembly. These checks must pass before merge.
-4. Emulator instrumentation runs only when the user explicitly requests it for the current task. Default to build, unit tests, lint and APK assembly, then publication on a successful push to main. Do not enable automatic instrumentation for a PR, add it as a publication dependency, or run it to satisfy an older plan without the user's current request. Marking a PR ready or pushing more edits does not start emulator tests.
-   The user reinstated the instrumentation pause during B2 PR #341. The temporary branch exception has been removed. Do not dispatch emulator review until a new explicit request resumes it; record incomplete emulator acceptance honestly.
-5. For Android device review, use Actions → Android CI → Run workflow on the feature branch and enable `run_instrumentation`. Inspect the successful run's source revision; skipped instrumentation means no device tests ran.
-6. Device compatibility and Android 7 security workflows are manual review tools. Their existing emulator suites are retained; weekly automatic compatibility runs are disabled.
-7. Prefer small migrations and decompositions over broad rewrites.
-8. Update current-state documentation when behavior or release readiness changes.
+1. Read the [product charter](docs/PRODUCT_CHARTER.md), [current state](CURRENT_STATE.md), [agent instructions](AGENTS.md), and [working method](AGENT_WORKING_METHOD.md).
+2. Start from current `main` and make a small, focused branch. Check active PRs and task ownership before modifying shared files.
+3. Preserve financial meaning: income, expenses, self-transfers, fees, refunds, loans, balances, and uncertain observations must stay distinct. Never silently guess a value or override a user's confirmed correction.
+4. Use synthetic test fixtures and keep secrets, signing files, private records, and unnecessary network calls out of commits.
+5. Open a PR using the [template](.github/PULL_REQUEST_TEMPLATE.md). Link the relevant issue, describe the exact change, and list the tests you actually ran and what remains unverified.
+6. Wait for maintainer review. Passing CI does not replace manual acceptance, and an unmerged PR is not an approved release.
 
-## Required checks
+## Verification expectations
 
-For every Android change, run or rely on CI for:
-- JVM unit tests;
-- Android lint;
-- debug APK assembly.
+- Android changes normally require JVM tests, Android lint, and debug APK assembly through the existing CI workflow.
+- Android instrumentation is **manual and explicitly requested**, not a default PR or release gate. Never claim emulator or phone tests passed unless they were actually run.
+- Financial, migration, backup, and statement changes require appropriately focused negative and regression cases.
+- Worker changes must pass their relevant syntax and contract checks.
+- Documentation-only changes should verify links and accuracy; they are not evidence that an Android build or device journey passed.
 
-Run Android instrumentation when explicitly requested for device review. Signed releases also default to build-only validation; enable run_instrumentation only after the user explicitly requests emulator review.
+Keep the current **Home / Activity / Plan / More** navigation and approved designs unless a change is separately approved. Do not alter release signing, APK publishing, privacy permissions, or user-data semantics incidentally.
 
-The debug APK is available as the `pesatrack-debug-apk` artifact after build checks succeed. Merges to `main` publish the rolling preview APK after successful build checks without requiring instrumentation. A manual Android CI run defaults to build-only; enabling `run_instrumentation` adds emulator tests. Manual runs retain downloadable artifacts but never replace the rolling APK, so a slower review cannot overwrite a newer preview. The rolling APK is a development preview, not a signed production release.
-
-Build-only and manual emulator-review runs use separate concurrency groups so editing does not cancel an active manual review.
-
-Worker changes must also pass the Worker syntax/contract test and dry-run deployment validation.
-
-## Financial-intelligence rules
-
-- Unknown evidence stays uncertain; do not guess.
-- User-authoritative corrections must not be silently overwritten.
-- Keep provider-specific message wording in bounded parsing evidence, not business-logic `if/else` chains.
-- Preserve replay/idempotency and transaction rollback behavior.
-- Use synthetic/redacted fixtures only.
-
-## Privacy rules
-
-Raw financial SMS, amounts, balances, phone/account numbers and transaction codes must not be sent to optional enrichment services.
-
-Any new network use must be:
-- necessary and documented;
-- off by default when optional;
-- disclosed before sensitive-data access;
-- covered by tests where practical.
-
-Never commit secrets, signing material or production credentials.
-
-## UI changes
-
-Preserve the four visible bottom tabs **Home / Activity / Plan / More** unless a separately approved product change requires otherwise. Accounts is an internal destination accessible from More/Profile, not a fifth bottom tab. New strings should increasingly move to Android string resources as localization/accessibility work progresses.
+Please also read our [Code of Conduct](CODE_OF_CONDUCT.md).
