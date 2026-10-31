@@ -120,8 +120,10 @@ An admitted historical Equity PDF already stores its printed-grand-total-checked
 Money In/Out and immutable cash rows. The limited source view now offers
 **per-document** Money In, Money Out, net movement and Nairobi-calendar-month
 breakdowns, after rechecking row count, source identities, row order and sums
-against the saved source totals. A corrupt or incomplete saved row set withholds
-the summary. Different imported documents are never combined into account-wide
+against the saved source totals in both document lists and detail views.
+A corrupt or incomplete saved row set withholds cash amounts.
+Both limited-only and mixed FULL/limited account views show these individual
+source records. Different imported documents are never combined into account-wide
 figures, because their date coverage could overlap. These are gross cash
 movements, not categorized income or spending. The saved format still lacks an
 independently printed opening balance and per-page totals and is **not**

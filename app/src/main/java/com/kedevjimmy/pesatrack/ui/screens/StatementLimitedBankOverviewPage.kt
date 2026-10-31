@@ -1,13 +1,11 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,20 +50,7 @@ internal fun StatementLimitedBankOverviewPage(
             }
         }
         items(sources, key = { it.id }) { source ->
-            StatementInsightCard {
-                Row(Modifier.fillMaxWidth().clickable { selected = source },
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("${source.rows} saved source rows", color = p.ink,
-                            fontWeight = FontWeight.SemiBold)
-                        Text("${statementDate(source.firstAt)} – ${statementDate(source.lastAt)}",
-                            color = p.muted, style = MaterialTheme.typography.bodySmall)
-                        Text("Money in ${statementMoney(source.moneyInMinor)} · Money out ${statementMoney(source.moneyOutMinor)}",
-                            color = p.ink, style = MaterialTheme.typography.bodySmall)
-                    }
-                    Icon(Icons.Rounded.ChevronRight, "View source rows", tint = p.muted)
-                }
-            }
+            StatementGrandTotalReconciledSourceCard(source) { selected = source }
         }
         item { Button(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
             Text("Import another statement")
