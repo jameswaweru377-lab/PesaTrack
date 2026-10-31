@@ -232,24 +232,13 @@ internal fun StatementBankOverviewPage(
             }
             if(limitedSources.isNotEmpty()) {
                 item {
-                    Text("Limited assurance documents",fontWeight=FontWeight.Bold,color=p.ink,
+                    Text("Grand-total reconciled documents · source only",fontWeight=FontWeight.Bold,color=p.ink,
                         style=MaterialTheme.typography.titleLarge)
-                    Text("Reconciled source rows only. These documents are excluded from verified cash-flow charts and Activity.",
+                    Text("Printed grand totals and adjacent balances matched. No independently printed opening balance or page totals; these PDFs remain outside fully verified cash-flow charts and Activity.",
                         color=p.muted,style=MaterialTheme.typography.bodySmall)
                 }
                 items(limitedSources,key={"limited:${it.id}"}) { source ->
-                    StatementInsightCard {
-                        Row(Modifier.fillMaxWidth().clickable { limitedSelected = source },
-                            verticalAlignment=Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text("Limited assurance · ${source.rows} rows",
-                                    fontWeight=FontWeight.SemiBold,color=p.ink)
-                                Text("${statementDate(source.firstAt)} – ${statementDate(source.lastAt)}",
-                                    color=p.muted,style=MaterialTheme.typography.bodySmall)
-                            }
-                            Icon(Icons.Rounded.ChevronRight,"View source rows",tint=p.muted)
-                        }
-                    }
+                    StatementGrandTotalReconciledSourceCard(source) { limitedSelected = source }
                 }
             }
             item { Text("Categories and transfers stay unclassified until verified. No bank statement changes your Activity balance.",

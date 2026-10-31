@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
+import com.kedevjimmy.pesatrack.domain.statements.StatementGrandTotalReconciledPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementSourceCoveragePolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementUnifiedOverviewPolicy
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
@@ -120,8 +121,64 @@ class StatementUnifiedOverviewUiTest {
                 onBack = {}, onImport = {}
             )
         } }
-        compose.onNodeWithText("Limited assurance only").assertExists()
-        compose.onNodeWithText("2 saved source rows").performClick()
-        compose.onNodeWithText("Not independently fully verified").assertExists()
+        compose.onNodeWithText("Grand-total reconciled · source only").assertExists()
+        compose.onNodeWithText("Grand-total reconciled · 2 rows").performClick()
+        compose.onNodeWithText("Not a fully verified bank report").assertExists()
+    }
+
+    @Test fun reconciledSourceCardDoesNotShowUnvalidatedStoredTotals() {
+        val source = StatementBankArchiveStore.Source(
+            id = "synthetic-source", accountId = "invented-equity",
+            providerKey = "KENYAN_BANK_EQUITY", currency = "KES", format = "PDF",
+            importedAt = 1_780_000_000_000L, firstAt = 1_780_000_000_000L,
+            lastAt = 1_780_000_060_000L, rows = 2,
+            moneyInMinor = 1_000L, moneyOutMinor = 250L
+        )
+        val rows = listOf(
+            StatementGrandTotalReconciledPolicy.Row(source.id, 0, source.firstAt, 1_000L),
+            StatementGrandTotalReconciledPolicy.Row(source.id, 1, source.lastAt, -250L)
+        )
+        val verified = StatementGrandTotalReconciledPolicy.project(source.id, 2, 1_000L, 250L, rows)!!
+        compose.setContent { PesaTrackTheme {
+            StatementGrandTotalReconciledSourceCardContent(source, verified, checked = true, onSelect = {})
+        } }
+        compose.onNodeWithText("Money in KES 10 · Money out KES 2.5").assertExists()
+    }
+
+    @Test fun corruptedSavedSourceCardWithholdsUnreconciledAmounts() {
+        val source = StatementBankArchiveStore.Source(
+            id = "synthetic-corrupt-source", accountId = "invented-equity",
+            providerKey = "KENYAN_BANK_EQUITY", currency = "KES", format = "PDF",
+            importedAt = 1_780_000_000_000L, firstAt = 1_780_000_000_000L,
+            lastAt = 1_780_000_060_000L, rows = 2,
+            moneyInMinor = 1_000L, moneyOutMinor = 250L
+        )
+        val missingSecondRow = listOf(StatementGrandTotalReconciledPolicy.Row(
+            source.id, 0, source.firstAt, 1_000L
+        ))
+        val rejected = StatementGrandTotalReconciledPolicy.project(source.id, source.rows, source.moneyInMinor,
+            source.moneyOutMinor, missingSecondRow)
+        compose.setContent { PesaTrackTheme {
+            StatementGrandTotalReconciledSourceCardContent(source, rejected, checked = true,
+                onSelect = {})
+        } }
+        compose.onNodeWithText("Cash totals unavailable — saved rows need review").assertExists()
+        compose.onNodeWithText("Money in KES 10 · Money out KES 2.5").assertDoesNotExist()
+    }
+
+    @Test fun reconciledSourceSummaryShowsGrossTotalsAndMonthlyBreakdown() {
+        val report = StatementGrandTotalReconciledPolicy.Report(
+            rows = 2, moneyInMinor = 1_000L, moneyOutMinor = 250L, netMinor = 750L,
+            months = listOf(StatementGrandTotalReconciledPolicy.Month(
+                "2026-09", 2, 1_000L, 250L
+            ))
+        )
+        compose.setContent { PesaTrackTheme {
+            StatementGrandTotalReconciledSummary(report)
+        } }
+        compose.onNodeWithText("Money in · KES 10").assertExists()
+        compose.onNodeWithText("Money out · KES 2.5").assertExists()
+        compose.onNodeWithText("Net movement · KES 7.5").assertExists()
+        compose.onNodeWithText("2026-09 · 2 rows").assertExists()
     }
 }

@@ -148,6 +148,23 @@ and CI, which use invented synthetic fixtures. Python contract tests pass
 locally; Kotlin CI, device migration, backup restoration and Android acceptance
 are not yet claimed at this point.
 
+_Equity grand-total reconciled source reports (31 October 2026; Android CI and device checks pending):_
+An admitted historical Equity PDF already stores its printed-grand-total-checked
+Money In/Out and immutable cash rows. The limited source view now offers
+**per-document** Money In, Money Out, net movement and Nairobi-calendar-month
+breakdowns, after rechecking row count, source identities, row order and sums
+against the saved source totals in both document lists and detail views.
+A corrupt or incomplete saved row set withholds cash amounts.
+Both limited-only and mixed FULL/limited account views show these individual
+source records. Different imported documents are never combined into account-wide
+figures, because their date coverage could overlap. These are gross cash
+movements, not categorized income or spending. The saved format still lacks an
+independently printed opening balance and per-page totals and is **not**
+promoted to fully verified bank evidence, canonical Activity, verified reports
+or automatic matching. The separate archive, local safeguards, database schema
+and backup format are unchanged. Kotlin Android CI, emulator and physical Redmi
+acceptance are not yet claimed by this note.
+
 _Profile refinement (30 October 2026; branch review, CI and device checks pending):_
 The approved Profile hierarchy retains the purple hero and local-only identity while
 removing duplicate financial mini-stats, Financial overview and More settings.

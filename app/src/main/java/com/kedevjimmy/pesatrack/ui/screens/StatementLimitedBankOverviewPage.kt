@@ -1,13 +1,11 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,7 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
 
-/** Saved, lower-assurance bank evidence stays browseable without verified reports. */
+/** Saved grand-total reconciled evidence stays source-specific, outside verified reports. */
 @Composable
 internal fun StatementLimitedBankOverviewPage(
     accountLabel: String,
@@ -46,24 +44,13 @@ internal fun StatementLimitedBankOverviewPage(
         }
         item {
             StatementInsightCard {
-                Text("Limited assurance only", fontWeight = FontWeight.SemiBold, color = p.ink)
-                Text("These statements were saved locally, but have no independently verified opening balance or page totals. They are excluded from verified reports and Activity.",
+                Text("Grand-total reconciled · source only", fontWeight = FontWeight.SemiBold, color = p.ink)
+                Text("The printed grand totals and adjacent balances matched at import. No independently printed opening balance or page totals were available. Each PDF is shown separately to avoid overlapping totals; these rows remain outside fully verified reports and Activity.",
                     color = p.muted, style = MaterialTheme.typography.bodySmall)
             }
         }
         items(sources, key = { it.id }) { source ->
-            StatementInsightCard {
-                Row(Modifier.fillMaxWidth().clickable { selected = source },
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("${source.rows} saved source rows", color = p.ink,
-                            fontWeight = FontWeight.SemiBold)
-                        Text("${statementDate(source.firstAt)} – ${statementDate(source.lastAt)}",
-                            color = p.muted, style = MaterialTheme.typography.bodySmall)
-                    }
-                    Icon(Icons.Rounded.ChevronRight, "View source rows", tint = p.muted)
-                }
-            }
+            StatementGrandTotalReconciledSourceCard(source) { selected = source }
         }
         item { Button(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
             Text("Import another statement")
