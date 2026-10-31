@@ -14,18 +14,24 @@ fi
 jq -er --argjson titles "$show_titles" '
   def safe_title:
     (.title // "" | tostring) as $raw |
-    if ($raw | test("https?://|[0-9]{9,}|[A-Za-z0-9]{24,}|/(data|home|workspace)/|<(script|style|iframe|svg|object)[ >]|javascript:|on[a-z]+="; "i"))
+    if ($raw | test("<(script|style|iframe|svg|object)[ >]|javascript:|on[a-z]+="; "i"))
     then "[title withheld: unsafe characters]"
     else
-      ($raw
-        | gsub("<[^>]{1,140}>"; " ")
-        | gsub("&[A-Za-z0-9#]{1,16};"; " ")
-        | gsub("[^A-Za-z0-9 ,.:;()/_+!?=\u0027-]"; " ")
-        | gsub(" +"; " ")
-        | gsub("^ +| +$"; "")) as $clean |
-      if ($clean | test("^[A-Za-z0-9 ,.:;()/_+!?=\u0027-]{1,180}$"))
-      then $clean
-      else "[title withheld: unsafe characters]"
+      ($raw | gsub("<[^>]{1,1000}>"; " ") |
+        gsub("&[A-Za-z0-9#]{1,16};"; " ")) as $display |
+      if ($display | test("https?://|[0-9]{9,}|/(data|home|workspace)/"; "i"))
+      then "[title withheld: unsafe characters]"
+      else
+        ($display
+          | gsub("[A-Za-z0-9]{24,}"; " identifier withheld ")
+          | gsub("[^A-Za-z0-9 ,.:;()/_+!?=\u0027-]"; " ")
+          | gsub(" +"; " ")
+          | gsub("^ +| +$"; "")
+          | .[0:180]) as $clean |
+        if ($clean | test("^[A-Za-z0-9 ,.:;()/_+!?=\u0027-]{1,180}$"))
+        then $clean
+        else "[title withheld: unsafe characters]"
+        end
       end
     end;
 
