@@ -697,6 +697,9 @@ fun PesaTrackApp(
                     onDataHealthClick = { navController.navigate("data-health") },
                     onGoalsClick = { navController.navigate("saving-goals") },
                     onHistoricalImportClick = { navController.navigate("historical-import") },
+                    homeCache = homeScreenCache,
+                    onPlanClick = { navigateToTab(MainTab.PLAN) },
+                    onActivityClick = { navigateToTab(MainTab.ACTIVITY) },
                     onPageChanged = { profilePage = it }
                 )
             }

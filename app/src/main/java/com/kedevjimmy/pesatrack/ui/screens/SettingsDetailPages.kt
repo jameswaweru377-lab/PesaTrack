@@ -30,6 +30,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.core.app.NotificationManagerCompat
+import com.kedevjimmy.pesatrack.ui.components.IconBubble
+import com.kedevjimmy.pesatrack.ui.components.SectionHeader
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore
 import com.kedevjimmy.pesatrack.data.local.EntityEnrichmentPreferences
 import com.kedevjimmy.pesatrack.ingestion.NotificationSourceTrustStore
@@ -105,21 +109,60 @@ internal fun AppearancePage(padding: PaddingValues, mode: ThemeMode, change: (Th
     }
 }
 @Composable
-internal fun PrivacyPage(padding: PaddingValues, back: () -> Unit, access: () -> Unit, manageStatements: () -> Unit) {
+internal fun PrivacyPage(padding: PaddingValues, back: () -> Unit, access: () -> Unit,
+    manageStatements: () -> Unit, privacyPolicy: (() -> Unit)? = null) {
     val context = LocalContext.current
     val prefs = remember { EntityEnrichmentPreferences.get(context) }
     var lookup by remember { mutableStateOf(prefs.isOnlineLookupEnabled()) }
     var details by rememberSaveable { mutableStateOf(false) }
-    EverydayPage("Privacy", padding, back) {
-        item { Text("Saved on this phone", style = MaterialTheme.typography.titleMedium); Text("Your transactions stay on this phone. You choose which money messages PesaTrack can read.") }
-        item { EverydayRow(Icons.Rounded.Message, "Manage message access", "See permissions and stop access", access) }
-        item { EverydayRow(Icons.Rounded.Inventory2, "Manage saved statements", "Review and delete individual saved PDF statement archives", manageStatements) }
-        item { ChoiceSwitch("Help identify businesses online", "Optional. A cleaned business name may be sent to look it up. Full messages, amounts, balances, transaction codes and phone or account numbers are not sent.", lookup) { lookup = it; prefs.setOnlineLookupEnabled(it) } }
-        item { TextButton(onClick = { details = !details }) { Text(if (details) "Hide privacy details" else "More privacy details") } }
+    var backup by rememberSaveable { mutableStateOf(false) }
+    if (backup) BackupRestoreSheet(onDismiss = { backup = false })
+    EverydayPage("Privacy & data", padding, back) {
+        item {
+            PesaCard {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconBubble(Icons.Rounded.Shield, size = 58.dp,
+                        background = pesaToneContainer("violet"),
+                        tint = pesaToneContent("violet"))
+                    Column(Modifier.padding(start = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Your data belongs to you", style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold)
+                        Text("Your money records are kept on this phone.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+        item { SectionHeader("What the app can read") }
+        item { EverydayRow(Icons.Rounded.Message, "Money messages",
+            "Only the sources you allow", access) }
+        item { EverydayRow(Icons.Rounded.Inventory2, "Bank statements",
+            "Only the files you choose to import", manageStatements) }
+        item { SectionHeader("Keep your records safe") }
+        item { EverydayRow(Icons.Rounded.Backup, "Encrypted backup & restore",
+            "Save or restore a private copy") { backup = true } }
+        if (privacyPolicy != null) item {
+            EverydayRow(Icons.Rounded.Policy, "Privacy policy",
+                "How PesaTrack handles your data", privacyPolicy)
+        }
+        item { SectionHeader("Your choices") }
+        item { ChoiceSwitch("Help identify businesses online",
+            "Optional. Sends only a cleaned business name, never your messages or amounts.",
+            lookup) { lookup = it; prefs.setOnlineLookupEnabled(it) } }
+        item { TextButton(onClick = { details = !details }) {
+            Text(if (details) "Show less" else "How my data is handled")
+        } }
         if (details) {
-            item { Text("You choose what we read", style = MaterialTheme.typography.titleMedium); Text("SMS needs your agreement and Android permission. You also choose which apps we can read money updates from. Turning access off stops new reading; your saved transactions remain. Full SMS and bank-app notification text is not uploaded.") }
-            item { Text("Voice entry", style = MaterialTheme.typography.titleMedium); Text("Voice entry uses your phone's speech service, which may process audio online. You can type instead, and check the result before saving.") }
-            item { Text("Backups and app lock", style = MaterialTheme.typography.titleMedium); Text("Backups are protected with the passphrase you choose. Keep it safe. A backup does not grant message access. App lock helps keep your records private on a shared phone.") }
+            item { PesaCard { Column(Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("You choose what we read", style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold)
+                Text("Turn off money message access any time. Your saved records stay here.")
+                Text("Voice entry uses your phone's speech service, which may work online. You can type instead.")
+                Text("Keep your backup passphrase somewhere safe. App lock is separate from backup protection.")
+            } } }
         }
     }
 }
@@ -172,30 +215,78 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
     var discoveryOn by remember { mutableStateOf(smart.enabled(com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.DISCOVERY)) }
     var smartMode by remember { mutableStateOf(smart.mode()) }
     var snoozed by remember { mutableStateOf(smart.snoozeUntil() > System.currentTimeMillis()) }
+    var moreOptions by rememberSaveable { mutableStateOf(false) }
     var allowed by remember { mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled()) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it }
     val settings = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { allowed = NotificationManagerCompat.from(context).areNotificationsEnabled() }
     fun ask() { if (Build.VERSION.SDK_INT >= 33 && !allowed) permission.launch(Manifest.permission.POST_NOTIFICATIONS) }
     EverydayPage(title, padding, back) {
-        item { Text("A little help staying on track. Reminders are checked during the day and may be delayed by your phone's battery settings.") }
-        if (!allowed) item { Button(onClick = { settings.launch(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }, modifier = Modifier.fillMaxWidth()) { Text("Allow PesaTrack notifications") } }
+        item {
+            PesaCard {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconBubble(Icons.Rounded.NotificationsActive, size = 58.dp,
+                        background = pesaToneContainer("violet"),
+                        tint = pesaToneContent("violet"))
+                    Column(Modifier.padding(start = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Stay one step ahead", style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold)
+                        Text("A little reminder when it matters.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+        if (!allowed) item {
+            PesaCard {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Notifications are off on your phone", fontWeight = FontWeight.Bold)
+                    Text("Your choices below stay saved. Allow notifications to receive alerts.")
+                    Button(onClick = {
+                        settings.launch(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+                    }, modifier = Modifier.fillMaxWidth()) { Text("Open notification settings") }
+                }
+            }
+        }
+        item { SectionHeader("Plan reminders") }
         item { ChoiceSwitch("Upcoming bills", "Remind me before a scheduled bill is due", billOn) { billOn = it; bills.setGlobalReminderLeadDays(lead, it); if(it) ask() } }
-        item { Text("Before a bill is due", style = MaterialTheme.typography.titleMedium)
+        item { Text("Remind me before a bill", style = MaterialTheme.typography.titleSmall)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) { listOf(1,3,7).forEach { days -> FilterChip(selected = lead == days, enabled = billOn, onClick = { lead = days; bills.setGlobalReminderLeadDays(days, billOn) }, label = { Text(pluralStringResource(R.plurals.bill_reminder_days, days, days)) }) } } }
-        item { ChoiceSwitch("Budget warnings", "Tell me when a monthly category budget reaches 95% or goes over", budgetOn) { budgetOn = it; PlanningReminders.setEnabled(context, "budgets", it); if(it) ask() } }
-        item { ChoiceSwitch("Savings reminders", "Remind me when a monthly goal has no contribution for a month", goalOn) { goalOn = it; PlanningReminders.setEnabled(context, "goals", it); if(it) ask() } }
-        item { ChoiceSwitch("Activity review tips", "A quiet phone notification when several uncategorized transactions still need review. At most once a day, with longer pauses for the same items.", activityReviewOn) { activityReviewOn = it; ReviewAttentionReminders.setEnabled(context, it); if(it) ask() } }
-        item { ChoiceSwitch("Account review alerts", "Review unresolved ownership or account type when trusted evidence could affect attribution.",accountReviewOn) {
+        item { ChoiceSwitch("Budget warnings", "When spending reaches or passes your budget", budgetOn) { budgetOn = it; PlanningReminders.setEnabled(context, "budgets", it); if(it) ask() } }
+        item { ChoiceSwitch("Savings reminders", "When a monthly goal still needs a contribution", goalOn) { goalOn = it; PlanningReminders.setEnabled(context, "goals", it); if(it) ask() } }
+        item { SectionHeader("Things to review") }
+        item { ChoiceSwitch("Transactions to review", "A gentle reminder about items needing your attention", activityReviewOn) { activityReviewOn = it; ReviewAttentionReminders.setEnabled(context, it); if(it) ask() } }
+        item { ChoiceSwitch("Account review alerts", "When an account needs your confirmation",accountReviewOn) {
             accountReviewOn = it; com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(context,com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.ACCOUNT,it); if (it) ask()
         } }
-        item { ChoiceSwitch("They Owe Me payment alerts", "Optional review of new payments with a unique matching phone and recorded lending history. No automatic loans or repayments.",paymentOn) {
+        item { ChoiceSwitch("Money owed to me", "When a possible repayment needs checking",paymentOn) {
             paymentOn = it; com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(context,com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.PAYMENT,it); if (it) ask()
         } }
-        item { ChoiceSwitch("Feature tips on your phone", "One occasional discovery tip. A discreet in-app tip is available without notification permission.",discoveryOn) {
+        item { SectionHeader("Other updates") }
+        item { ChoiceSwitch("Helpful tips", "Occasional tips about PesaTrack features",discoveryOn) {
             discoveryOn = it; com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(context,com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.DISCOVERY,it)
         } }
         item {
-            Text("Smart notification delivery",style = MaterialTheme.typography.titleMedium)
+            PesaCard {
+                Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Inventory2, null, tint = MaterialTheme.colorScheme.primary)
+                    Column(Modifier.padding(start = 12.dp)) {
+                        Text("Statement imports", style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold)
+                        Text("You'll see the result when each import finishes.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+        }
+        item { OutlinedButton(onClick = { moreOptions = !moreOptions }, modifier = Modifier.fillMaxWidth()) {
+            Text(if (moreOptions) "Hide reminder options" else "More reminder options")
+        } }
+        if (moreOptions) item {
+            Text("How reminders appear",style = MaterialTheme.typography.titleMedium)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("banner" to "Banner if allowed","quiet" to "Quiet summary","off" to "Off").forEach { (value,label) ->
                     FilterChip(selected = smartMode == value,onClick = {
@@ -205,7 +296,7 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
                     },label = { Text(label) })
                 }
             }
-            Text("Account, Activity, payment and discovery alerts share one daily limit, with quiet hours from 8 pm to 9 am. Your phone controls banner display.")
+            Text("These alerts have a daily limit. Quiet hours are 8 pm to 9 am. Your phone decides how banners look.")
             TextButton(onClick = {
                 snoozed = !snoozed
                 smart.snooze(if (snoozed) System.currentTimeMillis() + com.kedevjimmy.pesatrack.domain.rules.ReviewReminderPolicy.DAY_MS else 0)
@@ -213,6 +304,8 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
             }) { Text(if (snoozed) "Resume smart alerts" else "Snooze smart alerts for a day") }
             TextButton(onClick = { smart.resetDiscovery() }) { Text("Show the They Owe Me tip again") }
         }
-        item { Text("Amounts are hidden on the lock screen. You can turn each reminder off here or in Android settings.", style = MaterialTheme.typography.bodyMedium) }
+        item { Text("Money amounts are hidden on the lock screen. Your phone may delay reminders to save battery.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
