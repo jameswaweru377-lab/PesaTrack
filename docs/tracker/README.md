@@ -1,6 +1,6 @@
 # PesaTrack Development Tracker
 
-The source of truth for implementation work is the [PesaTrack GitHub Issues list](https://github.com/jameswaweru377-lab/PesaTrack/issues), with a future **PesaTrack Development Tracker** GitHub Project showing the same records. This is a development tracker, not a feature inside the Android app.
+The source of truth for implementation work is the [PesaTrack GitHub Issues list](https://github.com/jameswaweru377-lab/PesaTrack/issues), with the existing **PesaTrack Development Tracker** GitHub Project showing the same records. This is a development tracker, not a feature inside the Android app.
 
 One independently verifiable task or actionable audit finding gets one GitHub Issue, identified as `PT-<issue number>`. Keep the original audit ID (for example, `VC-01` or `R4`) in the issue's Source field. Existing Issues should be linked, not recreated. **Do not publish** financial records, private PDF contents, passwords, account identifiers or ChatGPT conversation URLs.
 
@@ -64,9 +64,9 @@ The separate **PesaTrack Restricted Safe Auto-Merge** workflow can recover a for
 
 The automated check runs after Android CI completion, hourly as a fallback, and when manually dispatched. **It merges at most one PR per run** after revalidating the approval, branch head, checks and current `main`. It uses the GitHub App token instead of `GITHUB_TOKEN`, preserving the normal `main` push event that publishes signed APKs. View each result under **Actions → PesaTrack Restricted Safe Auto-Merge**; the existing hourly read-only tracker remains unchanged. No historical PR is opted in automatically.
 
-## One-time GitHub setup (owner action pending)
+## GitHub Project setup and maintenance
 
-The **PesaTrack Development Tracker** GitHub Project board is **not verified as created**. The repository connector can read Issues and PRs, but does not currently expose Project v2 creation or configuration. Do not present a made-up Project URL or duplicate a board that might already exist.
+The [PesaTrack Development Tracker](https://github.com/users/jameswaweru377-lab/projects/1/views/1) GitHub Project was verified through its configured status mirror on **31 October 2026**: Development Tracker workflow run #62 successfully applied a `Tracker status` update. Reuse this existing board; do not create a duplicate. Its current access and configuration must still be checked before changes.
 
 1. In the repository, open **Issues → Labels**. Check for the exact label `pesatrack-tracker`; create it if absent. Only explicitly approved tracker Issues should receive this label. The read-only script intentionally reads labeled Issues only so it does not silently conscript unrelated work.
 2. On your GitHub profile, open **Projects** and check whether **PesaTrack Development Tracker** already exists. If it does, reuse it. Otherwise choose **New project → Board** and **Create a project** named exactly `PesaTrack Development Tracker` under `jameswaweru377-lab`. Keep access private until you choose otherwise.
@@ -74,15 +74,15 @@ The **PesaTrack Development Tracker** GitHub Project board is **not verified as 
 4. Add or confirm board fields for `Status`, `Priority`, `Area`, `Chat owner` and `Last review`. Suggested statuses are listed above; only supported GitHub Issue/PR evidence changes a status.
 5. Run historical import **preview** and have the owner approve its `create/link/review` counts against current Issues. No historical Issues are created by the hourly workflow.
 
-After the label and board exist, the tracker workflow provides event-driven advisory summaries (GitHub Actions → **Development Tracker (Read-only)**). It uses standard Python only, has a four-minute job timeout and does not run Gradle or publish APKs. The report may show no tasks until approved Issues have the label. The Project URL must be recorded only after actually verifying it.
+The tracker workflow provides event-driven advisory summaries (GitHub Actions → **Development Tracker (Read-only)**). It uses standard Python only, has a four-minute job timeout and does not run Gradle or publish APKs. The report may show no tasks until approved Issues have the label.
 
-### Optional Project v2 status mirror — disabled until owner setup
+### Optional Project v2 status mirror — owner-controlled, activated on 31 October 2026
 
 The Project remains a view. The new `tools/tracker/project_sync.py` can update **only** a dedicated, bot-owned single-select field named exactly `Tracker status`. It never creates a Project, adds cards, edits Issue bodies, changes a human `Status` field or merges a PR. To support Project charts, configure these options under `Tracker status` (exact names): `Untriaged`, `Unclaimed`, `Claimed`, `In progress`, `PR open`, `CI failed`, `CI passed`, `Merged — needs acceptance`, `Verified`, `Blocked`, `Paused`, `Superseded`. Preserve the built-in human `Status` field separately.
 
 1. Verify the existing user Project's identity and copy its **Project v2 node ID** (starts `PVT_`); do not guess or create a duplicate board. Ensure built-in auto-add includes only labeled `pesatrack-tracker` Issues. GitHub Project charts can then group by `Tracker status`.
 2. Configure a separate least-privilege Project-authorized credential in repository Actions secret `PESATRACK_TRACKER_PROJECTS_TOKEN`, and an Actions variable `PESATRACK_TRACKER_PROJECT_ID` with the verified node ID. Grant Project access only as required. Do **not** reuse the release-signing secrets or restricted auto-merge GitHub App private key; never paste tokens into chats or Issues.
-3. While synchronization is off, choose **Actions → Development Tracker (Read-only) → Run workflow → Preview project**. This reads the configured Project and prints the proposed task numbers without modifying cards. Fix any missing field/option, duplicate card, wrong Project or missing auto-add first. A capped or incomplete Issue/PR snapshot fails closed.
+3. While synchronization is off, choose **Actions → Development Tracker (Read-only) → Run workflow → Preview project**. This reads the configured Project and prints the proposed task numbers without modifying cards. Fix any missing field/option, duplicate card, wrong Project or missing auto-add first. A globally incomplete Issue/PR snapshot fails closed. When *only* old closed-PR history is capped, the mirror preserves stronger existing Project evidence against unsupported downgrades, logs each skipped task, and still applies unrelated safe status updates. A known merged PR with newly failed CI or revoked device acceptance can still move from `Verified` to `Merged — needs acceptance`; a newly linked open PR can also reopen a previously merged or verified task.
 4. Only after reviewing that preview, set repository variable `PESATRACK_TRACKER_PROJECT_SYNC_ENABLED` to `true`. The same lightweight event run then mirrors the `Tracker status` field. Unset or change this variable to `false` to stop Project writes immediately.
 
-Only GitHub Projects metadata (task IDs and public task states) is mirrored. The real financial ledger stays on the phone. At present, Project existence and credential configuration are **not verified**, so this connection is prepared but not activated.
+Only GitHub Projects metadata (task IDs and public task states) is mirrored. The real financial ledger stays on the phone. On 31 October 2026, run #62 proved that the configured credential, board and `Tracker status` field were operational; this is dated evidence, not a guarantee that synchronization remains enabled forever. Inspect the latest workflow before relying on current status.

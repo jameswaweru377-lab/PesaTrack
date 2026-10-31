@@ -22,6 +22,14 @@ FIELD_NAME = "Tracker status"
 PROJECT_ID = re.compile(r"PVT_[A-Za-z0-9_+/=\-]{1,120}\Z")
 GRAPHQL_URL = "https://api.github.com/graphql"
 
+# Evidence tiers, not a total ordering of task states: CI may legitimately
+# change from passed to failed, and an explicit human pause takes precedence.
+EVIDENCE_TIER = {
+    "Untriaged": 0, "Unclaimed": 0, "Claimed": 0, "In progress": 0,
+    "PR open": 1, "CI failed": 1, "CI passed": 1,
+    "Merged — needs acceptance": 2, "Verified": 3,
+}
+
 PROJECT_QUERY = """
 query($project: ID!, $cursor: String) {
   node(id: $project) {
@@ -173,8 +181,8 @@ def load_project(token: str, project_id: str, *, caller=graphql,
     raise RuntimeError("Project has more than 500 items; refusing partial synchronization")
 
 
-def plan_updates(project: dict, report: dict, repository: str) -> tuple[list[dict], list[int]]:
-    """Compute a complete fail-closed update plan; never modify human fields."""
+def plan_updates(project: dict, report: dict, repository: str) -> tuple[list[dict], list[int], list[int]]:
+    """Compute safe updates, missing cards and history-guarded task numbers."""
     if project.get("title") != PROJECT_TITLE:
         raise ValueError("The configured Project has an unexpected identity")
     fields = [f for f in project.get("fields", []) if f.get("name") == FIELD_NAME]
@@ -195,6 +203,7 @@ def plan_updates(project: dict, report: dict, repository: str) -> tuple[list[dic
         by_issue[number] = item
     updates: list[dict] = []
     missing: list[int] = []
+    skipped: list[int] = []
     for task in report.get("tasks", []):
         number, status = task.get("issue_number"), task.get("status")
         if not isinstance(number, int) or not isinstance(status, str):
@@ -206,9 +215,28 @@ def plan_updates(project: dict, report: dict, repository: str) -> tuple[list[dic
         if item is None:
             missing.append(number)
         elif item.get("current_status") != status:
+            current_tier = EVIDENCE_TIER.get(item.get("current_status"))
+            proposed_tier = EVIDENCE_TIER.get(status)
+            known_merged_evidence = (status == "Merged — needs acceptance"
+                                     and task.get("merged") is True
+                                     and any(isinstance(pr, dict) and pr.get("state") == "merged"
+                                             for pr in (task.get("prs") or [])))
+            known_open_evidence = (status in {"PR open", "CI failed", "CI passed"}
+                                   and any(isinstance(pr, dict) and pr.get("state") == "open"
+                                           for pr in (task.get("prs") or [])))
+            if (report.get("historical_window_limited") is True
+                    and current_tier is not None and proposed_tier is not None
+                    and proposed_tier < current_tier
+                    and not known_merged_evidence and not known_open_evidence):
+                # A merged PR may be outside the bounded closed-PR window.
+                # Preserve stronger observed Project evidence, except when a
+                # linked current PR or merged-PR acceptance evidence proves
+                # that the earlier state must change.
+                skipped.append(number)
+                continue
             updates.append({"issue_number": number, "item_id": item["id"],
                             "field_id": field["id"], "option_id": option_id})
-    return updates, missing
+    return updates, missing, skipped
 
 
 def main(argv=None) -> int:
@@ -228,9 +256,12 @@ def main(argv=None) -> int:
             raise RuntimeError("Tracker evidence is incomplete; refusing Project updates")
         project = load_project(token, args.project_id,
                                owner=args.repository.split("/")[0], number=1)
-        changes, missing = plan_updates(project, report, args.repository)
+        changes, missing, skipped = plan_updates(project, report, args.repository)
         print(f"Project status mirror: {len(changes)} updates planned; "
-              f"{len(missing)} Issues awaiting Project auto-add.")
+              f"{len(missing)} Issues awaiting Project auto-add; "
+              f"{len(skipped)} uncertain downgrades withheld.")
+        for number in skipped:
+            print(f"Preserved PT-{number}: capped PR history cannot justify a lower status")
         if not args.apply:
             for change in changes:
                 print(f"Preview PT-{change['issue_number']}: Tracker status field would change")

@@ -34,7 +34,7 @@ class TrackerTemplatesTest(unittest.TestCase):
         self.assertIn("GitHub Issues", rules)
         self.assertIn("physical-device", rules)
 
-    def test_command_center_handoff_has_no_automatic_merge_or_fake_board_link(self):
+    def test_command_center_handoff_uses_verified_existing_board(self):
         starter = (ROOT / "docs/tracker/COMMAND_CENTER_STARTER.md").read_text(encoding="utf-8")
         rules = (ROOT / "docs/tracker/README.md").read_text(encoding="utf-8")
         for label in ("latest main", "GitHub Issues", "PR", "CI", "device",
@@ -42,15 +42,21 @@ class TrackerTemplatesTest(unittest.TestCase):
             self.assertIn(label, starter)
         self.assertIn("Create a project", rules)
         self.assertIn("pesatrack-tracker", rules)
-        self.assertIn("not verified as created", rules)
+        self.assertIn("do not create a duplicate", rules)
+        self.assertIn("https://github.com/users/jameswaweru377-lab/projects/1/views/1", rules)
 
-    def test_repository_readme_has_public_tracker_entry_points_without_fake_board(self):
+    def test_repository_readme_has_public_tracker_entry_points(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         tracker = (ROOT / "docs/tracker/README.md").read_text(encoding="utf-8")
         self.assertIn("docs/tracker/README.md", readme)
         self.assertIn("PesaTrack/issues", readme + tracker)
         self.assertIn("development-tracker.yml", readme + tracker)
-        self.assertIn("not verified as created", tracker)
+        self.assertIn("31 October 2026", tracker)
+
+    def test_android_ci_runs_tracker_regressions_on_each_pr(self):
+        workflow = (ROOT / ".github/workflows/android-ci.yml").read_text(encoding="utf-8")
+        self.assertIn("PyYAML==6.0.3", workflow)
+        self.assertIn("python3 -B -m unittest discover -s tools/tracker/tests -q", workflow)
 
 
 if __name__ == "__main__":
