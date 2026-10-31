@@ -28,6 +28,8 @@ without stopping unrelated safe updates. No new services.
 - A full closed-history page cap must refuse individual uncertain downgrades.
 - A non-capped closed-history response must preserve normal reporting.
 - A capped page must not block independent safe progress or manual pauses.
+- Current failed CI or withdrawn device acceptance for a known merged PR must
+  revoke an earlier `Verified` status even when historical pages are capped.
 
 ---
 

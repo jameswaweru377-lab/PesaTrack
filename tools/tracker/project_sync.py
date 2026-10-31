@@ -217,12 +217,18 @@ def plan_updates(project: dict, report: dict, repository: str) -> tuple[list[dic
         elif item.get("current_status") != status:
             current_tier = EVIDENCE_TIER.get(item.get("current_status"))
             proposed_tier = EVIDENCE_TIER.get(status)
+            known_merged_evidence = (status == "Merged — needs acceptance"
+                                     and task.get("merged") is True
+                                     and any(isinstance(pr, dict) and pr.get("state") == "merged"
+                                             for pr in (task.get("prs") or [])))
             if (report.get("historical_window_limited") is True
                     and current_tier is not None and proposed_tier is not None
-                    and proposed_tier < current_tier):
+                    and proposed_tier < current_tier
+                    and not known_merged_evidence):
                 # A merged PR may be outside the bounded closed-PR window.
                 # Preserve the stronger observed Project evidence, but allow
-                # other unambiguous task updates to proceed.
+                # current merged-PR CI/device acceptance evidence to revoke
+                # an earlier Verified state.
                 skipped.append(number)
                 continue
             updates.append({"issue_number": number, "item_id": item["id"],

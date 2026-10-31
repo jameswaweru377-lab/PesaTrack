@@ -153,6 +153,36 @@ class ProjectSyncTest(unittest.TestCase):
                 self.assertEqual(([], []), (missing, skipped))
                 self.assertEqual([123], [entry["issue_number"] for entry in updates])
 
+    def test_capped_history_allows_lost_verification_when_merged_pr_is_known(self):
+        existing = project("Verified")
+        for ci, device in (("failed", "verified"), ("passed", "not_verified")):
+            with self.subTest(ci=ci, device=device):
+                observed = report("Merged — needs acceptance")
+                observed["historical_window_limited"] = True
+                observed["tasks"][0]["merged"] = True
+                observed["tasks"][0]["device_acceptance"] = device
+                observed["tasks"][0]["prs"] = [{"number": 478, "state": "merged",
+                                                "ci": ci}]
+
+                updates, missing, skipped = plan_updates(
+                    existing, observed, "jameswaweru377-lab/PesaTrack")
+
+                self.assertEqual(([], []), (missing, skipped))
+                self.assertEqual([123], [entry["issue_number"] for entry in updates])
+
+    def test_capped_history_does_not_invent_merger_to_override_verified(self):
+        existing = project("Verified")
+        observed = report("Merged — needs acceptance")
+        observed["historical_window_limited"] = True
+        observed["tasks"][0]["merged"] = False
+        observed["tasks"][0]["prs"] = []
+
+        updates, missing, skipped = plan_updates(
+            existing, observed, "jameswaweru377-lab/PesaTrack")
+
+        self.assertEqual(([], []), (updates, missing))
+        self.assertEqual([123], skipped)
+
     def test_uncapped_history_allows_explicit_task_reopening(self):
         existing = project("Merged — needs acceptance")
         existing["fields"][0]["options"].append({"id": "opt_claimed", "name": "Claimed"})

@@ -15,7 +15,9 @@ or the optional Project synchronization default (off).
   merged PR might exist without a reciprocal `PR: #...` line in its Issue.
   The optional Project mirror must preserve higher-confidence existing status
   evidence when the capped history would otherwise downgrade it, while safe
-  unrelated updates continue. Skipped task numbers appear in workflow logs.
+  unrelated updates continue. If current, linked merged-PR evidence proves
+  verification was lost (failed CI or withdrawn device acceptance), the board
+  must reflect that downgrade. Skipped task numbers appear in workflow logs.
 - Keep bounded GitHub API requests and existing opt-in safeguards unchanged.
 
 ## Approaches
