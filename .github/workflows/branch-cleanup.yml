@@ -29,13 +29,15 @@ jobs:
       (github.event.issue.number == 528 &&
        github.actor == 'jameswaweru377-lab' &&
        github.event.comment.user.login == 'jameswaweru377-lab' &&
-       github.event.comment.body == '/pesatrack-cleanup-apply-10')
+       (github.event.comment.body == '/pesatrack-cleanup-apply-10' ||
+        github.event.comment.body == '/pesatrack-cleanup-ancestors-apply-10'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
     env:
       GITHUB_TOKEN: ${{ github.token }}
+      PESATRACK_CLEANUP_ANCESTORS: ${{ github.event_name == 'issue_comment' && github.event.comment.body == '/pesatrack-cleanup-ancestors-apply-10' }}
     steps:
       - name: Check out the requested workflow ref
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -49,7 +51,9 @@ jobs:
         id: preview
         run: |
           set +e
-          python3 tools/tracker/branch_cleanup.py --repository "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/branch-cleanup-preview.json"
+          mode=()
+          if [ "$PESATRACK_CLEANUP_ANCESTORS" = "true" ]; then mode+=(--include-ancestors); fi
+          python3 tools/tracker/branch_cleanup.py --repository "$GITHUB_REPOSITORY" "${mode[@]}" > "$RUNNER_TEMP/branch-cleanup-preview.json"
           status=$?
           set -e
           cat "$RUNNER_TEMP/branch-cleanup-preview.json"
@@ -70,7 +74,9 @@ jobs:
           if report.get("skipped"):
               lines.append("")
           for candidate in candidates[:200]:
-              lines.append(f"- `{candidate['branch']}` — merged PR #{candidate['merged_pr']}")
+              evidence = ("fully contained in current main" if candidate.get("evidence") == "ancestor"
+                          else f"merged PR #{candidate['merged_pr']}")
+              lines.append(f"- `{candidate['branch']}` — {evidence}")
           if len(candidates) > 200:
               lines.extend(["", f"Showing 200 of {len(candidates)} candidates; see the job log for the complete plan."])
           with Path(sys.argv[2]).open("a", encoding="utf-8") as summary:
@@ -91,7 +97,8 @@ jobs:
          github.event.issue.number == 528 &&
          github.actor == 'jameswaweru377-lab' &&
          github.event.comment.user.login == 'jameswaweru377-lab' &&
-         github.event.comment.body == '/pesatrack-cleanup-apply-10')
+         (github.event.comment.body == '/pesatrack-cleanup-apply-10' ||
+          github.event.comment.body == '/pesatrack-cleanup-ancestors-apply-10'))
       )
     runs-on: ubuntu-latest
     permissions:
@@ -99,6 +106,7 @@ jobs:
       pull-requests: read
     env:
       GITHUB_TOKEN: ${{ github.token }}
+      PESATRACK_CLEANUP_ANCESTORS: ${{ github.event_name == 'issue_comment' && github.event.comment.body == '/pesatrack-cleanup-ancestors-apply-10' }}
     steps:
       - name: Check out the default branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -112,7 +120,9 @@ jobs:
         id: apply
         run: |
           set +e
-          python3 tools/tracker/branch_cleanup.py --repository "$GITHUB_REPOSITORY" --apply > "$RUNNER_TEMP/branch-cleanup-apply.json"
+          mode=()
+          if [ "$PESATRACK_CLEANUP_ANCESTORS" = "true" ]; then mode+=(--include-ancestors); fi
+          python3 tools/tracker/branch_cleanup.py --repository "$GITHUB_REPOSITORY" --apply "${mode[@]}" > "$RUNNER_TEMP/branch-cleanup-apply.json"
           status=$?
           set -e
           cat "$RUNNER_TEMP/branch-cleanup-apply.json"
@@ -133,7 +143,9 @@ jobs:
           for reason, count in sorted(report.get("initial_skipped", {}).items()):
               lines.append(f"- Kept {count} branches: {reason.replace('_', ' ')}")
           for item in deleted:
-              lines.append(f"- Deleted `{item['branch']}` — merged PR #{item['merged_pr']}")
+              evidence = ("confirmed ancestor" if item.get("merged_pr") is None
+                          else f"merged PR #{item['merged_pr']}")
+              lines.append(f"- Deleted `{item['branch']}` — {evidence}")
           for item in skipped:
               lines.append(f"- Kept `{item['branch']}` — {item['reason']}")
           if failures:

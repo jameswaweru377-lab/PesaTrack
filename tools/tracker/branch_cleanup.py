@@ -205,12 +205,43 @@ def _eligible_pull(pull: dict, repository: str, default_branch: str,
     )
 
 
-def build_plan(inventory: dict) -> dict:
-    """Classify only exact, same-repository merged PR heads as deletion candidates."""
+def _confirmed_ancestor(repository: str, token: str, branch_sha: str,
+                        default_sha: str, *, opener) -> bool:
+    """Accept only complete GitHub compare evidence that branch SHA is in main."""
+    if (not isinstance(branch_sha, str) or not SHA_PATTERN.fullmatch(branch_sha)
+            or not isinstance(default_sha, str) or not SHA_PATTERN.fullmatch(default_sha)):
+        return False
+    comparison = _api_request(
+        _api_url(repository, f"compare/{branch_sha}...{default_sha}"), token,
+        opener=opener)
+    if not isinstance(comparison, dict):
+        return False
+    base = comparison.get("base_commit")
+    merge_base = comparison.get("merge_base_commit")
+    return (comparison.get("status") in ("ahead", "identical")
+            and type(comparison.get("behind_by")) is int
+            and comparison["behind_by"] == 0
+            and type(comparison.get("ahead_by")) is int
+            and comparison["ahead_by"] >= 0
+            and isinstance(base, dict)
+            and base.get("sha") == branch_sha
+            and isinstance(merge_base, dict)
+            and merge_base.get("sha") == branch_sha)
+
+
+def build_plan(inventory: dict, *, include_ancestors: bool = False,
+               ancestry_checker=None) -> dict:
+    """Classify exact merged heads; optionally include independently proved ancestors."""
     _validate_inventory(inventory)
     repository = inventory["repository"]
     default_branch = inventory["default_branch"]
     pulls = inventory["pulls"]
+    default_sha = next((row["commit"]["sha"] for row in inventory["branches"]
+                        if row["name"] == default_branch), None)
+    if include_ancestors and (not isinstance(default_sha, str)
+                              or not SHA_PATTERN.fullmatch(default_sha)
+                              or ancestry_checker is None):
+        raise RuntimeError("Ancestor cleanup requires a verified default head and comparator")
     candidates = []
     skipped = {"default_branch": 0, "protected": 0, "open_pr": 0,
                "no_merged_pr": 0}
@@ -234,6 +265,11 @@ def build_plan(inventory: dict) -> dict:
         matching = [pull for pull in pulls
                     if _eligible_pull(pull, repository, default_branch, name, sha)]
         if not matching:
+            if include_ancestors and ancestry_checker(sha, default_sha):
+                candidates.append({"branch": name, "sha": sha,
+                                   "merged_pr": None, "evidence": "ancestor",
+                                   "default_sha": default_sha})
+                continue
             skipped["no_merged_pr"] += 1
             continue
         matching.sort(key=lambda pull: (pull.get("merged_at", ""), pull["number"]))
@@ -246,12 +282,14 @@ def build_plan(inventory: dict) -> dict:
 def _recheck_candidate(repository: str, token: str, candidate: dict, *, opener) -> tuple[bool, str]:
     branch_name = candidate.get("branch")
     pull_number = candidate.get("merged_pr")
-    pull = _api_request(_api_url(repository, f"pulls/{pull_number}"), token, opener=opener)
     default_branch = candidate.get("default_branch")
-    if not isinstance(pull, dict) or pull.get("number") != pull_number:
-        return False, "merged_pr_unavailable"
-    if not _eligible_pull(pull, repository, default_branch, branch_name, candidate["sha"]):
-        return False, "merged_pr_no_longer_proves_branch"
+    ancestry_mode = candidate.get("evidence") == "ancestor" and pull_number is None
+    if not ancestry_mode:
+        pull = _api_request(_api_url(repository, f"pulls/{pull_number}"), token, opener=opener)
+        if not isinstance(pull, dict) or pull.get("number") != pull_number:
+            return False, "merged_pr_unavailable"
+        if not _eligible_pull(pull, repository, default_branch, branch_name, candidate["sha"]):
+            return False, "merged_pr_no_longer_proves_branch"
     # Never filter by head owner: such a filter may hide head.repo=null.
     open_pulls = _paged_rows(repository, token, "pulls", opener=opener,
                              max_pages=MAX_PAGES, state="open")
@@ -283,6 +321,18 @@ def _recheck_candidate(repository: str, token: str, candidate: dict, *, opener) 
         return False, "branch_moved"
     if branch.get("protected") is not False:
         return False, "protected_or_unknown"
+    if ancestry_mode:
+        main_branch = _api_request(
+            _api_url(repository, "branches/" + parse.quote(default_branch, safe="")),
+            token, opener=opener)
+        if (not isinstance(main_branch, dict)
+                or main_branch.get("name") != default_branch
+                or not isinstance(main_branch.get("commit"), dict)
+                or main_branch["commit"].get("sha") != candidate.get("default_sha")):
+            return False, "default_head_changed"
+        if not _confirmed_ancestor(repository, token, candidate["sha"],
+                                   candidate["default_sha"], opener=opener):
+            return False, "ancestry_not_proven"
     return True, ""
 
 
@@ -353,14 +403,17 @@ def _verify_ref_absent(repository: str, token: str,
 
 
 def apply_plan(repository: str, token: str, inventory: dict, *, opener=None,
-               pusher=None, verifier=None) -> dict:
+               pusher=None, verifier=None, include_ancestors: bool = False) -> dict:
     """Recheck each candidate and delete its exact branch ref, stopping on delete errors."""
     _validate_repository(repository)
     _validate_inventory(inventory)
     if inventory["repository"].casefold() != repository.casefold():
         raise ValueError("Inventory repository does not match the requested repository")
-    plan = build_plan(inventory)
     api_opener = opener or request.urlopen
+    checker = (lambda branch_sha, main_sha: _confirmed_ancestor(
+        repository, token, branch_sha, main_sha, opener=api_opener))
+    plan = build_plan(inventory, include_ancestors=include_ancestors,
+                      ancestry_checker=checker if include_ancestors else None)
     candidates = plan["candidates"][:MAX_CANDIDATES_PER_RUN]
     deleted = []
     skipped = []
@@ -407,6 +460,8 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", required=True)
     parser.add_argument("--apply", action="store_true", help="delete only rechecked proven-merged branches")
+    parser.add_argument("--include-ancestors", action="store_true",
+                        help="opt-in: also recheck branches fully contained in current main")
     args = parser.parse_args(argv)
     token = os.environ.get("GITHUB_TOKEN", "")
     if not token:
@@ -414,9 +469,14 @@ def main(argv=None) -> int:
     try:
         snapshot = collect_inventory(args.repository, token)
         if args.apply:
-            report = apply_plan(args.repository, token, snapshot)
+            report = apply_plan(args.repository, token, snapshot,
+                                include_ancestors=args.include_ancestors)
         else:
-            report = build_plan(snapshot)
+            checker = (lambda branch_sha, main_sha: _confirmed_ancestor(
+                args.repository, token, branch_sha, main_sha,
+                opener=request.urlopen))
+            report = build_plan(snapshot, include_ancestors=args.include_ancestors,
+                                ancestry_checker=checker if args.include_ancestors else None)
     except (RuntimeError, ValueError) as exc:
         print(json.dumps({"error": str(exc)}, sort_keys=True), file=sys.stderr)
         return 1
