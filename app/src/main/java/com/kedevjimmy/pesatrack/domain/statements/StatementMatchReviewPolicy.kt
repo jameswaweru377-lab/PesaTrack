@@ -4,6 +4,15 @@ import java.util.Locale
 
 /** A presentation-only view of existing evidence; never changes or suppresses a record. */
 object StatementMatchReviewPolicy {
+    data class EvidenceWindow(val startInclusive: Long, val endExclusive: Long)
+
+    /** Include a potential match and its own 48-hour competitors across period edges. */
+    fun evidenceWindow(startInclusive: Long, endExclusive: Long): EvidenceWindow {
+        require(endExclusive > startInclusive)
+        val margin = 96L * 60L * 60L * 1000L
+        val start = if (startInclusive <= margin + 1L) 1L else startInclusive - margin
+        return EvidenceWindow(start, Math.addExact(endExclusive, margin))
+    }
     data class Transfer(
         val outgoing: List<StatementEvidenceCorrelationPolicy.Observation>,
         val incoming: List<StatementEvidenceCorrelationPolicy.Observation>
