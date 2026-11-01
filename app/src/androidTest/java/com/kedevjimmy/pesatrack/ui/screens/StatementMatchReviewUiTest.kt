@@ -50,7 +50,7 @@ class StatementMatchReviewUiTest {
         val snapshot = StatementMatchDecisionStore.Snapshot(review, listOf(candidate), emptyMap(), false)
         var decision: StatementMatchDecisionStore.Decision? = null
         compose.setContent { MaterialTheme { StatementMatchReviewContent(2026, emptyMap(), review, false, {}, {},
-            snapshot = snapshot, onDecision = { _, value -> decision = value }) } }
+            snapshot = snapshot, onDecision = { _, _, value -> decision = value }) } }
         compose.onNodeWithTag("statement-match-review").performScrollToNode(hasText("Confirm"))
         compose.onNodeWithText("Confirm").performClick()
         compose.onNodeWithText("This saves your review choice. It does not yet change Activity, balances, categories or report totals.").assertExists()

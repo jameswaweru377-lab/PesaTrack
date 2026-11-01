@@ -18,36 +18,42 @@ internal class StatementMatchDecisionStore(context: Context) {
     enum class Result { SAVED, STALE, CONFLICT }
     data class Candidate(val kind: Kind, val rows: List<StatementEvidenceCorrelationPolicy.Observation>, val hash: String)
     data class Snapshot(val review: StatementMatchReviewPolicy.Review, val candidates: List<Candidate>,
-                        val decisions: Map<String, Decision>, val missingOwnershipConsent: Boolean)
+                        val decisions: Map<String, Decision>, val missingOwnershipConsent: Boolean,
+                        val excludedBankSourceCount: Int = 0)
 
     fun read(year: Int): Snapshot = synchronized(CanonicalStoreLock.monitor) { current(year) }
 
     /** Re-read evidence and ownership before saving; stale UI selections cannot be confirmed. */
-    fun decide(year: Int, expectedHash: String, kind: Kind, decision: Decision?): Result =
+    fun decide(year: Int, expectedHash: String, kind: Kind, expectedDecision: Decision?, decision: Decision?): Result =
         synchronized(CanonicalStoreLock.monitor) {
             require(expectedHash.matches(Regex("[a-f0-9]{64}")))
-            val snapshot = current(year)
-            val selected = snapshot.candidates.filter { it.hash == expectedHash && it.kind == kind }
-            if (selected.size != 1) return@synchronized Result.STALE
-            if (decision == Decision.CONFIRMED) {
-                val ids = selected.single().rows.map { it.id }.toSet()
-                if (snapshot.candidates.any { other -> other.hash != expectedHash &&
-                        snapshot.decisions[other.hash] == Decision.CONFIRMED &&
-                        other.rows.any { it.id in ids } }) return@synchronized Result.CONFLICT
-            }
             val helper = StatementArchiveDb(app)
             try {
                 val db = helper.writableDatabase
-                if (decision == null) {
-                    db.delete("statement_match_decisions_v1", "evidence_hash=? AND kind=?",
-                        arrayOf(expectedHash, kind.name))
-                } else {
-                    val inserted = db.insertWithOnConflict("statement_match_decisions_v1", null, ContentValues().apply {
-                        put("evidence_hash", expectedHash); put("kind", kind.name)
-                        put("decision", decision.name); put("updated_at", System.currentTimeMillis())
-                    }, SQLiteDatabase.CONFLICT_REPLACE)
-                    check(inserted != -1L) { "Could not save the match decision." }
-                }
+                db.beginTransactionNonExclusive()
+                try {
+                    val snapshot = current(year)
+                    val selected = snapshot.candidates.filter { it.hash == expectedHash && it.kind == kind }
+                    if (selected.size != 1 || snapshot.decisions[expectedHash] != expectedDecision)
+                        return@synchronized Result.STALE
+                    if (decision == Decision.CONFIRMED) {
+                        val ids = selected.single().rows.map { it.id }.toSet()
+                        if (snapshot.candidates.any { other -> other.hash != expectedHash &&
+                                snapshot.decisions[other.hash] == Decision.CONFIRMED &&
+                                other.rows.any { it.id in ids } }) return@synchronized Result.CONFLICT
+                    }
+                    if (decision == null) {
+                        db.delete("statement_match_decisions_v1", "evidence_hash=? AND kind=?",
+                            arrayOf(expectedHash, kind.name))
+                    } else {
+                        val inserted = db.insertWithOnConflict("statement_match_decisions_v1", null, ContentValues().apply {
+                            put("evidence_hash", expectedHash); put("kind", kind.name)
+                            put("decision", decision.name); put("updated_at", System.currentTimeMillis())
+                        }, SQLiteDatabase.CONFLICT_REPLACE)
+                        check(inserted != -1L) { "Could not save the match decision." }
+                    }
+                    db.setTransactionSuccessful()
+                } finally { db.endTransaction() }
             } finally { helper.close() }
             LedgerUpdateBus.notifyChanged()
             Result.SAVED
@@ -61,15 +67,19 @@ internal class StatementMatchDecisionStore(context: Context) {
         val start = calendar.timeInMillis
         calendar.add(Calendar.YEAR, 1)
         val end = calendar.timeInMillis
-        val edge = 48L * 60L * 60L * 1000L
-        val source = StatementEvidenceReadModel(app).readWithActivityEvidence(maxOf(1L, start - edge), end + edge)
+        val window = StatementMatchReviewPolicy.evidenceWindow(start, end)
+        val source = StatementEvidenceReadModel(app).readWithActivityEvidence(window.startInclusive, window.endExclusive)
         val review = StatementMatchReviewPolicy.project(
             source.statements.observations + source.originalActivityMessages, source.eventProof, start, end)
         val revisions = AccountOwnershipConsentStore(app).confirmedRevisions()
+        val ownership = AccountStore.get(app).listAccounts().mapNotNull { account ->
+            val revision = revisions[account.id] ?: return@mapNotNull null
+            account.id to StatementMatchDecisionPolicy.Ownership(revision, account.type.name, account.identifier, account.name)
+        }.toMap()
         var missingConsent = false
         fun candidate(kind: Kind, rows: List<StatementEvidenceCorrelationPolicy.Observation>): Candidate? {
-            if (rows.any { it.accountId !in revisions }) { missingConsent = true; return null }
-            return Candidate(kind, rows, StatementMatchDecisionPolicy.fingerprint(rows, revisions))
+            if (rows.any { it.accountId !in ownership }) { missingConsent = true; return null }
+            return Candidate(kind, rows, StatementMatchDecisionPolicy.fingerprint(rows, ownership))
         }
         val candidates = review.transfers.mapNotNull { candidate(Kind.TRANSFER, it.outgoing + it.incoming) } +
             review.sameMovements.mapNotNull { candidate(Kind.SAME_MOVEMENT, it) }
@@ -93,6 +103,6 @@ internal class StatementMatchDecisionStore(context: Context) {
                 }
             }
         } finally { helper.close() }
-        return Snapshot(review, candidates, saved, missingConsent)
+        return Snapshot(review, candidates, saved, missingConsent, source.excludedBankSourceCount)
     }
 }

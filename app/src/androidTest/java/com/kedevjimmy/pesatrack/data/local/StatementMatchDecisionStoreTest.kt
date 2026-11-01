@@ -31,7 +31,7 @@ class StatementMatchDecisionStoreTest {
         val store = StatementMatchDecisionStore(app)
         assertEquals(StatementMatchDecisionStore.Result.STALE,
             store.decide(2026, "a".repeat(64), StatementMatchDecisionStore.Kind.TRANSFER,
-                StatementMatchDecisionStore.Decision.CONFIRMED))
+                null, StatementMatchDecisionStore.Decision.CONFIRMED))
         val helper = StatementArchiveDb(app)
         try { assertEquals(0L, helper.readableDatabase.compileStatement(
             "SELECT COUNT(*) FROM statement_match_decisions_v1").simpleQueryForLong()) }
@@ -55,7 +55,10 @@ class StatementMatchDecisionStoreTest {
             fun insert(id: String, account: String, movement: Long) {
                 db.insertOrThrow("statement_sources_v2", null, ContentValues().apply {
                     put("id", id); put("account_id", account); put("provider_key", "KENYAN_BANK_EQUITY")
-                    put("account_identity_hash", "c".repeat(64)); put("currency", "KES"); put("document_format", "PDF")
+                    val number = if (account == bank.id) "001234567890" else "009876543210"
+                    val identityHash = java.security.MessageDigest.getInstance("SHA-256")
+                        .digest(number.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+                    put("account_identity_hash", identityHash); put("currency", "KES"); put("document_format", "PDF")
                     put("imported_at", 1_780_000_000_000L); put("first_at", 1_780_000_000_000L)
                     put("last_at", 1_780_000_000_000L); put("row_count", 1)
                     put("money_in_minor", if (movement > 0) movement else 0L)
@@ -74,12 +77,22 @@ class StatementMatchDecisionStoreTest {
         val store = StatementMatchDecisionStore(app)
         val candidate = store.read(2026).candidates.single()
         assertEquals(StatementMatchDecisionStore.Result.SAVED,
-            store.decide(2026, candidate.hash, candidate.kind, StatementMatchDecisionStore.Decision.CONFIRMED))
+            store.decide(2026, candidate.hash, candidate.kind, null, StatementMatchDecisionStore.Decision.CONFIRMED))
         assertEquals(StatementMatchDecisionStore.Decision.CONFIRMED, store.read(2026).decisions[candidate.hash])
+        assertEquals(StatementMatchDecisionStore.Result.STALE,
+            store.decide(2026, candidate.hash, candidate.kind, null, StatementMatchDecisionStore.Decision.NOT_SAME))
+        assertEquals(StatementMatchDecisionStore.Result.STALE,
+            store.decide(2026, candidate.hash, candidate.kind, null, null))
+        assertEquals(StatementMatchDecisionStore.Decision.CONFIRMED, store.read(2026).decisions[candidate.hash])
+        accounts.updateDetails(other.id, "008888888888", null)
+        assertTrue(store.read(2026).decisions.isEmpty())
+        assertEquals(StatementMatchDecisionStore.Result.STALE,
+            store.decide(2026, candidate.hash, candidate.kind, StatementMatchDecisionStore.Decision.CONFIRMED, null))
+        accounts.updateDetails(other.id, "009876543210", null)
         consent.recordConsent(other.id, true)
         assertTrue(store.read(2026).decisions.isEmpty())
         assertEquals(StatementMatchDecisionStore.Result.STALE,
-            store.decide(2026, candidate.hash, candidate.kind, StatementMatchDecisionStore.Decision.CONFIRMED))
+            store.decide(2026, candidate.hash, candidate.kind, null, StatementMatchDecisionStore.Decision.CONFIRMED))
         assertEquals(0L, PesaTrackDatabase.get(app).readableDatabase.compileStatement(
             "SELECT COUNT(*) FROM transactions").simpleQueryForLong())
     }

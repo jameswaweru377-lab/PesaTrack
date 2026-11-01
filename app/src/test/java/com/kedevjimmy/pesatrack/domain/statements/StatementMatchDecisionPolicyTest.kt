@@ -10,8 +10,8 @@ class StatementMatchDecisionPolicyTest {
     private val out = row("out", "bank", -500)
     private val incoming = row("in", "wallet", 500)
     private val accounts = mapOf(
-        "bank" to StatementMatchDecisionPolicy.Ownership(1L, "BANK", "001234567890"),
-        "wallet" to StatementMatchDecisionPolicy.Ownership(2L, "MOBILE_WALLET", "0712345678"))
+        "bank" to StatementMatchDecisionPolicy.Ownership(1L, "BANK", "001234567890", "Invented bank"),
+        "wallet" to StatementMatchDecisionPolicy.Ownership(2L, "MOBILE_WALLET", "0712345678", "Invented wallet"))
 
     @Test fun stableIdentityDoesNotDependOnObservationOrder() {
         val a = StatementMatchDecisionPolicy.fingerprint(listOf(out, incoming), accounts)
@@ -26,10 +26,12 @@ class StatementMatchDecisionPolicyTest {
         val changedOwnership = StatementMatchDecisionPolicy.fingerprint(listOf(out, incoming), accounts + ("wallet" to accounts.getValue("wallet").copy(revision = 3L)))
         val changedIdentifier = StatementMatchDecisionPolicy.fingerprint(listOf(out, incoming), accounts + ("wallet" to accounts.getValue("wallet").copy(identifier = "0799999999")))
         val changedType = StatementMatchDecisionPolicy.fingerprint(listOf(out, incoming), accounts + ("wallet" to accounts.getValue("wallet").copy(type = "BANK")))
+        val changedName = StatementMatchDecisionPolicy.fingerprint(listOf(out, incoming), accounts + ("wallet" to accounts.getValue("wallet").copy(name = "Another account")))
         assertNotEquals(original, changedAmount)
         assertNotEquals(original, changedOwnership)
         assertNotEquals(original, changedIdentifier)
         assertNotEquals(original, changedType)
+        assertNotEquals(original, changedName)
     }
 
     @Test(expected = IllegalArgumentException::class)

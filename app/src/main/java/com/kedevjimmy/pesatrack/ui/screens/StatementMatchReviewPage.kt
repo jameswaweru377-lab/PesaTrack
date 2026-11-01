@@ -48,12 +48,12 @@ internal fun StatementMatchReviewPage(year: Int, labels: Map<String, String>, on
         catch (_: Exception) { failed = true }
     }
     StatementMatchReviewContent(year, labels, snapshot?.review, failed, onBack, { attempt++ },
-        snapshot = snapshot, busy = busy, actionError = actionError) { candidate, decision ->
+        snapshot = snapshot, busy = busy, actionError = actionError) { candidate, expected, decision ->
         if (!busy) {
             busy = true; actionError = null
             scope.launch {
                 try {
-                    when (withContext(Dispatchers.IO) { store.decide(year, candidate.hash, candidate.kind, decision) }) {
+                    when (withContext(Dispatchers.IO) { store.decide(year, candidate.hash, candidate.kind, expected, decision) }) {
                         StatementMatchDecisionStore.Result.SAVED -> Unit
                         StatementMatchDecisionStore.Result.STALE -> actionError = "These records changed. Review the refreshed suggestion."
                         StatementMatchDecisionStore.Result.CONFLICT -> actionError = "One record is already confirmed in another match. Undo that decision first."
@@ -73,7 +73,7 @@ internal fun StatementMatchReviewContent(
     failed: Boolean, onBack: () -> Unit, onRetry: () -> Unit,
     snapshot: StatementMatchDecisionStore.Snapshot? = null, busy: Boolean = false,
     actionError: String? = null,
-    onDecision: (StatementMatchDecisionStore.Candidate, StatementMatchDecisionStore.Decision?) -> Unit = { _, _ -> }
+    onDecision: (StatementMatchDecisionStore.Candidate, StatementMatchDecisionStore.Decision?, StatementMatchDecisionStore.Decision?) -> Unit = { _, _, _ -> }
 ) {
     val p = HomeReferencePalette
     var confirming by remember { mutableStateOf<StatementMatchDecisionStore.Candidate?>(null) }
@@ -81,7 +81,7 @@ internal fun StatementMatchReviewContent(
         AlertDialog(onDismissRequest = { confirming = null },
             title = { Text("Confirm this match?") },
             text = { Text("This saves your review choice. It does not yet change Activity, balances, categories or report totals.") },
-            confirmButton = { TextButton(onClick = { confirming = null; onDecision(candidate, StatementMatchDecisionStore.Decision.CONFIRMED) }) { Text("Confirm match") } },
+            confirmButton = { TextButton(onClick = { confirming = null; onDecision(candidate, null, StatementMatchDecisionStore.Decision.CONFIRMED) }) { Text("Confirm match") } },
             dismissButton = { TextButton(onClick = { confirming = null }) { Text("Cancel") } })
     }
     LazyColumn(Modifier.fillMaxSize().background(p.canvas).testTag("statement-match-review"),
@@ -108,6 +108,13 @@ internal fun StatementMatchReviewContent(
             }
         }
         if (actionError != null) item { Text(actionError, color = MaterialTheme.colorScheme.error) }
+        if ((snapshot?.excludedBankSourceCount ?: 0) > 0) item {
+            StatementInsightCard {
+                Text("Some bank statements were not compared", color = p.ink, fontWeight = FontWeight.SemiBold)
+                Text("The current account number no longer matches the number checked when those statements were imported. Your saved records are unchanged.",
+                    color = p.muted, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
         if (snapshot?.missingOwnershipConsent == true) item {
             StatementInsightCard {
                 Text("Confirm which accounts are yours", fontWeight = FontWeight.SemiBold, color = p.ink)
@@ -195,7 +202,7 @@ private fun MatchDecisionActions(
     snapshot: StatementMatchDecisionStore.Snapshot?, kind: StatementMatchDecisionStore.Kind,
     rows: List<StatementEvidenceCorrelationPolicy.Observation>, busy: Boolean,
     onConfirm: (StatementMatchDecisionStore.Candidate) -> Unit,
-    onDecision: (StatementMatchDecisionStore.Candidate, StatementMatchDecisionStore.Decision?) -> Unit
+    onDecision: (StatementMatchDecisionStore.Candidate, StatementMatchDecisionStore.Decision?, StatementMatchDecisionStore.Decision?) -> Unit
 ) {
     val ids = rows.map { it.id }.toSet()
     val candidate = snapshot?.candidates?.singleOrNull { it.kind == kind && it.rows.map { row -> row.id }.toSet() == ids }
@@ -203,15 +210,15 @@ private fun MatchDecisionActions(
     when (snapshot.decisions[candidate.hash]) {
         StatementMatchDecisionStore.Decision.CONFIRMED -> {
             Text("You confirmed this match", fontWeight = FontWeight.SemiBold)
-            TextButton(enabled = !busy, onClick = { onDecision(candidate, null) }) { Text("Undo") }
+            TextButton(enabled = !busy, onClick = { onDecision(candidate, StatementMatchDecisionStore.Decision.CONFIRMED, null) }) { Text("Undo") }
         }
         StatementMatchDecisionStore.Decision.NOT_SAME -> {
             Text("You marked these as different", fontWeight = FontWeight.SemiBold)
-            TextButton(enabled = !busy, onClick = { onDecision(candidate, null) }) { Text("Undo") }
+            TextButton(enabled = !busy, onClick = { onDecision(candidate, StatementMatchDecisionStore.Decision.NOT_SAME, null) }) { Text("Undo") }
         }
         null -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(enabled = !busy, onClick = { onConfirm(candidate) }) { Text("Confirm") }
-            OutlinedButton(enabled = !busy, onClick = { onDecision(candidate, StatementMatchDecisionStore.Decision.NOT_SAME) }) { Text("Not the same") }
+            OutlinedButton(enabled = !busy, onClick = { onDecision(candidate, null, StatementMatchDecisionStore.Decision.NOT_SAME) }) { Text("Not the same") }
         }
     }
 }
