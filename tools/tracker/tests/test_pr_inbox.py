@@ -70,6 +70,20 @@ class PrInboxTest(unittest.TestCase):
         self.assertEqual(["PVTI_11"], plan["clears"])
         self.assertEqual([], plan["adds"])
 
+    def test_archived_existing_pr_is_not_readded_or_reactivated(self):
+        # GitHub addProjectV2ItemById returns an existing archived item ID.
+        # Re-adding and setting PR open would overwrite intentional Paused work.
+        archived = {**item(state="OPEN", status="Paused"), "archived": True}
+        for status in ("Paused", None):
+            with self.subTest(status=status):
+                archived["status"] = status
+                plan = plan_pr_inbox([pull()], project([archived]), REPO)
+                self.assertEqual(([], [], []), (plan["adds"], plan["sets"], plan["clears"]))
+        archived["state"] = "MERGED"
+        archived["status"] = "PR open"
+        plan = plan_pr_inbox([], project([archived]), REPO)
+        self.assertEqual(([], [], []), (plan["adds"], plan["sets"], plan["clears"]))
+
     def test_merged_card_without_status_recovers_from_interrupted_first_write(self):
         # addProjectV2ItemById can succeed before the status write is cancelled.
         # If the PR merges meanwhile, a later sync must still repair its card.

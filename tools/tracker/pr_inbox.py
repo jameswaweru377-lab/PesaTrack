@@ -126,12 +126,13 @@ def load_pr_project(token: str, project_id: str, repository: str, *, caller=grap
         connection = project.get("items") or {}
         for row in connection.get("nodes") or []:
             content = row.get("content") or {}
-            if content.get("__typename") != "PullRequest" or row.get("isArchived"):
+            if content.get("__typename") != "PullRequest":
                 continue
             items.append({"id": row.get("id"), "number": content.get("number"),
                           "node_id": content.get("id"), "state": content.get("state"),
                           "repository": (content.get("repository") or {}).get("nameWithOwner"),
-                          "status": (row.get("fieldValueByName") or {}).get("name")})
+                          "status": (row.get("fieldValueByName") or {}).get("name"),
+                          "archived": row.get("isArchived") is True})
         page_info = connection.get("pageInfo") or {}
         if not page_info.get("hasNextPage"):
             return {"id": project_id, "title": project["title"],
@@ -172,10 +173,12 @@ def plan_pr_inbox(prs: list[dict], project: dict, repository: str) -> dict:
             adds.append(pr)
         elif item["node_id"] != pr["node_id"]:
             raise ValueError("Project PR identity mismatch")
+        elif item.get("archived"):
+            continue
         elif item["status"] is None:
             status_updates.append((item["id"], values["PR open"]))
     for number, item in existing.items():
-        if number in open_numbers:
+        if number in open_numbers or item.get("archived"):
             continue
         if item["state"] == "MERGED" and item["status"] in {None, "PR open"}:
             status_updates.append((item["id"], values["Merged — needs acceptance"]))
