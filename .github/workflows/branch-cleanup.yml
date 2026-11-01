@@ -1,6 +1,8 @@
 name: Monthly merged branch cleanup
 
 on:
+  issue_comment:
+    types: [created]
   schedule:
     - cron: "17 2 1 * *"
   workflow_dispatch:
@@ -22,6 +24,12 @@ concurrency:
 jobs:
   preview:
     name: Preview eligible merged branches
+    if: >-
+      github.event_name != 'issue_comment' ||
+      (github.event.issue.number == 528 &&
+       github.actor == 'jameswaweru377-lab' &&
+       github.event.comment.user.login == 'jameswaweru377-lab' &&
+       github.event.comment.body == '/pesatrack-cleanup-apply-10')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -78,7 +86,12 @@ jobs:
       (
         github.event_name == 'schedule' ||
         (github.event_name == 'workflow_dispatch' &&
-         github.actor == 'jameswaweru377-lab' && inputs.apply == true)
+         github.actor == 'jameswaweru377-lab' && inputs.apply == true) ||
+        (github.event_name == 'issue_comment' &&
+         github.event.issue.number == 528 &&
+         github.actor == 'jameswaweru377-lab' &&
+         github.event.comment.user.login == 'jameswaweru377-lab' &&
+         github.event.comment.body == '/pesatrack-cleanup-apply-10')
       )
     runs-on: ubuntu-latest
     permissions:

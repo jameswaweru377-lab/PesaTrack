@@ -18,7 +18,8 @@ class BranchCleanupWorkflowTest(unittest.TestCase):
 
     def test_only_monthly_and_manual_dispatch_events_are_enabled(self):
         triggers = self.workflow["on"]
-        self.assertEqual({"schedule", "workflow_dispatch"}, set(triggers))
+        self.assertEqual({"schedule", "workflow_dispatch", "issue_comment"}, set(triggers))
+        self.assertEqual(["created"], triggers["issue_comment"]["types"])
         self.assertEqual(["17 2 1 * *"], [row["cron"] for row in triggers["schedule"]])
         self.assertEqual("false", triggers["workflow_dispatch"]["inputs"]["apply"]["default"])
         self.assertEqual("boolean", triggers["workflow_dispatch"]["inputs"]["apply"]["type"])
@@ -62,6 +63,18 @@ class BranchCleanupWorkflowTest(unittest.TestCase):
             for step in job["steps"]:
                 if "uses" in step:
                     self.assertRegex(step["uses"], r"@[0-9a-f]{40}")
+
+
+    def test_comment_trigger_requires_exact_owner_issue_and_command(self):
+        preview = self.workflow["jobs"]["preview"]
+        apply = self.workflow["jobs"]["apply"]
+        for step in (preview["if"], apply["if"]):
+            self.assertIn("github.event.issue.number == 528", step)
+            self.assertIn("github.actor == 'jameswaweru377-lab'", step)
+            self.assertIn("github.event.comment.user.login == 'jameswaweru377-lab'", step)
+            self.assertIn("github.event.comment.body == '/pesatrack-cleanup-apply-10'", step)
+        self.assertEqual("10", str(__import__("tools.tracker.branch_cleanup", fromlist=[
+            "MAX_CANDIDATES_PER_RUN"]).MAX_CANDIDATES_PER_RUN))
 
 
 if __name__ == "__main__":
