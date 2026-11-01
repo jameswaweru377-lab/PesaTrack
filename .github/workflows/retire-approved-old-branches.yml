@@ -19,7 +19,7 @@ jobs:
       github.event.issue.number == 528 &&
       github.actor == 'jameswaweru377-lab' &&
       github.event.comment.user.login == 'jameswaweru377-lab' &&
-      github.event.comment.body == '/pesatrack-retire-old-42'
+      contains(fromJSON('["/pesatrack-retire-old-42","/pesatrack-retire-next-42"]'), github.event.comment.body)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,9 +34,13 @@ jobs:
       - name: Preview pinned branches, open PR exclusions and protected refs
         run: |
           set -euo pipefail
+          manifest=tools/tracker/approved_old_branch_retirement_20261101.json
+          if [[ "${{ github.event.comment.body }}" == '/pesatrack-retire-next-42' ]]; then
+            manifest=tools/tracker/approved_old_branch_retirement_wave2_20261101.json
+          fi
           python3 -m tools.tracker.old_branch_retirement \
             --repository "$GITHUB_REPOSITORY" \
-            --manifest tools/tracker/approved_old_branch_retirement_20261101.json \
+            --manifest "$manifest" \
             | tee "$RUNNER_TEMP/old-branch-preview.json"
 
   apply:
@@ -47,7 +51,7 @@ jobs:
       github.event.issue.number == 528 &&
       github.actor == 'jameswaweru377-lab' &&
       github.event.comment.user.login == 'jameswaweru377-lab' &&
-      github.event.comment.body == '/pesatrack-retire-old-42'
+      contains(fromJSON('["/pesatrack-retire-old-42","/pesatrack-retire-next-42"]'), github.event.comment.body)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -62,9 +66,13 @@ jobs:
       - name: Archive old commit SHAs then delete exactly matching branches
         run: |
           set -euo pipefail
+          manifest=tools/tracker/approved_old_branch_retirement_20261101.json
+          if [[ "${{ github.event.comment.body }}" == '/pesatrack-retire-next-42' ]]; then
+            manifest=tools/tracker/approved_old_branch_retirement_wave2_20261101.json
+          fi
           python3 -m tools.tracker.old_branch_retirement \
             --repository "$GITHUB_REPOSITORY" \
-            --manifest tools/tracker/approved_old_branch_retirement_20261101.json \
+            --manifest "$manifest" \
             --apply | tee "$RUNNER_TEMP/old-branch-apply.json"
       - name: Report archived, deleted and safely skipped branches
         if: always()

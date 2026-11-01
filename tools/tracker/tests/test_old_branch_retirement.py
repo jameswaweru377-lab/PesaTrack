@@ -25,6 +25,22 @@ class OldBranchRetirementTests(unittest.TestCase):
         self.assertEqual(["feature/ready"], [x["branch"] for x in result["candidates"]])
         self.assertEqual("approved_age", result["candidates"][0]["evidence"])
 
+    def test_second_batch_uses_independent_recovery_namespace(self):
+        data = manifest()
+        data["archive_prefix"] = "archive/retired-20261101-wave2"
+        data["cutoff_tip_date"] = "2026-10-09"
+        data["candidates"][0]["tip_date"] = "2026-10-09"
+        result = plan_retirement(inventory(), data)
+        self.assertEqual("archive/retired-20261101-wave2/feature/ready",
+                         result["candidates"][0]["archive_ref"])
+        data["cutoff_tip_date"] = "2026-10-10"
+        with self.assertRaises(ValueError):
+            plan_retirement(inventory(), data)
+        data["cutoff_tip_date"] = "2026-10-09"
+        data["archive_prefix"] = "archive/retired-unapproved"
+        with self.assertRaises(ValueError):
+            plan_retirement(inventory(), data)
+
     def test_changed_open_and_protected_branches_are_not_selected(self):
         self.assertEqual([], plan_retirement(inventory(), manifest("c" * 40))["candidates"])
         snap = inventory([branch("main", MAIN_SHA), branch("feature/ready", FEATURE_SHA, True)])
