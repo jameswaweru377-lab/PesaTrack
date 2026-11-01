@@ -8,7 +8,9 @@ import unittest
 from urllib.parse import unquote, urlparse
 from urllib.error import HTTPError
 
-from tools.tracker.branch_cleanup import (MAX_CANDIDATES_PER_RUN, _lease_delete, _verify_ref_absent,
+from tools.tracker.branch_cleanup import (MAX_CANDIDATES_PER_RUN, _confirmed_ancestor,
+                                          _recheck_candidate,
+                                          _lease_delete, _verify_ref_absent,
                                           apply_plan, build_plan, collect_inventory)
 
 
@@ -131,6 +133,124 @@ class ForbiddenOpener:
 
 
 class BranchCleanupPlanTest(unittest.TestCase):
+    def test_ancestor_recheck_fails_when_main_moves_after_preview(self):
+        class MovingMainOpener:
+            def __call__(self, request, timeout=30):
+                path = urlparse(request.full_url).path
+                if path.endswith("/pulls"):
+                    return Response([])
+                if path.endswith("/repos/" + REPOSITORY):
+                    return Response({"full_name": REPOSITORY, "default_branch": "main"})
+                if path.endswith("/branches/old%2Ffully-contained"):
+                    return Response(branch("old/fully-contained", FEATURE_SHA))
+                if path.endswith("/branches/main"):
+                    return Response(branch("main", "d" * 40))
+                raise AssertionError(path)
+
+        candidate = {"branch": "old/fully-contained", "sha": FEATURE_SHA,
+                     "default_branch": "main", "default_sha": MAIN_SHA,
+                     "merged_pr": None, "evidence": "ancestor"}
+        eligible, reason = _recheck_candidate(REPOSITORY, "", candidate,
+                                              opener=MovingMainOpener())
+        self.assertFalse(eligible)
+        self.assertEqual("default_head_changed", reason)
+
+    def test_ancestor_recheck_rejects_unknown_open_pr_state(self):
+        class InvalidOpenPullOpener:
+            def __call__(self, request, timeout=30):
+                path = urlparse(request.full_url).path
+                if path.endswith("/pulls"):
+                    return Response([{"state": "unknown", "head": {
+                        "ref": "old/fully-contained", "repo": {"full_name": REPOSITORY}}}])
+                raise AssertionError(path)
+
+        candidate = {"branch": "old/fully-contained", "sha": FEATURE_SHA,
+                     "default_branch": "main", "default_sha": MAIN_SHA,
+                     "merged_pr": None, "evidence": "ancestor"}
+        eligible, reason = _recheck_candidate(REPOSITORY, "", candidate,
+                                              opener=InvalidOpenPullOpener())
+        self.assertFalse(eligible)
+        self.assertEqual("open_pr_check_invalid", reason)
+
+    def test_apply_ancestor_mode_rechecks_before_single_lease_deletion(self):
+        class StableOpener:
+            def __call__(self, request, timeout=30):
+                path = urlparse(request.full_url).path
+                if path.endswith("/compare/" + FEATURE_SHA + "..." + MAIN_SHA):
+                    return Response({"status": "ahead", "ahead_by": 4,
+                                     "behind_by": 0,
+                                     "base_commit": {"sha": FEATURE_SHA},
+                                     "merge_base_commit": {"sha": FEATURE_SHA}})
+                if path.endswith("/pulls"):
+                    return Response([])
+                if path.endswith("/repos/" + REPOSITORY):
+                    return Response({"full_name": REPOSITORY, "default_branch": "main"})
+                if path.endswith("/branches/old%2Ffully-contained"):
+                    return Response(branch("old/fully-contained", FEATURE_SHA))
+                if path.endswith("/branches/main"):
+                    return Response(branch("main", MAIN_SHA))
+                raise AssertionError(path)
+
+        pushed = []
+        snapshot = inventory([branch("main", MAIN_SHA),
+                              branch("old/fully-contained", FEATURE_SHA)], [])
+        result = apply_plan(REPOSITORY, "", snapshot, include_ancestors=True,
+                            opener=StableOpener(),
+                            pusher=lambda *args: pushed.append(args),
+                            verifier=lambda *args, **kwargs: None)
+        self.assertEqual(["old/fully-contained"], [row["branch"] for row in result["deleted"]])
+        self.assertEqual([(REPOSITORY, "", "old/fully-contained", FEATURE_SHA)], pushed)
+
+    def test_compare_proves_exact_ancestor_not_divergence_or_malformed_result(self):
+        class CompareOpener:
+            def __init__(self, result):
+                self.result = result
+
+            def __call__(self, request, timeout=30):
+                self_url = request.full_url
+                if "/compare/" not in self_url or FEATURE_SHA not in self_url or MAIN_SHA not in self_url:
+                    raise AssertionError(self_url)
+                return Response(self.result)
+
+        valid = {"status": "ahead", "ahead_by": 12, "behind_by": 0,
+                 "base_commit": {"sha": FEATURE_SHA},
+                 "merge_base_commit": {"sha": FEATURE_SHA}}
+        self.assertTrue(_confirmed_ancestor(REPOSITORY, "", FEATURE_SHA, MAIN_SHA,
+                                            opener=CompareOpener(valid)))
+        for changed in ({**valid, "behind_by": 1},
+                        {**valid, "merge_base_commit": {"sha": "c" * 40}},
+                        {**valid, "status": "diverged"},
+                        {**valid, "base_commit": {}},
+                        [valid]):
+            self.assertFalse(_confirmed_ancestor(REPOSITORY, "", FEATURE_SHA, MAIN_SHA,
+                                                 opener=CompareOpener(changed)))
+
+    def test_ancestor_mode_adds_only_proven_behind_branch_without_changing_default(self):
+        rows = [branch("main", MAIN_SHA), branch("old/fully-contained", FEATURE_SHA),
+                branch("old/diverged", "c" * 40)]
+        snapshot = inventory(rows, [])
+        checked = []
+
+        def ancestry(sha, main_sha):
+            checked.append((sha, main_sha))
+            return sha == FEATURE_SHA and main_sha == MAIN_SHA
+
+        self.assertEqual([], build_plan(snapshot)["candidates"])
+        result = build_plan(snapshot, include_ancestors=True, ancestry_checker=ancestry)
+        self.assertEqual([{"branch": "old/fully-contained", "sha": FEATURE_SHA,
+                           "merged_pr": None, "evidence": "ancestor",
+                           "default_sha": MAIN_SHA}], result["candidates"])
+        self.assertEqual([(FEATURE_SHA, MAIN_SHA), ("c" * 40, MAIN_SHA)], checked)
+
+    def test_ancestor_mode_never_claims_open_or_protected_branch(self):
+        rows = [branch("main", MAIN_SHA), branch("old/open", FEATURE_SHA),
+                branch("old/protected", "c" * 40, protected=True)]
+        snapshot = inventory(rows, [pull(77, "old/open", FEATURE_SHA,
+                                         state="open", merged_at=None)])
+        result = build_plan(snapshot, include_ancestors=True,
+                            ancestry_checker=lambda *_: True)
+        self.assertEqual([], result["candidates"])
+
     def test_only_exact_merged_head_into_default_branch_is_a_candidate(self):
         rows = [
             pull(42, "feature/ready", FEATURE_SHA),
