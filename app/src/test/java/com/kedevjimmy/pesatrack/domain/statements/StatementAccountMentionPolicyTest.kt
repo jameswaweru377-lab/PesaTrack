@@ -23,6 +23,22 @@ class StatementAccountMentionPolicyTest {
         assertEquals("row", hints.single().row.id)
     }
 
+    @Test fun kenyanWalletCountryAndLocalFormatsReferToSameFullNumber() {
+        val owners = listOf(accounts.first(), StatementAccountMentionPolicy.Account("wallet", "+254712345678", true))
+        assertEquals("wallet", hints("Invented payment 0712345678", owners = owners).single().mentionedAccountId)
+        assertEquals("wallet", hints("Invented payment +254712345678", owners = owners).single().mentionedAccountId)
+        assertTrue(hints("Invented payment +712345678", owners = owners).isEmpty())
+        assertTrue(hints("Invented payment + 712345678", owners = owners).isEmpty())
+        assertTrue(hints("Invented payment +44 712345678", owners = owners).isEmpty())
+        assertTrue(hints("Invented payment +7 712345678", owners = owners).isEmpty())
+        assertTrue(hints("Invented payment +44 0 712345678", owners = owners).isEmpty())
+        assertTrue(hints("Invented payment +254 712345678", owners = owners).isEmpty())
+        val bankOnly = listOf(accounts.first(), StatementAccountMentionPolicy.Account("other-bank", "254712345678"))
+        assertTrue(hints("Invented payment +254712345678", owners = bankOnly).isEmpty())
+        assertTrue(hints("Invented payment +254712345678", owners = owners + bankOnly.last()).isEmpty())
+        assertTrue(hints("Invented masked number ***45678", owners = owners).isEmpty())
+    }
+
     @Test fun noHintForPartialMaskedNamesOrEmbeddedNumbers() {
         assertTrue(hints("Invented person").isEmpty())
         assertTrue(hints("***45678").isEmpty())

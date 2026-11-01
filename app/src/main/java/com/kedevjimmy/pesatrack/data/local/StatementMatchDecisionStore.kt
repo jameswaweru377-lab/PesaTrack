@@ -128,7 +128,7 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
             }
         }
         val confirmedAccounts = ownership.filterValues { it.type == "BANK" || it.type == "MOBILE_WALLET" }
-            .map { (id, account) -> StatementAccountMentionPolicy.Account(id, account.identifier) }
+            .map { (id, account) -> StatementAccountMentionPolicy.Account(id, account.identifier, account.type == "MOBILE_WALLET") }
         val accountMentions = StatementAccountMentionPolicy.find(bankRecords, confirmedAccounts, shownIds.toSet(), start, end)
         return Snapshot(review, candidates, saved, missingConsent, source.excludedBankSourceCount, possibleTransfers, accountMentions)
     }
