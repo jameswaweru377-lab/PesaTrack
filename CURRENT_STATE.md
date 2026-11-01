@@ -1,6 +1,16 @@
 # PesaTrack Current State
 
-_Last refreshed: 31 October 2026_
+_Last refreshed: 1 November 2026_
+
+_Temporary unlocked-screen capture support (1 November 2026; CI and Redmi acceptance pending):_
+The owner requested Android screenshots and screen recordings for private UI review.
+An enabled app lock no longer blocks capture while the app is unlocked and in
+the foreground. The PIN/biometric lock screen, an app-lock-protected background
+window and the backup-recovery blocker retain `FLAG_SECURE`. App-lock credentials,
+biometric checks, backup/restore, financial data and permissions are unchanged.
+Screenshots may reveal real financial information; redact before sharing.
+This temporary relaxation needs real-phone acceptance and can be reverted after
+UI review.
 
 _Money until next salary (Task 3; draft PR #507, Android CI and device acceptance pending):_
 Plan has a separate local-only forecast card, using either a **user-confirmed
@@ -172,7 +182,7 @@ Personal information now offers a bounded local photo-picker/crop/replace/remove
 flow with emoji fallback; names and optional emails keep their existing local
 preferences. Account security exposes PIN management, an opt-out for biometric
 unlock and an explicit 0/30/60-second background lock interval, preserving the
-30-second default and secure-screen protection. Reminders retain their existing
+30-second default and protection for locked/background screens. Reminders retain their existing
 stores with higher-contrast accessible switches. Help now offers searchable
 topics and read-only permission checks alongside the existing diagnostics route.
 Pure Kotlin crop/timing smoke checks pass; Android CI and manual photo/lock/large-
@@ -182,7 +192,7 @@ was changed in this refinement.
 _Conditional PDF password prompt (30 October 2026; pending CI/device verification):_
 Statements Import now first attempts local M-Pesa or bank PDF verification without
 an opening password. Only an explicitly recognized PDFMiner password failure
-opens the existing screenshot-protected, masked password prompt, which permits
+opens the existing masked password prompt, which permits
 retry after an incorrect entry; unprotected files skip the prompt. Both
 extractors classify the underlying typed PDFMiner error even when wrapped by
 pdfplumber, without revealing source exception text. Original account-ownership,

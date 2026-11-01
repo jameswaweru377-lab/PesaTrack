@@ -1,8 +1,5 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import android.app.Activity
-import android.content.Context
-import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -459,10 +456,6 @@ fun AppLockSettingsSheet(
                                 currentPin
                             )
                         ) {
-                            syncSecureWindow(
-                                context = context,
-                                enabled = false
-                            )
                             onChanged()
                             onDismiss()
                         } else {
@@ -514,10 +507,6 @@ fun AppLockSettingsSheet(
                             )
                         manager.setPin(
                             newPin
-                        )
-                        syncSecureWindow(
-                            context = context,
-                            enabled = true
                         )
                         onChanged()
                         onDismiss()
@@ -580,26 +569,6 @@ private fun lockoutError(
             " seconds."
     } else {
         fallback
-    }
-}
-
-private fun syncSecureWindow(
-    context: Context,
-    enabled: Boolean
-) {
-    val activity =
-        context as? Activity
-            ?: return
-    if (enabled) {
-        activity.window.addFlags(
-            WindowManager.LayoutParams
-                .FLAG_SECURE
-        )
-    } else {
-        activity.window.clearFlags(
-            WindowManager.LayoutParams
-                .FLAG_SECURE
-        )
     }
 }
 
