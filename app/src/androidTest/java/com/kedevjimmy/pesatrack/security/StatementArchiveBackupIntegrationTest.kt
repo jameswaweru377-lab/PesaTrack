@@ -118,11 +118,11 @@ class StatementArchiveBackupIntegrationTest {
         ).forEach { db.delete(it, null, null) }
     }
 
-    private fun seedBankEvidence() = archive { db ->
+    private fun seedBankEvidence(format: String = "PDF") = archive { db ->
         db.insertOrThrow("statement_sources_v2", null, ContentValues().apply {
             put("id", "b".repeat(64)); put("account_id", "invented-owned-bank")
             put("provider_key", "KENYAN_BANK_EQUITY"); put("account_identity_hash", "c".repeat(64))
-            put("currency", "KES"); put("document_format", "PDF")
+            put("currency", "KES"); put("document_format", format)
             put("imported_at", 1_780_000_000_000L); put("row_count", 1)
             put("first_at", 1_780_000_000_000L); put("last_at", 1_780_000_000_000L)
             put("money_in_minor", 1000L); put("money_out_minor", 0L); put("totals_verified", 1)
@@ -137,9 +137,9 @@ class StatementArchiveBackupIntegrationTest {
         })
     }
 
-    private fun seedLimitedEvidence() = archive { db ->
+    private fun seedLimitedEvidence(sourceId: String = "d".repeat(64)) = archive { db ->
         db.insertOrThrow("statement_limited_sources_v1", null, ContentValues().apply {
-            put("id", "d".repeat(64)); put("account_id", "invented-owned-bank")
+            put("id", sourceId); put("account_id", "invented-owned-bank")
             put("provider_key", "KENYAN_BANK_EQUITY"); put("account_identity_hash", "e".repeat(64))
             put("currency", "KES"); put("document_format", "PDF")
             put("imported_at", 1_780_000_000_000L); put("row_count", 1)
@@ -148,13 +148,27 @@ class StatementArchiveBackupIntegrationTest {
             put("assurance", "GRAND_TOTAL_AND_CHAIN_ONLY")
         })
         db.insertOrThrow("statement_limited_legs_v1", null, ContentValues().apply {
-            put("source_id", "d".repeat(64)); put("leg_number", 0)
+            put("source_id", sourceId); put("leg_number", 0)
             put("page_number", 1); put("row_number", 1)
             put("occurred_at", 1_780_000_000_000L)
             put("description", "Invented older bank movement")
             put("movement_minor", 1_000L); put("running_balance_minor", 1_000L)
             put("source_cells_json", "{\"headers\":[\"Example\"],\"cells\":[\"Invented\"]}")
         })
+    }
+
+    @Test fun backupRetainsCalculatedOpeningProvenanceAndOriginalLimitedEvidence() {
+        seedBankEvidence("PDF_EQUITY_VERIFIED_DERIVED_OPENING")
+        seedLimitedEvidence("b".repeat(64))
+        val backup = manager.exportEncryptedBytes(password)
+        clearStatementArchive()
+        manager.restoreEncryptedBytes(backup, password)
+        archive { db ->
+            assertEquals("PDF_EQUITY_VERIFIED_DERIVED_OPENING", db.compileStatement(
+                "SELECT document_format FROM statement_sources_v2").simpleQueryForString())
+            assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_limited_sources_v1").simpleQueryForLong())
+            assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_limited_legs_v1").simpleQueryForLong())
+        }
     }
 
     @Test fun encryptedBackupRestoresAllStatementRowsAndCategoriesWithoutCashPosting() {
