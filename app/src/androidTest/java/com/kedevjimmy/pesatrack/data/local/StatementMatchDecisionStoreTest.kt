@@ -111,6 +111,7 @@ class StatementMatchDecisionStoreTest {
         assertEquals(StatementMatchDecisionStore.Decision.CONFIRMED, store.read(2026).decisions[candidate.hash])
         accounts.updateDetails(other.id, "008888888888", null)
         assertTrue(store.read(2026).decisions.isEmpty())
+        assertTrue(store.read(2026).possibleTransfers.isEmpty())
         assertEquals(StatementMatchDecisionStore.Result.STALE,
             store.decide(2026, candidate.hash, candidate.kind, StatementMatchDecisionStore.Decision.CONFIRMED, null))
         accounts.updateDetails(other.id, "009876543210", null)
