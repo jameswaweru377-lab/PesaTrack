@@ -2,11 +2,12 @@ package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.material3.MaterialTheme
 import android.graphics.Bitmap
+import android.content.ContentValues
+import android.provider.MediaStore
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.onRoot
 import androidx.test.platform.app.InstrumentationRegistry
-import java.io.File
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.kedevjimmy.pesatrack.domain.statements.StatementEvidenceCorrelationPolicy
@@ -30,8 +31,14 @@ class StatementMatchReviewUiTest {
         compose.onNodeWithText("Your records stay unchanged").assertExists()
         compose.onNodeWithText("Invented bank → Invented wallet").assertExists()
         compose.onNodeWithText("Same reference and amount; money out on one account and in on the other.").assertExists()
-        val file = File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "match-review-synthetic.png")
-        file.outputStream().use { compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it) }
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val uri = requireNotNull(context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, "match-review-synthetic.png")
+            put(MediaStore.Downloads.MIME_TYPE, "image/png")
+        }))
+        requireNotNull(context.contentResolver.openOutputStream(uri)).use {
+            compose.onRoot().captureToImage().asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
     }
 
     @Test fun noMatchesDoesNotClaimTransactionsAreUnrelated() {

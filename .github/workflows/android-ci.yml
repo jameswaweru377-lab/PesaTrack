@@ -237,7 +237,7 @@ jobs:
           disable-animations: true
           script: |
             ./gradlew :app:connectedDebugAndroidTest --stacktrace -Pandroid.testInstrumentationRunnerArguments.class=com.kedevjimmy.pesatrack.data.local.StatementBankArchiveIntegrationTest,com.kedevjimmy.pesatrack.ui.screens.StatementUnifiedOverviewUiTest,com.kedevjimmy.pesatrack.ui.screens.StatementMatchReviewUiTest,com.kedevjimmy.pesatrack.ui.screens.StatementLimitedDashboardIntegrationTest,com.kedevjimmy.pesatrack.security.StatementArchiveBackupIntegrationTest
-            adb pull /sdcard/Android/data/com.kedevjimmy.pesatrack/files/match-review-synthetic.png match-review-synthetic.png
+            adb pull /sdcard/Download/match-review-synthetic.png match-review-synthetic.png
             adb logcat -d -v raw 'PesaTrackMeasurement:I' '*:S' > history-measurements.jsonl
             echo "${{ github.sha }}" > ANDROID_TEST_SOURCE_SHA.txt
 
