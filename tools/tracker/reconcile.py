@@ -147,6 +147,10 @@ def _task_from_issue(issue: dict, related: list[dict], checks: list[dict],
         related, owner, snapshot.get("main_sha"), checks, required)
     combined = _combine_ci(results)
     all_merged = bool(related) and all(p.get("merged_at") for p in related)
+    acceptance_ci = (_combine_ci([
+        _status_for_sha(str(p.get("head_sha") or ""), checks, AUTOMATIC_CHECKS)
+        for p in related]) if all_merged else "unknown")
+    action_ci = _combine_ci([combined, acceptance_ci]) if all_merged else combined
     manual_status = explicit_task_status(issue.get("body"))
     automatic_docs = (all_merged and manual_status not in
                       {"Untriaged", "Unclaimed", "Blocked", "Paused", "Superseded"}
@@ -176,7 +180,7 @@ def _task_from_issue(issue: dict, related: list[dict], checks: list[dict],
             "reason": ("merged tracker documentation and both exact-head checks passed"
                        if automatic_docs else "explicit verification recorded"
                        if mode == "recorded" else "additional evidence required"),
-            "action": _next_action(status, combined, device, warnings),
+            "action": _next_action(status, action_ci, device, warnings),
         },
         "checked_at": checked_at(snapshot.get("checked_at")),
     }

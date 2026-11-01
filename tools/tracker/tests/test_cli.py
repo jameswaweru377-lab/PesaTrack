@@ -52,7 +52,7 @@ class TrackerCliTest(unittest.TestCase):
         checks[1]["conclusion"] = "failure"
         blocked = report_markdown(reconcile({"issues": [issue], "prs": [pull],
                                              "checks": checks}))
-        self.assertIn("collect-acceptance-evidence", blocked)
+        self.assertIn("repair-ci", blocked)
 
 
 if __name__ == "__main__":

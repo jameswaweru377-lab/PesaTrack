@@ -121,6 +121,20 @@ class ReconcileTest(unittest.TestCase):
                                "prs": [], "checks": []})["tasks"][0]
         self.assertEqual("claim-or-triage-task", unclaimed["acceptance"]["action"])
 
+    def test_docs_exception_action_identifies_missing_or_failed_secrets(self):
+        for kind, expected in (("missing", "collect-ci-evidence"),
+                               ("failed", "repair-ci")):
+            with self.subTest(kind=kind):
+                checks = complete_checks()
+                if kind == "missing":
+                    checks.pop()
+                else:
+                    checks[1]["conclusion"] = "failure"
+                task = reconcile({"issues": [docs_issue()], "prs": [docs_pr()],
+                                  "checks": checks})["tasks"][0]
+                self.assertEqual("Merged — needs acceptance", task["status"])
+                self.assertEqual(expected, task["acceptance"]["action"])
+
     def test_two_prs_for_same_task_are_preserved_without_overwriting(self):
         data = {"checked_at": "2026-10-31T10:00:00Z", "main_sha": "b" * 40,
                 "issues": [issue()],
