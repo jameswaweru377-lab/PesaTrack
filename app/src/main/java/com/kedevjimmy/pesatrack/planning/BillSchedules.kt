@@ -20,10 +20,8 @@ import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
-enum class BillCadence {
-    MONTHLY,
-    WEEKLY
-}
+/** Source-compatible scheduling API; the type is owned by the pure domain layer. */
+typealias BillCadence = com.kedevjimmy.pesatrack.domain.planning.BillCadence
 
 data class BillScheduleConfig(
     val cadence: BillCadence,
