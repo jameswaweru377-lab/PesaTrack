@@ -51,9 +51,13 @@ class StatementFallbackAdmissionPolicyTest {
             selected = account.copy(identifier = "001111111111"))))
     }
 
-    @Test fun oneMissingPrintedPageTotalNeverAdmits() {
+    @Test fun noPrintedTotalsNeverAdmits() {
         assertEquals(StatementAdmissionResult.Reason.MISSING_PRINTED_TOTALS,
-            reason(verify(document = proof.copy(printedPageTotals = emptyMap()))))
+            reason(verify(document = proof.copy(printedPageTotals = emptyMap(), printedGrandTotal = null))))
+    }
+
+    @Test fun matchingStatementTotalCanReplacePageTotals() {
+        assertTrue(verify(document = proof.copy(printedPageTotals = emptyMap())) is StatementAdmissionResult.Accepted)
     }
 
     @Test fun limitedAssuranceNeverAutoAdmitsThroughGenericFallback() {
