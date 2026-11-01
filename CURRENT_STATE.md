@@ -519,7 +519,7 @@ Not yet public-store ready. Remaining release blockers include:
 
 ## Architecture rule for next work
 
-Improve architecture incrementally during approved feature and fix work: extract focused responsibilities only in related code, preserve financial behavior and tests, and avoid whole-app rewrites. Preserve the four visible bottom tabs Home / Activity / Plan / More (Accounts remains an internal destination), and keep parser expansion evidence-driven.
+Improve architecture incrementally during approved feature and fix work: extract focused responsibilities only in related code, preserve financial behavior and tests, and avoid whole-app rewrites. Preserve the latest approved five visible bottom tabs Home / Activity / Plan / Accounts / More, with Accounts linked directly to its existing destination; do not revert to the old four-tab arrangement. Keep parser expansion evidence-driven.
 
 ## Owed to me history review
 
