@@ -93,6 +93,7 @@ fun MoreScreen(
     onProfileSectionClick: (String) -> Unit,
     onAccountsClick: () -> Unit,
     onImportClick: () -> Unit,
+    onPastTransactionsClick: () -> Unit,
     onStatementActivityClick: () -> Unit,
     onDataHealthClick: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -236,7 +237,7 @@ fun MoreScreen(
                     MoreSettingsRow(Icons.Rounded.Build, "Advanced troubleshooting",
                         "Diagnostics & data checks", "purple", onClick = onDataHealthClick)
                     MoreSettingsRow(Icons.Rounded.History, "Past transactions",
-                        "Review older activity", "blue", onClick = onImportClick)
+                        "Review older activity", "blue", onClick = onPastTransactionsClick)
                     MoreSettingsRow(Icons.Rounded.Wallet, "Funds",
                         "Balances, sources & movement", "green", onClick = onAccountsClick)
                     MoreSettingsRow(Icons.Rounded.Info, "About PesaTrack",
