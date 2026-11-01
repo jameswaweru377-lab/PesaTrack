@@ -2,7 +2,8 @@
 
 import unittest
 
-from tools.tracker.branch_cleanup import _patch_lines_contained, _confirmed_superseded, build_plan
+from tools.tracker.branch_cleanup import (_patch_lines_contained, _confirmed_superseded,
+                                          _successor_files_unchanged, build_plan)
 from tools.tracker.tests.test_branch_cleanup import REPOSITORY, MAIN_SHA, FEATURE_SHA, branch, inventory, pull
 from tools.tracker.tests.test_branch_cleanup import Response
 from urllib.parse import urlparse
@@ -102,6 +103,32 @@ class SupersededRetirementTests(unittest.TestCase):
         self.assertTrue(_confirmed_superseded(REPOSITORY, "", candidate, opener=opener))
         newer["merged_at"] = None
         self.assertFalse(_confirmed_superseded(REPOSITORY, "", candidate, opener=opener))
+
+    def test_successor_file_changes_or_missing_proof_block_retirement(self):
+        sha = "e" * 40
+        old_files = [{"filename": "a.kt", "patch": "@@ -1 +1 @@\n-old\n+new",
+                      "additions": 1, "deletions": 1}]
+
+        def same(request, timeout=30):
+            path = urlparse(request.full_url).path
+            if path.endswith("/pulls/200/files"):
+                return Response(old_files)
+            if path.endswith("/contents/a.kt"):
+                return Response({"type": "file", "sha": sha})
+            raise AssertionError(path)
+
+        self.assertTrue(_successor_files_unchanged(REPOSITORY, "", 200,
+                        "c" * 40, MAIN_SHA, opener=same))
+
+        def changed(request, timeout=30):
+            result = same(request, timeout)
+            if urlparse(request.full_url).path.endswith("/contents/a.kt"):
+                value = {"type": "file", "sha": sha if "ref=" + "c" * 40 in request.full_url else "f" * 40}
+                return Response(value)
+            return result
+
+        self.assertFalse(_successor_files_unchanged(REPOSITORY, "", 200,
+                         "c" * 40, MAIN_SHA, opener=changed))
 
 
 if __name__ == "__main__":

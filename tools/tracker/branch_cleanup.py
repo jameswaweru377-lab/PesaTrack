@@ -291,6 +291,41 @@ def _confirmed_superseded(repository: str, token: str, candidate: dict, *, opene
     return _patch_lines_contained(old_files, new_files)
 
 
+def _successor_files_unchanged(repository: str, token: str, old_pr: int,
+                               successor_merge_sha: str, default_sha: str, *, opener) -> bool:
+    """Fail closed if any old-PR path differs after the successor's merge."""
+    if (not isinstance(successor_merge_sha, str)
+            or not SHA_PATTERN.fullmatch(successor_merge_sha)
+            or not isinstance(default_sha, str) or not SHA_PATTERN.fullmatch(default_sha)):
+        return False
+    old_files = _paged_rows(repository, token, f"pulls/{old_pr}/files",
+                            opener=opener, max_pages=MAX_PAGES)
+    if not old_files:
+        return False
+    for item in old_files:
+        path = item.get("filename") if isinstance(item, dict) else None
+        if (not isinstance(path, str) or not path or path.startswith("/")
+                or item.get("status") in ("removed", "renamed")):
+            return False
+        content_url = "contents/" + parse.quote(path, safe="/")
+        try:
+            merged = _api_request(_api_url(repository, content_url, ref=successor_merge_sha),
+                                  token, opener=opener)
+            current = _api_request(_api_url(repository, content_url, ref=default_sha),
+                                   token, opener=opener)
+        except RuntimeError as exc:
+            if str(exc).startswith("GitHub API request failed (HTTP 404 at "):
+                return False
+            raise
+        if (not isinstance(merged, dict) or not isinstance(current, dict)
+                or merged.get("type") != "file" or current.get("type") != "file"
+                or not isinstance(merged.get("sha"), str)
+                or not SHA_PATTERN.fullmatch(merged["sha"])
+                or current.get("sha") != merged["sha"]):
+            return False
+    return True
+
+
 def build_plan(inventory: dict, *, include_ancestors: bool = False,
                ancestry_checker=None, superseded_pairs=None) -> dict:
     """Classify exact merged heads; optionally include independently proved ancestors."""
@@ -443,6 +478,9 @@ def _recheck_candidate(repository: str, token: str, candidate: dict, *, opener) 
         merge_sha = successor.get("merge_commit_sha") if isinstance(successor, dict) else None
         if not _confirmed_ancestor(repository, token, merge_sha, main_sha, opener=opener):
             return False, "successor_not_in_main"
+        if not _successor_files_unchanged(repository, token, candidate["old_pr"],
+                                          merge_sha, main_sha, opener=opener):
+            return False, "successor_files_changed_on_main"
     if ancestry_mode:
         main_branch = _api_request(
             _api_url(repository, "branches/" + parse.quote(default_branch, safe="")),

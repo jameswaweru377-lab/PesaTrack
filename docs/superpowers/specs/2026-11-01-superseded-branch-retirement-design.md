@@ -14,7 +14,7 @@ Retire demonstrably redundant closed/unmerged PR branches in owner-authorized ba
 
 - Explicit manifest of at most 30 entries; no wildcard selection.
 - Old PR must be closed and unmerged, from this repository to default; its head SHA must match the current branch.
-- Successor PR must be merged into default, with its merge commit contained in current main.
+- Successor PR must be merged into default, with its merge commit contained in current main. Every old PR changed file must still have the same exact Git blob as it did at the successor merge commit. Any subsequent edit, removal, or rename defers retirement.
 - All changed `+` and `-` lines of the old PR must occur in successor's complete GitHub PR file patch at the same path. Missing/truncated patches fail closed. This strict test intentionally defers many plausible replacements.
 - Exclude default, protected, moved, and any open-PR branch. Independently fetch fresh GitHub state before each deletion and enforce exact SHA with Git lease.
 - Use a dedicated owner-only Issue #528 command; existing schedule and ordinary cleanup stay unchanged.
@@ -22,4 +22,4 @@ Retire demonstrably redundant closed/unmerged PR branches in owner-authorized ba
 
 ## First candidate
 
-Closed/unmerged PR #200 at `3c6585383aed5d33e1f67932cf1d6fe8c9d67259` has identical changed-line patch membership within merged PR #201. Other older branches with non-contained patches are deferred, not assumed redundant.
+Closed/unmerged PR #200 at `3c6585383aed5d33e1f67932cf1d6fe8c9d67259` has identical changed-line patch membership within merged PR #201, but later changes to its files on main cause the current-tree preservation gate to **defer deletion**. This is an expected conservative result, not a failure. Other older branches with non-contained patches are deferred as well.

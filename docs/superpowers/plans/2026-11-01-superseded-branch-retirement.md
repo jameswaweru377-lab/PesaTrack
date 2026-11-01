@@ -32,6 +32,7 @@ Never touch app code or active UI; keep Equity/instrumentation held. Fail closed
 ## Task 2: Execution gate and command
 
 - [x] Reuse existing live exact-tip, open-PR, protected and lease checks; verify successor merge commit in current main.
+- [x] Verify old PR paths have unchanged Git blobs on current main since successor merge; defer if current code evolved.
 - [x] Add `--superseded-manifest`, capped 30, and owner-only `/pesatrack-cleanup-superseded-apply-30` workflow command.
 - [ ] Run full tracker tests and security scan.
 - [ ] Submit and merge guarded workflow PR only after exact-head checks.
