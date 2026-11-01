@@ -20,7 +20,6 @@ SNAPSHOT_FIELDS = {"repository", "main_sha", "issues", "prs", "checks",
 
 def _validated_snapshot(snapshot: object, repository: str) -> dict:
     if (not isinstance(snapshot, dict) or not SNAPSHOT_FIELDS.issubset(snapshot)
-            or snapshot.get("repository") != repository
             or not isinstance(snapshot.get("main_sha"), str)
             or not re.fullmatch(r"[0-9a-f]{40}", snapshot["main_sha"])
             or any(not isinstance(snapshot.get(key), list)
@@ -29,6 +28,8 @@ def _validated_snapshot(snapshot: object, repository: str) -> dict:
             or not isinstance(snapshot.get("truncated"), bool)
             or not isinstance(snapshot.get("checked_at"), str)):
         raise RuntimeError("Cached GitHub snapshot is invalid")
+    if snapshot["repository"] != repository:
+        raise RuntimeError("Cached GitHub snapshot does not match repository")
     return snapshot
 
 
