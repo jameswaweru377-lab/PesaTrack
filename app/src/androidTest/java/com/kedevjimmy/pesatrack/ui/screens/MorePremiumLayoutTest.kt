@@ -44,6 +44,7 @@ class MorePremiumLayoutTest {
         compose.onNodeWithText("Statements").performClick()
         compose.runOnIdle { assertEquals("statements", destination) }
         compose.onNodeWithText("Imports").performClick()
+        compose.onNodeWithText("Import financial SMS").performClick()
         compose.runOnIdle { assertEquals("imports", destination) }
         compose.onNodeWithText("Accounts").performClick()
         compose.runOnIdle { assertEquals("accounts", destination) }
