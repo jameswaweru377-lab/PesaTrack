@@ -23,6 +23,7 @@ import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.StatementEvidenceReadModel
 import com.kedevjimmy.pesatrack.domain.statements.StatementBankHistoryPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementBankAdmission
 import com.kedevjimmy.pesatrack.domain.statements.StatementBankCategoryLabelPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementSourceCoveragePolicy
 import kotlinx.coroutines.CancellationException
@@ -51,13 +52,19 @@ internal fun StatementBankOverviewPage(
     var limitedSources by remember(accountId) {
         mutableStateOf<List<StatementBankArchiveStore.Source>>(emptyList())
     }
+    var derivedOpeningSourceIds by remember(accountId) { mutableStateOf<Set<String>>(emptySet()) }
     var limitedSelected by remember(accountId) {
         mutableStateOf<StatementBankArchiveStore.Source?>(null)
     }
     LaunchedEffect(accountId, months) {
-        limitedSources = withContext(Dispatchers.IO) {
-            StatementBankArchiveStore(context).limitedSourcesFor(accountId)
+        val (limited, derivedIds) = withContext(Dispatchers.IO) {
+            val archive = StatementBankArchiveStore(context)
+            archive.limitedSourcesFor(accountId) to archive.sourcesFor(accountId)
+                .filter { it.format == StatementBankAdmission.DERIVED_OPENING_ARCHIVE_FORMAT }
+                .mapTo(mutableSetOf()) { it.id }
         }
+        limitedSources = limited
+        derivedOpeningSourceIds = derivedIds
     }
     limitedSelected?.let { selected ->
         StatementLimitedSourcePage(selected) { limitedSelected = null }
@@ -209,6 +216,9 @@ internal fun StatementBankOverviewPage(
                         Column(Modifier.weight(1f)) {
                             Text(entry.key,fontWeight=FontWeight.Bold,color=p.ink)
                             Text("${entry.rowCount} verified movements",style=MaterialTheme.typography.bodySmall,color=p.muted)
+                            if (entry.sourceId in derivedOpeningSourceIds) Text(
+                                "Opening balance calculated and cross-checked against printed grand totals; not separately printed.",
+                                style=MaterialTheme.typography.bodySmall,color=p.muted)
                             if(entry.containsOverlappingImports)Text("Alternative imports exist; counted once",
                                 style=MaterialTheme.typography.bodySmall,color=p.red)
                             val overlap = overlapByMonth[entry.key]
@@ -247,6 +257,9 @@ internal fun StatementBankOverviewPage(
             item { StatementInsightCard {
                 Text("${chosenMonth!!.key} · Source transactions",fontWeight=FontWeight.Bold,color=p.ink)
                 Text("Every row is from your saved document. No inferred merchants, purchases or income.",
+                    style=MaterialTheme.typography.bodySmall,color=p.muted)
+                if (chosenMonth!!.sourceId in derivedOpeningSourceIds) Text(
+                    "Verified Equity format: the opening balance was calculated from the first row and independently checked against the printed totals and closing balance.",
                     style=MaterialTheme.typography.bodySmall,color=p.muted)
                 if(chosenMonth!!.containsOverlappingImports) Text("Other documents cover this month; only one source is shown.",
                     style=MaterialTheme.typography.bodySmall,color=p.red)

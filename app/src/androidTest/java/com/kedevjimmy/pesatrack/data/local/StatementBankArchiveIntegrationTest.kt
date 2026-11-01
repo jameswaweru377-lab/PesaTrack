@@ -154,4 +154,46 @@ class StatementBankArchiveIntegrationTest {
         assertEquals(0L, PesaTrackDatabase.get(app).readableDatabase
             .compileStatement("SELECT COUNT(*) FROM transactions").simpleQueryForLong())
     }
+
+    @Test fun verifiedReimportSupersedesVisibleLimitedCopyWithoutDeletingItsEvidence() {
+        val bank = AccountOwnershipConsentStore(app).createOwnedAccount(
+            "Invented Equity", AccountType.BANK)
+        AccountStore.get(app).updateDetails(bank.id, "001234567890", null)
+        val profile = StatementSourceProfileRegistry.forProvider("KENYAN_BANK_EQUITY")!!
+        val syntheticPages = listOf(StatementTablePage(1,
+            listOf("Transaction Details", "Payment reference", "Date", "Credit", "Debit", "Balance"),
+            listOf(
+                listOf("Invented deposit", "EXAMPLE00001", "01/09/2026", "100.00", "", "100.57"),
+                listOf("Invented payment", "EXAMPLE00002", "02/09/2026", "", "20.00", "80.57")
+            )))
+        val owned = AccountStore.get(app).listAccounts().first { it.id == bank.id }
+        val limitedProof = StatementDocumentProof(profile.providerKey, "001234567890", "KES", "PDF",
+            true, 1, emptyMap(), StatementPrintedTotal(2_000L, 10_000L), null,
+            StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY)
+        val limited = StatementBankAdmission.verify(profile, owned, setOf(bank.id),
+            profile.providerKey, limitedProof, syntheticPages) as StatementAdmissionResult.Accepted
+        val savedLimited = store.save(limited, syntheticPages)
+        assertEquals(1, store.limitedSourcesFor(bank.id).size)
+        assertTrue(store.sourcesFor(bank.id).isEmpty())
+
+        val newlyVerified = StatementBankAdmission.verify(profile, owned, setOf(bank.id),
+            profile.providerKey, limitedProof.copy(
+                assurance = StatementDocumentAssurance.VERIFIED_DERIVED_OPENING,
+                printedClosingBalanceMinor = 8_057L
+            ), syntheticPages) as StatementAdmissionResult.Accepted
+        val savedVerified = store.save(newlyVerified, syntheticPages)
+        assertTrue(savedVerified.added)
+        assertEquals(savedLimited.sourceId, savedVerified.sourceId)
+        assertEquals(StatementBankAdmission.DERIVED_OPENING_ARCHIVE_FORMAT,
+            store.sourcesFor(bank.id).single().format)
+        assertTrue(store.limitedSourcesFor(bank.id).isEmpty())
+        assertEquals(2, store.limitedLegsFor(savedLimited.sourceId).size)
+        val months = StatementBankReportReader(app).monthsFor(bank.id)
+        assertEquals(1, months.size)
+        assertEquals(10_000L, months.single().moneyInMinor)
+        assertEquals(2_000L, months.single().moneyOutMinor)
+        assertFalse(store.save(newlyVerified, syntheticPages).added)
+        assertEquals(0L, PesaTrackDatabase.get(app).readableDatabase
+            .compileStatement("SELECT COUNT(*) FROM transactions").simpleQueryForLong())
+    }
 }

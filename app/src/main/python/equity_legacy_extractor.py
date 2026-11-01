@@ -1,8 +1,8 @@
 """Narrow, no-network reader for the historical graphical-header Equity PDF.
 
-The extractor establishes row coverage, a printed grand Total and adjacent
-balance consistency. It does NOT prove the absent opening/page totals or the
-issuer logo's authenticity. Callers must label this lower assurance accordingly.
+The extractor checks every row, adjacent balance, and the printed grand Credit,
+Debit and closing figures. It derives (never invents a printed) opening from
+both ends of the complete chain. It cannot authenticate the issuer's logo.
 """
 from __future__ import annotations
 
@@ -144,9 +144,11 @@ def _printed_grand_total(words, last_balance, incoming, outgoing, last_anchor_to
         if len(matches) != 1:
             raise LegacyBlocked("legacy_grand_total_ambiguous")
         return _money(matches[0]["text"])
+    printed_close = one(535, 590)
     if (one(393, 465) != incoming or one(465, 535) != outgoing or
-            one(535, 590) != last_balance):
+            printed_close != last_balance):
         raise LegacyBlocked("legacy_grand_total_mismatch")
+    return printed_close
 
 
 def inspect_legacy(pdf, profile, deadline):
@@ -188,13 +190,19 @@ def inspect_legacy(pdf, profile, deadline):
     last_words = all_words[-1]
     last_anchors = [w["top"] for w in last_words if 315 <= w["x0"] < 358 and
                     DATE.fullmatch(w["text"]) and w["top"] > 19]
-    _printed_grand_total(last_words, all_entries[-1][2], incoming, outgoing,
-                         max(last_anchors))
+    printed_close = _printed_grand_total(
+        last_words, all_entries[-1][2], incoming, outgoing, max(last_anchors))
+    opening_from_first = all_entries[0][2] - all_entries[0][1]
+    opening_from_footer = printed_close - (incoming - outgoing)
+    if (opening_from_first != opening_from_footer or
+            not (0 <= opening_from_first < 2 ** 63)):
+        raise LegacyBlocked("legacy_opening_derivation_mismatch")
     return {"status": "ready_for_bank_review", "document": {
         "providerKey": "KENYAN_BANK_EQUITY", "accountIdentifier": account,
         "currency": "KES", "format": "PDF", "pages": len(pdf.pages),
-        "assurance": "grand_total_and_chain_only",
+        "assurance": "verified_grand_total_derived_opening",
         "openingBalanceMinor": None, "printedPageTotals": {},
+        "printedClosingBalanceMinor": printed_close,
         "printedGrandTotal": {"moneyInMinor": incoming, "moneyOutMinor": outgoing},
         "allSourceRegionsAccountedFor": True,
     }, "tables": pages}

@@ -87,8 +87,12 @@ object OfflineBankTableReader {
                 grand.getLong("moneyInMinor")),
             openingBalanceMinor = if (source.isNull("openingBalanceMinor")) null
                 else source.getLong("openingBalanceMinor"),
+            printedClosingBalanceMinor = if (!source.has("printedClosingBalanceMinor") ||
+                source.isNull("printedClosingBalanceMinor")) null
+                else source.getLong("printedClosingBalanceMinor"),
             assurance = when (source.optString("assurance")) {
                 "grand_total_and_chain_only" -> StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY
+                "verified_grand_total_derived_opening" -> StatementDocumentAssurance.VERIFIED_DERIVED_OPENING
                 "" -> StatementDocumentAssurance.FULL
                 else -> error("Unknown bank document assurance; no data saved.")
             }
