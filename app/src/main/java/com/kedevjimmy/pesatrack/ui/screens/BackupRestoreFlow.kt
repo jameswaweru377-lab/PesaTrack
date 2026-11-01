@@ -66,6 +66,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.SecureFlagPolicy
 import com.kedevjimmy.pesatrack.security.AppLockManager
 import com.kedevjimmy.pesatrack.security.BackupRecoveryStatus
 import com.kedevjimmy.pesatrack.security.PesaBackupManager
@@ -311,7 +312,11 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
     } else {
         Dialog(
             onDismissRequest = { leaveFlow() },
-            properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnClickOutside = false)
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                dismissOnClickOutside = false,
+                securePolicy = SecureFlagPolicy.SecureOn
+            )
         ) {
             BackupFullScreen(
                 title = if (page == BackupPage.CREATE) "Create backup" else "Restore backup",

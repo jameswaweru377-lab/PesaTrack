@@ -181,8 +181,9 @@ internal fun ReceivableHistoryReview(
         }.show()
     }
 
+    val securePolicy = rememberCaptureAwareDialogPolicy()
     Dialog(onDismissRequest = { if (!busy) onDismiss() },
-        properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        properties = DialogProperties(usePlatformDefaultWidth = false, securePolicy = securePolicy)) {
         Surface(Modifier.fillMaxSize(),color = MaterialTheme.colorScheme.background) {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {

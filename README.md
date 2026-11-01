@@ -40,7 +40,7 @@ Bank PDF identification runs locally, asks for bank confirmation when a supporte
 
 **Home** for the overview · **Activity** for your ledger · **Plan** for commitments and goals · **More** for accounts, statements, reports and settings.
 
-> **Screenshots:** A gallery of real, privacy-safe screens will be added after device capture and review. No personal transactions, account numbers, or private statement details will be published as examples.
+> **Screenshots:** A gallery of real, privacy-safe screens will be added after device capture and review. Unlocked screens can temporarily be captured for private UI feedback, so redact personal transactions, account numbers, and statement details before sharing. No private records will be published as examples.
 
 ## Privacy by design
 
