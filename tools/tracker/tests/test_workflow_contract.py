@@ -49,6 +49,20 @@ class WorkflowContractTest(unittest.TestCase):
         self.assertIn("--apply", step["run"])
         self.assertEqual("read", workflow["permissions"]["issues"])
 
+    def test_chat_owner_is_previsualized_and_separately_opted_in(self):
+        workflow = yaml.load((ROOT / ".github/workflows/development-tracker.yml").read_text(),
+                             Loader=yaml.BaseLoader)
+        self.assertEqual("false", workflow["on"]["workflow_dispatch"]["inputs"][
+            "preview_owner"]["default"])
+        preview = workflow["jobs"]["report"]["steps"][-3]
+        self.assertIn("preview_owner == true", preview["if"])
+        self.assertIn("--preview-owner", preview["run"])
+        self.assertNotIn("--apply", preview["run"])
+        mirror = workflow["jobs"]["report"]["steps"][-1]
+        self.assertEqual("${{ vars.PESATRACK_TRACKER_OWNER_SYNC_ENABLED }}",
+                         mirror["env"]["PESATRACK_TRACKER_OWNER_SYNC_ENABLED"])
+        self.assertIn("inputs.preview_owner != true", mirror["if"])
+
     def test_dependabot_prs_keep_reporting_without_privileged_project_writes(self):
         workflow = yaml.load((ROOT / ".github/workflows/development-tracker.yml").read_text(),
                              Loader=yaml.BaseLoader)

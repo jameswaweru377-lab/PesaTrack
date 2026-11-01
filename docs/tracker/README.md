@@ -113,7 +113,7 @@ The [PesaTrack Development Tracker](https://github.com/users/jameswaweru377-lab/
 1. In the repository, open **Issues → Labels**. Check for the exact label `pesatrack-tracker`; create it if absent. Only explicitly approved tracker Issues should receive this label. The read-only script intentionally reads labeled Issues only so it does not silently conscript unrelated work.
 2. On your GitHub profile, open **Projects** and check whether **PesaTrack Development Tracker** already exists. If it does, reuse it. Otherwise choose **New project → Board** and **Create a project** named exactly `PesaTrack Development Tracker` under `jameswaweru377-lab`. Keep access private until you choose otherwise.
 3. Add the repository's labeled task Issues to that board. Configure the built-in Project **auto-add** workflow for repository `jameswaweru377-lab/PesaTrack` and label `pesatrack-tracker`; do not auto-close an Issue on a PR merge.
-4. Add or confirm board fields for `Status`, `Priority`, `Area`, `Chat owner` and `Last review`. Suggested statuses are listed above; only supported GitHub Issue/PR evidence changes a status.
+4. Add or confirm board fields for `Status`, `Priority`, `Area`, `Chat owner` and `Last reviewed`. Suggested statuses are listed above; only supported GitHub Issue/PR evidence changes a status.
 5. Run historical import **preview** and have the owner approve its `create/link/review` counts against current Issues. No historical Issues are created by the hourly workflow.
 
 The tracker workflow provides event-driven advisory summaries (GitHub Actions → **Development Tracker (Read-only)**). It uses standard Python only, has a four-minute job timeout and does not run Gradle or publish APKs. The report may show no tasks until approved Issues have the label.
@@ -130,3 +130,34 @@ The Project remains a view. The new `tools/tracker/project_sync.py` can update *
 Dependabot and forked PR events still generate read-only tracker summaries but do not attempt Project-field writes. Their PR-triggered workflows do not receive the separately configured Project Actions secret; trusted Issue, `main` push, Android-CI completion, scheduled, and owner-run workflows continue to synchronize the board.
 
 Only GitHub Projects metadata (task IDs and public task states) is mirrored. The real financial ledger stays on the phone. On 31 October 2026, run #62 proved that the configured credential, board and `Tracker status` field were operational; this is dated evidence, not a guarantee that synchronization remains enabled forever. Inspect the latest workflow before relying on current status.
+
+### Optional Project Chat owner mirror — separate activation
+
+The same verified Project already has a **`Chat owner` text field**. The tracker
+can preview the difference between that field and the canonical Issue claim,
+then (only with an additional opt-in) mirror aliases such as `CHAT-AUDIT-R1` or
+the explicit unclaimed state. It does not infer that a ChatGPT chat is actively
+running. The Project remains a read-only *view* of ownership recorded in Issues.
+
+1. Run **Actions → Development Tracker (Read-only) → Run workflow → Preview owner**.
+   Check the proposed PT issue numbers and whether the existing `Chat owner`
+   text field and task cards were correctly recognized. No Project writes occur
+   in the preview. Do not enable it if the preview fails or cites an unexpected
+   card/field; investigate first.
+2. Only after the preview succeeds, set repository variable
+   `PESATRACK_TRACKER_OWNER_SYNC_ENABLED` to `true`. The already enabled
+   `PESATRACK_TRACKER_PROJECT_SYNC_ENABLED=true` and dedicated Project token
+   remain required. Leaving this new variable unset preserves the status-only
+   mirror. Setting it to `false` stops only chat-owner writes.
+3. The owner mirror never changes built-in human `Status`, owner assignments,
+   Issues, PRs or other Project fields. Unknown ownership is shown as
+   `Unclaimed`, not guessed from PR authors or an open ChatGPT window. Missing
+   or duplicate Issue cards and an ambiguous/wrong-type owner field stop the
+   planned owner update; they never cause auto-creation or reassignment.
+
+On 1 November 2026 the Task Register was manually backfilled with the six
+canonical Issues' recorded owner aliases; this is a snapshot, not proof of
+automated mirroring. Its visible status and the `PesaTrack Work by Status`
+insight chart now use `Tracker status`, not the unrelated built-in `Status`.
+The chart is limited to Issues, so the separate merged PR #508 card is not
+double-counted as a task.
