@@ -553,6 +553,7 @@ fun PesaTrackApp(
                     onImportClick = {
                         navController.navigate("historical-import") { launchSingleTop = true }
                     },
+                    onPastTransactionsClick = { navigateToTab(MainTab.ACTIVITY) },
                     onStatementActivityClick = {
                         navController.navigate("statement-activity") { launchSingleTop = true }
                     },
