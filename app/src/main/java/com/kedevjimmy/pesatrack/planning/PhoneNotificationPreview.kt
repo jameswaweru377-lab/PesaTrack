@@ -60,10 +60,12 @@ object PhoneNotificationPreview {
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(public)
             .build()
-        return runCatching {
+        return try {
             NotificationManagerCompat.from(context).notify(950 + alert.ordinal, notice)
             true
-        }.getOrDefault(false)
+        } catch (_: SecurityException) {
+            false
+        }
     }
 
     internal fun fromWork(context: Context, rawType: String?): Boolean =

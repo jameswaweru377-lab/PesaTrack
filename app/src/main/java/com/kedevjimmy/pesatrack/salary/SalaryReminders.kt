@@ -89,7 +89,12 @@ object SalaryReminders {
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setPublicVersion(PhoneNotificationChannels.privatePublicVersion(context, CHANNEL))
                 .addAction(0, "Add salary", open).addAction(0, "Not yet received", defer).build()
-            NotificationManagerCompat.from(context).notify(910, notification)
+            try {
+                NotificationManagerCompat.from(context).notify(910, notification)
+            } catch (_: SecurityException) {
+                // Notifications may be revoked while a reminder is being prepared.
+                return false
+            }
             prefs.edit().putString(key, signature).putLong("${key}_at", now).apply()
             return true
         }

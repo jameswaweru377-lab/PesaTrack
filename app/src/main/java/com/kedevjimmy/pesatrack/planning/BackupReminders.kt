@@ -82,7 +82,12 @@ object BackupReminders {
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(PhoneNotificationChannels.privatePublicVersion(context, PhoneAlertPolicy.BACKUP_CHANNEL))
             .build()
-        NotificationManagerCompat.from(context).notify(NOTICE_ID, notification)
+        try {
+            NotificationManagerCompat.from(context).notify(NOTICE_ID, notification)
+        } catch (_: SecurityException) {
+            // The phone's notification permission may be revoked after our earlier check.
+            return false
+        }
         prefs.edit().putLong("last_shown_at", now).apply()
         return true
     }
