@@ -36,14 +36,17 @@ object StatementMatchReviewPolicy {
             if (ids.isEmpty() || ids.any { it in proof.ambiguousIds }) return null
             val resolved = ids.mapNotNull(byId::get)
             return resolved.takeIf { it.size == ids.size && it.none { row ->
-                row.roleProtected || !row.ownershipConfirmed ||
+                row.roleProtected || !row.ownershipConfirmed || row.occurredAt <= 0 ||
+                    row.movementMinor == 0L || row.movementMinor == Long.MIN_VALUE ||
                     (row.source != StatementEvidenceCorrelationPolicy.Source.ACTIVITY && !row.sourceTotalsVerified)
             } }
                 ?.sortedWith(compareBy({ it.occurredAt }, { it.id }))
         }
         fun sharedReference(rows: List<StatementEvidenceCorrelationPolicy.Observation>): Boolean {
             val references = rows.map { it.reference?.trim()?.uppercase(Locale.ROOT) }
-            return references.none { it.isNullOrBlank() } && references.distinct().size == 1
+            val reference = references.firstOrNull() ?: return false
+            return reference.matches(Regex("[A-Z0-9]{8,48}")) && reference.any(Char::isDigit) &&
+                references.distinct().size == 1
         }
         val transfers = proof.transferCandidates.mapNotNull { candidate ->
             if (candidate.outgoingIds.intersect(candidate.incomingIds).isNotEmpty()) return@mapNotNull null
