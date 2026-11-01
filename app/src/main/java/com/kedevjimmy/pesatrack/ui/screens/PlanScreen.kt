@@ -385,11 +385,10 @@ fun PlanScreen(
             val progressGoal = if (isCycle)
                 snapshot.cycle?.let { planProgressPercent(snapshot.savingsMinor, payCycleBase) }
             else monthlyGoalPercent
-            val progressBills = if (isCycle) {
-                val planned = snapshot.commitments.sumOf { it.plannedMinor.coerceAtLeast(0L) }
-                val paid = snapshot.commitments.sumOf { it.paidMinor.coerceAtLeast(0L) }
-                planProgressPercent(paid, planned)
-            } else monthlyBillsPercent
+            // BillSchedules provides explicit bill-payment evidence. The pay-cycle
+            // snapshot contains other commitments (including savings), so never
+            // treat total commitment progress as bill-payment progress.
+            val progressBills = monthlyBillsPercent
             Box {
                 VibrantPlanProgressCard(
                     periodLabel = if (isCycle) "Pay cycle" else "This month",
@@ -397,8 +396,16 @@ fun PlanScreen(
                     budgetPercent = progressBudget,
                     goalPercent = progressGoal,
                     billsPercent = progressBills,
-                    ringLabel = if (progressBudget != null && progressBudget <= 100)
-                        "On track" else if (progressBudget != null) "Over limit" else "No data"
+                    budgetLabel = if (isCycle) "Cycle spent" else "Budgets",
+                    goalLabel = if (isCycle) "Cycle saved" else "Goals",
+                    billsLabel = if (isCycle) "Bills (month)" else "Bills",
+                    ringLabel = when {
+                        progressBudget == null -> "No data"
+                        isCycle -> "Cycle spent"
+                        budgetItems.any { it.target > 0L && it.saved > it.target } ->
+                            "Over budget"
+                        else -> "Budget used"
+                    }
                 )
                 DropdownMenu(
                     expanded = progressPeriodMenuOpen,
@@ -446,7 +453,9 @@ fun PlanScreen(
         }
         // Keep the existing detailed calculation and all its safeguards, but
         // don't put it between the hero and the approved four planning tiles.
-        if (snapshot.cycle != null) item {
+        item {
+            // This card also provides the forecast/payday confirmation flow
+            // for people who have not yet recorded a confirmed salary cycle.
             MoneyUntilSalaryCard(snapshot)
         }
         if (
