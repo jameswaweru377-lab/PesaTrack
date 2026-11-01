@@ -385,6 +385,7 @@ internal fun StatementIntelligenceDashboard(
                             accountLabels = accountLabels,
                             bankAccountIds = accountIndex.bankAccountIds,
                             limitedSources = limitedBankSources,
+                            reportAccountIds = (sources.map { it.accountId } + bankMonthsByAccount.keys).distinct(),
                             onSelectYear = { chosenOverviewYear = it },
                             onSelectAccount = { id ->
                                 accountSelection = id

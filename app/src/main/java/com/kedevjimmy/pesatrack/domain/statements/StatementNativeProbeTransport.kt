@@ -15,13 +15,21 @@ enum class NativeProbeBlockReason {
 /** The result of transporting *all* original PDF pages, not a financial admission. */
 sealed class NativeProbePreparation {
     data class Ready(val pages: List<StatementProbePage>) : NativeProbePreparation()
-    data class Blocked(val reason: NativeProbeBlockReason) : NativeProbePreparation()
+    data class Blocked(
+        val reason: NativeProbeBlockReason,
+        val pageNumber: Int? = null,
+        val safeDetail: String? = null
+    ) : NativeProbePreparation()
 }
 
 /** Candidate rows have no verified issuer, account or complete-document evidence. */
 sealed class NativeBankProbeResult {
     data class Provisional(val result: StatementProbeResult.Provisional) : NativeBankProbeResult()
-    data class Blocked(val reason: NativeProbeBlockReason) : NativeBankProbeResult()
+    data class Blocked(
+        val reason: NativeProbeBlockReason,
+        val pageNumber: Int? = null,
+        val safeDetail: String? = null
+    ) : NativeBankProbeResult()
 }
 
 /** Fail closed on missing, unreliable or unsupported native PDF geometry. */
@@ -32,9 +40,19 @@ object StatementNativeProbeTransport {
             return block(NativeProbeBlockReason.UNSUPPORTED_DEVICE)
         val count = preview.pages.size
         if (count !in 1..PdfTextReviewPolicy.MAX_PAGES ||
-            preview.positionedPages.size != count || preview.positionedComplete.size != count ||
-            preview.positionedComplete.any { !it })
+            preview.positionedPages.size != count || preview.positionedComplete.size != count)
             return block(NativeProbeBlockReason.INCOMPLETE_GEOMETRY)
+        val firstIncomplete = preview.positionedComplete.indexOfFirst { !it }
+        if (firstIncomplete >= 0) {
+            // The isolated PDF reader sends only fixed reason counts. Never
+            // expose raw statement text, positions, names or amounts here.
+            val detail = preview.geometryDiagnostics.getOrNull(firstIncomplete)?.safeSummary()
+            return NativeProbePreparation.Blocked(
+                NativeProbeBlockReason.INCOMPLETE_GEOMETRY,
+                pageNumber = firstIncomplete + 1,
+                safeDetail = detail
+            )
+        }
         if (preview.pages.any { it.isBlank() } || preview.positionedPages.any { it.isEmpty() })
             return block(NativeProbeBlockReason.EMPTY_OR_SCANNED_DOCUMENT)
         return NativeProbePreparation.Ready(preview.positionedPages.mapIndexed { index, words ->
