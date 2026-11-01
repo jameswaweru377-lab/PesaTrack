@@ -13,6 +13,7 @@ import com.kedevjimmy.pesatrack.data.local.StatementMatchDecisionStore
 import com.kedevjimmy.pesatrack.domain.statements.StatementEvidenceCorrelationPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementMatchReviewPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementPossibleTransferPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementAccountMentionPolicy
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertEquals
@@ -97,6 +98,22 @@ class StatementMatchReviewUiTest {
         compose.onNodeWithText("These are weaker suggestions and may be unrelated. Check the originals before deciding.").assertExists()
         compose.onNodeWithTag("statement-match-review").performScrollToNode(hasText("Same amount and nearby dates. This alone does not prove a transfer."))
         compose.onNodeWithText("Same amount and nearby dates. This alone does not prove a transfer.").assertExists()
+        compose.onNodeWithText("Confirm").assertDoesNotExist()
+    }
+
+    @Test fun accountMentionDoesNotClaimRecipientOrTransfer() {
+        val row = StatementEvidenceCorrelationPolicy.Observation("bank", StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT,
+            "source", "bank", "KES", 1_700_000_000_000L, -500, "0712345678", true, sourceTotalsVerified = true)
+        val review = StatementMatchReviewPolicy.Review(emptyList(), emptyList(), 0)
+        val hint = StatementAccountMentionPolicy.Hint(row, "wallet")
+        val snapshot = StatementMatchDecisionStore.Snapshot(review, emptyList(), emptyMap(), false,
+            accountMentions = listOf(hint))
+        compose.setContent { MaterialTheme { StatementMatchReviewContent(2026, mapOf("wallet" to "Invented wallet"),
+            review, false, {}, {}, snapshot = snapshot) } }
+        compose.onNodeWithTag("statement-match-review").performScrollToNode(hasText("A number alone does not identify the recipient or prove a transfer."))
+        compose.onNodeWithText("Mentions Invented wallet").assertExists()
+        compose.onNodeWithText("A number alone does not identify the recipient or prove a transfer.").assertExists()
+        compose.onNodeWithText("0712345678", substring = true).assertDoesNotExist()
         compose.onNodeWithText("Confirm").assertDoesNotExist()
     }
 }
