@@ -70,18 +70,31 @@ function resolveClientRateKey(request) {
   return `client:${raw.toLowerCase()}`;
 }
 
+// Supplied by Cloudflare on visitor requests. This is a supplementary abuse
+// hint, not a user identity: many mobile users can share one public IP.
+function resolveConnectionRateKey(request) {
+  const ip = request.headers.get("cf-connecting-ip")?.trim();
+  return ip && ip.length <= 45 && /^[0-9a-f:.]+$/i.test(ip)
+    ? `ip:${ip.toLowerCase()}`
+    : "ip:unknown";
+}
+
 async function enforceResolveRateLimit(
   request,
   env,
 ) {
   const clientLimiter =
     env.ENTITY_RESOLVE_CLIENT_RATE_LIMITER;
+  const ipLimiter =
+    env.ENTITY_RESOLVE_IP_RATE_LIMITER;
   const edgeLimiter =
     env.ENTITY_RESOLVE_EDGE_RATE_LIMITER;
 
   if (
     !clientLimiter ||
     typeof clientLimiter.limit !== "function" ||
+    !ipLimiter ||
+    typeof ipLimiter.limit !== "function" ||
     !edgeLimiter ||
     typeof edgeLimiter.limit !== "function"
   ) {
@@ -92,19 +105,6 @@ async function enforceResolveRateLimit(
   }
 
   try {
-    const edgeResult =
-      await edgeLimiter.limit({
-        key: "v1-entity-resolve",
-      });
-
-    if (!edgeResult.success) {
-      return json(
-        { error: "Enrichment is temporarily busy." },
-        429,
-        { "retry-after": "60" },
-      );
-    }
-
     const clientResult =
       await clientLimiter.limit({
         key: resolveClientRateKey(request),
@@ -113,6 +113,30 @@ async function enforceResolveRateLimit(
     if (!clientResult.success) {
       return json(
         { error: "Too many enrichment requests." },
+        429,
+        { "retry-after": "60" },
+      );
+    }
+
+    const ipResult = await ipLimiter.limit({
+      key: resolveConnectionRateKey(request),
+    });
+    if (!ipResult.success) {
+      return json(
+        { error: "Too many enrichment requests." },
+        429,
+        { "retry-after": "60" },
+      );
+    }
+
+    // Only requests allowed by both caller buckets may spend this shared
+    // edge-location allowance; rejections must not starve other callers.
+    const edgeResult = await edgeLimiter.limit({
+      key: "v1-entity-resolve",
+    });
+    if (!edgeResult.success) {
+      return json(
+        { error: "Enrichment is temporarily busy." },
         429,
         { "retry-after": "60" },
       );

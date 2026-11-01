@@ -72,7 +72,11 @@ The Worker may return a category hint, but the Android app remains the final pol
 
 ## GitHub deployment workflow
 
-The repository includes `.github/workflows/entity-enrichment-deploy.yml` for repeatable manual deployment.
+The repository includes `.github/workflows/entity-enrichment-deploy.yml` for
+repeatable deployment. **It runs automatically when Worker source or either
+Wrangler config is changed on `main`**, and can also be started manually using
+`workflow_dispatch`. Merging a Worker PR therefore attempts a live deployment;
+review the configuration and rollout impact before merging.
 
 Repository secrets required by that workflow:
 
@@ -81,7 +85,8 @@ Repository secrets required by that workflow:
 
 Keep `LOGO_DEV_SECRET_KEY` in Cloudflare itself. Do not copy it into the Android build.
 
-Run **Deploy Entity Enrichment Worker** from GitHub Actions and provide the public Worker base URL, for example:
+For a manual redeployment, run **Deploy Entity Enrichment Worker** from GitHub
+Actions. The service exposes a public Worker base URL, for example:
 
 `https://pesatrack.<subdomain>.workers.dev`
 
@@ -111,21 +116,23 @@ Current repository policy:
 - the identifier is not an authentication credential and must never contain a phone number, account identifier, SMS content, transaction code, or other ledger data;
 - `ENTITY_RESOLVE_CLIENT_RATE_LIMITER` allows 60 requests per 60 seconds per valid install ID in each Cloudflare edge location;
 - old or malformed clients fall into a shared `anonymous` client bucket rather than bypassing the limiter;
+- `ENTITY_RESOLVE_IP_RATE_LIMITER` adds a **300 requests per 60 seconds** supplemental bucket keyed by the connection IP supplied by Cloudflare, or a shared `unknown` bucket when absent/malformed;
 - `ENTITY_RESOLVE_EDGE_RATE_LIMITER` adds a larger 600 requests per 60 seconds route-wide safety cap per Cloudflare edge location;
+- per-client and connection-IP denials are checked **before** the shared edge bucket, so their rejected requests cannot use up its allowance;
 - HTTP 429 responses include `Retry-After: 60`;
-- the resolve route fails closed with HTTP 503 if either limiter binding is missing or limiter evaluation fails;
+- the resolve route fails closed with HTTP 503 if any of the three limiter bindings is missing or limiter evaluation fails;
 - the health route is not rate limited;
-- IP addresses are deliberately not used as limiter keys because mobile/NAT users may share them;
+- a single public IP may represent many legitimate users, especially behind mobile carrier NAT. The IP bucket is intentionally much larger than the per-install bucket; a busy shared IP can still see HTTP 429 and needs real usage review;
+- the Worker uses this IP only as a transient rate-limit key. It is not included in provider requests, app storage or diagnostic logs;
 - keep `LOGO_DEV_SECRET_KEY` only in Cloudflare;
 - never weaken descriptor privacy checks in order to make rate limiting easier;
 - do not send raw SMS, phone numbers, transaction codes, account numbers, or likely personal names.
 
-The install ID improves fairness but is client-generated and therefore not trusted identity. The larger edge-wide cap remains necessary to limit abuse from clients that rotate IDs. These rate limits protect provider quota and abuse exposure; they are not authentication and are not accounting controls. Cloudflare's Worker limiter is permissive/eventually consistent and local to an edge location, so monitoring upstream usage still matters.
+The install ID improves fairness but is client-generated and therefore not trusted identity. A rotating ID can evade that one limiter, but a single Cloudflare-observed IP is now subject to an additional **nominal 300/min per-location** bucket when the service is configured. A caller using multiple IPs or Cloudflare locations can still press the shared/provider limits. These controls protect provider quota and abuse exposure; they are not authentication, globally strict budgeting or accounting controls. Cloudflare's Worker limiter is permissive/eventually consistent and local to an edge location, so monitoring upstream usage still matters.
 
-Audit S4 remains open: rotating client IDs can evade per-install throttling and
-the shared edge bucket can be exhausted. Adding IP throttling requires an
-explicit decision about shared-NAT/mobile-user false positives; this privacy
-filter change does not modify rate limiting or deploy Cloudflare rules.
+Audit S4 still requires *deployed* limiter, shared-NAT fairness and provider-
+budget verification. This code change is not a Cloudflare deployment and no
+new kind of financial descriptor may be sent as a result.
 
 If enrichment is throttled or unavailable, PesaTrack must continue with local ledger truth and local entity intelligence.
 
