@@ -187,6 +187,15 @@ For money-affecting changes, require:
 - CI green;
 - real-device validation for user-facing flow changes.
 
+**Statement expansion hold (N2):** no new statement/provider admission,
+assurance promotion or automatic statement-to-ledger money behavior resumes
+until the actual signed-candidate R1 phone journeys and T1 executed Android
+persistence tests both PASS. Reproduced correctness and security fixes for
+existing supported import flows may proceed with their own evidence; a new
+source or financial classification must not be disguised as a defect fix.
+Use the [statement feature-admission gate](acceptance/N2_STATEMENT_FEATURE_GATE.md)
+for scope and evidence.
+
 ## Retired product surfaces
 
 The following preview/superseded screens were removed from source after quarantine and CI verification:
