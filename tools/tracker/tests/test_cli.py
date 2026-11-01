@@ -1,12 +1,33 @@
 """Tracker summary must disclose incomplete evidence, never claim all work is done."""
 
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
-from tools.tracker.cli import report_markdown
+from tools.tracker.cli import main, report_markdown
+from tools.tracker.github_snapshot import load_snapshot
 from tools.tracker.reconcile import reconcile
 
 
 class TrackerCliTest(unittest.TestCase):
+    def test_cli_writes_snapshot_for_following_project_step(self):
+        snapshot = {"repository": "test-org/test-repo", "main_sha": "b" * 40,
+                    "issues": [], "prs": [], "checks": [],
+                    "historical_window_limited": False, "truncated": False,
+                    "checked_at": "2026-11-01T12:00:00Z"}
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "snapshot.json"
+            with patch("tools.tracker.cli.fetch_snapshot", return_value=snapshot), \
+                 patch.dict("os.environ", {"GITHUB_TOKEN": "invented-token"}), \
+                 redirect_stdout(StringIO()):
+                code = main(["--repository", "test-org/test-repo", "--dry-run",
+                             "--snapshot-file", str(path)])
+            self.assertEqual(0, code)
+            self.assertEqual(snapshot, load_snapshot(path, "test-org/test-repo"))
+
     def test_unlabeled_tracker_shows_setup_gap_not_zero_work(self):
         report = report_markdown(reconcile({"checked_at": "2026-10-31T10:00:00Z",
                                             "issues": [], "prs": [], "checks": []}))

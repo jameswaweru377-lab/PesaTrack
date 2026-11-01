@@ -1,12 +1,15 @@
 """Project v2 updates are optional, bounded, and never an ownership authority."""
 
 import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 from io import BytesIO
 from unittest.mock import patch
 
 from tools.tracker.project_sync import (graphql, load_project, main,
                                         plan_updates, plan_owner_updates)
+from tools.tracker.github_snapshot import save_snapshot
 
 
 def project(status="Unclaimed", *, include_item=True):
@@ -46,6 +49,30 @@ def graphql_project():
 
 
 class ProjectSyncTest(unittest.TestCase):
+    def test_project_sync_reuses_the_cli_snapshot_without_a_second_rest_fetch(self):
+        snapshot = {"repository": "jameswaweru377-lab/PesaTrack", "main_sha": "a" * 40,
+                    "issues": [], "prs": [], "checks": [],
+                    "historical_window_limited": False, "truncated": False,
+                    "checked_at": "2026-11-01T12:00:00Z"}
+        with TemporaryDirectory() as directory:
+            snapshot_path = Path(directory) / "snapshot.json"
+            save_snapshot(snapshot_path, snapshot)
+            from contextlib import redirect_stdout
+            from io import StringIO
+            with patch.dict("os.environ", {
+                "PESATRACK_TRACKER_PROJECTS_TOKEN": "invented-secret",
+                "PESATRACK_TRACKER_PROJECT_SYNC_ENABLED": "false",
+            }), patch("tools.tracker.project_sync.fetch_snapshot",
+                      side_effect=AssertionError("unexpected second REST fetch")) as fetch, \
+                 patch("tools.tracker.project_sync.reconcile", return_value=report()), \
+                 patch("tools.tracker.project_sync.load_project", return_value=project()), \
+                 redirect_stdout(StringIO()):
+                code = main(["--repository", "jameswaweru377-lab/PesaTrack",
+                             "--project-id", "PVT_invented",
+                             "--snapshot-file", str(snapshot_path)])
+        self.assertEqual(0, code)
+        fetch.assert_not_called()
+
     def test_owner_plan_changes_only_matching_canonical_issue_text(self):
         changes, missing = plan_owner_updates(
             project_with_owner("CHAT-OLD"), report(), "jameswaweru377-lab/PesaTrack")

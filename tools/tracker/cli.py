@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import sys
 
-from .github_snapshot import fetch_snapshot
+from .github_snapshot import fetch_snapshot, save_snapshot
 from .reconcile import reconcile
 
 
@@ -67,6 +67,7 @@ def main(argv=None) -> int:
     parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY"))
     parser.add_argument("--dry-run", action="store_true", help="Always read-only (default)")
     parser.add_argument("--json", action="store_true", help="Output the bounded task report as JSON")
+    parser.add_argument("--snapshot-file", help="Store this run's snapshot for later tracker steps")
     parser.add_argument("--sync-task-metadata", action="store_true",
                         help="Reserved: unavailable until separate owner-reviewed approval")
     args = parser.parse_args(argv)
@@ -76,6 +77,8 @@ def main(argv=None) -> int:
         parser.error("Supply --repository owner/name or GITHUB_REPOSITORY")
     try:
         snapshot = fetch_snapshot(os.environ.get("GITHUB_TOKEN", ""), args.repository)
+        if args.snapshot_file:
+            save_snapshot(args.snapshot_file, snapshot)
         output = reconcile(snapshot)
     except (RuntimeError, ValueError) as exc:
         print(f"Tracker unavailable: {exc}", file=sys.stderr)

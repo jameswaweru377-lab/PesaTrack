@@ -13,7 +13,7 @@ import re
 import sys
 from urllib import error, request
 
-from .github_snapshot import fetch_snapshot
+from .github_snapshot import fetch_snapshot, load_snapshot
 from .reconcile import reconcile
 
 
@@ -292,6 +292,7 @@ def plan_owner_updates(project: dict, report: dict, repository: str) -> tuple[li
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY"))
+    parser.add_argument("--snapshot-file", help="Reuse the advisory step's per-run GitHub snapshot")
     parser.add_argument("--project-id", default=os.environ.get("PESATRACK_TRACKER_PROJECT_ID"))
     parser.add_argument("--apply", action="store_true", help="Requires an opt-in repository variable")
     parser.add_argument("--preview-owner", action="store_true",
@@ -303,7 +304,10 @@ def main(argv=None) -> int:
     if args.apply and os.environ.get("PESATRACK_TRACKER_PROJECT_SYNC_ENABLED") != "true":
         parser.error("Project mutation requires PESATRACK_TRACKER_PROJECT_SYNC_ENABLED=true")
     try:
-        report = reconcile(fetch_snapshot(os.environ.get("GITHUB_TOKEN", ""), args.repository))
+        snapshot = (load_snapshot(args.snapshot_file, args.repository)
+                    if args.snapshot_file else
+                    fetch_snapshot(os.environ.get("GITHUB_TOKEN", ""), args.repository))
+        report = reconcile(snapshot)
         if report["incomplete"]:
             raise RuntimeError("Tracker evidence is incomplete; refusing Project updates")
         project = load_project(token, args.project_id,

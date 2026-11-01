@@ -4,13 +4,66 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import os
+from pathlib import Path
 import re
+import tempfile
 from urllib import error, parse, request
 
 from .models import issue_pr_refs, task_refs
 
 REPOSITORY_PATTERN = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 BASE_URL = "https://api.github.com"
+SNAPSHOT_FIELDS = {"repository", "main_sha", "issues", "prs", "checks",
+                   "historical_window_limited", "truncated", "checked_at"}
+
+
+def _validated_snapshot(snapshot: object, repository: str) -> dict:
+    if (not isinstance(snapshot, dict) or not SNAPSHOT_FIELDS.issubset(snapshot)
+            or not isinstance(snapshot.get("main_sha"), str)
+            or not re.fullmatch(r"[0-9a-f]{40}", snapshot["main_sha"])
+            or any(not isinstance(snapshot.get(key), list)
+                   for key in ("issues", "prs", "checks"))
+            or not isinstance(snapshot.get("historical_window_limited"), bool)
+            or not isinstance(snapshot.get("truncated"), bool)
+            or not isinstance(snapshot.get("checked_at"), str)):
+        raise RuntimeError("Cached GitHub snapshot is invalid")
+    if snapshot["repository"] != repository:
+        raise RuntimeError("Cached GitHub snapshot does not match repository")
+    return snapshot
+
+
+def save_snapshot(path: str | Path, snapshot: dict) -> None:
+    """Atomically store a validated per-run snapshot outside the repository."""
+    target = Path(path)
+    _validated_snapshot(snapshot, snapshot.get("repository"))
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix="pesatrack-snapshot-", dir=target.parent)
+    try:
+        os.chmod(temporary, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as output:
+            json.dump(snapshot, output, separators=(",", ":"))
+        os.replace(temporary, target)
+    except Exception:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
+
+
+def load_snapshot(path: str | Path, repository: str) -> dict:
+    """Read a complete same-repository snapshot from the current runner."""
+    try:
+        snapshot = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        raise RuntimeError("Cached GitHub snapshot is unavailable or invalid") from None
+    _validated_snapshot(snapshot, repository)
+    return snapshot
 
 
 def _open_json(url: str, headers: dict, timeout: int):
@@ -20,7 +73,26 @@ def _open_json(url: str, headers: dict, timeout: int):
             return json.load(response)
     except error.HTTPError as failure:
         # Never echo the response body; it might include Issue text or secrets.
-        raise RuntimeError(f"GitHub API request failed with HTTP {failure.code}") from None
+        path = parse.urlsplit(url).path
+        details = []
+        headers = failure.headers or {}
+        safe_headers = (
+            ("X-GitHub-Request-Id", "request_id", r"[A-Za-z0-9-]{1,80}"),
+            ("X-RateLimit-Resource", "rate_limit_resource", r"[a-z_]{1,40}"),
+            ("X-RateLimit-Remaining", "rate_limit_remaining", r"[0-9]{1,12}"),
+            ("X-RateLimit-Reset", "rate_limit_reset", r"[0-9]{1,12}"),
+            ("Retry-After", "retry_after", r"[0-9]{1,12}"),
+            ("X-Accepted-GitHub-Permissions", "accepted_permissions",
+             r"[A-Za-z0-9_, =;-]{1,160}"),
+        )
+        for header, label, pattern in safe_headers:
+            value = headers.get(header)
+            if isinstance(value, str) and re.fullmatch(pattern, value):
+                details.append(f"{label}={value}")
+        suffix = f"; {'; '.join(details)}" if details else ""
+        raise RuntimeError(
+            f"GitHub API request failed with HTTP {failure.code} (GET {path}{suffix})"
+        ) from None
     except (error.URLError, TimeoutError):
         raise RuntimeError("GitHub API unavailable or timed out") from None
 
@@ -141,6 +213,7 @@ def fetch_snapshot(token: str, repository: str, *, opener=None, max_pages: int =
     closed_history_capped = len(recent_closed) >= max_pages * 100
     return {
         "checked_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "repository": repository,
         "main_sha": main_sha, "issues": issues, "prs": prs,
         "checks": checks, "required_checks": ["Android CI"],
         # The Project planner separately protects existing stronger evidence
