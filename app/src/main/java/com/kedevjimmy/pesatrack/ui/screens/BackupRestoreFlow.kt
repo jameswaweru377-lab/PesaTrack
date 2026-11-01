@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.kedevjimmy.pesatrack.security.AppLockManager
+import com.kedevjimmy.pesatrack.security.BiometricCryptoGate
 import com.kedevjimmy.pesatrack.security.BackupRecoveryStatus
 import com.kedevjimmy.pesatrack.security.PesaBackupManager
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
@@ -157,6 +158,11 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
     ) { result ->
         credentialFallbackLaunched = false
         if (result.resultCode == Activity.RESULT_OK) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                BiometricCryptoGate.rearmAfterTrustedFallback(
+                    BiometricCryptoGate.Purpose.BACKUP_RESTORE
+                )
+            }
             finishRestore()
         } else {
             awaitingCredential = false
@@ -186,23 +192,42 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
             awaitingCredential = true
             error = null
             val canUseBiometric = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                activity.getSystemService(BiometricManager::class.java)
-                    ?.canAuthenticate() == BiometricManager.BIOMETRIC_SUCCESS
+                activity.getSystemService(BiometricManager::class.java)?.let { biometrics ->
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        biometrics.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
+                            BiometricManager.BIOMETRIC_SUCCESS
+                    } else {
+                        biometrics.canAuthenticate() == BiometricManager.BIOMETRIC_SUCCESS
+                    }
+                } == true
             if (canUseBiometric && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val gate = BiometricCryptoGate(BiometricCryptoGate.Purpose.BACKUP_RESTORE)
+                val crypto = gate.prepare()
+                if (crypto == null) {
+                    requestPhoneCredential(keyguard)
+                    return
+                }
                 val prompt = BiometricPrompt.Builder(activity)
                     .setTitle("Confirm PesaTrack restore")
                     .setSubtitle("Verify it's you before replacing local money data.")
                     .setNegativeButton("Use phone lock", activity.mainExecutor) { _, _ ->
+                        gate.cancel()
                         requestPhoneCredential(keyguard)
                     }
                     .build()
-                prompt.authenticate(CancellationSignal(), activity.mainExecutor,
+                prompt.authenticate(crypto, CancellationSignal(), activity.mainExecutor,
                     object : BiometricPrompt.AuthenticationCallback() {
                         override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                            finishRestore()
+                            if (gate.confirm(result)) {
+                                finishRestore()
+                            } else {
+                                awaitingCredential = false
+                                error = "Biometric confirmation failed. Nothing was restored. Use your phone lock to retry."
+                            }
                         }
 
                         override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                            gate.cancel()
                             if (!credentialFallbackLaunched) {
                                 awaitingCredential = false
                                 error = "Authentication cancelled. Nothing was restored."
