@@ -315,6 +315,9 @@ internal fun VibrantPlanProgressCard(
     budgetPercent: Int?,
     goalPercent: Int?,
     billsPercent: Int?,
+    budgetLabel: String = "Budgets",
+    goalLabel: String = "Goals",
+    billsLabel: String = "Bills",
     ringLabel: String,
     modifier: Modifier = Modifier
 ) {
@@ -338,16 +341,16 @@ internal fun VibrantPlanProgressCard(
                 percent = (budgetPercent ?: 0).coerceIn(0, 100) / 100f,
                 modifier = Modifier.size(104.dp),
                 valueLabel = budgetPercent?.let { "$it%" } ?: "—",
-                subtitle = if (budgetPercent == null) "No budget" else ringLabel
+                subtitle = if (budgetPercent == null) "No data" else ringLabel
             )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                VibrantPlanMeter("Budgets", budgetPercent?.let { "$it%" } ?: "—",
+                VibrantPlanMeter(budgetLabel, budgetPercent?.let { "$it%" } ?: "—",
                     (budgetPercent ?: 0).coerceIn(0, 100) / 100f,
                     Icons.Rounded.Analytics, "violet")
-                VibrantPlanMeter("Goals", goalPercent?.let { "$it%" } ?: "—",
+                VibrantPlanMeter(goalLabel, goalPercent?.let { "$it%" } ?: "—",
                     (goalPercent ?: 0).coerceIn(0, 100) / 100f,
                     Icons.Rounded.CheckCircle, "mint")
-                VibrantPlanMeter("Bills", billsPercent?.let { "$it%" } ?: "—",
+                VibrantPlanMeter(billsLabel, billsPercent?.let { "$it%" } ?: "—",
                     (billsPercent ?: 0).coerceIn(0, 100) / 100f,
                     Icons.Rounded.CalendarMonth, "blue")
             }
