@@ -377,6 +377,15 @@ upgrade checks with explicit PASS/FAIL/NOT RUN outcomes. This is an acceptance
 **plan**, not Android instrumentation or actual Redmi device evidence; the
 rolling `ci-apk` channel remains a development preview.
 
+N2 statement-feature admission is **ON HOLD** until R1 has actual signed-SHA
+physical-phone PASS evidence and T1 has executed exact-candidate-SHA Android
+persistence PASS evidence (migrations, backup, ingestion atomicity, replay,
+debt and money aggregates). Existing supported import correctness and privacy
+fixes can still proceed with their own tests and reviews; new sources,
+assurance promotion and automatic statement-derived financial behavior cannot
+be declared ready. The hold is a review policy, not an automated PR check.
+See `docs/acceptance/N2_STATEMENT_FEATURE_GATE.md` and tracker issue #537.
+
 PR updates and merges run build checks automatically. Marking a PR ready does not start another run. Android 7 security and API compatibility emulator suites are manual review tools; the former weekly compatibility schedule is disabled. Manual signed releases also default to build-only validation. Emulator validation is opt-in through run_instrumentation; when explicitly enabled, it must pass before signing. Agents must not start instrumentation based on an older plan without a current user request.
 
 The build/test jobs require only read access to repository contents. Release write permission is scoped to the publish job.
