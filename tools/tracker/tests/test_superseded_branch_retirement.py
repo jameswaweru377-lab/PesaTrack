@@ -11,8 +11,8 @@ from urllib.parse import urlparse
 
 class SupersededRetirementTests(unittest.TestCase):
     def test_patch_containment_requires_all_added_and_removed_lines(self):
-        old = [{"filename": "a.kt", "patch": "@@ -1 +1 @@\n-old\n+new", "additions": 1, "deletions": 1}]
-        new = [{"filename": "a.kt", "patch": "@@ -1 +1,2 @@\n-old\n+new\n+extra", "additions": 2, "deletions": 1}]
+        old = [{"filename": "a.kt", "patch": "@@ -1 +1 @@\n context\n-old\n+new", "additions": 1, "deletions": 1}]
+        new = [{"filename": "a.kt", "patch": "@@ -1 +1,2 @@\n context\n-old\n+new\n+extra", "additions": 2, "deletions": 1}]
         self.assertTrue(_patch_lines_contained(old, new))
         new[0]["patch"] = "@@ -1 +1 @@\n-different\n+new"
         self.assertFalse(_patch_lines_contained(old, new))
@@ -40,6 +40,13 @@ class SupersededRetirementTests(unittest.TestCase):
                 "additions": 2, "deletions": 0}]
         successor = [{"filename": "a.kt", "patch": "@@ -1 +1,2 @@\n+same\n+other",
                       "additions": 2, "deletions": 0}]
+        self.assertFalse(_patch_lines_contained(old, successor))
+
+    def test_same_changed_text_in_different_function_is_not_equivalent(self):
+        old = [{"filename": "a.kt", "patch": "@@ -3 +3,2 @@\n fun debit() {\n+ validate()",
+                "additions": 1, "deletions": 0}]
+        successor = [{"filename": "a.kt", "patch": "@@ -8 +8,2 @@\n fun credit() {\n+ validate()",
+                      "additions": 1, "deletions": 0}]
         self.assertFalse(_patch_lines_contained(old, successor))
 
     def test_explicit_superseded_pair_only_and_30_cap_independent(self):
@@ -95,9 +102,9 @@ class SupersededRetirementTests(unittest.TestCase):
             if path.endswith("/pulls/201"):
                 return Response(newer)
             if path.endswith("/pulls/200/files"):
-                return Response([{"filename": "a.kt", "patch": "@@ -1 +1 @@\n-old\n+new", "additions": 1, "deletions": 1}])
+                return Response([{"filename": "a.kt", "patch": "@@ -1 +1,2 @@\n context\n-old\n+new\n+extra", "additions": 2, "deletions": 1}])
             if path.endswith("/pulls/201/files"):
-                return Response([{"filename": "a.kt", "patch": "@@ -1 +1,2 @@\n-old\n+new\n+extra", "additions": 2, "deletions": 1}])
+                return Response([{"filename": "a.kt", "patch": "@@ -1 +1,2 @@\n context\n-old\n+new\n+extra", "additions": 2, "deletions": 1}])
             raise AssertionError(path)
 
         self.assertTrue(_confirmed_superseded(REPOSITORY, "", candidate, opener=opener))

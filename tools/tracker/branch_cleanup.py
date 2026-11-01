@@ -261,7 +261,40 @@ def _patch_lines_contained(old_files: list, new_files: list) -> bool:
         return lines
 
     old_lines, new_lines = changed_lines(old_files), changed_lines(new_files)
-    return bool(old_lines) and new_lines is not None and old_lines <= new_lines
+    if not old_lines or new_lines is None or not old_lines <= new_lines:
+        return False
+
+    def hunks(files):
+        result = Counter()
+        for file in files:
+            body = []
+            for line in file["patch"].splitlines():
+                if line.startswith("@@"):
+                    if body:
+                        result[(file["filename"], tuple(body))] += 1
+                    body = []
+                elif line.startswith((" ", "+", "-", "\\")):
+                    body.append(line)
+                else:
+                    return None
+            if body:
+                result[(file["filename"], tuple(body))] += 1
+        return result
+
+    old_hunks, new_hunks = hunks(old_files), hunks(new_files)
+    if not old_hunks or new_hunks is None:
+        return False
+    # A changed line alone has no identity: require surrounding context.
+    for (path, body), count in old_hunks.items():
+        if not any(line.startswith(" ") for line in body):
+            return False
+        matches = sum(n for (other_path, successor_body), n in new_hunks.items()
+                      if other_path == path and len(body) <= len(successor_body)
+                      and any(successor_body[i:i + len(body)] == body
+                              for i in range(len(successor_body) - len(body) + 1)))
+        if matches < count:
+            return False
+    return True
 
 
 def _confirmed_superseded(repository: str, token: str, candidate: dict, *, opener) -> bool:
