@@ -42,6 +42,7 @@ internal fun StatementUnifiedOverviewPage(
     onImport: () -> Unit,
     onBack: () -> Unit,
     onOpenReview: () -> Unit = {},
+    onOpenMatchReview: () -> Unit = {},
     limitedSources: List<StatementBankArchiveStore.Source> = emptyList(),
     reportAccountIds: List<String>? = null
 ) {
@@ -76,6 +77,13 @@ internal fun StatementUnifiedOverviewPage(
                         Icon(Icons.Rounded.Close, "Close Statements", tint = p.ink)
                     }
                 }
+            }
+        }
+        item {
+            OutlinedButton(onClick = onOpenMatchReview, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Icon(Icons.Rounded.CompareArrows, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Review possible matches")
             }
         }
         item {
