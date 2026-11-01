@@ -71,16 +71,22 @@ class ActivityMirrorSafetyIntegrationTest {
         db.insertOrThrow("transaction_allocations", null, ContentValues().apply {
             put("transaction_id", codelessId); put("position", 0); put("category", "OTHER"); put("amount_minor", 50_000L)
         })
+        fun classifications(): List<String> = db.rawQuery(
+            "SELECT id, direction, category, review_state FROM transactions ORDER BY id", null
+        ).use { cursor -> buildList { while (cursor.moveToNext()) add(
+            "${cursor.getLong(0)}|${cursor.getString(1)}|${cursor.getString(2)}|${cursor.getString(3)}") } }
         val before = count("SELECT SUM(amount_minor) FROM transactions")
+        val originalClassifications = classifications()
         assertEquals(0, store.reconcileMirrorDuplicates())
         assertEquals(2L, count("SELECT COUNT(*) FROM transactions"))
         assertEquals(before, count("SELECT SUM(amount_minor) FROM transactions"))
         assertEquals(1L, count("SELECT COUNT(*) FROM transaction_allocations"))
-        assertEquals(2L, count("SELECT COUNT(*) FROM transactions WHERE direction = 'EXPENSE' AND category = 'OTHER'"))
+        assertEquals(originalClassifications, classifications())
         store.activitySnapshot(time)
         assertEquals(2L, count("SELECT COUNT(*) FROM transactions"))
         assertEquals(before, count("SELECT SUM(amount_minor) FROM transactions"))
         assertEquals(1L, count("SELECT COUNT(*) FROM transaction_allocations"))
+        assertEquals(originalClassifications, classifications())
     }
 
     @Test fun reusedReferenceWithConflictingAmountsDoesNotMerge() {

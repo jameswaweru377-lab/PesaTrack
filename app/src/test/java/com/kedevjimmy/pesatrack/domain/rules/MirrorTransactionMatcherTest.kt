@@ -167,20 +167,20 @@ class MirrorTransactionMatcherTest {
     }
 
     @Test
-    fun sameTransactionCodeIsAlwaysTheSameObservation() {
+    fun sameStableTransactionCodeCanIdentifyTheSameObservation() {
         assertTrue(
             MirrorTransactionMatcher.isMirror(
                 mpesa(
                     amount = 10_000L,
                     receivedAt = 1_000_000L,
                     counterparty = "KCB",
-                    code = "AAA111"
+                    code = "AAA11122"
                 ),
                 mpesa(
                     amount = 10_000L,
                     receivedAt = 1_040_000L,
                     counterparty = null,
-                    code = "AAA111"
+                    code = "AAA11122"
                 )
             )
         )
