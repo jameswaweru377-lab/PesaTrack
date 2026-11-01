@@ -2084,117 +2084,12 @@ class TransactionStore private constructor(context: Context) {
         ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.toStoredTransaction()) } }
     }
 
-    fun reconcileMirrorDuplicates(): Int {
-        synchronized(CanonicalStoreLock.monitor) {
-        val transactions = allTransactions()
-        val mpesaCanonical = transactions.filter {
-            !it.transactionCode.isNullOrBlank() &&
-                it.reviewState != ReviewState.EXCLUDED.name
-        }
-        val duplicates = transactions.filter {
-            it.transactionCode.isNullOrBlank() &&
-                it.reviewState != ReviewState.USER_CLASSIFIED.name &&
-                it.reviewState != ReviewState.EXCLUDED.name
-        }
-        val db = database.writableDatabase
-        val claimedDuplicateIds = mutableSetOf<Long>()
-        var removed = 0
-
-        mpesaCanonical.forEach { canonical ->
-            val canonicalReferences =
-                externalReferencesForTransaction(
-                    canonical.id
-                )
-            val canonicalObservation =
-                canonical.toMirrorObservation(
-                    externalReferences =
-                        canonicalReferences
-                )
-            val candidate = duplicates
-                .asSequence()
-                .filter { it.id != canonical.id }
-                .filter { it.id !in claimedDuplicateIds }
-                .filter { it.amountMinor == canonical.amountMinor }
-                .filter { duplicate ->
-                    val duplicateReferences =
-                        externalReferencesForTransaction(
-                            duplicate.id
-                        )
-                    val sharedReference =
-                        canonicalReferences
-                            .intersect(
-                                duplicateReferences
-                            )
-                            .isNotEmpty()
-                    sharedReference ||
-                        kotlin.math.abs(
-                            duplicate.receivedAtEpochMs -
-                                canonical.receivedAtEpochMs
-                        ) <=
-                        MirrorTransactionMatcher
-                            .MAX_TIME_DELTA_MS
-                }
-                .filter { duplicate ->
-                    MirrorTransactionMatcher.isMirror(
-                        canonicalObservation,
-                        duplicate.toMirrorObservation(
-                            externalReferences =
-                                externalReferencesForTransaction(
-                                    duplicate.id
-                                )
-                        )
-                    )
-                }
-                .minByOrNull {
-                    kotlin.math.abs(
-                        it.receivedAtEpochMs - canonical.receivedAtEpochMs
-                    )
-                } ?: return@forEach
-
-            claimedDuplicateIds += candidate.id
-
-            attachExternalReferences(
-                transactionId = canonical.id,
-                references =
-                    externalReferencesForTransaction(
-                        candidate.id
-                    ),
-                sourceKind = candidate.sourceKind,
-                observedAtEpochMs =
-                    candidate.receivedAtEpochMs
-            )
-
-            if (canonical.ruleId == null && candidate.ruleId != null) {
-                val values = ContentValues().apply {
-                    put("direction", candidate.direction)
-                    put("category", candidate.category)
-                    put("review_state", candidate.reviewState)
-                    put("rule_id", candidate.ruleId)
-                    if (candidate.planningMonth != null) {
-                        put("planning_month", candidate.planningMonth)
-                    }
-                }
-                db.update(
-                    "transactions",
-                    values,
-                    "id = ?",
-                    arrayOf(canonical.id.toString())
-                )
-            }
-
-            removed += db.delete(
-                "transactions",
-                "id = ?",
-                arrayOf(candidate.id.toString())
-            )
-        }
-
-        if (removed > 0) {
-            PayCycleStore.get(appContext).rebuild()
-        }
-        return removed
-    }
-    }
+    /**
+     * Preserve historical Activity rows and their dependent evidence. Earlier
+     * cleanup inferred duplicates from timing and deleted rows; a future
+     * reconciliation must be explicit, reversible and provenance-preserving.
+     */
+    fun reconcileMirrorDuplicates(): Int = 0
 
     private fun ensureMirrorReconciled() {
         val preferences = appContext.getSharedPreferences(
@@ -2574,76 +2469,58 @@ class TransactionStore private constructor(context: Context) {
             accountIds = accountIds
         )
 
+        if (externalReferences.isEmpty() || externalReferences.size > 50 ||
+            externalReferences.any { it.length !in 5..48 }) return null
         val exactReferenceCandidates =
             findTransactionsByExternalReferences(
                 references = externalReferences,
-                amountMinor = parsed.amountMinor
+                amountMinor = null
             )
-                .filterNot(::isProtectedCorrelationTarget)
-
-        if (exactReferenceCandidates.size == 1) {
-            return exactReferenceCandidates.single()
+        if (exactReferenceCandidates.isEmpty()) return null
+        // Legacy codes can differ in case or punctuation. LIKE is deliberately
+        // broad, then Kotlin applies the same normalization as the matcher.
+        // Non-ASCII codes make uniqueness uncertain because SQLite's UPPER is
+        // ASCII-only, so they veto automatic linking rather than being missed.
+        val patterns = externalReferences.map { reference -> "%" + reference.toList().joinToString("%") + "%" }
+        val comparisons = patterns.joinToString(" OR ") { "UPPER(transaction_code) LIKE ?" }
+        val possibleCodeCandidates = database.readableDatabase.rawQuery(
+            BASE_SELECT + " WHERE transaction_code IS NOT NULL AND (transaction_code GLOB '*[^ -~]*' OR $comparisons) LIMIT 12",
+            patterns.toTypedArray()
+        ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.toStoredTransaction()) } }
+        if (possibleCodeCandidates.size >= 12 || possibleCodeCandidates.any { row ->
+                row.transactionCode.orEmpty().any { it !in ' '..'~' }
+            }) return null
+        val codeCandidates = possibleCodeCandidates.filter { row ->
+            row.transactionCode.orEmpty().uppercase().replace(Regex("[^A-Z0-9-]"), "") in externalReferences
         }
-        if (exactReferenceCandidates.size > 1) {
+        val referenceComparisons = patterns.joinToString(" OR ") { "UPPER(reference_value) LIKE ?" }
+        val possibleReferences = database.readableDatabase.rawQuery(
+            "SELECT transaction_id, reference_value FROM transaction_external_references " +
+                "WHERE reference_value GLOB '*[^ -~]*' OR $referenceComparisons LIMIT 12",
+            patterns.toTypedArray()
+        ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.getLong(0) to cursor.getString(1)) } }
+        if (possibleReferences.size >= 12 || possibleReferences.any { (_, value) -> value.any { it !in ' '..'~' } }) return null
+        val exactCandidateIds = exactReferenceCandidates.mapTo(mutableSetOf()) { it.id }
+        if (possibleReferences.any { (id, value) ->
+                value.uppercase().replace(Regex("[^A-Z0-9-]"), "") in externalReferences && id !in exactCandidateIds
+            }) return null
+        // The reference lookup is bounded at 12 rows. A full result or a
+        // protected competing record means uniqueness has not been proven.
+        if (exactReferenceCandidates.size >= 12 ||
+            (exactReferenceCandidates + codeCandidates).any {
+                isProtectedCorrelationTarget(it) || it.amountMinor != parsed.amountMinor
+            }) {
             return null
         }
+        val distinctExactCandidates = (exactReferenceCandidates + codeCandidates).distinctBy { it.id }
 
-        val matches =
-            database.readableDatabase.rawQuery(
-                BASE_SELECT +
-                    " WHERE amount_minor = ?" +
-                    " AND received_at_epoch_ms >= ?" +
-                    " AND received_at_epoch_ms <= ?" +
-                    " ORDER BY ABS(received_at_epoch_ms - ?) ASC" +
-                    " LIMIT 12",
-                arrayOf(
-                    parsed.amountMinor.toString(),
-                    (
-                        receivedAtEpochMs -
-                            MirrorTransactionMatcher
-                                .MAX_TIME_DELTA_MS
-                        ).toString(),
-                    (
-                        receivedAtEpochMs +
-                            MirrorTransactionMatcher
-                                .MAX_TIME_DELTA_MS
-                        ).toString(),
-                    receivedAtEpochMs.toString()
-                )
-            ).use { cursor ->
-                buildList {
-                    while (cursor.moveToNext()) {
-                        val candidate =
-                            cursor.toStoredTransaction()
-                        if (
-                            isProtectedCorrelationTarget(
-                                candidate
-                            )
-                        ) {
-                            continue
-                        }
-
-                        val match =
-                            MirrorTransactionMatcher.match(
-                                incoming,
-                                candidate.toMirrorObservation(
-                                    externalReferences =
-                                        externalReferencesForTransaction(
-                                            candidate.id
-                                        )
-                                )
-                            )
-                        if (match.autoLink) {
-                            add(candidate to match)
-                        }
-                    }
-                }
-            }
-
-        if (matches.size != 1) {
-            return null
+        if (distinctExactCandidates.size == 1) {
+            val candidate = distinctExactCandidates.single()
+            val match = MirrorTransactionMatcher.match(incoming, candidate.toMirrorObservation(
+                externalReferences = externalReferencesForTransaction(candidate.id)))
+            return candidate.takeIf { match.autoLink }
         }
-        return matches.single().first
+        return null
     }
 
     fun findByAnyExternalReference(

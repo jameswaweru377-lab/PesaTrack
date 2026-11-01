@@ -7,8 +7,8 @@ import org.junit.Test
 
 class MirrorTransactionMatcherTest {
     @Test
-    fun matchesSameAmountSameMerchantAcrossMpesaAndBankMessages() {
-        assertTrue(
+    fun sameAmountSameMerchantWithoutReferenceIsReviewOnly() {
+        assertFalse(
             MirrorTransactionMatcher.isMirror(
                 mpesa(
                     amount = 10_000L,
@@ -25,8 +25,8 @@ class MirrorTransactionMatcherTest {
     }
 
     @Test
-    fun matchesCodedAndCodeLessCopiesWithinTwentySeconds() {
-        assertTrue(
+    fun codedAndCodelessMessagesWithinTwentySecondsAreReviewOnly() {
+        assertFalse(
             MirrorTransactionMatcher.isMirror(
                 mpesa(
                     amount = 98_500L,
@@ -43,8 +43,8 @@ class MirrorTransactionMatcherTest {
     }
 
     @Test
-    fun complementaryDirectionsExtendSafeCorrelationWindow() {
-        assertTrue(
+    fun complementaryDirectionsWithoutReferenceAreReviewOnly() {
+        assertFalse(
             MirrorTransactionMatcher.isMirror(
                 mpesa(
                     amount = 12_500L,
@@ -255,7 +255,7 @@ class MirrorTransactionMatcherTest {
     }
 
     @Test
-    fun sharedAccountPathAndComplementarySourceCanLinkWithoutReference() {
+    fun sharedAccountPathWithoutReferenceIsReviewOnly() {
         val first =
             bank(
                 amount = 200_000L,
@@ -288,7 +288,7 @@ class MirrorTransactionMatcherTest {
                 second
             )
 
-        assertTrue(match.autoLink)
+        assertFalse(match.autoLink)
         assertEquals(
             MirrorMatchReason.COMPLEMENTARY_ACCOUNTS,
             match.reason

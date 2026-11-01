@@ -25,7 +25,7 @@ data class MirrorTransactionMatch(
     val sharedReference: String? = null
 ) {
     val autoLink: Boolean
-        get() = confidence == MirrorMatchConfidence.HIGH
+        get() = confidence == MirrorMatchConfidence.HIGH && !sharedReference.isNullOrBlank()
 }
 
 data class MirrorTransactionObservation(
@@ -48,6 +48,7 @@ object MirrorTransactionMatcher {
     private const val VERY_CLOSE_MS = 20_000L
     private const val COMPLEMENTARY_DIRECTION_MS = 60_000L
     private const val CODELESS_ULTRA_CLOSE_MS = 5_000L
+    private const val SHARED_REFERENCE_MAX_DELTA_MS = 48L * 60L * 60L * 1_000L
 
     private val ignoredIdentityTokens = setOf(
         "account",
@@ -108,6 +109,18 @@ object MirrorTransactionMatcher {
             firstReferences.intersect(secondReferences)
 
         if (sharedReferences.isNotEmpty()) {
+            val firstTime = first.occurredAtEpochMs
+            val secondTime = second.occurredAtEpochMs
+            if (firstTime <= 0L || secondTime <= 0L ||
+                (if (firstTime >= secondTime) firstTime - secondTime else secondTime - firstTime) > SHARED_REFERENCE_MAX_DELTA_MS
+            ) return none()
+            if (first.direction != null && first.direction == second.direction &&
+                first.direction in setOf("EXPENSE", "INCOME")) {
+                val firstIdentity = identityTokens(first.counterparty)
+                val secondIdentity = identityTokens(second.counterparty)
+                if (firstIdentity.isNotEmpty() && secondIdentity.isNotEmpty() &&
+                    firstIdentity.intersect(secondIdentity).isEmpty()) return none()
+            }
             val shared = sharedReferences.first()
             return MirrorTransactionMatch(
                 confidence = MirrorMatchConfidence.HIGH,
@@ -193,15 +206,15 @@ object MirrorTransactionMatcher {
          * Two financial institutions can arrive through the same
          * Android SMS app. One coded and one codeless observation
          * of the same amount inside a very tight window is still
-         * strong enough to auto-link. Fully codeless time-only
-         * similarity remains review-only below.
+         * a reason to review, but not proof that the records are the same
+         * movement. Preserve both until stronger evidence is available.
          */
         if (
             exactlyOneHasStrongReference &&
             bestDelta <= VERY_CLOSE_MS
         ) {
             return MirrorTransactionMatch(
-                confidence = MirrorMatchConfidence.HIGH,
+                confidence = MirrorMatchConfidence.MEDIUM,
                 reason =
                     MirrorMatchReason
                         .CODED_CODELESS_VERY_CLOSE
@@ -234,7 +247,7 @@ object MirrorTransactionMatcher {
             bestDelta <= MAX_TIME_DELTA_MS
         ) {
             return MirrorTransactionMatch(
-                confidence = MirrorMatchConfidence.HIGH,
+                confidence = MirrorMatchConfidence.MEDIUM,
                 reason =
                     MirrorMatchReason
                         .COMPLEMENTARY_ACCOUNTS
@@ -259,7 +272,7 @@ object MirrorTransactionMatcher {
             bestDelta <= MAX_TIME_DELTA_MS
         ) {
             return MirrorTransactionMatch(
-                confidence = MirrorMatchConfidence.HIGH,
+                confidence = MirrorMatchConfidence.MEDIUM,
                 reason = MirrorMatchReason.SHARED_IDENTITY
             )
         }
@@ -276,7 +289,7 @@ object MirrorTransactionMatcher {
             bestDelta <= COMPLEMENTARY_DIRECTION_MS
         ) {
             return MirrorTransactionMatch(
-                confidence = MirrorMatchConfidence.HIGH,
+                confidence = MirrorMatchConfidence.MEDIUM,
                 reason =
                     MirrorMatchReason
                         .COMPLEMENTARY_DIRECTION
