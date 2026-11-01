@@ -159,8 +159,11 @@ On 1 November 2026 the Task Register was manually backfilled with the six
 canonical Issues' recorded owner aliases; this is a snapshot, not proof of
 automated mirroring. Its visible status and the `PesaTrack Work by Status`
 insight chart now use `Tracker status`, not the unrelated built-in `Status`.
-The chart is limited to Issues, so the separate merged PR #508 card is not
-double-counted as a task.
+The chart is limited to Issues, so separate PR cards are not double-counted as
+tasks. The signed-in Project views were checked on 1 November 2026: Workflow
+board (view 1) filters to `is:pr`, Task Register (view 2) filters to
+`is:issue`, and `PesaTrack Work by Status` remains `is:issue`. That snapshot
+contained 29 PR cards (26 open and 3 merged) and 6 canonical tracker Issues.
 
 ### GitHub-visible PR intake (1 November 2026)
 
@@ -170,7 +173,7 @@ The PR card uses the bot-owned `Tracker status = PR open` option, not the human 
 
 Runs are previewable using **Actions → Development Tracker (Read-only) → Run workflow → Preview PR inbox**. GitHub-event runs and the hourly fallback reconcile the PR intake only when the existing Project status sync is enabled. A bad Project ID, missing field, duplicate Project PR card, invalid identity or incomplete inventory blocks writes rather than inventing a mapping.
 
-**Dashboard viewing:** GitHub Project views may have human-configured `is:issue`, status, or other filters. To see intake cards, use a separate existing-Project view filtered to PRs (`is:pr`, or filter by the PR content type if GitHub's UI requires it) and keep the Task Register showing canonical Issues. No workflow can infer live ChatGPT tab presence or automatically assign a task owner based on PR authorship. For true chat ownership, each implementation chat still claims its Issue as documented in [CHAT_OWNERSHIP.md](CHAT_OWNERSHIP.md). The [PR recovery queue #528](https://github.com/jameswaweru377-lab/PesaTrack/issues/528) remains an advisory triage task, not a merge queue.
+**Dashboard viewing:** GitHub Project views may have human-configured `is:issue`, status, or other filters. The verified setup uses Workflow board (view 1) with `is:pr` for intake cards and Task Register (view 2) with `is:issue` for canonical tasks. Keep `PesaTrack Work by Status` limited to `is:issue` so separate PR cards do not inflate task progress. No workflow can infer live ChatGPT tab presence or automatically assign a task owner based on PR authorship. For true chat ownership, each implementation chat still claims its Issue as documented in [CHAT_OWNERSHIP.md](CHAT_OWNERSHIP.md). The [PR recovery queue #528](https://github.com/jameswaweru377-lab/PesaTrack/issues/528) remains an advisory triage task, not a merge queue.
 
 ### Tracker event burst reliability (1 November 2026)
 
