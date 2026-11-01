@@ -462,7 +462,7 @@ private fun MoreSettingsRow(
     }
     if (!last) HorizontalDivider(
         color = M.rowDivider,
-        thickness = .M.space7,
+        thickness = M.dividerStroke,
         modifier = Modifier.padding(start = M.touchTarget)
     )
 }
