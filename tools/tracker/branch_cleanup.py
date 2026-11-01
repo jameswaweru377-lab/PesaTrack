@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 import os
 import re
@@ -20,6 +21,7 @@ BRANCH_PATTERN = re.compile(r"^[^\x00\r\n]+$")
 SHA_PATTERN = re.compile(r"^[0-9a-fA-F]{40}$")
 MAX_PAGES = 20
 MAX_CANDIDATES_PER_RUN = 10
+MAX_SUPERSEDED_PER_RUN = 30
 
 
 def _validate_repository(repository: str) -> None:
@@ -229,8 +231,141 @@ def _confirmed_ancestor(repository: str, token: str, branch_sha: str,
             and merge_base.get("sha") == branch_sha)
 
 
+def _patch_lines_contained(old_files: list, new_files: list) -> bool:
+    """Require every changed line of an old PR to appear in the successor patch."""
+    if not old_files or not new_files:
+        return False
+
+    def changed_lines(files):
+        lines = Counter()
+        for row in files:
+            if not isinstance(row, dict) or not isinstance(row.get("filename"), str):
+                return None
+            patch = row.get("patch")
+            if not isinstance(patch, str) or not patch.strip():
+                return None
+            if (type(row.get("additions")) is not int
+                    or type(row.get("deletions")) is not int
+                    or row["additions"] < 0 or row["deletions"] < 0):
+                return None
+            additions = deletions = 0
+            for line in patch.splitlines():
+                if line.startswith("+"):
+                    additions += 1
+                    lines[(row["filename"], line)] += 1
+                elif line.startswith("-"):
+                    deletions += 1
+                    lines[(row["filename"], line)] += 1
+            if additions != row["additions"] or deletions != row["deletions"]:
+                return None
+        return lines
+
+    old_lines, new_lines = changed_lines(old_files), changed_lines(new_files)
+    if not old_lines or new_lines is None or not old_lines <= new_lines:
+        return False
+
+    def hunks(files):
+        result = Counter()
+        for file in files:
+            body = []
+            for line in file["patch"].splitlines():
+                if line.startswith("@@"):
+                    if body:
+                        result[(file["filename"], tuple(body))] += 1
+                    body = []
+                elif line.startswith((" ", "+", "-", "\\")):
+                    body.append(line)
+                else:
+                    return None
+            if body:
+                result[(file["filename"], tuple(body))] += 1
+        return result
+
+    old_hunks, new_hunks = hunks(old_files), hunks(new_files)
+    if not old_hunks or new_hunks is None:
+        return False
+    # A changed line alone has no identity: require surrounding context.
+    for (path, body), count in old_hunks.items():
+        if not any(line.startswith(" ") for line in body):
+            return False
+        matches = sum(n for (other_path, successor_body), n in new_hunks.items()
+                      if other_path == path and len(body) <= len(successor_body)
+                      and any(successor_body[i:i + len(body)] == body
+                              for i in range(len(successor_body) - len(body) + 1)))
+        if matches < count:
+            return False
+    return True
+
+
+def _confirmed_superseded(repository: str, token: str, candidate: dict, *, opener) -> bool:
+    """Live PR identity and complete patch inclusion, not title/age heuristics."""
+    old_number, successor_number = candidate["old_pr"], candidate["successor_pr"]
+    old = _api_request(_api_url(repository, f"pulls/{old_number}"), token, opener=opener)
+    successor = _api_request(_api_url(repository, f"pulls/{successor_number}"), token, opener=opener)
+    if (not isinstance(old, dict) or not isinstance(successor, dict)
+            or old.get("number") != old_number or successor.get("number") != successor_number
+            or old.get("state") != "closed" or old.get("merged_at") is not None
+            or successor.get("state") != "closed" or not successor.get("merged_at")):
+        return False
+    old_head, old_base = old.get("head"), old.get("base")
+    new_head, new_base = successor.get("head"), successor.get("base")
+    if (not all(isinstance(item, dict) for item in (old_head, old_base, new_head, new_base))
+            or old_head.get("ref") != candidate["branch"]
+            or old_head.get("sha") != candidate["sha"]
+            or old_base.get("ref") != candidate["default_branch"]
+            or new_base.get("ref") != candidate["default_branch"]
+            or not all(_same_repository(item.get("repo"), repository)
+                       for item in (old_head, old_base, new_head, new_base))):
+        return False
+    old_files = _paged_rows(repository, token, f"pulls/{old_number}/files",
+                            opener=opener, max_pages=MAX_PAGES)
+    new_files = _paged_rows(repository, token, f"pulls/{successor_number}/files",
+                            opener=opener, max_pages=MAX_PAGES)
+    return _patch_lines_contained(old_files, new_files)
+
+
+def _successor_files_unchanged(repository: str, token: str, old_pr: int,
+                               successor_head_sha: str, successor_merge_sha: str,
+                               default_sha: str, *, opener) -> bool:
+    """Prove old-PR files were kept at merge and remain unchanged in main."""
+    if (not isinstance(successor_head_sha, str)
+            or not SHA_PATTERN.fullmatch(successor_head_sha)
+            or not isinstance(successor_merge_sha, str)
+            or not SHA_PATTERN.fullmatch(successor_merge_sha)
+            or not isinstance(default_sha, str) or not SHA_PATTERN.fullmatch(default_sha)):
+        return False
+    old_files = _paged_rows(repository, token, f"pulls/{old_pr}/files",
+                            opener=opener, max_pages=MAX_PAGES)
+    if not old_files:
+        return False
+    for item in old_files:
+        path = item.get("filename") if isinstance(item, dict) else None
+        if (not isinstance(path, str) or not path or path.startswith("/")
+                or item.get("status") in ("removed", "renamed")):
+            return False
+        content_url = "contents/" + parse.quote(path, safe="/")
+        try:
+            head = _api_request(_api_url(repository, content_url, ref=successor_head_sha),
+                                token, opener=opener)
+            merged = _api_request(_api_url(repository, content_url, ref=successor_merge_sha),
+                                  token, opener=opener)
+            current = _api_request(_api_url(repository, content_url, ref=default_sha),
+                                   token, opener=opener)
+        except RuntimeError as exc:
+            if str(exc).startswith("GitHub API request failed (HTTP 404 at "):
+                return False
+            raise
+        if (not all(isinstance(value, dict) and value.get("type") == "file"
+                    and isinstance(value.get("sha"), str)
+                    and SHA_PATTERN.fullmatch(value["sha"])
+                    for value in (head, merged, current))
+                or not head["sha"] == merged["sha"] == current["sha"]):
+            return False
+    return True
+
+
 def build_plan(inventory: dict, *, include_ancestors: bool = False,
-               ancestry_checker=None) -> dict:
+               ancestry_checker=None, superseded_pairs=None) -> dict:
     """Classify exact merged heads; optionally include independently proved ancestors."""
     _validate_inventory(inventory)
     repository = inventory["repository"]
@@ -243,6 +378,22 @@ def build_plan(inventory: dict, *, include_ancestors: bool = False,
                               or ancestry_checker is None):
         raise RuntimeError("Ancestor cleanup requires a verified default head and comparator")
     candidates = []
+    pairs = {}
+    if superseded_pairs is not None:
+        if not isinstance(superseded_pairs, list) or len(superseded_pairs) > MAX_SUPERSEDED_PER_RUN:
+            raise ValueError("Superseded manifest must be a list of at most 30 entries")
+        for entry in superseded_pairs:
+            if (not isinstance(entry, dict)
+                    or not isinstance(entry.get("branch"), str)
+                    or not BRANCH_PATTERN.fullmatch(entry["branch"])
+                    or not isinstance(entry.get("sha"), str)
+                    or not SHA_PATTERN.fullmatch(entry["sha"])
+                    or any(type(entry.get(key)) is not int or entry[key] <= 0
+                           for key in ("old_pr", "successor_pr"))
+                    or entry["old_pr"] == entry["successor_pr"]
+                    or entry["branch"] in pairs):
+                raise ValueError("Invalid or duplicate superseded manifest entry")
+            pairs[entry["branch"]] = entry
     skipped = {"default_branch": 0, "protected": 0, "open_pr": 0,
                "no_merged_pr": 0}
     for branch in inventory["branches"]:
@@ -262,9 +413,31 @@ def build_plan(inventory: dict, *, include_ancestors: bool = False,
                for pull in pulls):
             skipped["open_pr"] += 1
             continue
-        matching = [pull for pull in pulls
-                    if _eligible_pull(pull, repository, default_branch, name, sha)]
+        if superseded_pairs is not None and name not in pairs:
+            skipped["no_merged_pr"] += 1
+            continue
+        matching = ([] if superseded_pairs is not None else
+                    [pull for pull in pulls
+                     if _eligible_pull(pull, repository, default_branch, name, sha)])
         if not matching:
+            entry = pairs.get(name)
+            if entry and entry["sha"] == sha:
+                old = next((p for p in pulls if p["number"] == entry["old_pr"]), None)
+                successor = next((p for p in pulls if p["number"] == entry["successor_pr"]), None)
+                if (old and successor and old["state"] == "closed"
+                        and old.get("merged_at") is None
+                        and successor["state"] == "closed" and successor.get("merged_at")
+                        and old["head"]["ref"] == name and old["head"]["sha"] == sha
+                        and _same_repository(old["head"].get("repo"), repository)
+                        and old["base"]["ref"] == default_branch
+                        and _same_repository(old["base"].get("repo"), repository)
+                        and successor["base"]["ref"] == default_branch
+                        and _same_repository(successor["base"].get("repo"), repository)):
+                    candidates.append({"branch": name, "sha": sha,
+                                       "merged_pr": None, "evidence": "superseded",
+                                       "old_pr": entry["old_pr"],
+                                       "successor_pr": entry["successor_pr"]})
+                    continue
             if include_ancestors and ancestry_checker(sha, default_sha):
                 candidates.append({"branch": name, "sha": sha,
                                    "merged_pr": None, "evidence": "ancestor",
@@ -276,7 +449,9 @@ def build_plan(inventory: dict, *, include_ancestors: bool = False,
         candidates.append({"branch": name, "sha": sha,
                            "merged_pr": matching[-1]["number"]})
     return {"repository": repository, "default_branch": default_branch,
-            "mode": "ancestors" if include_ancestors else "merged_pr",
+            "mode": "superseded" if superseded_pairs is not None else (
+                "ancestors" if include_ancestors else "merged_pr"),
+            "limit": MAX_SUPERSEDED_PER_RUN if superseded_pairs is not None else MAX_CANDIDATES_PER_RUN,
             "candidates": candidates, "skipped": skipped}
 
 
@@ -285,7 +460,8 @@ def _recheck_candidate(repository: str, token: str, candidate: dict, *, opener) 
     pull_number = candidate.get("merged_pr")
     default_branch = candidate.get("default_branch")
     ancestry_mode = candidate.get("evidence") == "ancestor" and pull_number is None
-    if not ancestry_mode:
+    superseded_mode = candidate.get("evidence") == "superseded" and pull_number is None
+    if not ancestry_mode and not superseded_mode:
         pull = _api_request(_api_url(repository, f"pulls/{pull_number}"), token, opener=opener)
         if not isinstance(pull, dict) or pull.get("number") != pull_number:
             return False, "merged_pr_unavailable"
@@ -322,6 +498,29 @@ def _recheck_candidate(repository: str, token: str, candidate: dict, *, opener) 
         return False, "branch_moved"
     if branch.get("protected") is not False:
         return False, "protected_or_unknown"
+    if superseded_mode:
+        if not _confirmed_superseded(repository, token, candidate, opener=opener):
+            return False, "supersession_not_proven"
+        main_branch = _api_request(
+            _api_url(repository, "branches/" + parse.quote(default_branch, safe="")),
+            token, opener=opener)
+        main_sha = (main_branch.get("commit", {}).get("sha")
+                    if isinstance(main_branch, dict)
+                    and isinstance(main_branch.get("commit"), dict) else None)
+        if (not isinstance(main_branch, dict)
+                or main_branch.get("name") != default_branch
+                or not isinstance(main_sha, str)):
+            return False, "default_head_unknown"
+        successor = _api_request(
+            _api_url(repository, f"pulls/{candidate['successor_pr']}"), token, opener=opener)
+        merge_sha = successor.get("merge_commit_sha") if isinstance(successor, dict) else None
+        successor_head = successor.get("head") if isinstance(successor, dict) else None
+        head_sha = successor_head.get("sha") if isinstance(successor_head, dict) else None
+        if not _confirmed_ancestor(repository, token, merge_sha, main_sha, opener=opener):
+            return False, "successor_not_in_main"
+        if not _successor_files_unchanged(repository, token, candidate["old_pr"],
+                                          head_sha, merge_sha, main_sha, opener=opener):
+            return False, "successor_files_changed_on_main"
     if ancestry_mode:
         main_branch = _api_request(
             _api_url(repository, "branches/" + parse.quote(default_branch, safe="")),
@@ -404,7 +603,8 @@ def _verify_ref_absent(repository: str, token: str,
 
 
 def apply_plan(repository: str, token: str, inventory: dict, *, opener=None,
-               pusher=None, verifier=None, include_ancestors: bool = False) -> dict:
+               pusher=None, verifier=None, include_ancestors: bool = False,
+               superseded_pairs=None) -> dict:
     """Recheck each candidate and delete its exact branch ref, stopping on delete errors."""
     _validate_repository(repository)
     _validate_inventory(inventory)
@@ -414,8 +614,9 @@ def apply_plan(repository: str, token: str, inventory: dict, *, opener=None,
     checker = (lambda branch_sha, main_sha: _confirmed_ancestor(
         repository, token, branch_sha, main_sha, opener=api_opener))
     plan = build_plan(inventory, include_ancestors=include_ancestors,
-                      ancestry_checker=checker if include_ancestors else None)
-    candidates = plan["candidates"][:MAX_CANDIDATES_PER_RUN]
+                      ancestry_checker=checker if include_ancestors else None,
+                      superseded_pairs=superseded_pairs)
+    candidates = plan["candidates"][:plan["limit"]]
     deleted = []
     skipped = []
     failures = []
@@ -444,7 +645,10 @@ def apply_plan(repository: str, token: str, inventory: dict, *, opener=None,
             (verifier or _verify_ref_absent)(
                 repository, token, candidate["branch"], candidate["sha"],
                 opener=api_opener)
-            deleted.append({"branch": candidate["branch"], "merged_pr": candidate["merged_pr"]})
+            result = {"branch": candidate["branch"], "merged_pr": candidate["merged_pr"]}
+            if candidate.get("evidence"):
+                result["evidence"] = candidate["evidence"]
+            deleted.append(result)
         except (RuntimeError, ValueError) as exc:
             failures.append({"branch": candidate["branch"], "merged_pr": candidate["merged_pr"],
                              "reason": str(exc)})
@@ -463,22 +667,31 @@ def main(argv=None) -> int:
     parser.add_argument("--apply", action="store_true", help="delete only rechecked proven-merged branches")
     parser.add_argument("--include-ancestors", action="store_true",
                         help="opt-in: also recheck branches fully contained in current main")
+    parser.add_argument("--superseded-manifest", type=Path,
+                        help="owner-only reviewed JSON list of explicitly superseded PR branches")
     args = parser.parse_args(argv)
     token = os.environ.get("GITHUB_TOKEN", "")
     if not token:
         parser.error("GITHUB_TOKEN is required")
     try:
+        if args.superseded_manifest and args.include_ancestors:
+            raise ValueError("Superseded and ancestor modes cannot be combined")
+        pairs = None
+        if args.superseded_manifest:
+            pairs = json.loads(args.superseded_manifest.read_text(encoding="utf-8"))
         snapshot = collect_inventory(args.repository, token)
         if args.apply:
             report = apply_plan(args.repository, token, snapshot,
-                                include_ancestors=args.include_ancestors)
+                                include_ancestors=args.include_ancestors,
+                                superseded_pairs=pairs)
         else:
             checker = (lambda branch_sha, main_sha: _confirmed_ancestor(
                 args.repository, token, branch_sha, main_sha,
                 opener=request.urlopen))
             report = build_plan(snapshot, include_ancestors=args.include_ancestors,
-                                ancestry_checker=checker if args.include_ancestors else None)
-    except (RuntimeError, ValueError) as exc:
+                                ancestry_checker=checker if args.include_ancestors else None,
+                                superseded_pairs=pairs)
+    except (RuntimeError, ValueError, OSError, json.JSONDecodeError) as exc:
         print(json.dumps({"error": str(exc)}, sort_keys=True), file=sys.stderr)
         return 1
     print(json.dumps(report, indent=2, sort_keys=True))
