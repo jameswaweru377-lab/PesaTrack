@@ -2,6 +2,17 @@
 
 Both verification jobs and signing check out the immutable workflow commit SHA. Signing requires successful JVM/lint/debug/laboratory checks for that same SHA. Android emulator validation defaults off and runs only with an explicit user request and run_instrumentation enabled; if enabled, it must pass before signing. Invented corpora are generated and required before tests; no real messages or ledger inputs are used.
 
+**R1 external-release gate:** a signed APK and green JVM/lint/Worker jobs are
+**not** physical-device acceptance. The blank
+[`R1_DEVICE_ACCEPTANCE_TEMPLATE.md`](acceptance/R1_DEVICE_ACCEPTANCE_TEMPLATE.md)
+starts at **NOT RUN — BLOCKED**. Before a public release, the exact final
+candidate SHA must have a separate green emulator database/backup/replay run
+and physical-phone PASS evidence for M-Pesa PDF, limited Equity PDF, encrypted
+backup/legacy restore, app lock and in-place signed update. The active
+rolling `ci-apk` channel is a development preview and does not satisfy this
+gate merely by publishing an APK. Do not install or restore over live private
+data to obtain a PASS.
+
 The checked-in official Gradle 9.5.0 wrapper has SHA256 `497c8c2a7e5031f6aa847f88104aa80a93532ec32ee17bdb8d1d2f67a194a9c7`. Its distribution checksum is pinned to `553c78f50dafcd54d65b9a444649057857469edf836431389695608536d6b746`. Sources: https://gradle.org/release-checksums/ and https://docs.gradle.org/9.5.0/userguide/gradle_wrapper.html .
 
 `gradlew.bat --version` was executed on Windows with Java 17 and reported Gradle 9.5.0. Android builds require an installed SDK or the CI runners.

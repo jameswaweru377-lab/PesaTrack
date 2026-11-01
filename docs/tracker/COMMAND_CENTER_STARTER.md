@@ -12,7 +12,15 @@ For each accepted Issue, show `PT-<issue number>`, source audit ID, priority, cu
 
 When I ask “what's next?”, prioritize verified blockers and safe, independent tasks. Identify which existing chat/PR owns each scope, and distinguish source-only tests, Android CI, deployment, and Redmi Note 14 device verification. Explain the evidence in simple English and link the actual public GitHub Issue or PR. Do not include personal account details, financial statements, recovery secrets or private chat URLs in GitHub.
 
-**Do not merge**, push another chat's branch, close Issues, create duplicates, start long instrumentation, alter release signing or perform destructive cleanup from this Command Center without my explicit task-specific instruction and a fresh conflict/CI review. If GitHub data cannot be accessed, say which evidence is unavailable and stop short of claiming completion.
+For owner-authored, added-only tracker Markdown PRs, the separately enabled
+merge worker may merge after exact-head checks, task linkage, freshness and
+conflict gates without asking for a new approval each time. It can automatically
+classify merged documentation-only tasks as Verified when both exact-head checks
+and non-device acceptance criteria are complete. **Do not manually merge** unsafe
+PRs, push another chat's branch, close Issues, create duplicates, start long
+instrumentation, alter signing or clean up destructively without independent
+evidence and specific authorization. Missing, stale, failed or ambiguous evidence
+means a repair action or a blocked task, never fake acceptance.
 
 For a regular update, present (1) changes since the last verified check, (2) critical open work, (3) PRs awaiting CI/merge, (4) merged work awaiting device acceptance, and (5) safe next tasks, with the date/time and latest checked main SHA.
 

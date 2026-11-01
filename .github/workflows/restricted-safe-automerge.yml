@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   eligible-pr:
-    if: ${{ github.repository == 'jameswaweru377-lab/PesaTrack' && vars.PESATRACK_SAFE_AUTOMERGE_ENABLED == 'true' }}
+    if: ${{ github.repository == 'jameswaweru377-lab/PesaTrack' && vars.PESATRACK_SAFE_AUTOMERGE_ENABLED == 'true' && vars.PESATRACK_SAFE_AUTOMERGE_CLIENT_ID != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -29,7 +29,20 @@ jobs:
           ref: main
           persist-credentials: false
 
+      - name: Check App credential without printing it
+        id: credentials
+        env:
+          APP_PRIVATE_KEY: ${{ secrets.PESATRACK_SAFE_AUTOMERGE_PRIVATE_KEY }}
+        run: |
+          if [ -n "$APP_PRIVATE_KEY" ]; then
+            echo 'configured=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'configured=false' >> "$GITHUB_OUTPUT"
+            echo '::warning::Unattended merge unavailable: dedicated App key is not configured.'
+          fi
+
       - name: Create repository-scoped installation token
+        if: ${{ steps.credentials.outputs.configured == 'true' }}
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
         with:
@@ -43,7 +56,10 @@ jobs:
           permission-pull-requests: read
           permission-actions: read
 
-      - name: Re-evaluate current main and merge at most one approved addition
+      - name: Re-evaluate current main and merge at most one eligible addition
+        if: ${{ steps.credentials.outputs.configured == 'true' }}
         env:
           PESATRACK_AUTOMERGE_APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          # One-time repository opt-in for unattended docs, separate from legacy approval lane.
+          PESATRACK_UNATTENDED_DOCS_ENABLED: ${{ vars.PESATRACK_UNATTENDED_DOCS_ENABLED }}
         run: python3 -m tools.tracker.restricted_merge --repository "$GITHUB_REPOSITORY" --apply
