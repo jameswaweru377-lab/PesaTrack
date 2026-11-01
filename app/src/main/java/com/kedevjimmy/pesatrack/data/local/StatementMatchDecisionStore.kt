@@ -8,6 +8,7 @@ import com.kedevjimmy.pesatrack.domain.statements.StatementMatchDecisionPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementMatchReviewPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementPossibleTransferPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementAccountMentionPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementPossibleCopyPolicy
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -25,7 +26,8 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
                         val decisions: Map<String, Decision>, val missingOwnershipConsent: Boolean,
                         val excludedBankSourceCount: Int = 0,
                         val possibleTransfers: List<StatementPossibleTransferPolicy.Suggestion> = emptyList(),
-                        val accountMentions: List<StatementAccountMentionPolicy.Hint> = emptyList())
+                        val accountMentions: List<StatementAccountMentionPolicy.Hint> = emptyList(),
+                        val possibleCopies: List<StatementPossibleCopyPolicy.Suggestion> = emptyList())
 
     fun read(year: Int): Snapshot = synchronized(CanonicalStoreLock.monitor) { current(year) }
 
@@ -122,6 +124,8 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
         val shownIds = review.transfers.flatMap { it.outgoing + it.incoming }.map { it.id } +
             review.sameMovements.flatten().map { it.id } +
             possibleTransfers.flatMap { listOf(it.outgoing.id, it.incoming.id) } + source.eventProof.ambiguousIds
+        val possibleCopies = StatementPossibleCopyPolicy.suggest(
+            source.eligibleStatementObservations + source.originalActivityMessages, shownIds.toSet(), start, end)
         val bankRecords = source.eligibleStatementObservations.mapNotNull { observation ->
             source.statements.bankDescriptions[observation.id]?.let { description ->
                 StatementAccountMentionPolicy.BankRecord(observation, description)
@@ -129,7 +133,8 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
         }
         val confirmedAccounts = ownership.filterValues { it.type == "BANK" || it.type == "MOBILE_WALLET" }
             .map { (id, account) -> StatementAccountMentionPolicy.Account(id, account.identifier, account.type == "MOBILE_WALLET") }
-        val accountMentions = StatementAccountMentionPolicy.find(bankRecords, confirmedAccounts, shownIds.toSet(), start, end)
-        return Snapshot(review, candidates, saved, missingConsent, source.excludedBankSourceCount, possibleTransfers, accountMentions)
+        val mentionedExclusions = shownIds.toSet() + possibleCopies.flatMap { it.rows }.map { it.id }
+        val accountMentions = StatementAccountMentionPolicy.find(bankRecords, confirmedAccounts, mentionedExclusions, start, end)
+        return Snapshot(review, candidates, saved, missingConsent, source.excludedBankSourceCount, possibleTransfers, accountMentions, possibleCopies)
     }
 }
