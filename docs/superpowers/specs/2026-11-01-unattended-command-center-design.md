@@ -19,8 +19,9 @@ financial, security or device outcome with a success label.
    overlap, even without a per-PR owner approval comment. Retain the existing
    exact-SHA owner opt-in for new tracker test files. Do not auto-merge modified
    files, workflows, Android code, financial data, migrations, security or
-   releases. An installation token, configured repository App client ID and
-   latest-main recheck remain mandatory; merge at most one PR per run.
+   releases. An installation token, configured repository App client ID,
+   explicit global worker and unattended-docs variables, and latest-main
+   recheck remain mandatory; merge at most one PR per run.
 4. **Verify:** automatically mark *only* merged, documentation-only tracker
    additions `Verified` when the complete snapshot confirms all related PRs
    merged and the exact-head checks passed. This is a GitHub-documentation
@@ -58,7 +59,9 @@ Future expansion requires a separate policy and actual emulator/device evidence.
 ## Rollout boundary
 
 The code change alone does not prove live automatic merging. A configured
-GitHub App (client ID and protected private-key secret) and a fresh eligible PR
-are still necessary. The worker skips cleanly when credentials are missing;
-`PESATRACK_SAFE_AUTOMERGE_ENABLED=false` is an explicit kill switch. Do not
-turn on broader path categories or auto-release from this implementation.
+GitHub App (client ID and protected private-key secret), repository variables
+`PESATRACK_SAFE_AUTOMERGE_ENABLED=true` and
+`PESATRACK_UNATTENDED_DOCS_ENABLED=true`, and a fresh eligible PR are all
+necessary. Both variables default to off; removing either is a kill switch.
+The worker skips cleanly when credentials are missing. Do not turn on broader
+path categories or auto-release from this implementation.

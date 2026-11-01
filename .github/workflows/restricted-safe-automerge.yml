@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   eligible-pr:
-    if: ${{ github.repository == 'jameswaweru377-lab/PesaTrack' && vars.PESATRACK_SAFE_AUTOMERGE_ENABLED != 'false' && vars.PESATRACK_SAFE_AUTOMERGE_CLIENT_ID != '' }}
+    if: ${{ github.repository == 'jameswaweru377-lab/PesaTrack' && vars.PESATRACK_SAFE_AUTOMERGE_ENABLED == 'true' && vars.PESATRACK_SAFE_AUTOMERGE_CLIENT_ID != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -60,4 +60,6 @@ jobs:
         if: ${{ steps.credentials.outputs.configured == 'true' }}
         env:
           PESATRACK_AUTOMERGE_APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          # One-time repository opt-in for unattended docs, separate from legacy approval lane.
+          PESATRACK_UNATTENDED_DOCS_ENABLED: ${{ vars.PESATRACK_UNATTENDED_DOCS_ENABLED }}
         run: python3 -m tools.tracker.restricted_merge --repository "$GITHUB_REPOSITORY" --apply

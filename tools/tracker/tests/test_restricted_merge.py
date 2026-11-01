@@ -40,11 +40,12 @@ def safe_fixture():
 
 
 class RestrictedMergePolicyTest(unittest.TestCase):
-    def decide(self, fixture):
+    def decide(self, fixture, *, unattended_docs_enabled=False):
         pr, approvals, issue, files, open_pr_files, runs = fixture
         return evaluate_candidate(pr, main_sha=MAIN, approvals=approvals,
                                   issue=issue, files=files,
-                                  open_pr_files=open_pr_files, runs=runs)
+                                  open_pr_files=open_pr_files, runs=runs,
+                                  unattended_docs_enabled=unattended_docs_enabled)
 
     def test_approved_added_tracker_docs_and_tests_are_eligible(self):
         self.assertEqual(self.decide(safe_fixture()), (True, "eligible"))
@@ -54,7 +55,8 @@ class RestrictedMergePolicyTest(unittest.TestCase):
         fixture[0]["labels"] = []
         fixture[1] = []
         fixture[3] = [{"filename": "docs/tracker/2026-11-01-progress.md", "status": "added"}]
-        self.assertEqual(self.decide(fixture), (True, "eligible"))
+        self.assertEqual(self.decide(fixture, unattended_docs_enabled=True), (True, "eligible"))
+        self.assertEqual(self.decide(fixture), (False, "owner-approval-missing"))
 
     def test_explicit_paused_blocked_or_untriaged_task_never_merges(self):
         for state in ("Paused", "Blocked", "Superseded", "Untriaged", "Unclaimed"):
@@ -64,7 +66,8 @@ class RestrictedMergePolicyTest(unittest.TestCase):
                 fixture[1] = []
                 fixture[2]["body"] += f"\nTask status: {state}"
                 fixture[3] = [{"filename": "docs/tracker/new-note.md", "status": "added"}]
-                self.assertEqual(self.decide(fixture), (False, "task-not-actionable"))
+                self.assertEqual(self.decide(fixture, unattended_docs_enabled=True),
+                                 (False, "task-not-actionable"))
 
     def test_unattended_merge_requires_unique_issue_owner_claim(self):
         fixture = list(deepcopy(safe_fixture()))
@@ -72,7 +75,8 @@ class RestrictedMergePolicyTest(unittest.TestCase):
         fixture[1] = []
         fixture[2]["body"] += "\nChat owner: CHAT-OTHER"
         fixture[3] = [{"filename": "docs/tracker/new-note.md", "status": "added"}]
-        self.assertEqual(self.decide(fixture), (False, "task-claim-mismatch"))
+        self.assertEqual(self.decide(fixture, unattended_docs_enabled=True),
+                         (False, "task-claim-mismatch"))
 
     def test_non_owner_cannot_use_unattended_documentation_lane(self):
         fixture = list(deepcopy(safe_fixture()))
@@ -80,7 +84,8 @@ class RestrictedMergePolicyTest(unittest.TestCase):
         fixture[0]["labels"] = []
         fixture[1] = []
         fixture[3] = [{"filename": "docs/tracker/new-note.md", "status": "added"}]
-        self.assertEqual(self.decide(fixture), (False, "owner-approval-missing"))
+        self.assertEqual(self.decide(fixture, unattended_docs_enabled=True),
+                         (False, "owner-approval-missing"))
 
     def test_ambiguous_claims_cannot_trigger_unattended_merge(self):
         for body in ("Tracks #20\nTracks #21\nChat owner: CHAT-DOCS",
@@ -92,7 +97,7 @@ class RestrictedMergePolicyTest(unittest.TestCase):
             fixture[0]["labels"] = []
             fixture[1] = []
             fixture[3] = [{"filename": "docs/tracker/new-note.md", "status": "added"}]
-            self.assertFalse(self.decide(fixture)[0])
+            self.assertFalse(self.decide(fixture, unattended_docs_enabled=True)[0])
 
     def test_malformed_author_is_never_an_unattended_candidate(self):
         fixture = list(deepcopy(safe_fixture()))
@@ -115,7 +120,7 @@ class RestrictedMergePolicyTest(unittest.TestCase):
                 fixture[0]["labels"] = []
                 fixture[1] = []
                 fixture[3] = [{"filename": path, "status": change}]
-                self.assertFalse(self.decide(fixture)[0])
+                self.assertFalse(self.decide(fixture, unattended_docs_enabled=True)[0])
 
     def test_label_without_exact_owner_approval_never_merges(self):
         for kind in ("missing", "old-sha", "different-user", "missing-label"):
@@ -258,8 +263,10 @@ class RestrictedMergeRunnerTest(unittest.TestCase):
         client.pr["labels"] = []
         client.approvals = []
         client.files = [{"filename": "docs/tracker/2026-11-01-progress.md", "status": "added"}]
-        self.assertEqual(run(REPO, "fake", apply=False, client=client),
+        self.assertEqual(run(REPO, "fake", apply=False, client=client,
+                             unattended_docs_enabled=True),
                          [{"pr": 31, "status": "eligible"}])
+        self.assertEqual(run(REPO, "fake", apply=False, client=client), [])
 
     def test_dry_run_reports_candidate_but_never_writes(self):
         client = FakeGitHub()
@@ -320,10 +327,11 @@ class RestrictedMergeWorkflowContractTest(unittest.TestCase):
         self.assertNotIn("GITHUB_TOKEN: ${{ github.token }}", workflow)
         self.assertNotIn("secrets.GITHUB_TOKEN", workflow)
 
-    def test_unattended_lane_starts_when_app_is_configured_but_can_be_stopped(self):
+    def test_unattended_lane_requires_explicit_global_opt_in_and_app(self):
         workflow = (Path(__file__).resolve().parents[3] / ".github" / "workflows"
                     / "restricted-safe-automerge.yml").read_text(encoding="utf-8")
-        self.assertIn("PESATRACK_SAFE_AUTOMERGE_ENABLED != 'false'", workflow)
+        self.assertIn("PESATRACK_SAFE_AUTOMERGE_ENABLED == 'true'", workflow)
+        self.assertIn("PESATRACK_UNATTENDED_DOCS_ENABLED", workflow)
         self.assertIn("PESATRACK_SAFE_AUTOMERGE_CLIENT_ID != ''", workflow)
         self.assertIn("steps.credentials.outputs.configured == 'true'", workflow)
         self.assertIn("PESATRACK_SAFE_AUTOMERGE_PRIVATE_KEY", workflow)

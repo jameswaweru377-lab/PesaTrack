@@ -88,12 +88,14 @@ required check or unknown state is never merged.
 
 1. Create a dedicated GitHub App, installed **only** for `jameswaweru377-lab/PesaTrack`, with **Contents: read and write** (GitHub requires write to merge), **Issues: read**, **Actions: read**, and **Pull requests: read**. Do not grant access to unrelated repositories. The App has broader repository write authority than the bot's allowed paths, so protect its private key carefully.
 2. Under repository **Settings → Secrets and variables → Actions**, set variable `PESATRACK_SAFE_AUTOMERGE_CLIENT_ID` to the App's Client ID, and secret `PESATRACK_SAFE_AUTOMERGE_PRIVATE_KEY` to its private key. Never paste the key into a chat, Issue or PR.
-3. The unattended docs lane runs automatically when the separately scoped App
-   client ID and private key are configured. Missing credentials skip merges
-   with a warning, not a failed privileged workflow. Set repository variable
-   `PESATRACK_SAFE_AUTOMERGE_ENABLED` to `false` as an emergency stop. Remove
-   that value to resume once the App is ready. Existing-file edits and all
-   sensitive Android changes are still outside this worker.
+3. Explicitly set repository variable `PESATRACK_SAFE_AUTOMERGE_ENABLED` to
+   `true` for the existing guarded worker, and the **separate** variable
+   `PESATRACK_UNATTENDED_DOCS_ENABLED` to `true` for owner-authored new-doc
+   PRs without per-PR approval. Both default to disabled. Remove either
+   value or set it to `false` to stop that lane. Missing App credentials skip
+   merges with a warning; no secret is printed. These are one-time repository
+   permissions, not per-PR acceptance prompts. Existing-file edits and all
+   sensitive Android changes remain excluded.
 
 The automated check runs after Android CI completion, hourly as a fallback,
 and when manually dispatched. **It merges at most one PR per run** after

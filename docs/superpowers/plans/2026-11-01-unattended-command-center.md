@@ -16,6 +16,8 @@
 - No automatic merge for existing-file edits, forks, outdated bases, drafts, overlaps, failed or unknown exact-head checks.
 - One eligible merge maximum per workflow run, with a second exact-state check.
 - Keep explicit Issue ownership and existing manual approval for test additions.
+- Unattended documentation merges require two separately configured repository
+  opt-ins and a dedicated GitHub App token; both opt-ins default to off.
 - Do not treat CI alone as Android-device or financial acceptance.
 
 ## Review Focus
