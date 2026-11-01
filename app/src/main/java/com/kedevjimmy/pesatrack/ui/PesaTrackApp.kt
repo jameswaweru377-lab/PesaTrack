@@ -36,6 +36,7 @@ import com.kedevjimmy.pesatrack.ui.screens.AccountsScreen
 import com.kedevjimmy.pesatrack.ui.screens.ActivityScreen
 import com.kedevjimmy.pesatrack.ui.screens.ActivityScreenCache
 import com.kedevjimmy.pesatrack.ui.screens.BillsRemindersScreen
+import com.kedevjimmy.pesatrack.ui.screens.BackupRestoreSheet
 import com.kedevjimmy.pesatrack.ui.screens.BudgetScreen
 import com.kedevjimmy.pesatrack.ui.screens.DebtsScreen
 import com.kedevjimmy.pesatrack.ui.screens.DataHealthScreen
@@ -54,6 +55,7 @@ import com.kedevjimmy.pesatrack.ui.screens.OnboardingScreen
 import com.kedevjimmy.pesatrack.ui.screens.PayCycleActivityScreen
 import com.kedevjimmy.pesatrack.ui.screens.PlanScreen
 import com.kedevjimmy.pesatrack.ui.screens.ProfileScreen
+import com.kedevjimmy.pesatrack.ui.screens.PrivacyPage
 import com.kedevjimmy.pesatrack.ui.screens.ReportsInsightsScreen
 import com.kedevjimmy.pesatrack.ui.screens.SavingGoalsScreen
 import com.kedevjimmy.pesatrack.ui.screens.SettingsScreen
@@ -73,7 +75,8 @@ fun PesaTrackApp(
     reviewOpenRequest: Int = 0,
     smartOpenRequest: Int = 0, smartKey: String = "", smartAction: String = "review", smartRevision: String = "",
     onSmartRequestHandled: () -> Unit = {},
-    planningOpenRequest: Int = 0, planningRoute: String = "budgets"
+    planningOpenRequest: Int = 0, planningRoute: String = "budgets",
+    phonePageRequest: Int = 0, phonePageRoute: String = ""
 ) {
     val navController = rememberNavController()
     val planScreenCache = remember { com.kedevjimmy.pesatrack.ui.screens.PlanScreenCache() }
@@ -98,6 +101,13 @@ fun PesaTrackApp(
 
     LaunchedEffect(planningOpenRequest, setupComplete) {
         if(planningOpenRequest > 0 && setupComplete && planningRoute in setOf("budgets", "saving-goals")) navController.navigate(planningRoute) { launchSingleTop = true }
+    }
+
+    LaunchedEffect(phonePageRequest, setupComplete) {
+        if (phonePageRequest > 0 && setupComplete && phonePageRoute in setOf(
+                "bills", "salary", "budgets", "activity-attention", "saving-goals",
+                "debts", "data-health", "backup-reminder"
+            )) navController.navigate(phonePageRoute) { launchSingleTop = true }
     }
 
     LaunchedEffect(reviewOpenRequest, setupComplete) {
@@ -727,6 +737,22 @@ fun PesaTrackApp(
                     onPageChanged = { profilePage = it },
                     initialPage = initialSection
                 )
+            }
+        }
+
+        composable("backup-reminder") {
+            AppScaffold(
+                onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
+                onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
+                currentTab = MainTab.MORE,
+                onTabSelected = ::navigateToTab
+            ) { padding ->
+                PrivacyPage(
+                    padding, back = { navController.popBackStack() },
+                    access = { navController.navigate("settings") },
+                    manageStatements = { navController.navigate("historical-import") }
+                )
+                BackupRestoreSheet(onDismiss = { navController.popBackStack() })
             }
         }
 

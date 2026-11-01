@@ -16,6 +16,7 @@ import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.rules.PlanningReminderPolicy
+import com.kedevjimmy.pesatrack.domain.rules.PhoneAlertPolicy
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 object PlanningReminders {
@@ -41,8 +42,7 @@ object PlanningReminders {
         if (!enabled(c,"budgets") && !enabled(c,"goals")) return
         val now = Calendar.getInstance()
         if (now.get(Calendar.HOUR_OF_DAY) !in 8..20) return
-        if (Build.VERSION.SDK_INT>=33 && ContextCompat.checkSelfPermission(c,Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED) return
-        if (!NotificationManagerCompat.from(c).areNotificationsEnabled()) return
+        if (!PhoneNotificationChannels.canPost(c)) return
         val prefs=prefs(c)
         val month="${now.get(Calendar.YEAR)}-${now.get(Calendar.MONTH)}"
         val progress=FinancialProgressRepository(c).read()
@@ -69,12 +69,13 @@ object PlanningReminders {
         val prefs=prefs(c)
         if (!enabled(c,kind) || prefs.getBoolean(key,false)) return
         val manager=c.getSystemService(NotificationManager::class.java)
-        if(Build.VERSION.SDK_INT>=26) manager.createNotificationChannel(NotificationChannel("planning","Budget and savings reminders",NotificationManager.IMPORTANCE_DEFAULT))
+        PhoneNotificationChannels.ensure(c,PhoneAlertPolicy.PLAN_CHANNEL,"Budget and savings reminders")
         val intent=Intent(c,MainActivity::class.java).putExtra(OPEN_PLAN,route).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         val open=PendingIntent.getActivity(c,if(kind=="budgets") 925 else 926,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val public=NotificationCompat.Builder(c,"planning").setSmallIcon(R.drawable.ic_pesatrack_logo).setContentTitle("PesaTrack reminder").setContentText("Open PesaTrack to see your reminder.").build()
-        val notification=NotificationCompat.Builder(c,"planning").setSmallIcon(R.drawable.ic_pesatrack_logo).setContentTitle(title).setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text)).setContentIntent(open).setAutoCancel(true).setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setPublicVersion(public).build()
+        val notification=NotificationCompat.Builder(c,PhoneAlertPolicy.PLAN_CHANNEL).setSmallIcon(R.drawable.ic_pesatrack_logo).setContentTitle(title).setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text)).setContentIntent(open).setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(PhoneNotificationChannels.privatePublicVersion(c,PhoneAlertPolicy.PLAN_CHANNEL)).build()
         manager.notify("$kind:$key",925,notification)
         prefs.edit().putBoolean(key,true).apply()
     }

@@ -245,6 +245,8 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
                         }
                     }.onSuccess {
                         created = it
+                        // Remember only successfully reread exports. This does not change the backup format.
+                        runCatching { com.kedevjimmy.pesatrack.planning.BackupReminders.recordVerifiedBackup(context) }
                         createdFileName = backupDisplayName(context.applicationContext, uri)
                         createdProvider = backupProviderName(context.applicationContext, uri)
                         createPassphrase = ""
