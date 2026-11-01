@@ -24,6 +24,11 @@ on:
         required: false
         type: boolean
         default: false
+      preview_pr_inbox:
+        description: Preview open-PR cards missing from the existing Project without writing
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -33,7 +38,7 @@ permissions:
 
 concurrency:
   group: development-tracker-${{ github.repository }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   report:
@@ -72,7 +77,7 @@ jobs:
         # Fork and Dependabot PRs have no Actions Project secret, even when
         # Dependabot's head branch belongs to this repository. Keep their
         # advisory summaries, but never attempt privileged Project writes.
-        if: ${{ vars.PESATRACK_TRACKER_PROJECT_SYNC_ENABLED == 'true' && github.actor != 'dependabot[bot]' && (github.event_name != 'workflow_dispatch' || inputs.preview_owner != true) && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')) }}
+        if: ${{ vars.PESATRACK_TRACKER_PROJECT_SYNC_ENABLED == 'true' && github.actor != 'dependabot[bot]' && (github.event_name != 'workflow_dispatch' || (inputs.preview_owner != true && inputs.preview_pr_inbox != true)) && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')) }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
           PESATRACK_TRACKER_PROJECTS_TOKEN: ${{ secrets.PESATRACK_TRACKER_PROJECTS_TOKEN }}
@@ -80,3 +85,29 @@ jobs:
           PESATRACK_TRACKER_PROJECT_SYNC_ENABLED: ${{ vars.PESATRACK_TRACKER_PROJECT_SYNC_ENABLED }}
           PESATRACK_TRACKER_OWNER_SYNC_ENABLED: ${{ vars.PESATRACK_TRACKER_OWNER_SYNC_ENABLED }}
         run: python3 -m tools.tracker.project_sync --repository "$GITHUB_REPOSITORY" --apply
+      - name: Preview open-PR intake into existing Project
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.preview_pr_inbox == true }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PESATRACK_TRACKER_PROJECTS_TOKEN: ${{ secrets.PESATRACK_TRACKER_PROJECTS_TOKEN }}
+          PESATRACK_TRACKER_PROJECT_ID: ${{ vars.PESATRACK_TRACKER_PROJECT_ID }}
+        run: |
+          if [ -f tools/tracker/pr_inbox.py ]; then
+            python3 -m tools.tracker.pr_inbox --repository "$GITHUB_REPOSITORY"
+          else
+            echo "PR intake not yet installed on trusted main; preview skipped."
+          fi
+      - name: Discover open PRs as separate Project intake cards
+        # Reuse the already enabled Project credential; never expose it to fork or Dependabot PRs.
+        if: ${{ vars.PESATRACK_TRACKER_PROJECT_SYNC_ENABLED == 'true' && github.actor != 'dependabot[bot]' && (github.event_name != 'workflow_dispatch' || (inputs.preview_owner != true && inputs.preview_pr_inbox != true)) && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')) }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PESATRACK_TRACKER_PROJECTS_TOKEN: ${{ secrets.PESATRACK_TRACKER_PROJECTS_TOKEN }}
+          PESATRACK_TRACKER_PROJECT_ID: ${{ vars.PESATRACK_TRACKER_PROJECT_ID }}
+          PESATRACK_TRACKER_PROJECT_SYNC_ENABLED: ${{ vars.PESATRACK_TRACKER_PROJECT_SYNC_ENABLED }}
+        run: |
+          if [ -f tools/tracker/pr_inbox.py ]; then
+            python3 -m tools.tracker.pr_inbox --repository "$GITHUB_REPOSITORY" --apply
+          else
+            echo "PR intake not yet installed on trusted main; application skipped."
+          fi

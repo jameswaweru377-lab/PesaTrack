@@ -168,7 +168,8 @@ internal fun SmartPaymentReviewHint(row: StoredTransaction) {
             }) { Text("Don't ask about this payment again") }
         }
     }
-    if (open) Dialog(onDismissRequest = { open = false },properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    val securePolicy = rememberCaptureAwareDialogPolicy()
+    if (open) Dialog(onDismissRequest = { open = false },properties = DialogProperties(usePlatformDefaultWidth = false,securePolicy = securePolicy)) {
         Surface(Modifier.fillMaxSize()) {
             SmartNoticeReviewScreen(PaddingValues(),current.candidate.key,"review",onBack = { open = false; notice = null },
                 onTransaction = { open = false; notice = null },expectedRevision = current.candidate.revision)
