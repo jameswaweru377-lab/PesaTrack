@@ -161,3 +161,13 @@ automated mirroring. Its visible status and the `PesaTrack Work by Status`
 insight chart now use `Tracker status`, not the unrelated built-in `Status`.
 The chart is limited to Issues, so the separate merged PR #508 card is not
 double-counted as a task.
+
+### GitHub-visible PR intake (1 November 2026)
+
+The existing issue-only tracker **cannot see running ChatGPT conversations**. For visibility, the separate `tools/tracker/pr_inbox.py` now discovers **open GitHub PRs**, including drafts and PRs without a `Tracks #N` link, and adds them as **PR cards** to the existing Project. It uses the already-approved Project token and existing `PESATRACK_TRACKER_PROJECT_SYNC_ENABLED=true` gate; no new credential, Issue, chat owner or Project is created.
+
+The PR card uses the bot-owned `Tracker status = PR open` option, not the human `Status` field. An existing PR card with a different status is not overwritten without exact evidence. When an already-added PR merges, its bot-owned `PR open` status moves to `Merged — needs acceptance`; when a PR closes without merge, that bot-owned open status is cleared, **not** labeled `Superseded`. The Issue card remains the single authoritative task, and Project item counts must distinguish PR cards from task Issues.
+
+Runs are previewable using **Actions → Development Tracker (Read-only) → Run workflow → Preview PR inbox**. GitHub-event runs and the hourly fallback reconcile the PR intake only when the existing Project status sync is enabled. A bad Project ID, missing field, duplicate Project PR card, invalid identity or incomplete inventory blocks writes rather than inventing a mapping.
+
+**Dashboard viewing:** GitHub Project views may have human-configured `is:issue`, status, or other filters. To see intake cards, use a separate existing-Project view filtered to PRs (`is:pr`, or filter by the PR content type if GitHub's UI requires it) and keep the Task Register showing canonical Issues. No workflow can infer live ChatGPT tab presence or automatically assign a task owner based on PR authorship. For true chat ownership, each implementation chat still claims its Issue as documented in [CHAT_OWNERSHIP.md](CHAT_OWNERSHIP.md). The [PR recovery queue #528](https://github.com/jameswaweru377-lab/PesaTrack/issues/528) remains an advisory triage task, not a merge queue.
