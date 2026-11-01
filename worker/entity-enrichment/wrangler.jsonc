@@ -14,6 +14,14 @@
       }
     },
     {
+      "name": "ENTITY_RESOLVE_IP_RATE_LIMITER",
+      "namespace_id": "26090403",
+      "simple": {
+        "limit": 300,
+        "period": 60
+      }
+    },
+    {
       "name": "ENTITY_RESOLVE_EDGE_RATE_LIMITER",
       "namespace_id": "26090402",
       "simple": {

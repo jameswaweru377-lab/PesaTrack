@@ -49,6 +49,12 @@ PesaTrack does not intentionally send full SMS bodies, transaction amounts, bala
 
 The client also supplies a random install-scoped identifier used only to partition rate limits. It is not an account login or device identifier.
 
+The enrichment Worker may also use the connection IP address supplied by
+Cloudflare **only as a temporary abuse-rate-limit key**. Many legitimate
+mobile users can share one address, so a limit may sometimes affect multiple
+users. This IP is not included in the merchant lookup sent to the upstream
+provider or in app-side records, and PesaTrack does not deliberately log it.
+
 ## Backups and exports
 
 If you create an encrypted PesaTrack backup, the encrypted file is written only to a location you choose through Android's document picker. Keep your backup passphrase safe; PesaTrack cannot recover a forgotten passphrase.

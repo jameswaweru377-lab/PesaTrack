@@ -3,6 +3,7 @@ import worker from "./src/index.js";
 
 const env = {
   ENTITY_RESOLVE_CLIENT_RATE_LIMITER: { limit: async () => ({ success: true }) },
+  ENTITY_RESOLVE_IP_RATE_LIMITER: { limit: async () => ({ success: true }) },
   ENTITY_RESOLVE_EDGE_RATE_LIMITER: { limit: async () => ({ success: true }) },
   LOGO_DEV_SECRET_KEY: "invented-test-key",
 };
