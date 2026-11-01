@@ -180,7 +180,7 @@ class BranchCleanupPlanTest(unittest.TestCase):
         opener = FakeOpener()
         result = apply_plan(REPOSITORY, "test-token", inventory(), opener=opener)
         deletes = [url for method, url, _timeout in opener.requests if method == "DELETE"]
-        self.assertEqual(["feature/ready"], result["deleted"])
+        self.assertEqual([{"branch": "feature/ready", "merged_pr": 42}], result["deleted"])
         self.assertEqual(1, len(deletes))
         self.assertTrue(urlparse(deletes[0]).path.endswith("/git/refs/heads/feature/ready"))
 

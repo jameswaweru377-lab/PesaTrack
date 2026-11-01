@@ -178,3 +178,11 @@ Runs are previewable using **Actions → Development Tracker (Read-only) → Run
 ### Tracker event burst reliability (1 November 2026)
 
 The GitHub workflow uses a repository-wide concurrency group with `cancel-in-progress: false`. A burst of PR, Issue, `main` or CI events must not interrupt a running Project field/card mutation. GitHub may consolidate pending runs in the same group, while the current run finishes before the next runs. This does **not** add polling, Android builds or new credentials. If the latest run is pending or cancelled, never report a successful Project update without checking a completed job's actual step log.
+
+### Monthly merged-branch cleanup
+
+The separate **Monthly merged branch cleanup** workflow inventories repository branches and pull requests, then proposes deletion only when a branch is unprotected, is not the current default branch, has no open same-repository PR, and its current tip SHA exactly matches a PR head that was merged into the current default branch. Branch age, naming, and a closed-but-unmerged PR are never evidence for deletion. The workflow fetches bounded pages (up to 2,000 PR rows); a page cap, malformed response, permission error, or API failure stops or skips cleanup safely.
+
+Manual dispatch defaults to a read-only preview. Apply is limited to a manual run by `jameswaweru377-lab` from the current default branch, or the monthly schedule on that branch. Before each deletion, the workflow rechecks the current default branch, candidate SHA, protection, merged-PR evidence, and open-PR state, then deletes only that branch ref. A changed or uncertain candidate is kept. The preview job receives `contents: read` and `pull-requests: read`; only the separate apply job receives `contents: write` and `pull-requests: read`. Neither job can write Issues, Projects, PRs, Actions, or merge PRs. The existing hourly Development Tracker remains read-only and does not run this cleanup.
+
+Use the preview list and its skip counts to review repository state. No-PR branches, protected branches, open work, and closed-unmerged work are intentionally retained. This workflow reports GitHub branch/PR evidence only; it does not detect active ChatGPT chats or verify Android-device acceptance. Check the latest run summary for the live count and result before treating cleanup as complete.

@@ -29,14 +29,20 @@ def _safe_http_error(exc: error.HTTPError, url: str) -> RuntimeError:
     details = [f"HTTP {exc.code} at {path}"]
     request_id = headers.get("X-GitHub-Request-Id")
     remaining = headers.get("X-RateLimit-Remaining")
+    reset = headers.get("X-RateLimit-Reset")
     retry_after = headers.get("Retry-After")
+    rate_resource = headers.get("X-RateLimit-Resource")
     permissions = headers.get("X-Accepted-GitHub-Permissions")
     if request_id:
         details.append(f"request_id={request_id}")
     if remaining:
         details.append(f"remaining={remaining}")
+    if reset:
+        details.append(f"reset={reset}")
     if retry_after:
         details.append(f"retry_after={retry_after}")
+    if rate_resource:
+        details.append(f"rate_resource={rate_resource}")
     if permissions:
         details.append(f"accepted_permissions={permissions}")
     return RuntimeError("GitHub API request failed (" + ", ".join(details) + ")")
@@ -288,25 +294,30 @@ def apply_plan(repository: str, token: str, inventory: dict, *, opener=None) -> 
     for candidate in plan["candidates"]:
         current = dict(candidate)
         current["default_branch"] = inventory["default_branch"]
+        api_failed = False
         try:
             eligible, reason = _recheck_candidate(repository, token, current, opener=api_opener)
-        except RuntimeError:
-            eligible, reason = False, "recheck_api_failure"
+        except RuntimeError as exc:
+            eligible, reason = False, f"recheck_api_failure: {exc}"
+            api_failed = True
         if not eligible:
             skipped.append({"branch": candidate["branch"], "merged_pr": candidate["merged_pr"],
                             "reason": reason})
+            if api_failed:
+                break
             continue
         ref_path = "git/refs/heads/" + parse.quote(candidate["branch"], safe="/")
         try:
             _api_request(_api_url(repository, ref_path), token, method="DELETE", opener=api_opener)
-            deleted.append(candidate["branch"])
+            deleted.append({"branch": candidate["branch"], "merged_pr": candidate["merged_pr"]})
         except RuntimeError as exc:
             failures.append({"branch": candidate["branch"], "merged_pr": candidate["merged_pr"],
                              "reason": str(exc)})
             break
     return {"repository": repository, "default_branch": inventory["default_branch"],
             "candidate_count": len(plan["candidates"]), "deleted": deleted,
-            "skipped": skipped, "failures": failures}
+            "initial_skipped": plan["skipped"], "skipped": skipped,
+            "failures": failures}
 
 
 def main(argv=None) -> int:
