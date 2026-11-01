@@ -73,8 +73,45 @@ class StatementBankAdmissionTest {
             (admit(proof = document.copy(printedGrandTotal = StatementPrintedTotal(2_500, 5_000)))
                 as StatementAdmissionResult.Blocked).reason)
         assertEquals(StatementAdmissionResult.Reason.MISSING_PRINTED_TOTALS,
-            (admit(proof = document.copy(printedPageTotals = emptyMap()))
+            (admit(proof = document.copy(printedPageTotals = emptyMap(), printedGrandTotal = null))
                 as StatementAdmissionResult.Blocked).reason)
+    }
+
+    @Test fun acceptsStatementTotalWithoutPageTotals() {
+        assertTrue(admit(proof = document.copy(printedPageTotals = emptyMap())) is StatementAdmissionResult.Accepted)
+    }
+
+    @Test fun acceptsCompletePageTotalsWithoutStatementTotal() {
+        assertTrue(admit(proof = document.copy(printedGrandTotal = null)) is StatementAdmissionResult.Accepted)
+    }
+
+    @Test fun rejectsContradictoryPageTotalEvenWithValidStatementTotal() {
+        val proof = document.copy(printedPageTotals = mapOf(1 to StatementPrintedTotal(2_001, 5_000)))
+        assertEquals(StatementAdmissionResult.Reason.TOTAL_MISMATCH,
+            (admit(proof = proof) as StatementAdmissionResult.Blocked).reason)
+    }
+
+    @Test fun rejectsTotalsForUnexpectedPage() {
+        val proof = document.copy(printedPageTotals = mapOf(2 to StatementPrintedTotal(2_000, 5_000)))
+        assertTrue(admit(proof = proof) is StatementAdmissionResult.Blocked)
+    }
+
+    @Test fun rejectsIncompletePageTotalsWithoutStatementTotal() {
+        val first = pages.single().copy(rows = pages.single().rows.take(1))
+        val second = pages.single().copy(pageNumber = 2, rows = pages.single().rows.drop(1))
+        val proof = document.copy(pages = 2, printedGrandTotal = null,
+            printedPageTotals = mapOf(1 to StatementPrintedTotal(0, 5_000)))
+        assertEquals(StatementAdmissionResult.Reason.MISSING_PRINTED_TOTALS,
+            (admit(proof = proof, sourcePages = listOf(first, second)) as StatementAdmissionResult.Blocked).reason)
+    }
+
+    @Test fun acceptsTotalsForEveryFinancialPageWithoutStatementTotal() {
+        val first = pages.single().copy(rows = pages.single().rows.take(1))
+        val second = pages.single().copy(pageNumber = 2, rows = pages.single().rows.drop(1))
+        val proof = document.copy(pages = 2, printedGrandTotal = null,
+            printedPageTotals = mapOf(1 to StatementPrintedTotal(0, 5_000),
+                2 to StatementPrintedTotal(2_000, 0)))
+        assertTrue(admit(proof = proof, sourcePages = listOf(first, second)) is StatementAdmissionResult.Accepted)
     }
 
     @Test fun missingBalanceAnchorBlocksEvenWhenPrintedTotalsMatch() {

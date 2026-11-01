@@ -18,7 +18,8 @@ HEADERS = ("Date", "Value", "Particulars", "Money Out", "Money In", "Balance")
 def invented_pdf(wrong_total=False, unknown_value=False, missing_footer=False,
                  reversed_account_label=False, colon_summary_labels=False,
                  wide_notice=False, other_account_on_second_page=False,
-                 broken_running_balance=False, encrypted=False):
+                 broken_running_balance=False, encrypted=False, only_total=None,
+                 unexpected_summary_amount=False):
     output = io.BytesIO()
     pdf = canvas.Canvas(output, pagesize=(WIDTH, HEIGHT),
                         encrypt=StandardEncryption(userPassword="invented-opening-pass", ownerPassword="invented-owner-pass")
@@ -70,7 +71,11 @@ def invented_pdf(wrong_total=False, unknown_value=False, missing_footer=False,
     if wide_notice:
         word("THIS IS AN INVENTED NON FINANCIAL NOTICE THAT CROSSES THE PHYSICAL TABLE COLUMNS AND IS NOT A PAYMENT", 36, 350)
     if not missing_footer:
+        if unexpected_summary_amount:
+            word("17.00", 562, 386)
         for label, y in (("Page Total", 368), ("Grand Total", 404)):
+            if only_total and label != only_total:
+                continue
             word(label + (":" if colon_summary_labels else ""), 35, y)
             word("51.00" if wrong_total else "50.00", 562, y)
             word("130.00", 698, y)
@@ -84,6 +89,21 @@ def invented_pdf(wrong_total=False, unknown_value=False, missing_footer=False,
 
 
 class EquityStatementExtractorTest(unittest.TestCase):
+    def test_unaccounted_amount_between_summaries_blocks(self):
+        response = json.loads(inspect_pdf(invented_pdf(unexpected_summary_amount=True), "", "KENYAN_BANK_EQUITY"))
+        self.assertEqual("blocked", response["status"])
+
+    def test_single_printed_summary_is_accepted(self):
+        for label in ("Page Total", "Grand Total"):
+            with self.subTest(label=label):
+                response = json.loads(inspect_pdf(invented_pdf(only_total=label), "", "KENYAN_BANK_EQUITY"))
+                self.assertEqual("ready_for_bank_review", response["status"], response.get("reason"))
+                document = response["document"]
+                self.assertEqual(label == "Grand Total", document["printedGrandTotal"] is not None)
+                self.assertEqual(label == "Page Total", bool(document["printedPageTotals"]))
+                wrong = json.loads(inspect_pdf(invented_pdf(wrong_total=True, only_total=label), "", "KENYAN_BANK_EQUITY"))
+                self.assertEqual("blocked", wrong["status"])
+
     def test_real_encrypted_statement_fails_without_password_then_passes_with_one(self):
         encoded = invented_pdf(encrypted=True)
         locked = json.loads(inspect_pdf(encoded, "", "KENYAN_BANK_EQUITY"))
