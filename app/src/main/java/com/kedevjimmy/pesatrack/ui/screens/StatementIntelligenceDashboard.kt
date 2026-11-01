@@ -39,7 +39,7 @@ import kotlinx.coroutines.withContext
 
 internal enum class StatementPage {
     ALL_ACCOUNTS, SUMMARY, CATEGORIES, TRENDS, TRANSACTIONS, DEBTS, BROWSE,
-    CATEGORY_DETAIL, MONTH_DETAIL, COVERAGE, EVIDENCE_DETAIL
+    CATEGORY_DETAIL, MONTH_DETAIL, COVERAGE, EVIDENCE_DETAIL, MATCH_REVIEW
 }
 private val nairobiStatementZone = TimeZone.getTimeZone("Africa/Nairobi")
 
@@ -244,7 +244,7 @@ internal fun StatementIntelligenceDashboard(
     // Preload all data for the currently selected account once; changing Day,
     // Week, Month, Year or page never triggers repeated PDF/database reads.
     LaunchedEffect(page, accountId, refreshed, labelsChanged, months, bankSelected, ledgerRevision.revision) {
-        if (page == StatementPage.ALL_ACCOUNTS) return@LaunchedEffect
+        if (page == StatementPage.ALL_ACCOUNTS || page == StatementPage.MATCH_REVIEW) return@LaunchedEffect
         if (accountId == null) {
             reports = emptyList()
             loadedAccount = null
@@ -312,6 +312,7 @@ internal fun StatementIntelligenceDashboard(
             importing -> importing = false
             edit != null -> edit = null
             page == StatementPage.ALL_ACCOUNTS -> onDismiss()
+            page == StatementPage.MATCH_REVIEW -> page = StatementPage.ALL_ACCOUNTS
             page == StatementPage.SUMMARY -> page = StatementPage.ALL_ACCOUNTS
             page != StatementPage.SUMMARY -> {
                 val previous = if (pageHistory.isNotEmpty())
@@ -350,7 +351,9 @@ internal fun StatementIntelligenceDashboard(
                     }
                 }
                 Box(Modifier.fillMaxWidth().weight(1f)) {
-                if (dataError && page != StatementPage.ALL_ACCOUNTS) {
+                if (page == StatementPage.MATCH_REVIEW) {
+                    StatementMatchReviewPage(overviewYear, accountLabels) { page = StatementPage.ALL_ACCOUNTS }
+                } else if (dataError && page != StatementPage.ALL_ACCOUNTS) {
                     Column(Modifier.padding(20.dp)) {
                         Text("Could not open the saved statement report. Your financial records were not changed.",
                             color = MaterialTheme.colorScheme.error)
@@ -394,6 +397,7 @@ internal fun StatementIntelligenceDashboard(
                             },
                             onImport = { importing = true },
                             onBack = onDismiss,
+                            onOpenMatchReview = { page = StatementPage.MATCH_REVIEW },
                             onOpenReview = {
                                 unifiedOverview?.accountMonths?.firstOrNull {
                                     it.state == StatementUnifiedOverviewPolicy.MonthState.NEEDS_REVIEW
@@ -556,6 +560,7 @@ internal fun StatementIntelligenceDashboard(
 
                     when (page) {
                         StatementPage.ALL_ACCOUNTS -> Unit
+                        StatementPage.MATCH_REVIEW -> Unit
                         StatementPage.SUMMARY -> {
                             StatementOverviewPage(
                                 model = StatementInsightModels.from(
