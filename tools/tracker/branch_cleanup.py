@@ -243,9 +243,20 @@ def _patch_lines_contained(old_files: list, new_files: list) -> bool:
             patch = row.get("patch")
             if not isinstance(patch, str) or not patch.strip():
                 return None
+            if (type(row.get("additions")) is not int
+                    or type(row.get("deletions")) is not int
+                    or row["additions"] < 0 or row["deletions"] < 0):
+                return None
+            additions = deletions = 0
             for line in patch.splitlines():
-                if line.startswith(("+", "-")) and not line.startswith(("+++", "---")):
+                if line.startswith("+"):
+                    additions += 1
                     lines.add((row["filename"], line))
+                elif line.startswith("-"):
+                    deletions += 1
+                    lines.add((row["filename"], line))
+            if additions != row["additions"] or deletions != row["deletions"]:
+                return None
         return lines
 
     old_lines, new_lines = changed_lines(old_files), changed_lines(new_files)
@@ -331,8 +342,9 @@ def build_plan(inventory: dict, *, include_ancestors: bool = False,
         if superseded_pairs is not None and name not in pairs:
             skipped["no_merged_pr"] += 1
             continue
-        matching = [pull for pull in pulls
-                    if _eligible_pull(pull, repository, default_branch, name, sha)]
+        matching = ([] if superseded_pairs is not None else
+                    [pull for pull in pulls
+                     if _eligible_pull(pull, repository, default_branch, name, sha)])
         if not matching:
             entry = pairs.get(name)
             if entry and entry["sha"] == sha:

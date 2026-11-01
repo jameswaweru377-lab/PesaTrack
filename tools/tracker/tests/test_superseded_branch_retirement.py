@@ -10,8 +10,8 @@ from urllib.parse import urlparse
 
 class SupersededRetirementTests(unittest.TestCase):
     def test_patch_containment_requires_all_added_and_removed_lines(self):
-        old = [{"filename": "a.kt", "patch": "@@ -1 +1 @@\n-old\n+new"}]
-        new = [{"filename": "a.kt", "patch": "@@ -1 +1,2 @@\n-old\n+new\n+extra"}]
+        old = [{"filename": "a.kt", "patch": "@@ -1 +1 @@\n-old\n+new", "additions": 1, "deletions": 1}]
+        new = [{"filename": "a.kt", "patch": "@@ -1 +1,2 @@\n-old\n+new\n+extra", "additions": 2, "deletions": 1}]
         self.assertTrue(_patch_lines_contained(old, new))
         new[0]["patch"] = "@@ -1 +1 @@\n-different\n+new"
         self.assertFalse(_patch_lines_contained(old, new))
@@ -19,6 +19,20 @@ class SupersededRetirementTests(unittest.TestCase):
     def test_patch_containment_fails_closed_on_missing_patch(self):
         self.assertFalse(_patch_lines_contained([{"filename": "a.kt"}], [{"filename": "a.kt", "patch": "+x"}]))
         self.assertFalse(_patch_lines_contained([], []))
+
+    def test_truncated_nonempty_patch_fails_closed(self):
+        truncated = [{"filename": "a.kt", "patch": "@@ -1 +1 @@\n-old\n+new",
+                      "additions": 20, "deletions": 1}]
+        successor = [{"filename": "a.kt", "patch": "@@ -1 +1 @@\n-old\n+new",
+                      "additions": 1, "deletions": 1}]
+        self.assertFalse(_patch_lines_contained(truncated, successor))
+
+    def test_triple_prefix_content_is_not_mistaken_for_diff_header(self):
+        old = [{"filename": "a.kt", "patch": "@@ -1 +1,2 @@\n+++unique\n+common",
+                "additions": 2, "deletions": 0}]
+        successor = [{"filename": "a.kt", "patch": "@@ -1 +1 @@\n+common",
+                      "additions": 1, "deletions": 0}]
+        self.assertFalse(_patch_lines_contained(old, successor))
 
     def test_explicit_superseded_pair_only_and_30_cap_independent(self):
         old = pull(200, "feature/old", FEATURE_SHA, merged_at=None)
@@ -50,6 +64,16 @@ class SupersededRetirementTests(unittest.TestCase):
         result = build_plan(snap, superseded_pairs=[pair])
         self.assertEqual(["feature/old"], [item["branch"] for item in result["candidates"]])
 
+    def test_manifest_cannot_bypass_successor_proof_via_merged_pr(self):
+        old = pull(200, "feature/old", FEATURE_SHA, merged_at=None)
+        unrelated_merged = pull(300, "feature/old", FEATURE_SHA)
+        successor = pull(201, "feature/new", "c" * 40)
+        snap = inventory([branch("main", MAIN_SHA), branch("feature/old", FEATURE_SHA)],
+                         [old, unrelated_merged, successor])
+        pair = {"branch": "feature/old", "sha": FEATURE_SHA, "old_pr": 200, "successor_pr": 201}
+        result = build_plan(snap, superseded_pairs=[pair])
+        self.assertEqual("superseded", result["candidates"][0]["evidence"])
+
     def test_live_patch_proof_requires_merged_successor_and_complete_files(self):
         old = pull(200, "feature/old", FEATURE_SHA, merged_at=None)
         newer = pull(201, "feature/new", "c" * 40)
@@ -63,9 +87,9 @@ class SupersededRetirementTests(unittest.TestCase):
             if path.endswith("/pulls/201"):
                 return Response(newer)
             if path.endswith("/pulls/200/files"):
-                return Response([{"filename": "a.kt", "patch": "@@ -1 +1 @@\n-old\n+new"}])
+                return Response([{"filename": "a.kt", "patch": "@@ -1 +1 @@\n-old\n+new", "additions": 1, "deletions": 1}])
             if path.endswith("/pulls/201/files"):
-                return Response([{"filename": "a.kt", "patch": "@@ -1 +1,2 @@\n-old\n+new\n+extra"}])
+                return Response([{"filename": "a.kt", "patch": "@@ -1 +1,2 @@\n-old\n+new\n+extra", "additions": 2, "deletions": 1}])
             raise AssertionError(path)
 
         self.assertTrue(_confirmed_superseded(REPOSITORY, "", candidate, opener=opener))
