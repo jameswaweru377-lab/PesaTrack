@@ -4,7 +4,7 @@ import json
 import unittest
 from urllib.parse import urlparse
 
-from tools.tracker.branch_cleanup import apply_plan, build_plan
+from tools.tracker.branch_cleanup import apply_plan, build_plan, collect_inventory
 
 
 REPOSITORY = "jameswaweru377-lab/PesaTrack"
@@ -83,6 +83,16 @@ class FakeOpener:
         raise AssertionError(f"Unexpected API request: {request.get_method()} {parsed.path}")
 
 
+class PaginationLimitOpener:
+    def __call__(self, request, timeout=10):
+        parsed = urlparse(request.full_url)
+        if parsed.path.endswith("/repos/" + REPOSITORY):
+            return Response({"full_name": REPOSITORY, "default_branch": "main"})
+        if parsed.path.endswith("/branches"):
+            return Response([branch(f"feature/{index}", FEATURE_SHA) for index in range(100)])
+        raise AssertionError(f"Unexpected API request: {parsed.path}")
+
+
 class BranchCleanupPlanTest(unittest.TestCase):
     def test_only_exact_merged_head_into_default_branch_is_a_candidate(self):
         rows = [
@@ -121,11 +131,45 @@ class BranchCleanupPlanTest(unittest.TestCase):
         with self.assertRaises((RuntimeError, ValueError)):
             build_plan(malformed)
 
+    def test_pagination_at_the_page_limit_fails_closed(self):
+        with self.assertRaisesRegex(RuntimeError, "safety limit"):
+            collect_inventory(REPOSITORY, "test-token", opener=PaginationLimitOpener(), max_pages=1)
+
+    def test_every_excluded_branch_state_produces_no_delete_request(self):
+        cases = (
+            (branch("feature/candidate", "c" * 40),
+             [pull(42, "feature/candidate", FEATURE_SHA)], FakeOpener()),
+            (branch("feature/candidate", FEATURE_SHA),
+             [pull(42, "feature/candidate", FEATURE_SHA, base="release")], FakeOpener()),
+            (branch("feature/candidate", FEATURE_SHA),
+             [pull(42, "feature/candidate", FEATURE_SHA, head_repo="fork/PesaTrack")], FakeOpener()),
+            (branch("feature/candidate", FEATURE_SHA),
+             [pull(42, "feature/candidate", FEATURE_SHA, base_repo="fork/PesaTrack")], FakeOpener()),
+            (branch("feature/candidate", FEATURE_SHA),
+             [pull(42, "feature/candidate", FEATURE_SHA, merged_at=None)], FakeOpener()),
+            (branch("feature/candidate", FEATURE_SHA, protected=True),
+             [pull(42, "feature/candidate", FEATURE_SHA)], FakeOpener()),
+            (branch("feature/candidate", FEATURE_SHA), [], FakeOpener()),
+            (branch("feature/candidate", FEATURE_SHA),
+             [pull(42, "feature/candidate", FEATURE_SHA, state="open", merged_at=None)], FakeOpener()),
+            (branch("main", MAIN_SHA), [pull(42, "main", MAIN_SHA)], FakeOpener()),
+        )
+        for branch_row, pulls, opener in cases:
+            with self.subTest(branch=branch_row["name"], pulls=pulls):
+                branch_rows = ([branch_row] if branch_row["name"] == "main"
+                               else [branch("main", MAIN_SHA), branch_row])
+                snapshot = inventory(branch_rows, pulls)
+                result = apply_plan(REPOSITORY, "test-token", snapshot, opener=opener)
+                self.assertEqual([], result["deleted"])
+                self.assertFalse(any(method == "DELETE" for method, _url, _timeout in opener.requests))
+
     def test_new_open_pr_or_changed_branch_tip_prevents_deletion(self):
         for opener in (
             FakeOpener(open_pulls=[pull(99, "feature/ready", FEATURE_SHA,
                                         state="open", merged_at=None)]),
             FakeOpener(branch_sha="c" * 40),
+            FakeOpener(protected=True),
+            FakeOpener(default_branch="trunk"),
         ):
             result = apply_plan(REPOSITORY, "test-token", inventory(), opener=opener)
             self.assertEqual([], result["deleted"])
