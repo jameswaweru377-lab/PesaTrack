@@ -1,0 +1,218 @@
+{
+  "repository": "jameswaweru377-lab/PesaTrack",
+  "approved_issue": 528,
+  "cutoff_tip_date": "2026-10-09",
+  "archive_prefix": "archive/retired-20261101-wave2",
+  "candidates": [
+    {
+      "branch": "feature/phase6-readiness-gate-v21",
+      "sha": "7a78cd5898b06a0404b88ade0ba9afd888304930",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/message-lab-financial-kind-v28",
+      "sha": "fdf35d57db6e75da7c390df18791880b218b4889",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "feature/data-health-message-inspector-v28",
+      "sha": "3be7350b2412eb4217531c4f22fcfc0cfe4d1995",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "feature/data-health-message-inspector-v28b",
+      "sha": "6c101dc75e5078bcd8486fda5b13b2271154e1ba",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "feature/data-health-message-inspector-v30",
+      "sha": "f54f81cf4e293e39a7e17bec908dbdde8a022f5d",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "feature/data-health-message-inspector-v29",
+      "sha": "108b29043686c630928ddeafc4f94fa3fbbcf301",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "feature/data-health-message-inspector-v31",
+      "sha": "8fe1cb41e2d86c17cd5354f09f0170ed17e05586",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "fix/message-inspector-privacy-source-v32",
+      "sha": "1dbe3a13328fb29f8a7d13ca7a80add9a9e78f12",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "feature/message-lab-implementation-review-v33",
+      "sha": "eb9e800e8a09c93034189b60ebc5d995392f38f7",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "feature/message-lab-shape-families-v34",
+      "sha": "618493712a3990c33ae9ab60bf4b4990e284c7fc",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "feature/message-lab-shape-families-v35",
+      "sha": "7fd045b643718c2a486ac359de1b7a34b4ec7134",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "feature/branch-sanitized-disbursement-v37",
+      "sha": "f3de09360aec9d651e91f47ccc276de4a9f54778",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "fix/unresolved-bank-credit-direction-v37",
+      "sha": "4c19caec0800a63960f16285671e395c9c21dbe4",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "feature/provider-neutral-standalone-bank-fees-v35",
+      "sha": "1e67fd5df91a6f61ac78171768c0496bc993529f",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "feature/provider-neutral-standalone-bank-fees-v36",
+      "sha": "2dfb5dbe23266da8813d91555f59bfd908d1762e",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "feature/inspector-manual-evidence-v40",
+      "sha": "79f09829dd2fecf907da738546022691f0356f6a",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "feature/inspector-manual-evidence-v41",
+      "sha": "63c2083623fd658815cd945bc9b80e6dbee47faf",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "feature/inspector-inline-semantic-label-v43",
+      "sha": "fccda79ec41e0fd83cddc914bbeb4725c09eb116",
+      "tip_date": "2026-10-03"
+    },
+    {
+      "branch": "feature/message-lab-resolution-archive-v37",
+      "sha": "26e8c9af6dfdf8cd236e96e373cbb36c789e58cc",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "fix/message-lab-resolution-semantic-agreement-v38",
+      "sha": "3c6585383aed5d33e1f67932cf1d6fe8c9d67259",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "fix/retired-route-compatibility",
+      "sha": "c9e7b30872097a0c05558ffdc7f4c52d295c8ceb",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "test/android-database-migrations",
+      "sha": "6d9b04d8bb86e64dc9ce6453e16068db42ea6bce",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "test/android-migration-runtime",
+      "sha": "28e27a2d59d79dc9bd0be646c48fa84425b838bb",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "audit/post-audit-cleanups-2026-10-04",
+      "sha": "5a51db04a3321d4eb4f080048dd16683f325b59b",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "cleanup/post-audit-product-integrity-2026-10-04",
+      "sha": "77ce52e10ce271c9c9944007a8446a4fb8604fa0",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "test/ledger-reference-atomicity",
+      "sha": "daa397ad299ee28bce0bbbc2b0db868d73da08f5",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "fix/canonical-ingestion-atomicity",
+      "sha": "5236d89500f82aa074ab8d1f9e04531b15d7d6b6",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "cleanup/remove-retired-onboarding-2026-10-04",
+      "sha": "319a63000a53125b7c0e8abc9ac9639ed672ee2f",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "cleanup/remove-retired-preview-screens-2026-10-04",
+      "sha": "baed75cf067736e61ef05f1b49492bd3d46fb4fa",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "refactor/split-data-health-components",
+      "sha": "8354438356e20bc0d8db6d533de0e3cd37a894ee",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "security/rate-limit-entity-enrichment",
+      "sha": "82ed2dd38f74afb4c7d8ff163df59a0a0aef4def",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "test/app-launch-smoke",
+      "sha": "24fbb46f86e189e0b1e188c6a03aaedcca188ed9",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "refactor/split-data-health-history",
+      "sha": "f37cbecc9f0fdd21fad2304ad5d8e701caea44a0",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "fix/home-loading-and-salary",
+      "sha": "1854ebc9c85268178bce3f16c9bf5c8a5ab382e4",
+      "tip_date": "2026-10-04"
+    },
+    {
+      "branch": "security/app-lock",
+      "sha": "132d9e3ddcd970f48ebeead230b0b57007a1d87b",
+      "tip_date": "2026-10-07"
+    },
+    {
+      "branch": "feature/security-backup-app-lock",
+      "sha": "1b40c22ed589f8eeaca395b6ebdd9bf27d8beee0",
+      "tip_date": "2026-10-07"
+    },
+    {
+      "branch": "design/lime-dark-theme-v3",
+      "sha": "a833341fbc813b092ac51e9497af06ffc233b52c",
+      "tip_date": "2026-10-07"
+    },
+    {
+      "branch": "revert/lime-theme-bottom-nav",
+      "sha": "8808ff765dcc5568a23798cc79688cecc8fef7f3",
+      "tip_date": "2026-10-07"
+    },
+    {
+      "branch": "hardening/audit-phase-a-6-import-resume",
+      "sha": "2f183a726a5cf4097f10d3f65f4491dfbfea2d93",
+      "tip_date": "2026-10-07"
+    },
+    {
+      "branch": "fix/p0-r03-no-fabricated-zero-balance",
+      "sha": "e7bfad8661f1fcc69715db62d4ade47ba345f06a",
+      "tip_date": "2026-10-08"
+    },
+    {
+      "branch": "experiment/python-financial-intelligence-lab-2026-10-08",
+      "sha": "b7339cd5d09e5f5c2576af383e22c96ce4974512",
+      "tip_date": "2026-10-08"
+    },
+    {
+      "branch": "fix/audit-budget-parity-2026-10-09",
+      "sha": "861da9c824e36b61cbaecd13e1bdc5fcd052c078",
+      "tip_date": "2026-10-09"
+    }
+  ]
+}

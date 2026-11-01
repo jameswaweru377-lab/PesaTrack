@@ -19,6 +19,10 @@ from tools.tracker.branch_cleanup import (
 MAX_OLD_RETIREMENTS = 42
 EXPECTED_PREFIX = "archive/retired-20261101"
 EXPECTED_CUTOFF = "2026-10-02"
+APPROVED_BATCHES = {
+    EXPECTED_PREFIX: EXPECTED_CUTOFF,
+    "archive/retired-20261101-wave2": "2026-10-09",
+}
 
 
 def _validated_entries(snapshot: dict, manifest: dict) -> list[dict]:
@@ -26,8 +30,8 @@ def _validated_entries(snapshot: dict, manifest: dict) -> list[dict]:
     if (not isinstance(manifest, dict)
             or manifest.get("repository") != snapshot["repository"]
             or manifest.get("approved_issue") != 528
-            or manifest.get("archive_prefix") != EXPECTED_PREFIX
-            or manifest.get("cutoff_tip_date") != EXPECTED_CUTOFF
+            or manifest.get("archive_prefix") not in APPROVED_BATCHES
+            or manifest.get("cutoff_tip_date") != APPROVED_BATCHES.get(manifest.get("archive_prefix"))
             or not isinstance(manifest.get("candidates"), list)
             or len(manifest["candidates"]) != MAX_OLD_RETIREMENTS):
         raise ValueError("Retirement manifest must be the exact owner-approved batch")
@@ -43,7 +47,7 @@ def _validated_entries(snapshot: dict, manifest: dict) -> list[dict]:
                 or not SHA_PATTERN.fullmatch(item["sha"])
                 or not isinstance(item.get("tip_date"), str)
                 or len(item["tip_date"]) != 10
-                or item["tip_date"] > EXPECTED_CUTOFF
+                or item["tip_date"] > manifest["cutoff_tip_date"]
                 or item["branch"] in seen
                 or item["branch"] == snapshot["default_branch"]):
             raise ValueError("Retirement manifest has invalid, recent, or duplicate branch")
@@ -77,7 +81,7 @@ def plan_retirement(snapshot: dict, manifest: dict) -> dict:
             continue
         candidates.append({"branch": name, "sha": sha, "merged_pr": None,
                            "evidence": "approved_age", "tip_date": item["tip_date"],
-                           "archive_ref": f"{EXPECTED_PREFIX}/{name}"})
+                           "archive_ref": f"{manifest['archive_prefix']}/{name}"})
     return {"repository": repository, "default_branch": snapshot["default_branch"],
             "approved_count": len(entries), "candidate_count": len(candidates),
             "candidates": candidates, "skipped": skipped}
@@ -86,8 +90,8 @@ def plan_retirement(snapshot: dict, manifest: dict) -> dict:
 def _archive_tip(repository: str, token: str, branch: str, sha: str,
                  archive_ref: str, *, opener=None) -> None:
     """Create an immutable lightweight recovery tag and confirm its exact target."""
-    if (not SHA_PATTERN.fullmatch(sha) or not archive_ref.startswith(EXPECTED_PREFIX + "/")
-            or archive_ref != f"{EXPECTED_PREFIX}/{branch}"):
+    if (not SHA_PATTERN.fullmatch(sha)
+            or not any(archive_ref == f"{prefix}/{branch}" for prefix in APPROVED_BATCHES)):
         raise ValueError("Invalid recovery tag target")
     tag_url = _api_url(repository, "git/ref/tags/" + parse.quote(archive_ref, safe="/"))
 
