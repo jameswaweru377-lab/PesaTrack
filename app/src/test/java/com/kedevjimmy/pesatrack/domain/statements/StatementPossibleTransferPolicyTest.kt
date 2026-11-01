@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.domain.statements
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class StatementPossibleTransferPolicyTest {
@@ -94,5 +95,13 @@ class StatementPossibleTransferPolicyTest {
         assertEquals(1, StatementPossibleTransferPolicy.suggest(late, emptyProof(), Long.MAX_VALUE - 10, Long.MAX_VALUE).size)
         val rival = incoming.copy(id = "rival", sourceId = "another-source")
         assertTrue(StatementPossibleTransferPolicy.suggest(listOf(out, incoming, rival), emptyProof(), base, base + hour).isEmpty())
+    }
+
+    @Test fun suggestionDiagnosticsDoNotExposeReferencesOrAmounts() {
+        val out = row("out", "bank", -123456, reference = "0712345678")
+        val incoming = row("in", "wallet", 123456, 1)
+        val text = StatementPossibleTransferPolicy.Suggestion(out, incoming).toString()
+        assertFalse(text.contains("0712345678"))
+        assertFalse(text.contains("123456"))
     }
 }
