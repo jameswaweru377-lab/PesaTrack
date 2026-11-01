@@ -18,7 +18,8 @@ HEADERS = ("Date", "Value", "Particulars", "Money Out", "Money In", "Balance")
 def invented_pdf(wrong_total=False, unknown_value=False, missing_footer=False,
                  reversed_account_label=False, colon_summary_labels=False,
                  wide_notice=False, other_account_on_second_page=False,
-                 broken_running_balance=False, encrypted=False, only_total=None):
+                 broken_running_balance=False, encrypted=False, only_total=None,
+                 unexpected_summary_amount=False):
     output = io.BytesIO()
     pdf = canvas.Canvas(output, pagesize=(WIDTH, HEIGHT),
                         encrypt=StandardEncryption(userPassword="invented-opening-pass", ownerPassword="invented-owner-pass")
@@ -70,6 +71,8 @@ def invented_pdf(wrong_total=False, unknown_value=False, missing_footer=False,
     if wide_notice:
         word("THIS IS AN INVENTED NON FINANCIAL NOTICE THAT CROSSES THE PHYSICAL TABLE COLUMNS AND IS NOT A PAYMENT", 36, 350)
     if not missing_footer:
+        if unexpected_summary_amount:
+            word("17.00", 562, 386)
         for label, y in (("Page Total", 368), ("Grand Total", 404)):
             if only_total and label != only_total:
                 continue
@@ -86,6 +89,10 @@ def invented_pdf(wrong_total=False, unknown_value=False, missing_footer=False,
 
 
 class EquityStatementExtractorTest(unittest.TestCase):
+    def test_unaccounted_amount_between_summaries_blocks(self):
+        response = json.loads(inspect_pdf(invented_pdf(unexpected_summary_amount=True), "", "KENYAN_BANK_EQUITY"))
+        self.assertEqual("blocked", response["status"])
+
     def test_single_printed_summary_is_accepted(self):
         for label in ("Page Total", "Grand Total"):
             with self.subTest(label=label):

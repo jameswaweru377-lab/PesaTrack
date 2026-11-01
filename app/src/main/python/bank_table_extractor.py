@@ -179,6 +179,12 @@ def _read_page(page, page_number, profile, deadline):
     uncleared_y = _label_y(words, "Uncleared Cheques", max(summary_positions))
     if not (header_bottom < dated[0]["top"] <= dated[-1]["top"] < first_footer < uncleared_y):
         raise Blocked("invalid_source_regions")
+    # Do not silently skip financial values between recognized summaries.
+    if any(first_footer - 4 <= w["top"] < uncleared_y - 4 and
+           not any(abs(w["top"] - y) < 4 for y in summary_positions) and
+           columns[0][0] <= w["x0"] < columns[-1][1] and
+           MONEY.fullmatch(w["text"]) for w in words):
+        raise Blocked("unaccounted_summary_amount")
     body = [w for w in words if header_bottom + 3 < w["top"] < first_footer - 4 and
             columns[0][0] - 1 <= w["x0"] < columns[-1][1] + 1]
     # This issuer prints one free-text notice immediately before Page Total,
