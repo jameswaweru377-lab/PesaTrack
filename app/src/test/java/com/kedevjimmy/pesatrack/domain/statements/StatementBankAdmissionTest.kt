@@ -73,8 +73,45 @@ class StatementBankAdmissionTest {
             (admit(proof = document.copy(printedGrandTotal = StatementPrintedTotal(2_500, 5_000)))
                 as StatementAdmissionResult.Blocked).reason)
         assertEquals(StatementAdmissionResult.Reason.MISSING_PRINTED_TOTALS,
-            (admit(proof = document.copy(printedPageTotals = emptyMap()))
+            (admit(proof = document.copy(printedPageTotals = emptyMap(), printedGrandTotal = null))
                 as StatementAdmissionResult.Blocked).reason)
+    }
+
+    @Test fun acceptsStatementTotalWithoutPageTotals() {
+        assertTrue(admit(proof = document.copy(printedPageTotals = emptyMap())) is StatementAdmissionResult.Accepted)
+    }
+
+    @Test fun acceptsCompletePageTotalsWithoutStatementTotal() {
+        assertTrue(admit(proof = document.copy(printedGrandTotal = null)) is StatementAdmissionResult.Accepted)
+    }
+
+    @Test fun rejectsContradictoryPageTotalEvenWithValidStatementTotal() {
+        val proof = document.copy(printedPageTotals = mapOf(1 to StatementPrintedTotal(2_001, 5_000)))
+        assertEquals(StatementAdmissionResult.Reason.TOTAL_MISMATCH,
+            (admit(proof = proof) as StatementAdmissionResult.Blocked).reason)
+    }
+
+    @Test fun rejectsTotalsForUnexpectedPage() {
+        val proof = document.copy(printedPageTotals = mapOf(2 to StatementPrintedTotal(2_000, 5_000)))
+        assertTrue(admit(proof = proof) is StatementAdmissionResult.Blocked)
+    }
+
+    @Test fun rejectsIncompletePageTotalsWithoutStatementTotal() {
+        val first = pages.single().copy(rows = pages.single().rows.take(1))
+        val second = pages.single().copy(pageNumber = 2, rows = pages.single().rows.drop(1))
+        val proof = document.copy(pages = 2, printedGrandTotal = null,
+            printedPageTotals = mapOf(1 to StatementPrintedTotal(0, 5_000)))
+        assertEquals(StatementAdmissionResult.Reason.MISSING_PRINTED_TOTALS,
+            (admit(proof = proof, sourcePages = listOf(first, second)) as StatementAdmissionResult.Blocked).reason)
+    }
+
+    @Test fun acceptsTotalsForEveryFinancialPageWithoutStatementTotal() {
+        val first = pages.single().copy(rows = pages.single().rows.take(1))
+        val second = pages.single().copy(pageNumber = 2, rows = pages.single().rows.drop(1))
+        val proof = document.copy(pages = 2, printedGrandTotal = null,
+            printedPageTotals = mapOf(1 to StatementPrintedTotal(0, 5_000),
+                2 to StatementPrintedTotal(2_000, 0)))
+        assertTrue(admit(proof = proof, sourcePages = listOf(first, second)) is StatementAdmissionResult.Accepted)
     }
 
     @Test fun missingBalanceAnchorBlocksEvenWhenPrintedTotalsMatch() {
@@ -124,5 +161,47 @@ class StatementBankAdmissionTest {
         assertEquals(StatementAdmissionResult.Reason.WRONG_ACCOUNT,
             (admit(proof = limited.copy(detectedProviderKey = "KENYAN_BANK_KCB"))
                 as StatementAdmissionResult.Blocked).reason)
+    }
+
+    private val derivedPages get() = pages.map { page -> page.copy(rows = listOf(
+        listOf("01-09-2026", "", "Invented deposit", "", "50.00", "50.57 Cr"),
+        listOf("02-09-2026", "", "Invented charge", "20.00", "", "30.57 Cr")
+    )) }
+
+    private val derivedProof get() = document.copy(
+        assurance = StatementDocumentAssurance.VERIFIED_DERIVED_OPENING,
+        openingBalanceMinor = null, printedPageTotals = emptyMap(),
+        printedClosingBalanceMinor = 3_057L
+    )
+
+    @Test fun printedClosingAndConsistentOpeningCalculationsAdmitEquity() {
+        val accepted = admit(proof = derivedProof, sourcePages = derivedPages)
+            as StatementAdmissionResult.Accepted
+        assertEquals(StatementDocumentAssurance.VERIFIED_DERIVED_OPENING, accepted.assurance)
+        assertEquals(57L, accepted.openingBalanceMinor)
+        assertEquals(StatementBankAdmission.DERIVED_OPENING_ARCHIVE_FORMAT, accepted.documentFormat)
+        assertEquals(5_000L, accepted.moneyInMinor)
+        assertEquals(2_000L, accepted.moneyOutMinor)
+    }
+
+    @Test fun derivedOpeningVerificationFailsClosedForMissingOrContradictoryEvidence() {
+        assertEquals(StatementAdmissionResult.Reason.MISSING_PRINTED_TOTALS,
+            (admit(proof = derivedProof.copy(printedClosingBalanceMinor = null),
+                sourcePages = derivedPages) as StatementAdmissionResult.Blocked).reason)
+        assertEquals(StatementAdmissionResult.Reason.UNVERIFIED_BALANCE,
+            (admit(proof = derivedProof.copy(printedClosingBalanceMinor = 3_058L),
+                sourcePages = derivedPages) as StatementAdmissionResult.Blocked).reason)
+        assertEquals(StatementAdmissionResult.Reason.INCOMPLETE_DOCUMENT,
+            (admit(proof = derivedProof.copy(pages = 2),
+                sourcePages = derivedPages) as StatementAdmissionResult.Blocked).reason)
+        assertEquals(StatementAdmissionResult.Reason.INCOMPLETE_DOCUMENT,
+            (admit(proof = derivedProof.copy(printedPageTotals = document.printedPageTotals),
+                sourcePages = derivedPages) as StatementAdmissionResult.Blocked).reason)
+        assertEquals(StatementAdmissionResult.Reason.INCOMPLETE_DOCUMENT,
+            (admit(proof = derivedProof.copy(openingBalanceMinor = 57L),
+                sourcePages = derivedPages) as StatementAdmissionResult.Blocked).reason)
+        assertEquals(StatementAdmissionResult.Reason.TOTAL_MISMATCH,
+            (admit(proof = derivedProof.copy(printedGrandTotal = StatementPrintedTotal(2_001, 5_000)),
+                sourcePages = derivedPages) as StatementAdmissionResult.Blocked).reason)
     }
 }
