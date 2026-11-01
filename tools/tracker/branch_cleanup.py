@@ -461,7 +461,8 @@ def _recheck_candidate(repository: str, token: str, candidate: dict, *, opener) 
     default_branch = candidate.get("default_branch")
     ancestry_mode = candidate.get("evidence") == "ancestor" and pull_number is None
     superseded_mode = candidate.get("evidence") == "superseded" and pull_number is None
-    if not ancestry_mode and not superseded_mode:
+    approved_age_mode = candidate.get("evidence") == "approved_age" and pull_number is None
+    if not ancestry_mode and not superseded_mode and not approved_age_mode:
         pull = _api_request(_api_url(repository, f"pulls/{pull_number}"), token, opener=opener)
         if not isinstance(pull, dict) or pull.get("number") != pull_number:
             return False, "merged_pr_unavailable"
