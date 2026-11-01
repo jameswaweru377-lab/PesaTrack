@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sys
+import time
 from urllib import error, parse, request
 
 
@@ -15,6 +16,7 @@ REPOSITORY_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 BRANCH_PATTERN = re.compile(r"^[^\x00\r\n]+$")
 SHA_PATTERN = re.compile(r"^[0-9a-fA-F]{40}$")
 MAX_PAGES = 20
+MAX_CANDIDATES_PER_RUN = 170
 
 
 def _validate_repository(repository: str) -> None:
@@ -288,10 +290,13 @@ def apply_plan(repository: str, token: str, inventory: dict, *, opener=None) -> 
         raise ValueError("Inventory repository does not match the requested repository")
     plan = build_plan(inventory)
     api_opener = opener or request.urlopen
+    candidates = plan["candidates"][:MAX_CANDIDATES_PER_RUN]
     deleted = []
     skipped = []
     failures = []
-    for candidate in plan["candidates"]:
+    for candidate in candidates:
+        if opener is None:
+            time.sleep(1)
         current = dict(candidate)
         current["default_branch"] = inventory["default_branch"]
         api_failed = False
@@ -301,10 +306,12 @@ def apply_plan(repository: str, token: str, inventory: dict, *, opener=None) -> 
             eligible, reason = False, f"recheck_api_failure: {exc}"
             api_failed = True
         if not eligible:
+            if api_failed:
+                failures.append({"branch": candidate["branch"],
+                                 "merged_pr": candidate["merged_pr"], "reason": reason})
+                break
             skipped.append({"branch": candidate["branch"], "merged_pr": candidate["merged_pr"],
                             "reason": reason})
-            if api_failed:
-                break
             continue
         ref_path = "git/refs/heads/" + parse.quote(candidate["branch"], safe="/")
         try:
@@ -314,8 +321,10 @@ def apply_plan(repository: str, token: str, inventory: dict, *, opener=None) -> 
             failures.append({"branch": candidate["branch"], "merged_pr": candidate["merged_pr"],
                              "reason": str(exc)})
             break
+    processed_count = len(deleted) + len(skipped) + len(failures)
     return {"repository": repository, "default_branch": inventory["default_branch"],
-            "candidate_count": len(plan["candidates"]), "deleted": deleted,
+            "candidate_count": len(plan["candidates"]), "processed_count": processed_count,
+            "deferred_count": len(plan["candidates"]) - processed_count, "deleted": deleted,
             "initial_skipped": plan["skipped"], "skipped": skipped,
             "failures": failures}
 

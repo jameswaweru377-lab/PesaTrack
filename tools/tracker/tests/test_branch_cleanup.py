@@ -1,10 +1,14 @@
 """Branch cleanup safeguards against invented GitHub REST responses."""
 
 import json
+from email.message import Message
+from io import BytesIO
 import unittest
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
+from urllib.error import HTTPError
 
-from tools.tracker.branch_cleanup import apply_plan, build_plan, collect_inventory
+from tools.tracker.branch_cleanup import (MAX_CANDIDATES_PER_RUN, apply_plan,
+                                          build_plan, collect_inventory)
 
 
 REPOSITORY = "jameswaweru377-lab/PesaTrack"
@@ -91,6 +95,38 @@ class PaginationLimitOpener:
         if parsed.path.endswith("/branches"):
             return Response([branch(f"feature/{index}", FEATURE_SHA) for index in range(100)])
         raise AssertionError(f"Unexpected API request: {parsed.path}")
+
+
+class BulkRecheckOpener:
+    def __init__(self, pulls):
+        self.pulls = {row["number"]: row for row in pulls}
+
+    def __call__(self, request, timeout=10):
+        parsed = urlparse(request.full_url)
+        if parsed.path.endswith("/repos/" + REPOSITORY):
+            return Response({"full_name": REPOSITORY, "default_branch": "main"})
+        if "/branches/" in parsed.path:
+            name = unquote(parsed.path.split("/branches/", 1)[1])
+            return Response(branch(name, FEATURE_SHA))
+        if parsed.path.endswith("/pulls"):
+            return Response([])
+        if "/pulls/" in parsed.path:
+            number = int(parsed.path.rsplit("/", 1)[1])
+            return Response(self.pulls[number])
+        if "/git/refs/heads/" in parsed.path and request.get_method() == "DELETE":
+            return Response(status=204)
+        raise AssertionError(f"Unexpected API request: {request.get_method()} {parsed.path}")
+
+
+class ForbiddenOpener:
+    def __call__(self, request, timeout=10):
+        headers = Message()
+        headers["X-GitHub-Request-Id"] = "REQ-SAFE-123"
+        headers["X-RateLimit-Remaining"] = "0"
+        headers["X-RateLimit-Reset"] = "1793532841"
+        headers["X-Accepted-GitHub-Permissions"] = "contents=write, pull-requests=read"
+        raise HTTPError(request.full_url, 403, "Forbidden", headers,
+                        BytesIO(b"private response body"))
 
 
 class BranchCleanupPlanTest(unittest.TestCase):
@@ -184,11 +220,37 @@ class BranchCleanupPlanTest(unittest.TestCase):
         self.assertEqual(1, len(deletes))
         self.assertTrue(urlparse(deletes[0]).path.endswith("/git/refs/heads/feature/ready"))
 
-    def test_api_failure_skips_candidate_without_delete(self):
+    def test_api_failure_stops_the_batch_without_deleting_candidate(self):
         opener = FakeOpener(fail_path="/pulls/42")
         result = apply_plan(REPOSITORY, "test-token", inventory(), opener=opener)
         self.assertEqual([], result["deleted"])
+        self.assertEqual(1, len(result["failures"]))
         self.assertFalse(any(method == "DELETE" for method, _url, _timeout in opener.requests))
+
+    def test_403_reports_safe_scope_and_rate_limit_diagnostics(self):
+        result = apply_plan(REPOSITORY, "sensitive-token", inventory(), opener=ForbiddenOpener())
+        self.assertEqual([], result["deleted"])
+        reason = result["failures"][0]["reason"]
+        self.assertIn("HTTP 403", reason)
+        self.assertIn("remaining=0", reason)
+        self.assertIn("reset=1793532841", reason)
+        self.assertIn("accepted_permissions=contents=write, pull-requests=read", reason)
+        self.assertNotIn("sensitive-token", reason)
+        self.assertNotIn("private response body", reason)
+
+    def test_apply_caps_candidates_to_stay_inside_the_token_request_budget(self):
+        pulls = [pull(1000 + index, f"feature/candidate-{index:03}", FEATURE_SHA)
+                 for index in range(MAX_CANDIDATES_PER_RUN + 1)]
+        branches = [branch("main", MAIN_SHA)] + [
+            branch(f"feature/candidate-{index:03}", FEATURE_SHA)
+            for index in range(MAX_CANDIDATES_PER_RUN + 1)
+        ]
+        result = apply_plan(REPOSITORY, "test-token", inventory(branches, pulls),
+                            opener=BulkRecheckOpener(pulls))
+        self.assertEqual(MAX_CANDIDATES_PER_RUN + 1, result["candidate_count"])
+        self.assertEqual(MAX_CANDIDATES_PER_RUN, result["processed_count"])
+        self.assertEqual(1, result["deferred_count"])
+        self.assertEqual(MAX_CANDIDATES_PER_RUN, len(result["deleted"]))
 
 
 if __name__ == "__main__":
