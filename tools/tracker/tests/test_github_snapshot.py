@@ -1,10 +1,17 @@
 """GitHub adapter contracts against invented REST responses, with no network."""
 
 import json
+from email.message import Message
+from io import BytesIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
+from urllib.error import HTTPError
 from urllib.parse import parse_qs, urlparse
 
-from tools.tracker.github_snapshot import fetch_snapshot
+from tools.tracker.github_snapshot import (_open_json, fetch_snapshot,
+                                           load_snapshot, save_snapshot)
 from tools.tracker.reconcile import reconcile
 
 
@@ -43,6 +50,53 @@ class FakeGitHub:
 
 
 class GitHubSnapshotTest(unittest.TestCase):
+    def test_http_403_reports_safe_endpoint_and_rate_limit_headers(self):
+        headers = Message()
+        headers["X-GitHub-Request-Id"] = "REQ-123"
+        headers["X-RateLimit-Remaining"] = "0"
+        headers["X-RateLimit-Reset"] = "1793532841"
+        headers["Retry-After"] = "60"
+        headers["X-Accepted-GitHub-Permissions"] = "issues=read"
+        url = "https://api.github.com/repos/test-org/test-repo/issues?token=private"
+        failure = HTTPError(url, 403, "Forbidden", headers, BytesIO(b"private response"))
+
+        with patch("tools.tracker.github_snapshot.request.urlopen", side_effect=failure):
+            with self.assertRaisesRegex(RuntimeError, "HTTP 403") as caught:
+                _open_json(url, {"Authorization": "Bearer private"}, 10)
+
+        message = str(caught.exception)
+        self.assertIn("/repos/test-org/test-repo/issues", message)
+        self.assertIn("request_id=REQ-123", message)
+        self.assertIn("remaining=0", message)
+        self.assertIn("retry_after=60", message)
+        self.assertIn("accepted_permissions=issues=read", message)
+        self.assertNotIn("token=private", message)
+        self.assertNotIn("Bearer private", message)
+        self.assertNotIn("private response", message)
+
+    def test_snapshot_cache_round_trips_and_is_bound_to_repository(self):
+        snapshot = {"repository": "test-org/test-repo", "main_sha": "b" * 40,
+                    "issues": [], "prs": [], "checks": [],
+                    "historical_window_limited": False, "truncated": False,
+                    "checked_at": "2026-11-01T12:00:00Z"}
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "snapshot.json"
+            save_snapshot(path, snapshot)
+            self.assertEqual(snapshot, load_snapshot(path, "test-org/test-repo"))
+            with self.assertRaisesRegex(RuntimeError, "does not match"):
+                load_snapshot(path, "another-org/another-repo")
+
+    def test_snapshot_cache_refuses_incomplete_or_malformed_data(self):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "snapshot.json"
+            path.write_text(json.dumps({"repository": "test-org/test-repo",
+                                        "issues": []}), encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "invalid"):
+                load_snapshot(path, "test-org/test-repo")
+            path.write_text("not json", encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "unavailable or invalid"):
+                load_snapshot(path, "test-org/test-repo")
+
     def test_fetches_current_main_issue_pr_paths_and_current_head_checks(self):
         fake = FakeGitHub()
         result = fetch_snapshot("invented-token", "test-org/test-repo", opener=fake)

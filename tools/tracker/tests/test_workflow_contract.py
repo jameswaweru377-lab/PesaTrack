@@ -36,6 +36,25 @@ class WorkflowContractTest(unittest.TestCase):
         self.assertIn("-f tools/tracker/cli.py", script)
         self.assertIn("not installed on main", script)
 
+    def test_summary_and_project_mirror_share_one_private_runner_snapshot(self):
+        workflow = yaml.load((ROOT / ".github/workflows/development-tracker.yml").read_text(),
+                             Loader=yaml.BaseLoader)
+        steps = workflow["jobs"]["report"]["steps"]
+        report = steps[1]["run"]
+        mirror = next(s for s in steps if s["name"] == "Mirror canonical Issues to the approved Project tracker field")
+        self.assertIn("--snapshot-file", report)
+        self.assertIn("--help | grep -q", report)
+        self.assertIn("snapshot_option=()", report)
+        self.assertIn("$RUNNER_TEMP/pesatrack-development-tracker.json", report)
+        self.assertIn("--snapshot-file", mirror["run"])
+        self.assertIn("--help | grep -q", mirror["run"])
+        self.assertIn("$RUNNER_TEMP/pesatrack-development-tracker.json", mirror["run"])
+        for name in ("Preview approved Project tracker-field updates",
+                     "Preview approved Project Chat owner text changes"):
+            step = next(s for s in steps if s["name"] == name)
+            self.assertIn("--snapshot-file", step["run"])
+            self.assertIn("$RUNNER_TEMP/pesatrack-development-tracker.json", step["run"])
+
     def test_project_mirror_has_separate_secret_and_explicit_opt_in(self):
         workflow = yaml.load((ROOT / ".github/workflows/development-tracker.yml").read_text(),
                              Loader=yaml.BaseLoader)
