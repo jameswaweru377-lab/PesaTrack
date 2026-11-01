@@ -843,7 +843,8 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 fee_minor INTEGER NOT NULL,
                 occurred_at_epoch_ms INTEGER NOT NULL,
                 review_state TEXT NOT NULL DEFAULT 'PENDING',
-                FOREIGN KEY(existing_transaction_id) REFERENCES transactions(id) ON DELETE RESTRICT
+                FOREIGN KEY(existing_transaction_id) REFERENCES transactions(id)
+                    ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED
             )
             """.trimIndent()
         )
