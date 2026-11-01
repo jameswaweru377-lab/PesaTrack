@@ -386,3 +386,60 @@ jobs:
           name: pesatrack-statement-review-c278f57a
           path: review-artifact/
           retention-days: 1
+  candidate_full_android:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/statement-signing-review-20261101'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: c278f57a9bad7690ae7b622c8aa0ad1b1f719d59
+      - name: Check candidate identity
+        run: test "$(git rev-parse HEAD)" = c278f57a9bad7690ae7b622c8aa0ad1b1f719d59
+      - name: Set up JDK
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: '3.13'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
+      - name: Install build tools
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6
+        with:
+          gradle-version: wrapper
+      - name: Enable emulator acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Run all Android tests against the exact candidate
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disk-size: 4096M
+          disable-animations: true
+          script: |
+            ./gradlew :app:connectedDebugAndroidTest --stacktrace
+            adb logcat -d -v raw 'PesaTrackMeasurement:I' '*:S' > history-measurements.jsonl
+            echo c278f57a9bad7690ae7b622c8aa0ad1b1f719d59 > ANDROID_TEST_SOURCE_SHA.txt
+      - name: Retain Android test evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: statement-candidate-full-android-results
+          retention-days: 3
+          path: |
+            app/build/outputs/androidTest-results/connected/**
+            app/build/reports/androidTests/connected/**
+            history-measurements.jsonl
+            ANDROID_TEST_SOURCE_SHA.txt
