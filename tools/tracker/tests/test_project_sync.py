@@ -5,7 +5,8 @@ import unittest
 from io import BytesIO
 from unittest.mock import patch
 
-from tools.tracker.project_sync import graphql, load_project, main, plan_updates
+from tools.tracker.project_sync import (graphql, load_project, main,
+                                        plan_updates, plan_owner_updates)
 
 
 def project(status="Unclaimed", *, include_item=True):
@@ -22,8 +23,16 @@ def project(status="Unclaimed", *, include_item=True):
     }
 
 
+def project_with_owner(current_owner=""):
+    data = project()
+    data["fields"].append({"__typename": "ProjectV2Field", "dataType": "TEXT",
+                           "id": "PVTF_owner", "name": "Chat owner"})
+    data["items"][0]["current_owner"] = current_owner
+    return data
+
+
 def report(status="CI passed"):
-    return {"tasks": [{"issue_number": 123, "status": status,
+    return {"incomplete": False, "tasks": [{"issue_number": 123, "status": status,
                        "owner": "CHAT-STATEMENTS", "device_acceptance": "not_verified"}]}
 
 
@@ -37,6 +46,117 @@ def graphql_project():
 
 
 class ProjectSyncTest(unittest.TestCase):
+    def test_owner_plan_changes_only_matching_canonical_issue_text(self):
+        changes, missing = plan_owner_updates(
+            project_with_owner("CHAT-OLD"), report(), "jameswaweru377-lab/PesaTrack")
+        self.assertEqual([], missing)
+        self.assertEqual([{
+            "issue_number": 123, "item_id": "PVTI_invented",
+            "field_id": "PVTF_owner", "value": "CHAT-STATEMENTS",
+        }], changes)
+        self.assertEqual(([], []), plan_owner_updates(
+            project_with_owner("CHAT-STATEMENTS"), report(),
+            "jameswaweru377-lab/PesaTrack"))
+
+    def test_project_snapshot_extracts_exact_text_field_and_item_owner(self):
+        def fake(token, query, variables):
+            self.assertIn('chatOwner: fieldValueByName(name: "Chat owner")', query)
+            return {"node": {
+                "id": "PVT_invented", "title": "PesaTrack Development Tracker",
+                "fields": {"nodes": project_with_owner()["fields"]},
+                "items": {"nodes": [{"id": "PVTI_invented", "isArchived": False,
+                                      "content": {"number": 123, "repository": {
+                                          "nameWithOwner": "jameswaweru377-lab/PesaTrack"}},
+                                      "fieldValueByName": {"name": "CI passed"},
+                                      "chatOwner": {"text": "CHAT-OLD"}}],
+                          "pageInfo": {"hasNextPage": False, "endCursor": None}},
+            }}
+
+        loaded = load_project("invented-token", "PVT_invented", caller=fake)
+        self.assertEqual("CHAT-OLD", loaded["items"][0]["current_owner"])
+        self.assertEqual("PVTF_owner", next(
+            field["id"] for field in loaded["fields"] if field["name"] == "Chat owner"))
+
+    def test_unclaimed_removes_stale_chat_alias_without_inventing_a_chat(self):
+        unclaimed = report()
+        unclaimed["tasks"][0]["owner"] = "Unclaimed"
+        changes, missing = plan_owner_updates(
+            project_with_owner("CHAT-OLD"), unclaimed,
+            "jameswaweru377-lab/PesaTrack")
+        self.assertEqual([], missing)
+        self.assertEqual("Unclaimed", changes[0]["value"])
+
+    def test_missing_wrong_type_and_duplicate_owner_fields_refuse_writes(self):
+        for invalid in (project(),
+                        {**project_with_owner(), "fields": project()["fields"] + [
+                            {"id": "bad", "name": "Chat owner", "__typename":
+                             "ProjectV2SingleSelectField", "options": []}]},
+                        {**project_with_owner(), "fields": project_with_owner()["fields"] + [
+                            {"id": "duplicate", "name": "Chat owner",
+                             "__typename": "ProjectV2Field", "dataType": "TEXT"}]}):
+            with self.subTest(invalid=invalid["fields"]):
+                with self.assertRaisesRegex(ValueError, "Chat owner"):
+                    plan_owner_updates(invalid, report(), "jameswaweru377-lab/PesaTrack")
+
+    def test_owner_plan_refuses_malformed_alias_and_foreign_or_duplicate_cards(self):
+        malformed = report()
+        malformed["tasks"][0]["owner"] = "CHAT-SECRET\nInjected"
+        with self.assertRaisesRegex(ValueError, "owner"):
+            plan_owner_updates(project_with_owner(), malformed,
+                               "jameswaweru377-lab/PesaTrack")
+        foreign = project_with_owner()
+        foreign["items"][0]["repository"] = "example/another-repository"
+        self.assertEqual(([], [123]), plan_owner_updates(
+            foreign, report(), "jameswaweru377-lab/PesaTrack"))
+        duplicate = project_with_owner()
+        duplicate["items"].append({**duplicate["items"][0], "id": "PVTI_2"})
+        with self.assertRaisesRegex(ValueError, "duplicate"):
+            plan_owner_updates(duplicate, report(), "jameswaweru377-lab/PesaTrack")
+
+    def test_owner_preview_and_live_apply_use_text_mutation_only_after_opt_in(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+
+        def execute(owner_gate, argv):
+            calls = []
+            fixture = project_with_owner("CHAT-OLD")
+
+            def fake_graphql(token, query, variables):
+                calls.append((query, variables))
+                return {"updateProjectV2ItemFieldValue": {"projectV2Item": {"id": "PVTI_invented"}}}
+
+            with patch.dict("os.environ", {
+                "PESATRACK_TRACKER_PROJECTS_TOKEN": "invented-secret",
+                "PESATRACK_TRACKER_PROJECT_SYNC_ENABLED": "true",
+                "PESATRACK_TRACKER_OWNER_SYNC_ENABLED": owner_gate,
+            }), patch("tools.tracker.project_sync.fetch_snapshot", return_value={}), \
+                 patch("tools.tracker.project_sync.reconcile", return_value=report()), \
+                 patch("tools.tracker.project_sync.load_project", return_value=fixture), \
+                 patch("tools.tracker.project_sync.graphql", side_effect=fake_graphql), \
+                 redirect_stdout(StringIO()) as output:
+                code = main(["--repository", "jameswaweru377-lab/PesaTrack",
+                             "--project-id", "PVT_invented", *argv])
+            return code, calls, output.getvalue()
+
+        code, calls, output = execute("false", ["--apply"])
+        self.assertEqual(0, code)
+        self.assertEqual(1, len(calls))  # Existing status mirror only.
+        self.assertNotIn("CHAT-STATEMENTS", output)
+
+        code, calls, output = execute("false", ["--preview-owner"])
+        self.assertEqual(0, code)
+        self.assertEqual([], calls)
+        self.assertIn("Preview PT-123: Chat owner field would change", output)
+
+        code, calls, output = execute("true", ["--apply"])
+        self.assertEqual(0, code)
+        self.assertEqual(2, len(calls))
+        self.assertEqual({"project": "PVT_invented", "item": "PVTI_invented",
+                          "field": "PVTF_owner", "value": "CHAT-STATEMENTS"},
+                         calls[-1][1])
+        self.assertIn("text: $value", calls[-1][0])
+        self.assertIn("Applied 1 Project chat-owner updates", output)
+
     def test_not_found_node_falls_back_to_verified_private_owner_project(self):
         calls = []
 

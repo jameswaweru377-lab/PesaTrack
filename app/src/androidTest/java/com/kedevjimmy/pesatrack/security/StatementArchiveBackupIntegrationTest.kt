@@ -10,6 +10,7 @@ import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.PesaTrackDatabase
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.StatementActivityStore
+import com.kedevjimmy.pesatrack.data.local.StatementArchiveDb
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
@@ -212,10 +213,12 @@ class StatementArchiveBackupIntegrationTest {
         }
     }
 
-    @Test fun v4LiveArchiveMigratesToV5WithoutRewritingLegacyEvidence() {
+    @Test fun v4LiveArchiveMigratesToCurrentVersionWithoutRewritingLegacyEvidence() {
         seedArchive()
         archive { db ->
             // Recreate the existing v4 schema in this isolated test database.
+            db.execSQL("DROP TABLE statement_limited_legs_v1")
+            db.execSQL("DROP TABLE statement_limited_sources_v1")
             db.execSQL("DROP TABLE statement_category_labels_v2")
             db.execSQL("DROP TABLE statement_legs_v2")
             db.execSQL("DROP TABLE statement_sources_v2")
@@ -223,10 +226,12 @@ class StatementArchiveBackupIntegrationTest {
         }
         assertEquals(2, StatementActivityStore(app).lines(batchId).size)
         archive { db ->
-            assertEquals(5, db.version)
+            assertEquals(StatementArchiveDb.VERSION, db.version)
             assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_batches").simpleQueryForLong())
             assertEquals(2L, db.compileStatement("SELECT COUNT(*) FROM statement_activity_lines").simpleQueryForLong())
             assertEquals(0L, db.compileStatement("SELECT COUNT(*) FROM statement_sources_v2").simpleQueryForLong())
+            assertEquals(0L, db.compileStatement("SELECT COUNT(*) FROM statement_limited_sources_v1").simpleQueryForLong())
+            assertEquals(0L, db.compileStatement("SELECT COUNT(*) FROM statement_limited_legs_v1").simpleQueryForLong())
         }
     }
 

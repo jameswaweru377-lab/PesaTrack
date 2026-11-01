@@ -19,6 +19,11 @@ on:
         required: false
         type: boolean
         default: false
+      preview_owner:
+        description: Preview canonical Issue chat owners in the existing Project text field
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -49,6 +54,13 @@ jobs:
           else
             echo "Tracker not installed on main yet; initial PR advisory run skipped safely."
           fi
+      - name: Preview approved Project Chat owner text changes
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.preview_owner == true }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PESATRACK_TRACKER_PROJECTS_TOKEN: ${{ secrets.PESATRACK_TRACKER_PROJECTS_TOKEN }}
+          PESATRACK_TRACKER_PROJECT_ID: ${{ vars.PESATRACK_TRACKER_PROJECT_ID }}
+        run: python3 -m tools.tracker.project_sync --repository "$GITHUB_REPOSITORY" --preview-owner
       - name: Preview approved Project tracker-field updates
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.preview_project == true && vars.PESATRACK_TRACKER_PROJECT_SYNC_ENABLED != 'true' }}
         env:
@@ -60,10 +72,11 @@ jobs:
         # Fork and Dependabot PRs have no Actions Project secret, even when
         # Dependabot's head branch belongs to this repository. Keep their
         # advisory summaries, but never attempt privileged Project writes.
-        if: ${{ vars.PESATRACK_TRACKER_PROJECT_SYNC_ENABLED == 'true' && github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')) }}
+        if: ${{ vars.PESATRACK_TRACKER_PROJECT_SYNC_ENABLED == 'true' && github.actor != 'dependabot[bot]' && (github.event_name != 'workflow_dispatch' || inputs.preview_owner != true) && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')) }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
           PESATRACK_TRACKER_PROJECTS_TOKEN: ${{ secrets.PESATRACK_TRACKER_PROJECTS_TOKEN }}
           PESATRACK_TRACKER_PROJECT_ID: ${{ vars.PESATRACK_TRACKER_PROJECT_ID }}
           PESATRACK_TRACKER_PROJECT_SYNC_ENABLED: ${{ vars.PESATRACK_TRACKER_PROJECT_SYNC_ENABLED }}
+          PESATRACK_TRACKER_OWNER_SYNC_ENABLED: ${{ vars.PESATRACK_TRACKER_OWNER_SYNC_ENABLED }}
         run: python3 -m tools.tracker.project_sync --repository "$GITHUB_REPOSITORY" --apply

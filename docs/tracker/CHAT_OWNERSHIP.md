@@ -19,6 +19,13 @@ There is no trustworthy GitHub event that means a ChatGPT chat opened, started s
 
 Keep the claim until explicit completion, pause or handoff. The Command Center reads current GitHub state when asked; its report is a timestamped snapshot, not a live presence service.
 
+The GitHub Project's `Chat owner` text column can be mirrored from canonical
+Issue claims only after a successful GitHub Actions `Preview owner` run and
+separate `PESATRACK_TRACKER_OWNER_SYNC_ENABLED=true` opt-in. Updating that
+column manually is a snapshot; it does not move ownership away from the Issue.
+The mirror writes an exact `CHAT-...` alias or `Unclaimed` and changes neither
+the built-in Project `Status` nor anyone's GitHub account assignment.
+
 ## Handoff
 
 Leave the same Issue open with an explicit handoff note: old owner, new owner, scope, latest verified PR/commit/CI, unrun tests, and exact next step. Do not automatically close an issue after merge. When device verification is pending, write `Device acceptance: not verified` and say which journey remains.
