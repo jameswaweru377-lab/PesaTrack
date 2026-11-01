@@ -182,4 +182,43 @@ class StatementMatchDecisionStoreTest {
         assertEquals(StatementMatchDecisionStore.Result.STALE,
             store.decide(2026, candidate.hash, candidate.kind, StatementMatchDecisionStore.Decision.CONFIRMED, null))
     }
+
+    @Test fun unpairedAccountMentionRequiresCurrentOwnedIdentities() {
+        val accounts = AccountStore.get(app)
+        val bank = accounts.save("Invented bank", AccountType.BANK)
+        val wallet = accounts.save("Invented wallet", AccountType.MOBILE_WALLET)
+        accounts.updateDetails(bank.id, "001234567890", null)
+        accounts.updateDetails(wallet.id, "0712345678", null)
+        AccountOwnershipConsentStore(app).apply { recordConsent(bank.id, true); recordConsent(wallet.id, true) }
+        val sourceId = "c".repeat(64)
+        val hash = java.security.MessageDigest.getInstance("SHA-256")
+            .digest("001234567890".toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+        val helper = StatementArchiveDb(app)
+        try {
+            val db = helper.writableDatabase
+            db.insertOrThrow("statement_sources_v2", null, ContentValues().apply {
+                put("id", sourceId); put("account_id", bank.id); put("provider_key", "KENYAN_BANK_EQUITY")
+                put("account_identity_hash", hash); put("currency", "KES"); put("document_format", "PDF")
+                put("imported_at", 1_780_000_000_000L); put("first_at", 1_780_000_000_000L)
+                put("last_at", 1_780_000_000_000L); put("row_count", 1)
+                put("money_in_minor", 0L); put("money_out_minor", 500L); put("totals_verified", 1)
+            })
+            db.insertOrThrow("statement_legs_v2", null, ContentValues().apply {
+                put("source_id", sourceId); put("leg_number", 0); put("page_number", 1); put("row_number", 1)
+                put("occurred_at", 1_780_000_000_000L); put("description", "Invented details 0712345678")
+                put("reference", "ABC1234567"); put("movement_minor", -500L); put("running_balance_minor", 1_000L)
+                put("source_cells_json", "{\"headers\":[\"Date\"],\"cells\":[\"Invented\"]}")
+            })
+        } finally { helper.close() }
+        val store = StatementMatchDecisionStore(app)
+        val snapshot = store.read(2026)
+        assertEquals(wallet.id, snapshot.accountMentions.single().mentionedAccountId)
+        assertTrue(snapshot.candidates.isEmpty())
+        accounts.updateDetails(wallet.id, "0799999999", null)
+        assertTrue(store.read(2026).accountMentions.isEmpty())
+        accounts.updateDetails(wallet.id, "0712345678", null)
+        accounts.updateDetails(bank.id, "008888888888", null)
+        assertTrue(store.read(2026).accountMentions.isEmpty())
+        assertEquals(0L, PesaTrackDatabase.get(app).readableDatabase.compileStatement("SELECT COUNT(*) FROM transactions").simpleQueryForLong())
+    }
 }
