@@ -50,6 +50,17 @@ data class SalaryForecastResult(
 object SalaryForecastPolicy {
     private val dayMs = TimeUnit.DAYS.toMillis(1)
 
+    /** Same date bounds for forecast calculations and compact payday status badges. */
+    fun paydayWindowProblem(from: Long?, to: Long?, nowEpochMs: Long): String? = when {
+        from == null || to == null ->
+            "Confirm the next payday or set a usual payday window."
+        from > to || to < nowEpochMs ->
+            "The payday has passed. Confirm a new payday or salary receipt."
+        to - nowEpochMs > 45L * dayMs ->
+            "A payday over 45 days away needs a new plan."
+        else -> null
+    }
+
     fun evaluate(facts: SalaryForecastFacts): SalaryForecastResult {
         val confirmed = facts.confirmedPaydayEpochMs != null &&
             (facts.confirmedSalaryAmountMinor ?: 0L) > 0L
@@ -76,9 +87,7 @@ object SalaryForecastPolicy {
 
     private fun missingEvidence(facts: SalaryForecastFacts, from: Long?, to: Long?): List<String> =
         buildList {
-            if (from == null || to == null) add("Confirm the next payday or set a usual payday window.")
-            else if (from > to || to < facts.nowEpochMs) add("The payday has passed. Confirm a new payday or salary receipt.")
-            else if (to - facts.nowEpochMs > 45L * dayMs) add("A payday over 45 days away needs a new plan.")
+            paydayWindowProblem(from, to, facts.nowEpochMs)?.let(::add)
             val age = facts.balanceAsOfEpochMs?.let { facts.nowEpochMs - it }
             if (facts.balanceMinor == null || age == null || age < 0L || age > dayMs) {
                 add("Confirm a complete fresh spendable balance (within 24 hours).")
