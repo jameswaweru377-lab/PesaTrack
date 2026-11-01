@@ -1,0 +1,98 @@
+name: R3 unsigned release shrink comparison
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - app/build.gradle.kts
+      - app/proguard-rules.pro
+      - tools/r3_release_size.py
+      - tools/test_r3_release_shrinking.py
+      - .github/workflows/r3-release-size.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r3-release-size-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout full PR history for exact baseline commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 9.5
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          gradle-version: "wrapper"
+
+      - name: Unit-test the R3 archive and size gate
+        run: python3 -B -m unittest tools.test_r3_release_shrinking -v
+
+      - name: Build unsigned baseline from the exact PR base
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$HEAD_SHA"
+          git merge-base --is-ancestor "$BASE_SHA" "$HEAD_SHA"
+          git worktree add --detach "$RUNNER_TEMP/r3-baseline" "$BASE_SHA"
+          (cd "$RUNNER_TEMP/r3-baseline" && ./gradlew :app:assembleRelease --stacktrace)
+          baseline="$RUNNER_TEMP/r3-baseline/app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -s "$baseline"
+          cp "$baseline" "$RUNNER_TEMP/r3-baseline.apk"
+
+      - name: Build minified unsigned release and compare
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :app:assembleRelease --stacktrace
+          candidate="app/build/outputs/apk/release/app-release-unsigned.apk"
+          test -s "$candidate"
+          aapt="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          for apk in "$RUNNER_TEMP/r3-baseline.apk" "$candidate"; do
+            "$aapt" dump badging "$apk" | grep -F "package: name='com.kedevjimmy.pesatrack'"
+            "$aapt" dump badging "$apk" | grep -F "sdkVersion:'24'"
+            "$aapt" dump badging "$apk" | grep -F "native-code: 'arm64-v8a'"
+          done
+          python3 tools/r3_release_size.py \
+            "$RUNNER_TEMP/r3-baseline.apk" "$candidate" \
+            --output "$RUNNER_TEMP/r3-size.json"
+
+      - name: Upload metadata only, never unsigned APKs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: r3-release-shrink-evidence
+          path: ${{ runner.temp }}/r3-size.json
+          if-no-files-found: warn
+          retention-days: 7

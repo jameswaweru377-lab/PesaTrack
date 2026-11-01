@@ -59,6 +59,11 @@ https://support.google.com/googleplay/android-developer/answer/13849271
 - [x] On a successful `main` push, Android CI validates the tested commit and publishes the signed rolling APK only after build, lint and JVM checks. Emulator instrumentation is optional/manual; none of this is physical-device acceptance.
 - [x] GitHub Actions are pinned to immutable commit SHAs.
 - [x] Wrangler is pinned to an exact version in CI/deployment workflows.
+- [ ] R3: record same-source unsigned APK byte-size comparison, R8 warnings,
+      embedded Python assets and minified-device PDF/backup/lock acceptance.
+      Draft evidence belongs in `docs/acceptance/R3_RELEASE_SHRINKING_GATE.md`;
+      **do not merge R8 to `main`** until signed-candidate R1 and executed T1
+      persistence acceptance pass.
 - [ ] Protect `main` and require CI before merge.
 - [ ] Independently confirm protected signing-environment secret scope, maintainer access/2FA and an offline recoverable copy of the **same** release keystore and password recovery instructions.
 
