@@ -8,6 +8,9 @@ An enabled app lock no longer blocks capture while the app is unlocked and in
 the foreground. The PIN/biometric lock screen, an app-lock-protected background
 window and the backup-recovery blocker retain `FLAG_SECURE`. App-lock credentials,
 biometric checks, backup/restore, financial data and permissions are unchanged.
+The full-screen Statement Import, Smart Notice and receivables-review dialogs
+update their own window protection when app-lock-protected PesaTrack pauses;
+the sensitive backup/restore dialog remains screenshot-protected throughout.
 Screenshots may reveal real financial information; redact before sharing.
 This temporary relaxation needs real-phone acceptance and can be reverted after
 UI review.
