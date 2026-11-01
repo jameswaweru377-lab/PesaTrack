@@ -115,8 +115,8 @@ jobs:
           lines = ["# Monthly merged branch cleanup", "",
                    f"Repository: `{report.get('repository', 'unknown')}`  ",
                    f"Default branch: `{report.get('default_branch', 'unknown')}`  ",
-                   f"Candidates rechecked: **{report.get('candidate_count', 0)}**  ",
-                   f"Deleted: **{len(deleted)}** · Skipped: **{len(skipped)}** · Failures: **{len(failures)}**", ""]
+                   f"Candidates found: **{report.get('candidate_count', 0)}** · Processed: **{report.get('processed_count', 0)}** · Deferred: **{report.get('deferred_count', 0)}**  ",
+                   f"Deleted: **{len(deleted)}** · Skipped after recheck: **{len(skipped)}** · Failures: **{len(failures)}**", ""]
           for reason, count in sorted(report.get("initial_skipped", {}).items()):
               lines.append(f"- Kept {count} branches: {reason.replace('_', ' ')}")
           for item in deleted:
@@ -131,4 +131,5 @@ jobs:
               summary.write("\n".join(lines) + "\n")
           PY
           exit "$status"
+
 
