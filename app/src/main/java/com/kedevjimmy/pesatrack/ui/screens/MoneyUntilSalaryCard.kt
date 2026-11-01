@@ -140,8 +140,8 @@ internal fun MoneyUntilSalaryCard(snapshot: PayCycleSnapshot) {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         ForecastEvidenceChip(
-                            text = if (read.confirmation != null) "Payday confirmed" else "Confirm payday",
-                            complete = read.confirmation != null,
+                            text = if (read.confirmedPaydayIsCurrent) "Payday confirmed" else "Confirm payday",
+                            complete = read.confirmedPaydayIsCurrent,
                             modifier = Modifier.weight(1f)
                         )
                         ForecastEvidenceChip(
@@ -150,8 +150,14 @@ internal fun MoneyUntilSalaryCard(snapshot: PayCycleSnapshot) {
                             modifier = Modifier.weight(1f)
                         )
                     }
+                    if (read.confirmation != null && !read.confirmedPaydayIsCurrent) {
+                        Text(
+                            "Your previous payday has passed or is outside the planning window. Confirm a new date.",
+                            color = Color(0xFF965315), fontSize = 11.sp, lineHeight = 15.sp
+                        )
+                    }
                     VibrantActionButton(
-                        label = if (read.confirmation != null && read.hasFreshSpendableBalance)
+                        label = if (read.confirmedPaydayIsCurrent && read.hasFreshSpendableBalance)
                             "Review payday & balance" else "Confirm payday & balance",
                         onClick = { editing = !editing }
                     )
