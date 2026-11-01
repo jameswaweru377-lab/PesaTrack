@@ -239,25 +239,10 @@ def build_plan(inventory: dict) -> dict:
 
 
 def _recheck_candidate(repository: str, token: str, candidate: dict, *, opener) -> tuple[bool, str]:
-    metadata = _api_request(_api_url(repository, ""), token, opener=opener)
-    full_name = metadata.get("full_name", repository) if isinstance(metadata, dict) else None
-    if not isinstance(full_name, str) or full_name.casefold() != repository.casefold():
-        return False, "repository_changed"
-    default_branch = metadata.get("default_branch")
-    if not isinstance(default_branch, str) or default_branch != candidate.get("default_branch"):
-        return False, "default_branch_changed"
     branch_name = candidate.get("branch")
-    branch_url = _api_url(repository, "branches/" + parse.quote(branch_name, safe=""))
-    branch = _api_request(branch_url, token, opener=opener)
-    if not isinstance(branch, dict) or branch.get("name") != branch_name:
-        return False, "branch_unavailable"
-    commit = branch.get("commit")
-    if (not isinstance(commit, dict) or commit.get("sha") != candidate.get("sha")):
-        return False, "branch_moved"
-    if branch.get("protected") is not False:
-        return False, "protected_or_unknown"
     pull_number = candidate.get("merged_pr")
     pull = _api_request(_api_url(repository, f"pulls/{pull_number}"), token, opener=opener)
+    default_branch = candidate.get("default_branch")
     if not isinstance(pull, dict) or pull.get("number") != pull_number:
         return False, "merged_pr_unavailable"
     if not _eligible_pull(pull, repository, default_branch, branch_name, candidate["sha"]):
@@ -279,6 +264,22 @@ def _recheck_candidate(repository: str, token: str, candidate: dict, *, opener) 
         if (head.get("ref") == branch_name
                 and _same_repository(head_repo, repository)):
             return False, "open_pr_exists"
+
+    metadata = _api_request(_api_url(repository, ""), token, opener=opener)
+    full_name = metadata.get("full_name", repository) if isinstance(metadata, dict) else None
+    if not isinstance(full_name, str) or full_name.casefold() != repository.casefold():
+        return False, "repository_changed"
+    if metadata.get("default_branch") != default_branch:
+        return False, "default_branch_changed"
+    branch_url = _api_url(repository, "branches/" + parse.quote(branch_name, safe=""))
+    branch = _api_request(branch_url, token, opener=opener)
+    if not isinstance(branch, dict) or branch.get("name") != branch_name:
+        return False, "branch_unavailable"
+    commit = branch.get("commit")
+    if (not isinstance(commit, dict) or commit.get("sha") != candidate.get("sha")):
+        return False, "branch_moved"
+    if branch.get("protected") is not False:
+        return False, "protected_or_unknown"
     return True, ""
 
 
