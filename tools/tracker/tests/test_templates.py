@@ -38,7 +38,7 @@ class TrackerTemplatesTest(unittest.TestCase):
         starter = (ROOT / "docs/tracker/COMMAND_CENTER_STARTER.md").read_text(encoding="utf-8")
         rules = (ROOT / "docs/tracker/README.md").read_text(encoding="utf-8")
         for label in ("latest main", "GitHub Issues", "PR", "CI", "device",
-                      "Unclaimed", "Do not merge"):
+                      "Unclaimed", "Do not manually merge", "unsafe"):
             self.assertIn(label, starter)
         self.assertIn("Create a project", rules)
         self.assertIn("pesatrack-tracker", rules)

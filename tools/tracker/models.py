@@ -10,6 +10,8 @@ ISSUE_PR_LINE = re.compile(r"(?im)^(?:PR|Related PRs?):\s*([^\r\n]+)$")
 DEVICE_LINE = re.compile(r"(?im)^Device acceptance:\s*([^\r\n]+)")
 FINAL_LINE = re.compile(r"(?im)^Final verification:\s*verified\s*$")
 TASK_STATUS_LINE = re.compile(r"(?im)^Task status:\s*(Untriaged|Unclaimed|Claimed|In progress|Blocked|Paused|Superseded)\s*$")
+TASK_STATUS_RAW_LINE = re.compile(r"(?im)^Task status:[^\r\n]*$")
+AUTOMATION_STOP_STATES = frozenset({"untriaged", "unclaimed", "blocked", "paused", "superseded"})
 
 
 def owner_from_body(body: object) -> str | None:
@@ -59,6 +61,16 @@ def explicit_task_status(body: object) -> str | None:
     # The regex accepts mixed case; normalize before deduplicating or comparing.
     values = {value.capitalize() for value in TASK_STATUS_LINE.findall(body)}
     return next(iter(values)) if len(values) == 1 else None
+
+
+def task_allows_automation(body: object) -> bool:
+    """An explicit stop or conflicting task statuses always halt automation."""
+    if not isinstance(body, str):
+        return False
+    recognized = TASK_STATUS_LINE.findall(body)
+    states = {value.casefold() for value in recognized}
+    return (len(recognized) == len(TASK_STATUS_RAW_LINE.findall(body))
+            and len(states) <= 1 and not states.intersection(AUTOMATION_STOP_STATES))
 
 
 def checked_at(value: object) -> str:
