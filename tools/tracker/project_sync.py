@@ -1,6 +1,6 @@
 """Opt-in GitHub Project v2 mirror; canonical ownership stays in Issues.
 
-Only the dedicated `Tracker status` single-select field may be changed.
+Only `Tracker status` and, with a second opt-in, `Chat owner` may be changed.
 Project/item creation and human-maintained Status/approval fields are untouched.
 """
 
@@ -19,6 +19,8 @@ from .reconcile import reconcile
 
 PROJECT_TITLE = "PesaTrack Development Tracker"
 FIELD_NAME = "Tracker status"
+OWNER_FIELD_NAME = "Chat owner"
+OWNER_PATTERN = re.compile(r"(?:CHAT-[A-Z0-9_-]{1,80}|Unclaimed)\Z")
 PROJECT_ID = re.compile(r"PVT_[A-Za-z0-9_+/=\-]{1,120}\Z")
 GRAPHQL_URL = "https://api.github.com/graphql"
 
@@ -37,6 +39,7 @@ query($project: ID!, $cursor: String) {
       id title
       fields(first: 100) { nodes {
         ... on ProjectV2SingleSelectField { id name options { id name } }
+        ... on ProjectV2Field { id name dataType }
       } }
       items(first: 100, after: $cursor) {
         pageInfo { hasNextPage endCursor }
@@ -45,6 +48,9 @@ query($project: ID!, $cursor: String) {
           content { ... on Issue { number repository { nameWithOwner } } }
           fieldValueByName(name: "Tracker status") {
             ... on ProjectV2ItemFieldSingleSelectValue { name }
+          }
+          chatOwner: fieldValueByName(name: "Chat owner") {
+            ... on ProjectV2ItemFieldTextValue { text }
           }
         }
       }
@@ -63,6 +69,7 @@ query($owner: String!, $number: Int!, $cursor: String) {
       id title
       fields(first: 100) { nodes {
         ... on ProjectV2SingleSelectField { id name options { id name } }
+        ... on ProjectV2Field { id name dataType }
       } }
       items(first: 100, after: $cursor) {
         pageInfo { hasNextPage endCursor }
@@ -71,6 +78,9 @@ query($owner: String!, $number: Int!, $cursor: String) {
           content { ... on Issue { number repository { nameWithOwner } } }
           fieldValueByName(name: "Tracker status") {
             ... on ProjectV2ItemFieldSingleSelectValue { name }
+          }
+          chatOwner: fieldValueByName(name: "Chat owner") {
+            ... on ProjectV2ItemFieldTextValue { text }
           }
         }
       }
@@ -84,6 +94,15 @@ mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
   updateProjectV2ItemFieldValue(input: {
     projectId: $project, itemId: $item, fieldId: $field,
     value: { singleSelectOptionId: $option }
+  }) { projectV2Item { id } }
+}
+"""
+
+OWNER_UPDATE_QUERY = """
+mutation($project: ID!, $item: ID!, $field: ID!, $value: String!) {
+  updateProjectV2ItemFieldValue(input: {
+    projectId: $project, itemId: $item, fieldId: $field,
+    value: { text: $value }
   }) { projectV2Item { id } }
 }
 """
@@ -158,7 +177,8 @@ def load_project(token: str, project_id: str, *, caller=graphql,
         title = project.get("title")
         if page == 0:
             fields = [field for field in (project.get("fields") or {}).get("nodes", [])
-                      if isinstance(field, dict) and field.get("name") == FIELD_NAME]
+                      if isinstance(field, dict)
+                      and field.get("name") in {FIELD_NAME, OWNER_FIELD_NAME}]
         connection = project.get("items") or {}
         for item in connection.get("nodes") or []:
             if not isinstance(item, dict):
@@ -169,6 +189,7 @@ def load_project(token: str, project_id: str, *, caller=graphql,
                 "id": item.get("id"), "number": content.get("number"),
                 "repository": (content.get("repository") or {}).get("nameWithOwner"),
                 "current_status": current.get("name"),
+                "current_owner": (item.get("chatOwner") or {}).get("text"),
                 "archived": item.get("isArchived") is True,
             })
         page_info = connection.get("pageInfo") or {}
@@ -181,17 +202,10 @@ def load_project(token: str, project_id: str, *, caller=graphql,
     raise RuntimeError("Project has more than 500 items; refusing partial synchronization")
 
 
-def plan_updates(project: dict, report: dict, repository: str) -> tuple[list[dict], list[int], list[int]]:
-    """Compute safe updates, missing cards and history-guarded task numbers."""
+def _issue_cards(project: dict, repository: str) -> dict[int, dict]:
+    """Fail closed if two active cards represent one canonical Issue."""
     if project.get("title") != PROJECT_TITLE:
         raise ValueError("The configured Project has an unexpected identity")
-    fields = [f for f in project.get("fields", []) if f.get("name") == FIELD_NAME]
-    if len(fields) != 1 or not isinstance(fields[0].get("id"), str):
-        raise ValueError("Project needs exactly one 'Tracker status' single-select field")
-    field = fields[0]
-    options = {o.get("name"): o.get("id") for o in field.get("options", [])}
-    if len(options) != len(field.get("options", [])):
-        raise ValueError("Tracker status options must be unique")
     by_issue: dict[int, dict] = {}
     for item in project.get("items", []):
         number = item.get("number")
@@ -201,6 +215,19 @@ def plan_updates(project: dict, report: dict, repository: str) -> tuple[list[dic
         if number in by_issue:
             raise ValueError("Project contains duplicate Issue cards; review before sync")
         by_issue[number] = item
+    return by_issue
+
+
+def plan_updates(project: dict, report: dict, repository: str) -> tuple[list[dict], list[int], list[int]]:
+    """Compute safe updates, missing cards and history-guarded task numbers."""
+    by_issue = _issue_cards(project, repository)
+    fields = [f for f in project.get("fields", []) if f.get("name") == FIELD_NAME]
+    if len(fields) != 1 or not isinstance(fields[0].get("id"), str):
+        raise ValueError("Project needs exactly one 'Tracker status' single-select field")
+    field = fields[0]
+    options = {o.get("name"): o.get("id") for o in field.get("options", [])}
+    if len(options) != len(field.get("options", [])):
+        raise ValueError("Tracker status options must be unique")
     updates: list[dict] = []
     missing: list[int] = []
     skipped: list[int] = []
@@ -239,11 +266,36 @@ def plan_updates(project: dict, report: dict, repository: str) -> tuple[list[dic
     return updates, missing, skipped
 
 
+def plan_owner_updates(project: dict, report: dict, repository: str) -> tuple[list[dict], list[int]]:
+    """Mirror bounded Issue owner aliases to an existing Project text field."""
+    by_issue = _issue_cards(project, repository)
+    fields = [f for f in project.get("fields", []) if f.get("name") == OWNER_FIELD_NAME]
+    if (len(fields) != 1 or fields[0].get("dataType") != "TEXT"
+            or not isinstance(fields[0].get("id"), str)):
+        raise ValueError("Project needs exactly one 'Chat owner' text field")
+    updates: list[dict] = []
+    missing: list[int] = []
+    for task in report.get("tasks", []):
+        number, owner = task.get("issue_number"), task.get("owner")
+        if (not isinstance(number, int) or not isinstance(owner, str)
+                or not OWNER_PATTERN.fullmatch(owner)):
+            raise ValueError("Invalid Issue owner; refusing Project owner synchronization")
+        item = by_issue.get(number)
+        if item is None:
+            missing.append(number)
+        elif item.get("current_owner") != owner:
+            updates.append({"issue_number": number, "item_id": item["id"],
+                            "field_id": fields[0]["id"], "value": owner})
+    return updates, missing
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY"))
     parser.add_argument("--project-id", default=os.environ.get("PESATRACK_TRACKER_PROJECT_ID"))
     parser.add_argument("--apply", action="store_true", help="Requires an opt-in repository variable")
+    parser.add_argument("--preview-owner", action="store_true",
+                        help="Show owner-text changes without applying them")
     args = parser.parse_args(argv)
     token = os.environ.get("PESATRACK_TRACKER_PROJECTS_TOKEN", "")
     if not args.repository or not args.project_id or not token:
@@ -257,6 +309,13 @@ def main(argv=None) -> int:
         project = load_project(token, args.project_id,
                                owner=args.repository.split("/")[0], number=1)
         changes, missing, skipped = plan_updates(project, report, args.repository)
+        owner_enabled = (args.apply and
+                         os.environ.get("PESATRACK_TRACKER_OWNER_SYNC_ENABLED") == "true")
+        owner_changes: list[dict] = []
+        if owner_enabled or args.preview_owner:
+            owner_changes, owner_missing = plan_owner_updates(project, report, args.repository)
+            if owner_missing != missing:
+                raise ValueError("Project Issue-card lookup differs between status and owner mirrors")
         print(f"Project status mirror: {len(changes)} updates planned; "
               f"{len(missing)} Issues awaiting Project auto-add; "
               f"{len(skipped)} uncertain downgrades withheld.")
@@ -272,6 +331,19 @@ def main(argv=None) -> int:
                     "field": change["field_id"], "option": change["option_id"],
                 })
             print(f"Applied {len(changes)} Project tracker-field updates.")
+        if owner_enabled or args.preview_owner:
+            print(f"Project chat-owner mirror: {len(owner_changes)} updates planned; "
+                  f"{len(missing)} Issues awaiting Project auto-add.")
+            if args.preview_owner and not owner_enabled:
+                for change in owner_changes:
+                    print(f"Preview PT-{change['issue_number']}: Chat owner field would change")
+            if owner_enabled:
+                for change in owner_changes:
+                    graphql(token, OWNER_UPDATE_QUERY, {
+                        "project": args.project_id, "item": change["item_id"],
+                        "field": change["field_id"], "value": change["value"],
+                    })
+                print(f"Applied {len(owner_changes)} Project chat-owner updates.")
         return 0
     except (RuntimeError, ValueError) as exc:
         print(f"Project status mirror stopped: {exc}", file=sys.stderr)
