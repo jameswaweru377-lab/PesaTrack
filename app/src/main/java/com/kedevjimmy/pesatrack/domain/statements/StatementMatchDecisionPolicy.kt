@@ -5,9 +5,10 @@ import java.security.MessageDigest
 
 /** Decisions are valid only for the exact evidence and ownership revisions reviewed. */
 object StatementMatchDecisionPolicy {
+    data class Ownership(val revision: Long, val type: String, val identifier: String?)
     fun fingerprint(
         observations: List<StatementEvidenceCorrelationPolicy.Observation>,
-        ownershipRevisions: Map<String, Long>
+        ownership: Map<String, Ownership>
     ): String {
         require(observations.size in 2..32)
         require(observations.map { it.id }.distinct().size == observations.size)
@@ -15,7 +16,8 @@ object StatementMatchDecisionPolicy {
             row.id.isNotBlank() && row.sourceId.isNotBlank() && row.accountId.isNotBlank() &&
                 row.currency.isNotBlank() && row.occurredAt > 0 && row.movementMinor != 0L &&
                 row.movementMinor != Long.MIN_VALUE && row.ownershipConfirmed && !row.roleProtected &&
-                (ownershipRevisions[row.accountId] ?: 0L) > 0 &&
+                (ownership[row.accountId]?.revision ?: 0L) > 0 &&
+                !ownership[row.accountId]?.type.isNullOrBlank() &&
                 (row.source == StatementEvidenceCorrelationPolicy.Source.ACTIVITY || row.sourceTotalsVerified)
         })
         val digest = MessageDigest.getInstance("SHA-256")
@@ -31,7 +33,10 @@ object StatementMatchDecisionPolicy {
             feed(if (row.reference == null) "missing" else "present")
             row.reference?.let(::feed)
             feed(row.sourceTotalsVerified.toString())
-            feed(requireNotNull(ownershipRevisions[row.accountId]).toString())
+            val account = requireNotNull(ownership[row.accountId])
+            feed(account.revision.toString()); feed(account.type)
+            feed(if (account.identifier == null) "missing" else "present")
+            account.identifier?.let(::feed)
         }
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
