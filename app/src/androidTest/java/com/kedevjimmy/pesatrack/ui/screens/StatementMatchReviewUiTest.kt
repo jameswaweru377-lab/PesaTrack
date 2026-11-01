@@ -122,12 +122,17 @@ class StatementMatchReviewUiTest {
         fun row(id: String, source: StatementEvidenceCorrelationPolicy.Source) = StatementEvidenceCorrelationPolicy.Observation(
             id, source, id, "wallet", "KES", 1_700_000_000_000L, -500, null, true, sourceTotalsVerified = true)
         val review = StatementMatchReviewPolicy.Review(emptyList(), emptyList(), 0)
-        val suggestion = StatementPossibleCopyPolicy.Suggestion(listOf(row("message", StatementEvidenceCorrelationPolicy.Source.ACTIVITY),
+        val suggestion = StatementPossibleCopyPolicy.Suggestion(listOf(row("activity:42", StatementEvidenceCorrelationPolicy.Source.ACTIVITY),
             row("statement", StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT)))
         val snapshot = StatementMatchDecisionStore.Snapshot(review, emptyList(), emptyMap(), false, possibleCopies = listOf(suggestion))
-        compose.setContent { MaterialTheme { StatementMatchReviewContent(2026, emptyMap(), review, false, {}, {}, snapshot = snapshot) } }
+        var openedId: Long? = null
+        compose.setContent { MaterialTheme { StatementMatchReviewContent(2026, emptyMap(), review, false, {}, {},
+            snapshot = snapshot, onOpenActivity = { openedId = it }) } }
         compose.onNodeWithTag("statement-match-review").performScrollToNode(hasText("Other possible copies to check"))
         compose.onNodeWithText("These records are currently assigned to the same account and have the same amount and nearby dates. Check that the originals belong to this account; they may still be separate movements.").assertExists()
+        compose.onNodeWithTag("statement-match-review").performScrollToNode(hasText("Open Activity record"))
+        compose.onNodeWithText("Open Activity record").performClick()
+        assertEquals(42L, openedId)
         compose.onNodeWithText("Confirm").assertDoesNotExist()
     }
 }
