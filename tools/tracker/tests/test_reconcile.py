@@ -34,6 +34,7 @@ def docs_pr(number=201, head="a" * 40):
     result = pr(number, head=head, merged=True,
                 files=["docs/tracker/2026-11-01-note.md"])
     result["file_changes"] = [{"filename": result["files"][0], "status": "added"}]
+    result["base_ref"] = "main"
     return result
 
 
@@ -61,7 +62,8 @@ class ReconcileTest(unittest.TestCase):
         cases = ("missing-secrets", "later-secrets-failure", "changed-file", "unknown-file",
                  "device-required", "verification-withdrawn", "incomplete", "history-unlinked",
                  "open-newer-pr", "cross-issue-link", "owner-mismatch", "unclaimed", "untriaged",
-                 "conflicting-status", "unknown-status", "conflicting-device")
+                 "conflicting-status", "unknown-status", "conflicting-device",
+                 "nonmain-target", "unknown-target", "cross-issue-explicit")
         for case in cases:
             with self.subTest(case=case):
                 selected_issue, selected_pr = docs_issue(), docs_pr()
@@ -106,6 +108,15 @@ class ReconcileTest(unittest.TestCase):
                     selected_issue["body"] += "\nTask status: something unexpected"
                 elif case == "conflicting-device":
                     selected_issue["body"] += "\nDevice acceptance: not verified"
+                elif case == "nonmain-target":
+                    selected_pr["base_ref"] = "feature/staging"
+                elif case == "unknown-target":
+                    selected_pr.pop("base_ref")
+                elif case == "cross-issue-explicit":
+                    selected_issue["body"] = selected_issue["body"].replace(
+                        "Related PRs: #201", "")
+                    snapshot["historical_window_limited"] = False
+                    snapshot["issues"].append(docs_issue(number=101))
                 task = reconcile(snapshot)["tasks"][0]
                 self.assertNotEqual("Verified", task["status"])
                 self.assertNotEqual("none", task["acceptance"]["action"])

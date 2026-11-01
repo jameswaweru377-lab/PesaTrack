@@ -26,7 +26,7 @@ class FakeGitHub:
                     if page == 1 else [])
         if path.endswith("/pulls"):
             return ([{"number": 201, "state": "open", "body": "Tracks #123\nChat owner: CHAT-STATEMENTS",
-                      "head": {"sha": "a" * 40}, "base": {"sha": "b" * 40},
+                      "head": {"sha": "a" * 40}, "base": {"sha": "b" * 40, "ref": "main"},
                       "merged_at": None, "merge_commit_sha": None}]
                     if page == 1 else [])
         if path.endswith("/pulls/201/files"):
@@ -51,6 +51,7 @@ class GitHubSnapshotTest(unittest.TestCase):
         self.assertEqual(["app/src/Invented.kt"], result["prs"][0]["files"])
         self.assertEqual([{"filename": "app/src/Invented.kt", "status": "modified"}],
                          result["prs"][0]["file_changes"])
+        self.assertEqual("main", result["prs"][0]["base_ref"])
         self.assertEqual("success", result["checks"][0]["conclusion"])
         self.assertTrue(all(url.startswith("https://api.github.com/repos/test-org/test-repo/")
                             for url, _, _ in fake.requested))

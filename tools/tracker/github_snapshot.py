@@ -113,6 +113,7 @@ def fetch_snapshot(token: str, repository: str, *, opener=None, max_pages: int =
         normalized = {
             "number": number, "state": pull.get("state"),
             "body": pull.get("body"), "head_sha": head_sha,
+            "base_ref": (pull.get("base") or {}).get("ref"),
             "base_sha": (pull.get("base") or {}).get("sha"),
             "merge_commit_sha": pull.get("merge_commit_sha"),
             "merged_at": pull.get("merged_at"),

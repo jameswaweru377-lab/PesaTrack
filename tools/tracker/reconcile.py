@@ -35,9 +35,10 @@ def _automatic_docs_acceptance(issue: dict, related: list[dict], checks: list[di
             and not {row["number"] for row in related}.issubset(explicit_prs)):
         return False
     for pull in related:
-        if (not pull.get("merged_at") or task_refs(pull.get("body")) != {number}
+        if (not pull.get("merged_at") or pull.get("base_ref") != "main"
+                or task_refs(pull.get("body")) != {number}
                 or owner_from_body(pull.get("body")) != issue_owner
-                or len(linked_issues.get(pull["number"], set())) > 1):
+                or linked_issues.get(pull["number"], set()) - {number}):
             return False
         changes = pull.get("file_changes")
         if (not isinstance(changes, list) or not 0 < len(changes) < 100

@@ -24,7 +24,8 @@ financial, security or device outcome with a success label.
    recheck remain mandatory; merge at most one PR per run.
 4. **Verify:** automatically mark *only* merged, documentation-only tracker
    additions `Verified` when the complete snapshot confirms all related PRs
-   merged and the exact-head checks passed. This is a GitHub-documentation
+   merged **into `main`**, with no competing Issue links, and the exact-head
+   checks passed. This is a GitHub-documentation
    acceptance decision, not device or financial acceptance. Explicit blocked,
    paused and superseded states, missing evidence, ambiguous PR links, or an
    explicit requirement for device review prevent auto-verification.

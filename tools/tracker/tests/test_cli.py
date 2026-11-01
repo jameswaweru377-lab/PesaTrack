@@ -40,6 +40,7 @@ class TrackerCliTest(unittest.TestCase):
                  "body": "Chat owner: CHAT-DOCS\nDevice acceptance: not applicable\nPR: #201"}
         pull = {"number": 201, "state": "closed", "merged_at": "2026-11-01T09:00:00Z",
                 "body": "Tracks #100\nChat owner: CHAT-DOCS", "head_sha": "a" * 40,
+                "base_ref": "main",
                 "files": ["docs/tracker/note.md"],
                 "file_changes": [{"filename": "docs/tracker/note.md", "status": "added"}]}
         checks = [{"head_sha": "a" * 40, "name": name,
