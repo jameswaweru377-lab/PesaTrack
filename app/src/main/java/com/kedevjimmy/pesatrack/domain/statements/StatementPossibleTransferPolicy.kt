@@ -8,7 +8,9 @@ object StatementPossibleTransferPolicy {
     data class Suggestion(
         val outgoing: StatementEvidenceCorrelationPolicy.Observation,
         val incoming: StatementEvidenceCorrelationPolicy.Observation
-    )
+    ) {
+        override fun toString(): String = "[private possible transfer]"
+    }
 
     private data class Bucket(val currency: String, val magnitude: Long)
     private const val MAX_ROWS = 20_000
