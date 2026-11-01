@@ -9,6 +9,8 @@ import os
 import re
 from urllib import error, parse, request
 
+from .models import TASK_STATUS_LINE
+
 
 REPOSITORY = "jameswaweru377-lab/PesaTrack"
 APPROVAL_LABEL = "pesatrack-safe-automerge"
@@ -115,6 +117,10 @@ def evaluate_candidate(pr: dict, *, main_sha: str, approvals: list, issue: dict,
             or "pesatrack-tracker" not in _labels(issue) or not issue_owner
             or issue_owner.group(1) != owner.group(1)):
         return False, "task-claim-mismatch"
+    states = {value.casefold() for value in TASK_STATUS_LINE.findall(issue_body)}
+    if len(states) > 1 or states.intersection(
+            {"paused", "blocked", "superseded", "untriaged", "unclaimed"}):
+        return False, "task-not-actionable"
     if not isinstance(files, list) or not files or len(files) >= 100:
         return False, "incomplete-files"
     if any(not isinstance(file, dict) or not _safe_addition(file) for file in files):

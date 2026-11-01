@@ -56,6 +56,16 @@ class RestrictedMergePolicyTest(unittest.TestCase):
         fixture[3] = [{"filename": "docs/tracker/2026-11-01-progress.md", "status": "added"}]
         self.assertEqual(self.decide(fixture), (True, "eligible"))
 
+    def test_explicit_paused_blocked_or_untriaged_task_never_merges(self):
+        for state in ("Paused", "Blocked", "Superseded", "Untriaged", "Unclaimed"):
+            with self.subTest(state=state):
+                fixture = list(deepcopy(safe_fixture()))
+                fixture[0]["labels"] = []
+                fixture[1] = []
+                fixture[2]["body"] += f"\nTask status: {state}"
+                fixture[3] = [{"filename": "docs/tracker/new-note.md", "status": "added"}]
+                self.assertEqual(self.decide(fixture), (False, "task-not-actionable"))
+
     def test_non_owner_cannot_use_unattended_documentation_lane(self):
         fixture = list(deepcopy(safe_fixture()))
         fixture[0]["user"]["login"] = "another-contributor"
