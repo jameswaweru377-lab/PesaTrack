@@ -46,11 +46,14 @@ fun ProfileScreen(
     homeCache: HomeScreenCache? = null,
     onPlanClick: (() -> Unit)? = null,
     onActivityClick: (() -> Unit)? = null,
-    onPageChanged: (String) -> Unit = {}
+    onPageChanged: (String) -> Unit = {},
+    initialPage: String = "home"
 ) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("pesatrack_preferences", 0) }
-    var page by rememberSaveable { mutableStateOf("home") }
+    // Direct More shortcuts open the real, existing sub-pages without passing
+    // through the Profile home dashboard; normal Profile opens remain unchanged.
+    var page by rememberSaveable(initialPage) { mutableStateOf(initialPage) }
     var privacyReturnPage by rememberSaveable { mutableStateOf("security") }
     var accessReturnPage by rememberSaveable { mutableStateOf("security") }
     var legalReturnPage by rememberSaveable { mutableStateOf("about") }
