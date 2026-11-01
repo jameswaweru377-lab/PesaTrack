@@ -57,7 +57,7 @@ object StatementBankAdmission {
     private val identityChars = Regex("[^A-Z0-9]")
     private fun identity(value: String): String = value.uppercase().replace(identityChars, "")
 
-    /** Both ends must prove the same nonprinted opening; then replay the oldest row. */
+    /** Check arithmetic consistency; the calculated opening is not independently printed. */
     private fun verifiedDerivedOpening(
         document: StatementDocumentProof, accepted: StatementTableResult.Accepted,
         pages: List<StatementTablePage>, profile: StatementSourceProfile

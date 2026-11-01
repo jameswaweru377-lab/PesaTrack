@@ -223,7 +223,8 @@ no separate opening balance or page totals are printed. A new distinct
 `VERIFIED_DERIVED_OPENING` admission tier requires every PDF page and dated row,
 correct issuer/account/currency, all adjacent running balances, both printed
 cash grand totals, the printed closing balance and two matching calculations
-of the opening balance (from the first row and from the final footer). It then
+of the opening balance (from the first row and from the final footer). These
+calculations share the transaction chain and are not independent evidence. It then
 replays all rows against that calculated opening. The source provenance stays
 explicit: **the opening was calculated, not independently printed**, and the
 locally checked PDF layout does not cryptographically authenticate the issuer.

@@ -174,7 +174,7 @@ class StatementBankAdmissionTest {
         printedClosingBalanceMinor = 3_057L
     )
 
-    @Test fun printedClosingAndBothIndependentOpeningDerivationsAdmitVerifiedEquity() {
+    @Test fun printedClosingAndConsistentOpeningCalculationsAdmitEquity() {
         val accepted = admit(proof = derivedProof, sourcePages = derivedPages)
             as StatementAdmissionResult.Accepted
         assertEquals(StatementDocumentAssurance.VERIFIED_DERIVED_OPENING, accepted.assurance)
