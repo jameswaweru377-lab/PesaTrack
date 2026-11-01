@@ -330,9 +330,9 @@ jobs:
       - name: Check out the reviewed candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: c278f57a9bad7690ae7b622c8aa0ad1b1f719d59
+          ref: c671bab5856b676bcdf62662826a526b5b7fa826
       - name: Check candidate identity
-        run: test "$(git rev-parse HEAD)" = c278f57a9bad7690ae7b622c8aa0ad1b1f719d59
+        run: test "$(git rev-parse HEAD)" = c671bab5856b676bcdf62662826a526b5b7fa826
       - name: Set up JDK
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
         with:
@@ -376,14 +376,14 @@ jobs:
           test -s "$apk"
           mkdir -p review-artifact
           cp "$apk" review-artifact/PesaTrack-Review.apk
-          printf '%s\n' c278f57a9bad7690ae7b622c8aa0ad1b1f719d59 > review-artifact/SOURCE_SHA.txt
+          printf '%s\n' c671bab5856b676bcdf62662826a526b5b7fa826 > review-artifact/SOURCE_SHA.txt
           sha256sum review-artifact/PesaTrack-Review.apk > review-artifact/APK_SHA256.txt
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs review-artifact/PesaTrack-Review.apk > review-artifact/SIGNATURE.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging review-artifact/PesaTrack-Review.apk > review-artifact/PACKAGE.txt
       - name: Upload test artifact privately
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: pesatrack-statement-review-c278f57a
+          name: pesatrack-statement-review-c671bab5
           path: review-artifact/
           retention-days: 1
   candidate_full_android:
@@ -394,9 +394,9 @@ jobs:
       - name: Check out exact candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: c278f57a9bad7690ae7b622c8aa0ad1b1f719d59
+          ref: c671bab5856b676bcdf62662826a526b5b7fa826
       - name: Check candidate identity
-        run: test "$(git rev-parse HEAD)" = c278f57a9bad7690ae7b622c8aa0ad1b1f719d59
+        run: test "$(git rev-parse HEAD)" = c671bab5856b676bcdf62662826a526b5b7fa826
       - name: Set up JDK
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
         with:
@@ -431,7 +431,7 @@ jobs:
           script: |
             ./gradlew :app:connectedDebugAndroidTest --stacktrace
             adb logcat -d -v raw 'PesaTrackMeasurement:I' '*:S' > history-measurements.jsonl
-            echo c278f57a9bad7690ae7b622c8aa0ad1b1f719d59 > ANDROID_TEST_SOURCE_SHA.txt
+            echo c671bab5856b676bcdf62662826a526b5b7fa826 > ANDROID_TEST_SOURCE_SHA.txt
       - name: Retain Android test evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
