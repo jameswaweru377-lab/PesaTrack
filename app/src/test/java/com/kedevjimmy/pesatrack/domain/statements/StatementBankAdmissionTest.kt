@@ -105,6 +105,15 @@ class StatementBankAdmissionTest {
             (admit(proof = proof, sourcePages = listOf(first, second)) as StatementAdmissionResult.Blocked).reason)
     }
 
+    @Test fun acceptsTotalsForEveryFinancialPageWithoutStatementTotal() {
+        val first = pages.single().copy(rows = pages.single().rows.take(1))
+        val second = pages.single().copy(pageNumber = 2, rows = pages.single().rows.drop(1))
+        val proof = document.copy(pages = 2, printedGrandTotal = null,
+            printedPageTotals = mapOf(1 to StatementPrintedTotal(0, 5_000),
+                2 to StatementPrintedTotal(2_000, 0)))
+        assertTrue(admit(proof = proof, sourcePages = listOf(first, second)) is StatementAdmissionResult.Accepted)
+    }
+
     @Test fun missingBalanceAnchorBlocksEvenWhenPrintedTotalsMatch() {
         assertEquals(StatementAdmissionResult.Reason.UNVERIFIED_BALANCE,
             (admit(proof = document.copy(openingBalanceMinor = null))
