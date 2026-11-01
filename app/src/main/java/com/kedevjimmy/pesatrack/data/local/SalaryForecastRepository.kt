@@ -28,7 +28,9 @@ data class SalaryForecastRead(
     val hasActiveDebt: Boolean,
     val confirmedDebtDueMinor: Long?,
     /** An observation or manual confirmation that passed the freshness and ownership policy. */
-    val hasFreshSpendableBalance: Boolean = false
+    val hasFreshSpendableBalance: Boolean = false,
+    /** True only for a stored payday that passes the same 45-day/date policy as the forecast. */
+    val confirmedPaydayIsCurrent: Boolean = false
 )
 
 /** Read-only evidence adapter; user forecast preferences never create salary or ledger entries. */
@@ -96,7 +98,11 @@ class SalaryForecastRepository(context: Context) {
             allowsBlankBalance = direct != null,
             hasActiveDebt = activeDebt,
             confirmedDebtDueMinor = debtDue,
-            hasFreshSpendableBalance = balance != null
+            hasFreshSpendableBalance = balance != null,
+            confirmedPaydayIsCurrent = confirmation != null &&
+                SalaryForecastPolicy.paydayWindowProblem(
+                    confirmation.dateEpochMs, confirmation.dateEpochMs, nowEpochMs
+                ) == null
         )
     }
 
