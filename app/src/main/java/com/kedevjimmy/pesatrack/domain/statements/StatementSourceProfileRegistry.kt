@@ -29,7 +29,7 @@ object StatementSourceProfileRegistry {
             ),
             // Verified against the private selectable-text issuer PDF in a
             // memory-only local trial; Android device acceptance is still pending.
-            sampleValidatedFormats = setOf("PDF")
+            sampleValidatedFormats = setOf("PDF", StatementBankAdmission.DERIVED_OPENING_ARCHIVE_FORMAT)
         )
     ).associateBy { it.providerKey }
 

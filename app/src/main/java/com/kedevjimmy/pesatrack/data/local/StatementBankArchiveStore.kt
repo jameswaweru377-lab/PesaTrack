@@ -209,7 +209,11 @@ class StatementBankArchiveStore(context: Context) {
             return helper.readableDatabase.rawQuery(
                 """SELECT id,account_id,provider_key,currency,document_format,imported_at,first_at,last_at,
                     row_count,money_in_minor,money_out_minor FROM statement_limited_sources_v1
-                    WHERE account_id=? ORDER BY last_at DESC,id""".trimIndent(), arrayOf(accountId)
+                    WHERE account_id=? AND NOT EXISTS (
+                        SELECT 1 FROM statement_sources_v2 AS verified
+                        WHERE verified.id=statement_limited_sources_v1.id
+                        AND verified.account_id=statement_limited_sources_v1.account_id
+                    ) ORDER BY last_at DESC,id""".trimIndent(), arrayOf(accountId)
             ).use { c -> buildList {
                 while (c.moveToNext()) add(Source(c.getString(0), c.getString(1), c.getString(2),
                     c.getString(3), c.getString(4), c.getLong(5), c.getLong(6), c.getLong(7),
