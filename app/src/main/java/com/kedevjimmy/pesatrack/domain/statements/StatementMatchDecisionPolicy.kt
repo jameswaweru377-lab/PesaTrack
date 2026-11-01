@@ -6,6 +6,10 @@ import java.security.MessageDigest
 /** Decisions are valid only for the exact evidence and ownership revisions reviewed. */
 object StatementMatchDecisionPolicy {
     data class Ownership(val revision: Long, val type: String, val identifier: String?, val name: String)
+    /** These older sources do not preserve the account identifier at capture time. */
+    fun requiresAccountAttestation(observations: List<StatementEvidenceCorrelationPolicy.Observation>): Boolean =
+        observations.any { it.source == StatementEvidenceCorrelationPolicy.Source.ACTIVITY ||
+            it.source == StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT }
     fun fingerprint(
         observations: List<StatementEvidenceCorrelationPolicy.Observation>,
         ownership: Map<String, Ownership>
@@ -26,7 +30,7 @@ object StatementMatchDecisionPolicy {
             digest.update(ByteBuffer.allocate(4).putInt(bytes.size).array())
             digest.update(bytes)
         }
-        feed("statement-match-decision-v1")
+        feed("statement-match-decision-v2")
         observations.sortedBy { it.id }.forEach { row ->
             feed(row.id); feed(row.source.name); feed(row.sourceId); feed(row.accountId)
             feed(row.currency); feed(row.occurredAt.toString()); feed(row.movementMinor.toString())

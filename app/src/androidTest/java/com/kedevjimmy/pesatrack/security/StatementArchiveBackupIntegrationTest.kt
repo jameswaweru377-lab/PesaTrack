@@ -123,7 +123,7 @@ class StatementArchiveBackupIntegrationTest {
         seedBankEvidence()
         archive { db -> db.insertOrThrow("statement_match_decisions_v1", null, ContentValues().apply {
             put("evidence_hash", "f".repeat(64)); put("kind", "TRANSFER")
-            put("decision", "CONFIRMED"); put("updated_at", 1_780_000_000_000L)
+            put("decision", "CONFIRMED"); put("account_attested", 1); put("updated_at", 1_780_000_000_000L)
         }) }
         val backup = manager.exportEncryptedBytes(password)
         clearStatementArchive()
@@ -419,7 +419,7 @@ class StatementArchiveBackupIntegrationTest {
             db.version = 5
         }
         archive { db ->
-            assertEquals(6, db.version)
+            assertEquals(StatementArchiveDb.VERSION, db.version)
             assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_sources_v2")
                 .simpleQueryForLong())
             assertEquals(0L, db.compileStatement("SELECT COUNT(*) FROM statement_limited_sources_v1")

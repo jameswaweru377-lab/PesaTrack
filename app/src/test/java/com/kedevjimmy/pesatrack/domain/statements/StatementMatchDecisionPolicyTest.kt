@@ -20,6 +20,14 @@ class StatementMatchDecisionPolicyTest {
         assertEquals(64, a.length)
     }
 
+    @Test fun historicalMessagesAndWalletStatementsNeedAccountCheck() {
+        assertFalse(StatementMatchDecisionPolicy.requiresAccountAttestation(listOf(out, incoming)))
+        assertTrue(StatementMatchDecisionPolicy.requiresAccountAttestation(listOf(out,
+            incoming.copy(source = StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT))))
+        assertTrue(StatementMatchDecisionPolicy.requiresAccountAttestation(listOf(incoming,
+            out.copy(source = StatementEvidenceCorrelationPolicy.Source.ACTIVITY))))
+    }
+
     @Test fun changedEvidenceOrOwnershipInvalidatesDecision() {
         val original = StatementMatchDecisionPolicy.fingerprint(listOf(out, incoming), accounts)
         val changedAmount = StatementMatchDecisionPolicy.fingerprint(listOf(out, incoming.copy(movementMinor = 600)), accounts)

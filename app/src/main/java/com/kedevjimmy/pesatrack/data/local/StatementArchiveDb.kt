@@ -66,6 +66,7 @@ internal class StatementArchiveDb(context: Context) :
             evidence_hash TEXT PRIMARY KEY NOT NULL CHECK(length(evidence_hash) = 64),
             kind TEXT NOT NULL CHECK(kind IN ('TRANSFER', 'SAME_MOVEMENT')),
             decision TEXT NOT NULL CHECK(decision IN ('CONFIRMED', 'NOT_SAME')),
+            account_attested INTEGER NOT NULL CHECK(account_attested IN (0, 1)),
             updated_at INTEGER NOT NULL CHECK(updated_at > 0)
         )""".trimIndent())
     }
