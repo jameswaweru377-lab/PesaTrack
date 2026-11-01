@@ -55,4 +55,22 @@ class StatementMatchReviewPolicyTest {
             listOf(StatementCrossSourceEventPolicy.TransferCandidate(setOf("bank"), setOf("wallet"))), emptySet(), emptySet())
         assertTrue(StatementMatchReviewPolicy.project(rows, proof).transfers.isEmpty())
     }
+
+    @Test fun yearBoundarySearchIncludesCompetitorOfAnOutsideCandidate() {
+        val yearEnd = 1_800_000_000_000L
+        val hour = 60L * 60 * 1_000
+        val first = observation("first", "bank", -500, StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT)
+            .copy(occurredAt = yearEnd - hour)
+        val middle = observation("middle", "wallet", 500, StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT)
+            .copy(occurredAt = yearEnd + 46 * hour)
+        val competitor = observation("competitor", "other", -500, StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT)
+            .copy(occurredAt = yearEnd + 92 * hour)
+        val window = StatementMatchReviewPolicy.evidenceWindow(yearEnd - 365L * 24 * hour, yearEnd)
+        assertTrue(competitor.occurredAt < window.endExclusive)
+        val rows = listOf(first, middle, competitor)
+        val proof = StatementCrossSourceEventPolicy.reconcile(rows, setOf("bank", "wallet", "other"))
+        val review = StatementMatchReviewPolicy.project(rows, proof, yearEnd - 365L * 24 * hour, yearEnd)
+        assertTrue(review.transfers.isEmpty())
+        assertTrue(review.ambiguousCount > 0)
+    }
 }

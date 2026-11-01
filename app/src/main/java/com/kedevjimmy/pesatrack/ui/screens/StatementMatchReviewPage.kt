@@ -34,34 +34,39 @@ internal fun StatementMatchReviewPage(year: Int, labels: Map<String, String>, on
     val context = LocalContext.current
     var review by remember(year) { mutableStateOf<StatementMatchReviewPolicy.Review?>(null) }
     var failed by remember(year) { mutableStateOf(false) }
+    var excludedBankSources by remember(year) { mutableIntStateOf(0) }
     var attempt by remember(year) { mutableIntStateOf(0) }
     val ledgerRevision by LedgerUpdateBus.state.collectAsState()
     LaunchedEffect(year, attempt, ledgerRevision.revision) {
         failed = false
         review = null
+        excludedBankSources = 0
         try {
-            review = withContext(Dispatchers.IO) {
+            val loaded = withContext(Dispatchers.IO) {
                 val calendar = Calendar.getInstance(TimeZone.getTimeZone("Africa/Nairobi")).apply {
                     clear(); set(year, Calendar.JANUARY, 1, 0, 0, 0)
                 }
                 val start = calendar.timeInMillis
                 calendar.add(Calendar.YEAR, 1)
                 val end = calendar.timeInMillis
-                val edge = 48L * 60L * 60L * 1000L
-                val snapshot = StatementEvidenceReadModel(context).readWithActivityEvidence(maxOf(1L, start - edge), end + edge)
+                val window = StatementMatchReviewPolicy.evidenceWindow(start, end)
+                val snapshot = StatementEvidenceReadModel(context).readWithActivityEvidence(window.startInclusive, window.endExclusive)
                 StatementMatchReviewPolicy.project(
-                    snapshot.statements.observations + snapshot.originalActivityMessages, snapshot.eventProof, start, end)
+                    snapshot.statements.observations + snapshot.originalActivityMessages, snapshot.eventProof, start, end) to
+                    snapshot.excludedBankSourceCount
             }
+            review = loaded.first
+            excludedBankSources = loaded.second
         } catch (e: CancellationException) { throw e }
         catch (_: Exception) { failed = true }
     }
-    StatementMatchReviewContent(year, labels, review, failed, onBack) { attempt++ }
+    StatementMatchReviewContent(year, labels, review, failed, onBack, { attempt++ }, excludedBankSources)
 }
 
 @Composable
 internal fun StatementMatchReviewContent(
     year: Int, labels: Map<String, String>, review: StatementMatchReviewPolicy.Review?,
-    failed: Boolean, onBack: () -> Unit, onRetry: () -> Unit
+    failed: Boolean, onBack: () -> Unit, onRetry: () -> Unit, excludedBankSources: Int = 0
 ) {
     val p = HomeReferencePalette
     LazyColumn(Modifier.fillMaxSize().background(p.canvas).testTag("statement-match-review"),
@@ -76,6 +81,13 @@ internal fun StatementMatchReviewContent(
                     Text("Statements and messages · $year", color = p.muted,
                         style = MaterialTheme.typography.bodyMedium)
                 }
+            }
+        }
+        if (excludedBankSources > 0) item {
+            StatementInsightCard {
+                Text("Some bank statements were not compared", color = p.ink, fontWeight = FontWeight.SemiBold)
+                Text("The current account number no longer matches the number checked when those statements were imported. Your saved records are unchanged.",
+                    color = p.muted, style = MaterialTheme.typography.bodyMedium)
             }
         }
         item {
