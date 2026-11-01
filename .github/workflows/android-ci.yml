@@ -326,5 +326,3 @@ jobs:
           GH_REPO: ${{ github.repository }}
           APK_PATH: app/build/outputs/apk/release/app-release.apk
         run: bash tools/publish_rolling_apks.sh
-
-
