@@ -4,6 +4,10 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isPopup
+import androidx.compose.ui.test.onNode
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
@@ -127,7 +131,7 @@ class StatementUnifiedOverviewUiTest {
         } }
         compose.onNodeWithText("2 accounts on file").assertExists()
         compose.onNodeWithContentDescription("Choose account").performClick()
-        compose.onNodeWithText("M-Pesa").assertExists()
+        compose.onNode(hasText("M-Pesa") and hasAnyAncestor(isPopup())).assertExists()
         compose.onNodeWithText("Equity Bank · Limited").performClick()
         assertEquals("equity", selected)
     }
