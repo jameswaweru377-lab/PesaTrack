@@ -70,14 +70,23 @@ fun ProfileScreen(
     BackHandler(enabled = page == "home") {
         onBack()
     }
+    // A quick link opened from More should return to More on the first Back,
+    // while nested Profile pages retain their existing internal back stack.
+    val backFromDirectSection: () -> Unit = {
+        if (initialPage != "home" && page == initialPage) onBack() else page = "home"
+    }
     BackHandler(enabled = page != "home" && page != "personal") {
-        page = when (page) {
-            "privacy" -> privacyReturnPage
-            "access" -> accessReturnPage
-            "archive" -> "privacy"
-            "policy" -> legalReturnPage
-            "terms", "financial_notice" -> "about"
-            else -> "home"
+        if (initialPage != "home" && page == initialPage) {
+            onBack()
+        } else {
+            page = when (page) {
+                "privacy" -> privacyReturnPage
+                "access" -> accessReturnPage
+                "archive" -> "privacy"
+                "policy" -> legalReturnPage
+                "terms", "financial_notice" -> "about"
+                else -> "home"
+            }
         }
     }
 
@@ -101,15 +110,15 @@ fun ProfileScreen(
         )
         "security" -> ProfileSecurityPage(
             padding = scaffoldPadding,
-            back = { page = "home" },
+            back = backFromDirectSection,
             privacy = { privacyReturnPage = "security"; page = "privacy" },
             moneyAccess = { accessReturnPage = "security"; page = "access" }
         )
-        "appearance" -> ProfileAppearancePage(scaffoldPadding) { page = "home" }
-        "notifications" -> RemindersPage(scaffoldPadding, { page = "home" }, title = "Notifications")
+        "appearance" -> ProfileAppearancePage(scaffoldPadding, backFromDirectSection)
+        "notifications" -> RemindersPage(scaffoldPadding, backFromDirectSection, title = "Notifications")
         "support" -> HelpPage(
             scaffoldPadding,
-            { page = "home" },
+            backFromDirectSection,
             onDataHealthClick ?: onSettingsClick,
             title = "Help & support",
             onMoneyAccess = { accessReturnPage = "support"; page = "access" },
@@ -118,14 +127,14 @@ fun ProfileScreen(
         )
         "about" -> ProfileAboutPage(
             padding = scaffoldPadding,
-            back = { page = "home" },
+            back = backFromDirectSection,
             privacyPolicy = { page = "policy" },
             terms = { page = "terms" },
             financialNotice = { page = "financial_notice" }
         )
         "privacy" -> PrivacyPage(
             scaffoldPadding,
-            { page = privacyReturnPage },
+            { if (initialPage == "privacy" && privacyReturnPage == "security") onBack() else page = privacyReturnPage },
             { accessReturnPage = "privacy"; page = "access" },
             { page = "archive" },
             privacyPolicy = { legalReturnPage = "privacy"; page = "policy" }
