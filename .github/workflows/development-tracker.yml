@@ -38,7 +38,7 @@ permissions:
 
 concurrency:
   group: development-tracker-${{ github.repository }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   report:
