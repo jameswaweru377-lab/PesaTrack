@@ -180,62 +180,153 @@ private fun PlanCalendarCoinsIllustration(modifier: Modifier = Modifier) {
 
 @Composable
 internal fun VibrantPlanHero(
-    period: String, available: String, safeToday: String,
+    period: String,
+    available: String,
+    safeToday: String?,
+    safeTodayPositive: Boolean,
     onCycleClick: (() -> Unit)?
 ) {
-    Box(Modifier.fillMaxWidth().heightIn(min = 170.dp).clip(RoundedCornerShape(22.dp))
-        .background(Brush.linearGradient(listOf(Color(0xFF790FFF),
-            Color(0xFF3B0FD0), Color(0xFF1157E5))))
-        .semantics { contentDescription = "This pay cycle: $period. $available available after commitments." }) {
-        Box(Modifier.align(Alignment.TopEnd).offset(x = 23.dp, y = (-65).dp).size(148.dp)
-            .background(Brush.linearGradient(listOf(Color(0xFF13E5FF),
-                Color(0xFF118DFF), Color(0xFF5144FF))), CircleShape))
-        Box(Modifier.align(Alignment.BottomEnd).offset(x = 86.dp, y = 74.dp).size(208.dp)
-            .background(Color(0xFF9C40FF).copy(alpha = .39f), CircleShape))
-        PlanCalendarCoinsIllustration(Modifier.align(Alignment.CenterEnd)
-            .padding(end = 8.dp, top = 5.dp).size(width = 116.dp, height = 112.dp))
-        Column(Modifier.fillMaxWidth().padding(horizontal = 17.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Text("THIS PAY CYCLE", color = Color.White.copy(alpha = .96f),
-                fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Text(available, color = Color.White, fontSize = 31.sp, lineHeight = 37.sp,
-                fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(.72f))
+    Box(
+        Modifier.fillMaxWidth().height(176.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .background(Brush.linearGradient(listOf(
+                Color(0xFF790FFF), Color(0xFF3B0FD0), Color(0xFF1157E5)
+            )))
+            .semantics {
+                contentDescription = "This pay cycle: $period. $available available after commitments. " +
+                    if (safeToday == null) "Daily guide unavailable." else "Safe today: $safeToday."
+            }
+    ) {
+        Box(
+            Modifier.align(Alignment.TopEnd).offset(x = 24.dp, y = (-76).dp).size(155.dp)
+                .background(Brush.linearGradient(listOf(
+                    Color(0xFF13E5FF), Color(0xFF118DFF), Color(0xFF5144FF)
+                )), CircleShape)
+        )
+        Box(
+            Modifier.align(Alignment.BottomEnd).offset(x = 75.dp, y = 90.dp).size(200.dp)
+                .background(Color(0xFF9C40FF).copy(alpha = .30f), CircleShape)
+        )
+        // Illustration lives above the button; no overlaying or clipping the CTA.
+        PlanCalendarCoinsIllustration(
+            Modifier.align(Alignment.TopEnd)
+                .padding(top = 15.dp, end = 12.dp)
+                .size(width = 106.dp, height = 98.dp)
+        )
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 13.dp)
+        ) {
+            Text(
+                "THIS PAY CYCLE", fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                color = Color.White.copy(alpha = .94f)
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                available, color = Color.White, fontSize = 30.sp, lineHeight = 35.sp,
+                fontWeight = FontWeight.ExtraBold, maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(.71f)
+            )
+            Spacer(Modifier.height(3.dp))
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text("Available after commitments", color = Color.White, fontSize = 12.sp,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Icon(Icons.Rounded.Info, contentDescription = "A planning amount, not a bank balance",
+                Text("Available after commitments", color = Color.White,
+                    fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Icon(Icons.Rounded.Info,
+                    contentDescription = "This is a planning amount, not a bank balance",
                     modifier = Modifier.size(15.dp), tint = Color.White)
             }
-            Spacer(Modifier.height(3.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween) {
-                Surface(color = Color(0xFFE1FFF0), shape = RoundedCornerShape(20.dp)) {
-                    Row(Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+            Spacer(Modifier.weight(1f))
+            Row(
+                Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Surface(
+                    color = if (safeTodayPositive) Color(0xFFE1FFF0) else Color(0xFFF3E9FF),
+                    shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.weight(1f, fill = false)
+                ) {
+                    Row(
+                        Modifier.padding(horizontal = 9.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Icon(Icons.Rounded.CheckCircle, null, Modifier.size(16.dp),
-                            tint = Color(0xFF009A6F))
-                        Text("Safe today · $safeToday", fontSize = 10.sp,
-                            color = PlanVibrant.ink, fontWeight = FontWeight.SemiBold,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Icon(
+                            if (safeTodayPositive) Icons.Rounded.CheckCircle else Icons.Rounded.Info,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                            tint = if (safeTodayPositive) Color(0xFF009A6F)
+                                else Color(0xFF6422BF)
+                        )
+                        Text(
+                            if (safeToday == null) "Daily guide unavailable"
+                            else "Safe today · $safeToday",
+                            fontSize = 10.sp, color = PlanVibrant.ink,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
                 if (onCycleClick != null) {
-                    Surface(shape = RoundedCornerShape(19.dp),
-                        color = Color.White.copy(alpha = .17f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = .45f)),
-                        modifier = Modifier.clickable(onClick = onCycleClick)) {
-                        Row(Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Text("View cycle", color = Color.White,
-                                fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
-                            Icon(Icons.Rounded.ChevronRight, null, Modifier.size(17.dp), tint = Color.White)
+                    Spacer(Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(19.dp),
+                        color = Color.White.copy(alpha = .16f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = .55f)),
+                        modifier = Modifier.clickable(onClick = onCycleClick)
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("View cycle", color = Color.White, fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold)
+                            Icon(Icons.Rounded.ChevronRight, null,
+                                Modifier.size(16.dp), tint = Color.White)
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+internal fun VibrantPlanSourceWarning(
+    message: String,
+    onClick: () -> Unit,
+    expanded: Boolean = false
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        color = Color(0xFFFFF2D2),
+        border = BorderStroke(1.dp, Color(0xFFFFEBBC))
+    ) {
+        Row(
+            Modifier.padding(horizontal = 13.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(Icons.Rounded.Info, contentDescription = null,
+                modifier = Modifier.size(25.dp), tint = Color(0xFF9C6510))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Some spending still needs a source",
+                    color = PlanVibrant.ink, fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    message, color = Color(0xFF6E6B77),
+                    fontSize = 11.sp, lineHeight = 15.sp
+                )
+            }
+            Icon(
+                if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
+                contentDescription = if (expanded) "Collapse explanation" else "Explain missing source",
+                modifier = Modifier.size(20.dp),
+                tint = Color(0xFF4D5286)
+            )
         }
     }
 }
@@ -287,23 +378,44 @@ internal fun VibrantPlanListRow(icon: ImageVector, tone: String, label: String,
 }
 
 @Composable
-internal fun VibrantPlanMeter(label: String, detail: String, progress: Float,
-    icon: ImageVector, tone: String) {
-    val (bg,color) = planVibrantTone(tone)
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+internal fun VibrantPlanMeter(
+    label: String, detail: String, progress: Float,
+    icon: ImageVector, tone: String, hasData: Boolean = true
+) {
+    val (bg, color) = planVibrantTone(tone)
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
         Surface(Modifier.size(24.dp), color = bg, shape = RoundedCornerShape(8.dp)) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(icon, null, Modifier.size(15.dp), tint = color)
             }
         }
-        Text(label, Modifier.widthIn(min = 54.dp), fontSize = 10.sp, color = PlanVibrant.ink,
-            fontWeight = FontWeight.Medium)
-        LinearProgressIndicator(progress = { progress.coerceIn(0f,1f) },
-            modifier = Modifier.weight(1f).height(7.dp),
-            color = color, trackColor = Color(0xFFEAE7F8), strokeCap = StrokeCap.Round)
-        Text(detail, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF3F457C), maxLines = 1)
+        Text(
+            label, Modifier.widthIn(min = 54.dp), fontSize = 10.sp,
+            color = PlanVibrant.ink, fontWeight = FontWeight.Medium,
+            maxLines = 1, overflow = TextOverflow.Ellipsis
+        )
+        // An unknown or zero value must not draw a misleading active dot.
+        Box(
+            Modifier.weight(1f).height(7.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(Color(0xFFEAE7F8))
+        ) {
+            if (hasData && progress > 0f) {
+                Box(
+                    Modifier.fillMaxWidth(progress.coerceIn(0f, 1f))
+                        .fillMaxHeight()
+                        .background(color, RoundedCornerShape(7.dp))
+                )
+            }
+        }
+        Text(
+            detail, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF3F457C), maxLines = 1
+        )
     }
 }
 
@@ -346,13 +458,13 @@ internal fun VibrantPlanProgressCard(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 VibrantPlanMeter(budgetLabel, budgetPercent?.let { "$it%" } ?: "—",
                     (budgetPercent ?: 0).coerceIn(0, 100) / 100f,
-                    Icons.Rounded.Analytics, "violet")
+                    Icons.Rounded.Analytics, "violet", hasData = budgetPercent != null)
                 VibrantPlanMeter(goalLabel, goalPercent?.let { "$it%" } ?: "—",
                     (goalPercent ?: 0).coerceIn(0, 100) / 100f,
-                    Icons.Rounded.CheckCircle, "mint")
+                    Icons.Rounded.CheckCircle, "mint", hasData = goalPercent != null)
                 VibrantPlanMeter(billsLabel, billsPercent?.let { "$it%" } ?: "—",
                     (billsPercent ?: 0).coerceIn(0, 100) / 100f,
-                    Icons.Rounded.CalendarMonth, "blue")
+                    Icons.Rounded.CalendarMonth, "blue", hasData = billsPercent != null)
             }
         }
     }
