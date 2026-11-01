@@ -76,7 +76,8 @@ object OfflineBankTableReader {
                 }) == null)
             }
         }
-        val grand = source.optJSONObject("printedGrandTotal")
+        val grand = if (source.isNull("printedGrandTotal")) null
+            else source.getJSONObject("printedGrandTotal")
         val proof = StatementDocumentProof(
             detectedProviderKey = source.getString("providerKey"),
             detectedAccountIdentifier = source.getString("accountIdentifier"),
