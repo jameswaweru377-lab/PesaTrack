@@ -1,0 +1,134 @@
+name: Monthly merged branch cleanup
+
+on:
+  schedule:
+    - cron: "17 2 1 * *"
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Delete only branches proven merged into the current default branch
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: merged-branch-cleanup-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    name: Preview eligible merged branches
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out the requested workflow ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Build read-only branch inventory and plan
+        id: preview
+        run: |
+          set +e
+          python3 tools/tracker/branch_cleanup.py --repository "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/branch-cleanup-preview.json"
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/branch-cleanup-preview.json"
+          python3 - "$RUNNER_TEMP/branch-cleanup-preview.json" "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          candidates = report.get("candidates", [])
+          lines = ["# Monthly merged branch cleanup preview", "",
+                   f"Repository: `{report.get('repository', 'unknown')}`  ",
+                   f"Default branch: `{report.get('default_branch', 'unknown')}`  ",
+                   f"Eligible branches: **{len(candidates)}**", "",
+                   "Only exact current branch tips from same-repository PRs merged into the current default branch qualify. Protected, open-PR, unmatched, incomplete and changed branches are skipped.", ""]
+          for reason, count in sorted(report.get("skipped", {}).items()):
+              lines.append(f"- Kept {count} branches: {reason.replace('_', ' ')}")
+          if report.get("skipped"):
+              lines.append("")
+          for candidate in candidates[:200]:
+              lines.append(f"- `{candidate['branch']}` — merged PR #{candidate['merged_pr']}")
+          if len(candidates) > 200:
+              lines.extend(["", f"Showing 200 of {len(candidates)} candidates; see the job log for the complete plan."])
+          with Path(sys.argv[2]).open("a", encoding="utf-8") as summary:
+              summary.write("\n".join(lines) + "\n")
+          PY
+          exit "$status"
+
+  apply:
+    name: Delete individually rechecked merged branches
+    needs: preview
+    if: >-
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      (
+        github.event_name == 'schedule' ||
+        (github.event_name == 'workflow_dispatch' &&
+         github.actor == 'jameswaweru377-lab' && inputs.apply == true)
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out the default branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Recheck and delete proven-merged branches
+        id: apply
+        run: |
+          set +e
+          python3 tools/tracker/branch_cleanup.py --repository "$GITHUB_REPOSITORY" --apply > "$RUNNER_TEMP/branch-cleanup-apply.json"
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/branch-cleanup-apply.json"
+          python3 - "$RUNNER_TEMP/branch-cleanup-apply.json" "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          deleted = report.get("deleted", [])
+          skipped = report.get("skipped", [])
+          failures = report.get("failures", [])
+          lines = ["# Monthly merged branch cleanup", "",
+                   f"Repository: `{report.get('repository', 'unknown')}`  ",
+                   f"Default branch: `{report.get('default_branch', 'unknown')}`  ",
+                   f"Candidates rechecked: **{report.get('candidate_count', 0)}**  ",
+                   f"Deleted: **{len(deleted)}** · Skipped: **{len(skipped)}** · Failures: **{len(failures)}**", ""]
+          for reason, count in sorted(report.get("initial_skipped", {}).items()):
+              lines.append(f"- Kept {count} branches: {reason.replace('_', ' ')}")
+          for item in deleted:
+              lines.append(f"- Deleted `{item['branch']}` — merged PR #{item['merged_pr']}")
+          for item in skipped:
+              lines.append(f"- Kept `{item['branch']}` — {item['reason']}")
+          if failures:
+              lines.extend(["", "Deletion errors:"])
+              for item in failures:
+                  lines.append(f"- `{item['branch']}` — {item['reason']}")
+          with Path(sys.argv[2]).open("a", encoding="utf-8") as summary:
+              summary.write("\n".join(lines) + "\n")
+          PY
+          exit "$status"
+
