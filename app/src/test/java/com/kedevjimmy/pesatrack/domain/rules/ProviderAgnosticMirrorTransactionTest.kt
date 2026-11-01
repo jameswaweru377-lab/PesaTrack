@@ -1,11 +1,11 @@
 package com.kedevjimmy.pesatrack.domain.rules
 
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class ProviderAgnosticMirrorTransactionTest {
     @Test
-    fun codelessBankObservationCanMirrorCodedMpesaObservation() {
+    fun codelessBankObservationNeedsReviewWithoutSharedReference() {
         val bank = MirrorTransactionObservation(
             amountMinor = 500_000L,
             occurredAtEpochMs = 1_000_000L,
@@ -31,7 +31,7 @@ class ProviderAgnosticMirrorTransactionTest {
             direction = "TRANSFER"
         )
 
-        assertTrue(
+        assertFalse(
             MirrorTransactionMatcher.isMirror(
                 bank,
                 mpesa
