@@ -93,6 +93,12 @@ class WorkflowContractTest(unittest.TestCase):
         self.assertIn("PESATRACK_TRACKER_PROJECT_SYNC_ENABLED == 'true'", intake["if"])
         self.assertIn("secrets.PESATRACK_TRACKER_PROJECTS_TOKEN", intake["env"]["PESATRACK_TRACKER_PROJECTS_TOKEN"])
 
+    def test_concurrent_events_never_cancel_in_progress_project_writes(self):
+        workflow = yaml.load((ROOT / ".github/workflows/development-tracker.yml").read_text(),
+                             Loader=yaml.BaseLoader)
+        self.assertEqual("false", workflow["concurrency"]["cancel-in-progress"])
+        self.assertIn("github.repository", workflow["concurrency"]["group"])
+
 
 if __name__ == "__main__":
     unittest.main()
