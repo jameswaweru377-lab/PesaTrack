@@ -181,6 +181,18 @@ The GitHub workflow uses a repository-wide concurrency group with `cancel-in-pro
 
 ### Monthly merged-branch cleanup
 
+**Separate, owner-only ancestor cleanup (opt-in):** The exact comment
+`/pesatrack-cleanup-ancestors-apply-10` on Issue #528 additionally considers
+branches whose immutable tip SHA is proven fully contained in the current
+default-branch SHA by GitHub's compare API. The comparison is performed again
+after checking the complete open-PR list, branch protection, unchanged branch
+SHA and unchanged default SHA, immediately before the existing exact-SHA Git
+lease deletion and post-delete confirmation. Any divergence, malformed compare
+evidence or changed head is refused. This owner command is capped at ten refs
+per run. It does **not** change the regular `/pesatrack-cleanup-apply-10`
+command, monthly schedule, or manual-dispatch policy. A closed-but-unmerged PR
+does not qualify by itself, and no active PR head can be removed.
+
 The separate **Monthly merged branch cleanup** workflow inventories repository branches and pull requests, then proposes deletion only when a branch is unprotected, is not the current default branch, has no open same-repository PR, and its current tip SHA exactly matches a PR head that was merged into the current default branch. Branch age, naming, and a closed-but-unmerged PR are never evidence for deletion. The workflow fetches bounded pages (up to 2,000 PR rows); a page cap, malformed response, permission error, or API failure stops or skips cleanup safely.
 
 An owner-authored comment exactly `/pesatrack-cleanup-apply-10` on canonical PR recovery **Issue #528** also runs the preview followed by at most 10 guarded deletions; all other comments skip the workflow. This is an alternate explicit command channel for the repository owner's existing GitHub connection, not a generic issue-command interpreter. Manual dispatch defaults to a read-only preview. Apply is limited to a manual run by `jameswaweru377-lab` from the current default branch, or the monthly schedule on that branch. Before each deletion, the workflow rechecks the current default branch, candidate SHA, protection, merged-PR evidence and the **complete open-PR list**, including unknown head-repository identities. A changed or uncertain candidate is retained. Deletion uses Git's exact-SHA `--force-with-lease` on precisely one ref; a concurrent push rejects deletion even after the last API read. A bounded post-delete verification checks GitHub up to five times (two-second pauses) and counts the deletion only after a 404 confirms the ref is absent. Reads of the original SHA may be briefly stale. A different SHA, 403/429, malformed response, or persistent presence fails closed; the deletion push is never repeated. No unguarded REST DELETE is permitted. An initial apply attempts at most **10** candidates per run, with one second between rechecks. Remaining candidates are deferred. On an API/lease error, the batch stops without skipping ahead.  A 403/429 is reported with safe rate-limit and accepted-permission headers and stops the current apply loop without retrying. The preview job receives `contents: read` and `pull-requests: read`; only the separate apply job receives `contents: write` and `pull-requests: read`. Neither job can write Issues, Projects, PRs, Actions, or merge PRs. The existing hourly Development Tracker remains read-only and does not run this cleanup.
