@@ -26,7 +26,9 @@ data class SalaryForecastRead(
     val balanceSource: String,
     val allowsBlankBalance: Boolean,
     val hasActiveDebt: Boolean,
-    val confirmedDebtDueMinor: Long?
+    val confirmedDebtDueMinor: Long?,
+    /** An observation or manual confirmation that passed the freshness and ownership policy. */
+    val hasFreshSpendableBalance: Boolean = false
 )
 
 /** Read-only evidence adapter; user forecast preferences never create salary or ledger entries. */
@@ -93,7 +95,8 @@ class SalaryForecastRepository(context: Context) {
             },
             allowsBlankBalance = direct != null,
             hasActiveDebt = activeDebt,
-            confirmedDebtDueMinor = debtDue
+            confirmedDebtDueMinor = debtDue,
+            hasFreshSpendableBalance = balance != null
         )
     }
 
