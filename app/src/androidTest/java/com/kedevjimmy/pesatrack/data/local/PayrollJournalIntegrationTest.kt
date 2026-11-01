@@ -81,7 +81,7 @@ class PayrollJournalIntegrationTest {
         val legacy=PesaTrackDatabase.get(context);val db=legacy.writableDatabase
         db.execSQL("DROP TABLE payroll_lines");db.execSQL("DROP TABLE payroll_records");db.version=38
         legacy.close();PesaTrackDatabase.resetForTests()
-        assertEquals(40,PesaTrackDatabase.get(context).writableDatabase.version)
+        assertEquals(41,PesaTrackDatabase.get(context).writableDatabase.version)
         assertTrue(PayrollJournalStore(context).records().isEmpty());assertCash(account)
         assertEquals(1L,AccountOwnershipConsentStore(context).confirmedRevisions()[account])
     }
@@ -98,7 +98,7 @@ class PayrollJournalIntegrationTest {
                 if(version<35){t.remove("transaction_allocations");t.remove("flexible_budget_options");t.remove("statement_import_entries")}
             }
             PayrollJournalStore(context).save(draft(),true)
-            assertEquals(40,manager.previewEncryptedBytes(old,password).schemaVersion)
+            assertEquals(41,manager.previewEncryptedBytes(old,password).schemaVersion)
             manager.restoreEncryptedBytes(old,password);assertTrue(PayrollJournalStore(context).records().isEmpty());assertCash(account)
         }
     }

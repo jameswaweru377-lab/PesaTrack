@@ -99,7 +99,7 @@ class BackupRecoveryIntegrationTest {
     ) { payload ->
         val current = payload.get("schemaVersion").asInt
         assertTrue("Fixture requires a schema with a previous version", current > 1)
-        payload.addProperty("schemaVersion", current - 1)
+        payload.addProperty("schemaVersion", 33) // Unsupported: 34..40 have explicit migrations.
     }
 
     @Test

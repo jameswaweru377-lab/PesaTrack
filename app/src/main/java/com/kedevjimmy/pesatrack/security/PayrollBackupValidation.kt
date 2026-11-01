@@ -46,7 +46,8 @@ internal object PayrollBackupValidation {
 internal object BackupSchemaCompatibility {
     fun emptyTables(version: Int): List<String> {
         require(version in 34..40) { "Unsupported backup schema." }
-        return (if(version<35) listOf("transaction_allocations","flexible_budget_options","statement_import_entries") else emptyList()) +
+        return (if(version<41) listOf("fingerprint_conflicts") else emptyList()) +
+            (if(version<35) listOf("transaction_allocations","flexible_budget_options","statement_import_entries") else emptyList()) +
             (if(version<36) listOf("personal_receivable_people","personal_receivable_events") else emptyList()) +
             (if(version<37) listOf("personal_receivable_review_exclusions") else emptyList()) +
             (if(version<38) listOf("account_ownership_consents","owned_transfer_review_decisions") else emptyList()) +
