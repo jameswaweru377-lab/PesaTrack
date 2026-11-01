@@ -2,6 +2,15 @@
 
 _Last refreshed: 1 November 2026_
 
+_R3 release shrinker candidate (draft, not deployed):_
+The proposed release build enables R8 code minification and Android resource
+shrinking. A pull-request-only unsigned build comparison measures it against
+the exact pre-change main commit and checks that ARM64/Python assets remain.
+This does not test minified PDF reading, backup/restore or app lock on a phone.
+The currently published signed APK must remain the rollback version until
+an exact-candidate R1 device run and T1 persistence gate genuinely PASS;
+no minified release is approved for merge or publication yet.
+
 _A2 bill-cadence domain dependency (1 November 2026):_
 The voice-planning domain parser now uses a domain-owned `BillCadence` enum;
 the scheduling layer keeps a Kotlin source-compatible alias for existing
