@@ -39,10 +39,10 @@ class WorkflowContractTest(unittest.TestCase):
     def test_project_mirror_has_separate_secret_and_explicit_opt_in(self):
         workflow = yaml.load((ROOT / ".github/workflows/development-tracker.yml").read_text(),
                              Loader=yaml.BaseLoader)
-        preview = workflow["jobs"]["report"]["steps"][-2]
+        preview = next(s for s in workflow["jobs"]["report"]["steps"] if s["name"] == "Preview approved Project tracker-field updates")
         self.assertIn("preview_project == true", preview["if"])
         self.assertNotIn("--apply", preview["run"])
-        step = workflow["jobs"]["report"]["steps"][-1]
+        step = next(s for s in workflow["jobs"]["report"]["steps"] if s["name"] == "Mirror canonical Issues to the approved Project tracker field")
         self.assertIn("PESATRACK_TRACKER_PROJECT_SYNC_ENABLED == 'true'", step["if"])
         self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", step["if"])
         self.assertIn("secrets.PESATRACK_TRACKER_PROJECTS_TOKEN", step["env"]["PESATRACK_TRACKER_PROJECTS_TOKEN"])
@@ -54,11 +54,11 @@ class WorkflowContractTest(unittest.TestCase):
                              Loader=yaml.BaseLoader)
         self.assertEqual("false", workflow["on"]["workflow_dispatch"]["inputs"][
             "preview_owner"]["default"])
-        preview = workflow["jobs"]["report"]["steps"][-3]
+        preview = next(s for s in workflow["jobs"]["report"]["steps"] if s["name"] == "Preview approved Project Chat owner text changes")
         self.assertIn("preview_owner == true", preview["if"])
         self.assertIn("--preview-owner", preview["run"])
         self.assertNotIn("--apply", preview["run"])
-        mirror = workflow["jobs"]["report"]["steps"][-1]
+        mirror = next(s for s in workflow["jobs"]["report"]["steps"] if s["name"] == "Mirror canonical Issues to the approved Project tracker field")
         self.assertEqual("${{ vars.PESATRACK_TRACKER_OWNER_SYNC_ENABLED }}",
                          mirror["env"]["PESATRACK_TRACKER_OWNER_SYNC_ENABLED"])
         self.assertIn("inputs.preview_owner != true", mirror["if"])
@@ -69,10 +69,29 @@ class WorkflowContractTest(unittest.TestCase):
         steps = workflow["jobs"]["report"]["steps"]
         self.assertIn("pull_request", workflow["on"])
         self.assertIn("tools.tracker.cli", steps[1]["run"])
-        mirror_condition = steps[-1]["if"]
+        mirror_condition = next(s for s in steps if s["name"] == "Mirror canonical Issues to the approved Project tracker field")["if"]
         self.assertIn("github.actor != 'dependabot[bot]'", mirror_condition)
         self.assertIn("github.event.pull_request.user.login != 'dependabot[bot]'",
                       mirror_condition)
+
+
+    def test_pr_inbox_discovers_without_replacing_issue_mirror(self):
+        workflow = yaml.load((ROOT / ".github/workflows/development-tracker.yml").read_text(),
+                             Loader=yaml.BaseLoader)
+        self.assertEqual("false", workflow["on"]["workflow_dispatch"]["inputs"]["preview_pr_inbox"]["default"])
+        steps = workflow["jobs"]["report"]["steps"]
+        names = [step["name"] for step in steps]
+        self.assertLess(names.index("Mirror canonical Issues to the approved Project tracker field"),
+                        names.index("Discover open PRs as separate Project intake cards"))
+        preview = next(s for s in steps if s["name"] == "Preview open-PR intake into existing Project")
+        intake = next(s for s in steps if s["name"] == "Discover open PRs as separate Project intake cards")
+        self.assertNotIn("--apply", preview["run"])
+        self.assertIn("--apply", intake["run"])
+        self.assertIn("-f tools/tracker/pr_inbox.py", intake["run"])
+        self.assertIn("github.actor != 'dependabot[bot]'", intake["if"])
+        self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", intake["if"])
+        self.assertIn("PESATRACK_TRACKER_PROJECT_SYNC_ENABLED == 'true'", intake["if"])
+        self.assertIn("secrets.PESATRACK_TRACKER_PROJECTS_TOKEN", intake["env"]["PESATRACK_TRACKER_PROJECTS_TOKEN"])
 
 
 if __name__ == "__main__":

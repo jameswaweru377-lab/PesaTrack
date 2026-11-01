@@ -2,6 +2,8 @@
 
 _Last reviewed: 7 October 2026_
 
+_Release-engineering status rechecked against code and signed CI: 1 November 2026. Play policy declarations above have **not** been re-reviewed by this update._
+
 This is a release gate, not a claim that Google Play approval is guaranteed. Re-check current Play Console policy before each public release.
 
 ## Restricted SMS permission
@@ -48,16 +50,25 @@ https://support.google.com/googleplay/android-developer/answer/13849271
 
 ## Release engineering
 
-- [ ] Commit and use the Gradle Wrapper for reproducible local/CI builds.
+- [x] Gradle Wrapper scripts, properties and `gradle-wrapper.jar` are committed; Android CI uses the wrapper.
 - [x] Release builds accept intentional `versionCode` / `versionName` inputs.
 - [x] A manual signed-release workflow is defined and verifies AAB/APK signatures.
-- [ ] Configure the release signing key/secrets outside the repository.
+- [x] The persistent release signing key/secrets are configured outside source and were exercised by the successful signed `main` rolling publisher. This does **not** verify secret environment protection or independent offline recovery.
 - [ ] Run and retain the first verified signed Android App Bundle (AAB) for Play.
-- [ ] Keep the rolling debug APK separate from public release artifacts.
-- [x] Rolling development debug APK publication on pushes to main is gated on build + lint + unit tests; emulator instrumentation is an explicit manual review. Signed releases retain same-commit Android validation.
+- [x] Keep the debug APK as an internal workflow artifact. The rolling `ci-apk` preview contains exactly `PesaTrack-Full.apk` and `PesaTrack-Update.apk`, two identical **release-signed** APKs, not public debug builds.
+- [x] On a successful `main` push, Android CI validates the tested commit and publishes the signed rolling APK only after build, lint and JVM checks. Emulator instrumentation is optional/manual; none of this is physical-device acceptance.
 - [x] GitHub Actions are pinned to immutable commit SHAs.
 - [x] Wrangler is pinned to an exact version in CI/deployment workflows.
 - [ ] Protect `main` and require CI before merge.
+- [ ] Independently confirm protected signing-environment secret scope, maintainer access/2FA and an offline recoverable copy of the **same** release keystore and password recovery instructions.
+
+Evidence for these engineering-state checks: tracked `gradlew`, `gradlew.bat`,
+`gradle/wrapper/gradle-wrapper.properties` and `gradle-wrapper.jar`;
+`.github/workflows/android-ci.yml` and `release-build.yml`; and the
+[successful signed rolling build/publish run 41297723937](https://github.com/jameswaweru377-lab/PesaTrack/actions/runs/41297723937)
+on source SHA `f247140c5a68f0bf04925bcae4575ccaabeaf0b7`. This is not
+proof of a compatible phone update or a Play AAB submission; see the
+[release process](RELEASE_PROCESS.md) and the still-open R1 acceptance record.
 
 ## Pre-release validation
 
