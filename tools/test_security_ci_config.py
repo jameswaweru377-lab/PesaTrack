@@ -19,6 +19,23 @@ def load_workflow(name: str):
 
 
 class SecurityWorkflowTest(unittest.TestCase):
+    def test_manual_signed_release_is_main_only(self):
+        workflow = load_workflow("release-build.yml")
+        self.assertIn("workflow_dispatch", workflow["on"])
+        release = workflow["jobs"]["release"]
+        guard = release["if"]
+        self.assertIn("github.event_name == 'workflow_dispatch'", guard)
+        self.assertIn("github.ref == 'refs/heads/main'", guard)
+        self.assertIn("needs.validate_build.result == 'success'", guard)
+        self.assertIn("needs.validate_android.result == 'success'", guard)
+        self.assertIn("needs.validate_android.result == 'skipped'", guard)
+
+    def test_rolling_apk_publisher_remains_main_push_only(self):
+        workflow = load_workflow("android-ci.yml")
+        publisher = workflow["jobs"]["publish"]
+        self.assertIn("github.event_name == 'push'", publisher["if"])
+        self.assertIn("github.ref == 'refs/heads/main'", publisher["if"])
+
     def test_gitleaks_is_only_on_pull_requests_and_bounded(self):
         workflow = load_workflow("security-gitleaks.yml")
         self.assertEqual(set(workflow["on"]), {"pull_request"})
