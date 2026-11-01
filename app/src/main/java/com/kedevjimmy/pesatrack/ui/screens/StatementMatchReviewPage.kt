@@ -17,58 +17,86 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
-import com.kedevjimmy.pesatrack.data.local.StatementEvidenceReadModel
+import com.kedevjimmy.pesatrack.data.local.StatementMatchDecisionStore
 import com.kedevjimmy.pesatrack.domain.statements.StatementEvidenceCorrelationPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementMatchReviewPolicy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.text.NumberFormat
-import java.util.Calendar
 import java.util.Locale
-import java.util.TimeZone
 
 @Composable
 internal fun StatementMatchReviewPage(year: Int, labels: Map<String, String>, onBack: () -> Unit) {
     val context = LocalContext.current
-    var review by remember(year) { mutableStateOf<StatementMatchReviewPolicy.Review?>(null) }
+    val store = remember(context) { StatementMatchDecisionStore(context) }
+    val scope = rememberCoroutineScope()
+    var snapshot by remember(year) { mutableStateOf<StatementMatchDecisionStore.Snapshot?>(null) }
     var failed by remember(year) { mutableStateOf(false) }
-    var excludedBankSources by remember(year) { mutableIntStateOf(0) }
     var attempt by remember(year) { mutableIntStateOf(0) }
+    var busy by remember { mutableStateOf(false) }
+    var actionError by remember { mutableStateOf<String?>(null) }
     val ledgerRevision by LedgerUpdateBus.state.collectAsState()
     LaunchedEffect(year, attempt, ledgerRevision.revision) {
         failed = false
-        review = null
-        excludedBankSources = 0
+        snapshot = null
         try {
-            val loaded = withContext(Dispatchers.IO) {
-                val calendar = Calendar.getInstance(TimeZone.getTimeZone("Africa/Nairobi")).apply {
-                    clear(); set(year, Calendar.JANUARY, 1, 0, 0, 0)
-                }
-                val start = calendar.timeInMillis
-                calendar.add(Calendar.YEAR, 1)
-                val end = calendar.timeInMillis
-                val window = StatementMatchReviewPolicy.evidenceWindow(start, end)
-                val snapshot = StatementEvidenceReadModel(context).readWithActivityEvidence(window.startInclusive, window.endExclusive)
-                StatementMatchReviewPolicy.project(
-                    snapshot.statements.observations + snapshot.originalActivityMessages, snapshot.eventProof, start, end) to
-                    snapshot.excludedBankSourceCount
-            }
-            review = loaded.first
-            excludedBankSources = loaded.second
+            snapshot = withContext(Dispatchers.IO) { store.read(year) }
         } catch (e: CancellationException) { throw e }
         catch (_: Exception) { failed = true }
     }
-    StatementMatchReviewContent(year, labels, review, failed, onBack, { attempt++ }, excludedBankSources)
+    StatementMatchReviewContent(year, labels, snapshot?.review, failed, onBack, { attempt++ },
+        snapshot = snapshot, busy = busy, actionError = actionError) { candidate, expected, decision, attested ->
+        if (!busy) {
+            busy = true; actionError = null
+            scope.launch {
+                try {
+                    when (withContext(Dispatchers.IO) { store.decide(year, candidate.hash, candidate.kind, expected, decision, attested) }) {
+                        StatementMatchDecisionStore.Result.SAVED -> Unit
+                        StatementMatchDecisionStore.Result.STALE -> actionError = "These records changed. Review the refreshed suggestion."
+                        StatementMatchDecisionStore.Result.CONFLICT -> actionError = "One record is already confirmed in another match. Undo that decision first."
+                        StatementMatchDecisionStore.Result.ACCOUNT_CHECK_REQUIRED -> actionError = "Check that the original records belong to the accounts shown."
+                    }
+                    attempt++
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { actionError = "Could not save your review choice. Try again." }
+                finally { busy = false }
+            }
+        }
+    }
 }
 
 @Composable
 internal fun StatementMatchReviewContent(
     year: Int, labels: Map<String, String>, review: StatementMatchReviewPolicy.Review?,
-    failed: Boolean, onBack: () -> Unit, onRetry: () -> Unit, excludedBankSources: Int = 0
+    failed: Boolean, onBack: () -> Unit, onRetry: () -> Unit,
+    snapshot: StatementMatchDecisionStore.Snapshot? = null, busy: Boolean = false,
+    actionError: String? = null,
+    onDecision: (StatementMatchDecisionStore.Candidate, StatementMatchDecisionStore.Decision?, StatementMatchDecisionStore.Decision?, Boolean) -> Unit = { _, _, _, _ -> }
 ) {
     val p = HomeReferencePalette
+    var confirming by remember { mutableStateOf<StatementMatchDecisionStore.Candidate?>(null) }
+    confirming?.let { candidate ->
+        var accountChecked by remember(candidate.hash) { mutableStateOf(false) }
+        AlertDialog(onDismissRequest = { confirming = null },
+            title = { Text("Confirm this match?") },
+            text = { Column {
+                Text("This saves your review choice. It does not yet change Activity, balances, categories or report totals.")
+                if (candidate.needsAccountAttestation) {
+                    Spacer(Modifier.height(12.dp))
+                    Text("Older messages and M-Pesa statements may not identify their original account number. Check the originals in Activity or Statements first.")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = accountChecked, onCheckedChange = { accountChecked = it })
+                        Text("I checked that these records belong to the accounts shown.")
+                    }
+                }
+            } },
+            confirmButton = { TextButton(enabled = !candidate.needsAccountAttestation || accountChecked,
+                onClick = { confirming = null; onDecision(candidate, null, StatementMatchDecisionStore.Decision.CONFIRMED, accountChecked) }) { Text("Confirm match") } },
+            dismissButton = { TextButton(onClick = { confirming = null }) { Text("Cancel") } })
+    }
     LazyColumn(Modifier.fillMaxSize().background(p.canvas).testTag("statement-match-review"),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -83,22 +111,30 @@ internal fun StatementMatchReviewContent(
                 }
             }
         }
-        if (excludedBankSources > 0) item {
+        item {
+            StatementInsightCard {
+                Text("Your records stay unchanged", color = p.ink, fontWeight = FontWeight.SemiBold)
+                Text("Review these suggestions before confirming. Your choices do not yet change Activity, balances, categories or report totals.",
+                    color = p.muted, style = MaterialTheme.typography.bodyMedium)
+                Text("Only confirmed accounts are compared. Statements used in suggestions must be verified; limited statements are not included.",
+                    color = p.muted, style = MaterialTheme.typography.bodySmall)
+                Text("Older messages and M-Pesa statements may not identify your account number. Check the originals in Activity or Statements.",
+                    color = p.muted, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        if (actionError != null) item { Text(actionError, color = MaterialTheme.colorScheme.error) }
+        if ((snapshot?.excludedBankSourceCount ?: 0) > 0) item {
             StatementInsightCard {
                 Text("Some bank statements were not compared", color = p.ink, fontWeight = FontWeight.SemiBold)
                 Text("The current account number could not be matched to the number checked at import. Your saved records are unchanged.",
                     color = p.muted, style = MaterialTheme.typography.bodyMedium)
             }
         }
-        item {
+        if (snapshot?.missingOwnershipConsent == true) item {
             StatementInsightCard {
-                Text("Your records stay unchanged", color = p.ink, fontWeight = FontWeight.SemiBold)
-                Text("These are suggestions based on matching evidence, not confirmed transfers. Nothing is merged, deleted or added to Activity.",
-                    color = p.muted, style = MaterialTheme.typography.bodyMedium)
-                Text("Only confirmed accounts are compared. Statements used in suggestions must be verified; limited statements are not included.",
-                    color = p.muted, style = MaterialTheme.typography.bodySmall)
-                Text("Older messages and M-Pesa statements may not identify your account number. Check the originals in Activity or Statements.",
-                    color = p.muted, style = MaterialTheme.typography.bodySmall)
+                Text("Confirm which accounts are yours", fontWeight = FontWeight.SemiBold, color = p.ink)
+                Text("Account ownership must be confirmed before saving a match decision.", color = p.muted)
+                TransferOwnershipConsentAction()
             }
         }
         if (failed) item {
@@ -147,6 +183,8 @@ internal fun StatementMatchReviewContent(
                     Text("Same reference and amount; money out on one account and in on the other.",
                         color = p.muted, style = MaterialTheme.typography.bodySmall)
                     MatchEvidenceLines(transfer.outgoing + transfer.incoming, labels)
+                    MatchDecisionActions(snapshot, StatementMatchDecisionStore.Kind.TRANSFER,
+                        transfer.outgoing + transfer.incoming, busy, onConfirm = { confirming = it }, onDecision = onDecision)
                 }
             }
             if (review.sameMovements.isNotEmpty()) item {
@@ -166,8 +204,38 @@ internal fun StatementMatchReviewContent(
                     Text("Same reference, account, direction and amount across these records.",
                         color = p.muted, style = MaterialTheme.typography.bodySmall)
                     MatchEvidenceLines(rows, labels)
+                    MatchDecisionActions(snapshot, StatementMatchDecisionStore.Kind.SAME_MOVEMENT,
+                        rows, busy, onConfirm = { confirming = it }, onDecision = onDecision)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MatchDecisionActions(
+    snapshot: StatementMatchDecisionStore.Snapshot?, kind: StatementMatchDecisionStore.Kind,
+    rows: List<StatementEvidenceCorrelationPolicy.Observation>, busy: Boolean,
+    onConfirm: (StatementMatchDecisionStore.Candidate) -> Unit,
+    onDecision: (StatementMatchDecisionStore.Candidate, StatementMatchDecisionStore.Decision?, StatementMatchDecisionStore.Decision?, Boolean) -> Unit
+) {
+    val ids = rows.map { it.id }.toSet()
+    val candidate = snapshot?.candidates?.singleOrNull { it.kind == kind && it.rows.map { row -> row.id }.toSet() == ids }
+        ?: return
+    if (candidate.needsAccountAttestation) Text("Check the original message or M-Pesa statement belongs to the account shown.",
+        color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+    when (snapshot.decisions[candidate.hash]) {
+        StatementMatchDecisionStore.Decision.CONFIRMED -> {
+            Text("You confirmed this match", fontWeight = FontWeight.SemiBold)
+            TextButton(enabled = !busy, onClick = { onDecision(candidate, StatementMatchDecisionStore.Decision.CONFIRMED, null, false) }) { Text("Undo") }
+        }
+        StatementMatchDecisionStore.Decision.NOT_SAME -> {
+            Text("You marked these as different", fontWeight = FontWeight.SemiBold)
+            TextButton(enabled = !busy, onClick = { onDecision(candidate, StatementMatchDecisionStore.Decision.NOT_SAME, null, false) }) { Text("Undo") }
+        }
+        null -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(enabled = !busy, onClick = { onConfirm(candidate) }) { Text("Confirm") }
+            OutlinedButton(enabled = !busy, onClick = { onDecision(candidate, null, StatementMatchDecisionStore.Decision.NOT_SAME, false) }) { Text("Not the same") }
         }
     }
 }
