@@ -370,6 +370,13 @@ The Android CI workflow has three responsibilities:
 2. `instrumentation`: run Android instrumentation only when explicitly requested through a manual workflow run with `run_instrumentation` enabled (default off).
 3. `publish`: after successful build checks on a push to `main`, build a release-signed APK with the existing protected signing secrets and replace the `ci-apk` attachments with only `PesaTrack-Full.apk` and `PesaTrack-Update.apk`. These are identical signed APKs; signing/version compatibility checks fail closed. Missing secrets block publication. Manual review/build runs retain artifacts but cannot replace the rolling release. Physical-phone upgrade compatibility remains unverified.
 
+R1 external-release device acceptance is **NOT RUN** for the current signed
+candidate. `docs/acceptance/R1_DEVICE_ACCEPTANCE_TEMPLATE.md` now defines
+repeatable M-Pesa PDF, limited Equity PDF, backup/restore, app-lock and signed
+upgrade checks with explicit PASS/FAIL/NOT RUN outcomes. This is an acceptance
+**plan**, not Android instrumentation or actual Redmi device evidence; the
+rolling `ci-apk` channel remains a development preview.
+
 PR updates and merges run build checks automatically. Marking a PR ready does not start another run. Android 7 security and API compatibility emulator suites are manual review tools; the former weekly compatibility schedule is disabled. Manual signed releases also default to build-only validation. Emulator validation is opt-in through run_instrumentation; when explicitly enabled, it must pass before signing. Agents must not start instrumentation based on an older plan without a current user request.
 
 The build/test jobs require only read access to repository contents. Release write permission is scoped to the publish job.
@@ -414,7 +421,7 @@ The next test expansion should add broader migration fixtures, performance bench
 - `SECURITY.md`, `CONTRIBUTING.md` and `CODEOWNERS` define review/privacy expectations.
 - The repository contains a privacy-policy source and a Play release checklist.
 - SMS-permission surfaces provide an explicit disclosure before requesting historical SMS access.
-- Release builds accept explicit version code/name inputs and a manual signed AAB/APK workflow is defined; signing material remains outside the repository and the first signed run is still a release gate.
+- Release builds accept explicit version code/name inputs; a protected release identity and signed rolling APK already exist. Signing continuity and actual physical-phone upgrade acceptance remain release gates, independently of a successful workflow.
 - Historical SMS import reports scan/match/insert progress, supports cooperative cancellation, and retains a short-lived checkpoint so interrupted imports can resume by SMS date/id without rescanning the completed portion. Activity review/duplicate work is now bounded to unresolved/recent rows, duplicate matching stops at the policy time window, and month/account lookups use v33 ledger indexes. Physical-device large-ledger measurement still remains.
 
 ## Release status
@@ -422,7 +429,8 @@ The next test expansion should add broader migration fixtures, performance bench
 Not yet public-store ready. Remaining release blockers include:
 - protect `main` with required CI checks;
 - clean stale branches;
-- configure signing secrets, prove the signed release workflow end-to-end, and commit the Gradle wrapper;
+- verify signing-secret environment protection and independently recoverable offline signing-key custody; the Gradle wrapper and rolling signed APK already exist;
+- obtain an actual PASS on the final-candidate-SHA R1 physical-device acceptance sheet and exact-SHA emulator persistence checks;
 - publish the privacy policy at a stable HTTPS URL and complete Google Play READ_SMS / Financial features declarations;
 - Redmi/Xiaomi real-history acceptance;
 - performance hardening for long imports/large ledgers;

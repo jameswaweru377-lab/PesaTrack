@@ -15,6 +15,14 @@ These filenames stay fixed. The job replaces both attachments and deletes old de
 
 Do not mistake the attached APKs for Android instrumentation or physical-phone upgrade proof. The existing Redmi installation may have been signed by an ephemeral CI debug key; in that case, this new release certificate is not directly compatible. Never uninstall or reset until encrypted backup/restore and a one-time migration are verified and explicitly approved.
 
+**R1 device acceptance before external/public release:** copy
+[`docs/acceptance/R1_DEVICE_ACCEPTANCE_TEMPLATE.md`](acceptance/R1_DEVICE_ACCEPTANCE_TEMPLATE.md)
+for the exact signed release candidate. Record the physical device, Android
+version, full source SHA, APK/signing identity, five journey outcomes and
+actual invented-data evidence. **NOT RUN or FAIL blocks acceptance.** The
+rolling `ci-apk` downloads remain development/update preview artifacts;
+publishing them does not automatically make the build physically accepted.
+
 **Signing prerequisite:** all four `PESATRACK_RELEASE_*` secrets below must be provisioned with a persistent, separately backed-up release key. If unavailable, the rolling publication job **fails closed**, leaving the existing release as-is. It does not substitute an unsigned or newly signed debug APK.
 
 ## Versioning
@@ -106,6 +114,11 @@ The workflow has repository read permission only. It does not automatically publ
 ## Before a public Play release
 
 Complete `docs/PLAY_RELEASE_CHECKLIST.md`, including privacy-policy publication, restricted SMS permission declaration, Financial features declaration, Data safety, real-device acceptance and branch protection.
+
+In particular, complete the R1 device record linked above **after** the final
+release build and any minifier/ABI changes. Physical M-Pesa and Equity PDF
+imports, backup/legacy restore, app lock, and a compatible in-place upgrade
+must all PASS on a named physical phone with disposable invented data.
 
 ## Gradle Wrapper
 
