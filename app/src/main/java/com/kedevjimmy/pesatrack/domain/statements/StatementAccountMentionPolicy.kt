@@ -42,18 +42,22 @@ object StatementAccountMentionPolicy {
                 row.movementMinor == 0L || row.movementMinor == Long.MIN_VALUE) return@mapNotNull null
             val matches = numberToken.findAll(record.description).mapNotNull tokenMatch@ { token ->
                 var preceding = token.range.first - 1
-                var prefixHasDigits = false
+                val reversedPrefixDigits = StringBuilder()
                 while (preceding >= 0) {
                     val char = record.description[preceding]
                     if (!(char in '0'..'9' || char.isWhitespace() || char in "().-")) break
-                    if (char in '0'..'9') prefixHasDigits = true
+                    if (char in '0'..'9') reversedPrefixDigits.append(char)
                     preceding--
                 }
                 val internationalPrefix = preceding >= 0 && record.description[preceding] == '+'
-                if ((internationalPrefix && prefixHasDigits) ||
-                    (internationalPrefix && !(token.value.length == 12 && token.value.startsWith("254"))))
-                    return@tokenMatch null
-                val candidate = identifiers[token.value].orEmpty().singleOrNull() ?: return@tokenMatch null
+                val prefixDigits = reversedPrefixDigits.reverse().toString()
+                val number = when {
+                    !internationalPrefix -> token.value
+                    prefixDigits.isEmpty() && token.value.length == 12 && token.value.startsWith("254") -> token.value
+                    prefixDigits == "254" && token.value.length == 9 && token.value.first() in setOf('1', '7') -> "254" + token.value
+                    else -> return@tokenMatch null
+                }
+                val candidate = identifiers[number].orEmpty().singleOrNull() ?: return@tokenMatch null
                 if (internationalPrefix && !candidate.isKenyanWallet) return@tokenMatch null
                 candidate.id.takeIf { it != row.accountId }
             }.distinct().toList()
