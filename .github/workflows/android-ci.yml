@@ -358,6 +358,7 @@ jobs:
           PESATRACK_RELEASE_KEY_PASSWORD: ${{ secrets.PESATRACK_RELEASE_KEY_PASSWORD }}
           PESATRACK_VERSION_CODE: '201950'
           PESATRACK_VERSION_NAME: '0.1.1950-review'
+          PESATRACK_ENTITY_ENRICHMENT_URL: https://pesatrack.jameswaweru399.workers.dev/v1/entity/resolve
         shell: bash
         run: |
           set -euo pipefail
