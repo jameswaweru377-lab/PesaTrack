@@ -180,7 +180,10 @@ internal fun MoneyUntilSalaryCard(snapshot: PayCycleSnapshot) {
                         )
                     ) {
                         Text(
-                            if (showEvidence) "Hide forecast evidence" else "Why is an estimate unavailable?",
+                            if (showEvidence) "Hide forecast evidence"
+                            else if (read.result.lowMinor != null && read.result.highMinor != null)
+                                "View forecast evidence"
+                            else "Why is an estimate unavailable?",
                             color = PlanVibrant.violet, fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
                         )
