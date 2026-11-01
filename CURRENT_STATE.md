@@ -2,6 +2,15 @@
 
 _Last refreshed: 1 November 2026_
 
+_A2 bill-cadence domain dependency (1 November 2026; Android CI pending):_
+The voice-planning domain parser now uses a domain-owned `BillCadence` enum;
+the scheduling layer keeps a Kotlin source-compatible alias for existing
+callers. Saved schedule preferences still use `MONTHLY` and `WEEKLY` names.
+This is a code-boundary change only: no new schedule behavior, screen,
+database version, permission or network flow. Local Gradle tests could not
+resolve the Android Gradle plugin offline; CI compilation and unit tests must
+pass before this is considered verified.
+
 _Temporary unlocked-screen capture support (1 November 2026; CI and Redmi acceptance pending):_
 The owner requested Android screenshots and screen recordings for private UI review.
 An enabled app lock no longer blocks capture while the app is unlocked and in
