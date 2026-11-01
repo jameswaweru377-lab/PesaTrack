@@ -155,6 +155,23 @@ class BranchCleanupPlanTest(unittest.TestCase):
         self.assertFalse(eligible)
         self.assertEqual("default_head_changed", reason)
 
+    def test_ancestor_recheck_rejects_unknown_open_pr_state(self):
+        class InvalidOpenPullOpener:
+            def __call__(self, request, timeout=30):
+                path = urlparse(request.full_url).path
+                if path.endswith("/pulls"):
+                    return Response([{"state": "unknown", "head": {
+                        "ref": "old/fully-contained", "repo": {"full_name": REPOSITORY}}}])
+                raise AssertionError(path)
+
+        candidate = {"branch": "old/fully-contained", "sha": FEATURE_SHA,
+                     "default_branch": "main", "default_sha": MAIN_SHA,
+                     "merged_pr": None, "evidence": "ancestor"}
+        eligible, reason = _recheck_candidate(REPOSITORY, "", candidate,
+                                              opener=InvalidOpenPullOpener())
+        self.assertFalse(eligible)
+        self.assertEqual("open_pr_check_invalid", reason)
+
     def test_apply_ancestor_mode_rechecks_before_single_lease_deletion(self):
         class StableOpener:
             def __call__(self, request, timeout=30):

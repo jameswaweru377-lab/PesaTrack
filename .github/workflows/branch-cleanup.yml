@@ -67,8 +67,12 @@ jobs:
           lines = ["# Monthly merged branch cleanup preview", "",
                    f"Repository: `{report.get('repository', 'unknown')}`  ",
                    f"Default branch: `{report.get('default_branch', 'unknown')}`  ",
-                   f"Eligible branches: **{len(candidates)}**", "",
-                   "Only exact current branch tips from same-repository PRs merged into the current default branch qualify. Protected, open-PR, unmatched, incomplete and changed branches are skipped.", ""]
+                   f"Eligible branches: **{len(candidates)}**", ""]
+          if report.get("mode") == "ancestors":
+              lines.append("Owner-only ancestor mode: exact merged PR heads or tips proven contained in the unchanged current default head. Open, protected, changed and uncertain branches remain excluded.")
+          else:
+              lines.append("Only exact current branch tips from same-repository PRs merged into the current default branch qualify. Protected, open-PR, unmatched, incomplete and changed branches are skipped.")
+          lines.append("")
           for reason, count in sorted(report.get("skipped", {}).items()):
               lines.append(f"- Kept {count} branches: {reason.replace('_', ' ')}")
           if report.get("skipped"):

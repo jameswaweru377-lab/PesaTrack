@@ -276,6 +276,7 @@ def build_plan(inventory: dict, *, include_ancestors: bool = False,
         candidates.append({"branch": name, "sha": sha,
                            "merged_pr": matching[-1]["number"]})
     return {"repository": repository, "default_branch": default_branch,
+            "mode": "ancestors" if include_ancestors else "merged_pr",
             "candidates": candidates, "skipped": skipped}
 
 
@@ -294,8 +295,8 @@ def _recheck_candidate(repository: str, token: str, candidate: dict, *, opener) 
     open_pulls = _paged_rows(repository, token, "pulls", opener=opener,
                              max_pages=MAX_PAGES, state="open")
     for item in open_pulls:
-        if item.get("state") != "open":
-            continue
+        if not isinstance(item, dict) or item.get("state") != "open":
+            return False, "open_pr_check_invalid"
         head = item.get("head")
         head_repo = head.get("repo") if isinstance(head, dict) else None
         if (not isinstance(head, dict) or not isinstance(head.get("ref"), str)

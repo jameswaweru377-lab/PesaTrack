@@ -22,10 +22,18 @@ separate owner-triggered lane, not an expansion of monthly cleanup.
   recovery Issue #528; it must run only on the repository default branch.
 - Compare immutable branch SHA against the current default SHA. Only `ahead`
   or `identical` with `behind_by == 0` in the branch-to-main comparison qualifies.
-- Missing, malformed, ambiguous, paginated, rate-limited or failed API evidence
-  stops safely. Open/unknown PR heads, protection and changed branch tips block.
+- Missing, malformed, ambiguous, rate-limited or failed API comparison metadata
+  stops safely. GitHub may paginate the list of commits in a compare response;
+  this is acceptable **only** when its separate status, count, base and merge-base
+  summary fields conclusively prove the ancestor relationship. The commit-list
+  pagination is not used as evidence. Open/unknown PR heads, protection and
+  changed branch tips block.
 - At most ten deletions per run. No Android, signing, financial or UI changes.
 - Closing an unmerged PR does not by itself make its branch eligible.
+- GitHub does not provide an atomic default-branch/PR-state/ref-deletion operation.
+  A concurrent default-branch force-push or newly opened PR after final checks
+  remains a narrow residual race; the branch's exact SHA lease still protects
+  against branch-tip changes, and no general REST DELETE fallback is allowed.
 
 ## Acceptance
 
