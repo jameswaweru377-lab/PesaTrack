@@ -28,7 +28,6 @@ import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Crown
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.FileDownload
 import androidx.compose.material.icons.rounded.History
@@ -348,8 +347,7 @@ private fun MoreProfileHero(name: String, avatar: String, photo: Bitmap?, onClic
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(3.dp)
                             ) {
-                                Icon(Icons.Rounded.Crown, contentDescription = null,
-                                    tint = Color(0xFFFFD34B), modifier = Modifier.size(12.dp))
+                                MoreCrownGlyph()
                                 Text("Premium", color = Color.White, fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold)
                             }
@@ -478,4 +476,23 @@ private fun MoreSettingsRow(
         thickness = .7.dp,
         modifier = Modifier.padding(start = 48.dp)
     )
+}
+
+
+/** Tiny vector crown from the approved badge, no network image or icon dependency. */
+@Composable
+private fun MoreCrownGlyph() {
+    Canvas(Modifier.size(12.dp)) {
+        val crown = Path().apply {
+            moveTo(size.width * .08f, size.height * .25f)
+            lineTo(size.width * .31f, size.height * .52f)
+            lineTo(size.width * .50f, size.height * .12f)
+            lineTo(size.width * .69f, size.height * .52f)
+            lineTo(size.width * .92f, size.height * .25f)
+            lineTo(size.width * .84f, size.height * .80f)
+            lineTo(size.width * .16f, size.height * .80f)
+            close()
+        }
+        drawPath(crown, Color(0xFFFFD34B))
+    }
 }
