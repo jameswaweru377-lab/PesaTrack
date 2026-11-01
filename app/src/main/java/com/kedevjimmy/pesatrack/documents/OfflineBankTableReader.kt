@@ -76,19 +76,24 @@ object OfflineBankTableReader {
                 }) == null)
             }
         }
-        val grand = source.getJSONObject("printedGrandTotal")
+        val grand = if (source.isNull("printedGrandTotal")) null
+            else source.getJSONObject("printedGrandTotal")
         val proof = StatementDocumentProof(
             detectedProviderKey = source.getString("providerKey"),
             detectedAccountIdentifier = source.getString("accountIdentifier"),
             currency = source.getString("currency"), format = source.getString("format"),
             allSourceRegionsAccountedFor = source.getBoolean("allSourceRegionsAccountedFor"),
             pages = count, printedPageTotals = perPage,
-            printedGrandTotal = StatementPrintedTotal(grand.getLong("moneyOutMinor"),
-                grand.getLong("moneyInMinor")),
+            printedGrandTotal = grand?.let { StatementPrintedTotal(it.getLong("moneyOutMinor"),
+                it.getLong("moneyInMinor")) },
             openingBalanceMinor = if (source.isNull("openingBalanceMinor")) null
                 else source.getLong("openingBalanceMinor"),
+            printedClosingBalanceMinor = if (!source.has("printedClosingBalanceMinor") ||
+                source.isNull("printedClosingBalanceMinor")) null
+                else source.getLong("printedClosingBalanceMinor"),
             assurance = when (source.optString("assurance")) {
                 "grand_total_and_chain_only" -> StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY
+                "verified_grand_total_derived_opening" -> StatementDocumentAssurance.VERIFIED_DERIVED_OPENING
                 "" -> StatementDocumentAssurance.FULL
                 else -> error("Unknown bank document assurance; no data saved.")
             }

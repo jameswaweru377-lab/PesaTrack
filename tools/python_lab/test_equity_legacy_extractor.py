@@ -19,16 +19,17 @@ HEADERS = (
     ("Debit (Money Out)", 465), ("Balance", 537),
 )
 SOURCE_ROWS = (
-    ("01/09/2026", "Invented deposit", "ABC0123456", "100.00", "", "100.00"),
-    ("02/09/2026", "Invented payment", "ABC0123457", "", "20.00", "80.00"),
-    ("03/09/2026", "Invented fee", "ABC0123458", "", "1.00", "79.00"),
+    ("01/09/2026", "Invented deposit", "ABC0123456", "100.00", "", "100.57"),
+    ("02/09/2026", "Invented payment", "ABC0123457", "", "20.00", "80.57"),
+    ("03/09/2026", "Invented fee", "ABC0123458", "", "1.00", "79.57"),
 )
 
 
 def invented_legacy_pdf(*, wrong_balance=False, missing_money=False,
                         wrong_account=False, remove_header=False,
                         remove_logo=False, extra_row=False,
-                        wrong_grand_total=False, stray_money=False):
+                        wrong_grand_total=False, wrong_closing_total=False,
+                        missing_closing_total=False, stray_money=False):
     output = io.BytesIO()
     pdf = canvas.Canvas(output, pagesize=(WIDTH, HEIGHT))
 
@@ -78,8 +79,10 @@ def invented_legacy_pdf(*, wrong_balance=False, missing_money=False,
     # a grand Total, but no printed opening or per-page totals.
     for value, x in (
         ("101.00" if wrong_grand_total else "100.00", 410),
-        ("21.00", 486), ("79.00", 544),
+        ("21.00", 486), ("78.57" if wrong_closing_total else "79.57", 544),
     ):
+        if missing_closing_total and x == 544:
+            continue
         write(value, x, 94)
         write(value, x, 94)
     write("Total", 37, 94)
@@ -93,11 +96,13 @@ class EquityLegacyExtractorTest(unittest.TestCase):
     def inspect(self, **kwargs):
         return json.loads(inspect_pdf(invented_legacy_pdf(**kwargs), "", "KENYAN_BANK_EQUITY"))
 
-    def test_graphical_issuer_and_no_page_totals_produce_limited_review(self):
+    def test_nonzero_derived_opening_and_printed_closing_produce_verified_review(self):
         response = self.inspect()
         self.assertEqual("ready_for_bank_review", response["status"], response.get("reason"))
-        self.assertEqual("grand_total_and_chain_only", response["document"]["assurance"])
+        self.assertEqual("verified_grand_total_derived_opening", response["document"]["assurance"])
         self.assertIsNone(response["document"]["openingBalanceMinor"])
+        self.assertEqual(7_957, response["document"]["printedClosingBalanceMinor"])
+        self.assertEqual({}, response["document"]["printedPageTotals"])
         self.assertEqual(
             {"moneyInMinor": 10_000, "moneyOutMinor": 2_100},
             response["document"]["printedGrandTotal"],
@@ -124,6 +129,10 @@ class EquityLegacyExtractorTest(unittest.TestCase):
 
     def test_mismatched_printed_grand_total_blocks_full_document(self):
         self.assertEqual("blocked", self.inspect(wrong_grand_total=True)["status"])
+
+    def test_mismatched_or_missing_printed_closing_blocks_verified_document(self):
+        self.assertEqual("blocked", self.inspect(wrong_closing_total=True)["status"])
+        self.assertEqual("blocked", self.inspect(missing_closing_total=True)["status"])
 
     def test_unrecognized_bank_does_not_gain_equity_assurance(self):
         response = json.loads(inspect_pdf(invented_legacy_pdf(), "", "KENYAN_BANK_UNLISTED"))
