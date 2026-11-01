@@ -470,8 +470,12 @@ fun PesaTrackApp(
         }
 
         composable(MainTab.PLAN.route) {
-            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
+            AppScaffold(
+                onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
+                onNotificationsClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
+                onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
                 currentTab = MainTab.PLAN,
+                useHomeHeader = true,
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 PlanScreen(
@@ -493,7 +497,8 @@ fun PesaTrackApp(
                         )
                     },
                     onBillsClick = { navController.navigate("bills") },
-                    onPayCycleClick = { navController.navigate("pay-cycle") }
+                    onPayCycleClick = { navController.navigate("pay-cycle") },
+                    onInsightsClick = { navController.navigate("reports") }
                 )
             }
         }
