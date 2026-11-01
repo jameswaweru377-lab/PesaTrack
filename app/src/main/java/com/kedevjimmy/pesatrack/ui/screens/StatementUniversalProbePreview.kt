@@ -29,8 +29,8 @@ internal fun StatementUniversalProbePreview(result: NativeBankProbeResult, onDis
                     Text("The source's issuer, account, boundaries and printed totals have not " +
                         "been independently verified.", style = MaterialTheme.typography.bodySmall)
                 }
-                is NativeBankProbeResult.Blocked -> Text(
-                    when (result.reason) {
+                is NativeBankProbeResult.Blocked -> {
+                    Text(when (result.reason) {
                         NativeProbeBlockReason.UNSUPPORTED_DEVICE ->
                             "Native PDF text inspection requires Android 15 or newer."
                         NativeProbeBlockReason.INCOMPLETE_GEOMETRY ->
@@ -44,9 +44,21 @@ internal fun StatementUniversalProbePreview(result: NativeBankProbeResult, onDis
                         NativeProbeBlockReason.PDF_READ_FAILURE ->
                             "This PDF could not be inspected completely on this device."
                     },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    result.pageNumber?.let { page ->
+                        Text("First affected page: $page", style = MaterialTheme.typography.bodySmall)
+                    }
+                    result.safeDetail?.let { detail ->
+                        Text("Native PDF check: $detail", style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (result.reason == NativeProbeBlockReason.INCOMPLETE_GEOMETRY) {
+                        Text("The PDF has selectable text, but Android did not supply enough " +
+                            "trusted position evidence to reconstruct every transaction. " +
+                            "You can report the page and check above without sharing bank details.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             }
             Text("Not saved — verification incomplete",
                 style = MaterialTheme.typography.bodyMedium,

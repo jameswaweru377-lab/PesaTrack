@@ -2,6 +2,8 @@ package com.kedevjimmy.pesatrack.domain.statements
 
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextFragment
 import com.kedevjimmy.pesatrack.domain.evidence.PdfTextPreview
+import com.kedevjimmy.pesatrack.domain.evidence.PdfGeometryDiagnostics
+import com.kedevjimmy.pesatrack.domain.evidence.PdfGeometryDisposition
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -34,8 +36,30 @@ class StatementNativeProbeTransportTest {
 
     @Test fun oneIncompleteCoordinatePageRefusesAllPages() {
         val candidate = preview(listOf(listOf(header), listOf(amount)), listOf(true, false))
-        assertEquals(NativeProbePreparation.Blocked(NativeProbeBlockReason.INCOMPLETE_GEOMETRY),
-            StatementNativeProbeTransport.prepare(35, candidate))
+        val blocked = StatementNativeProbeTransport.prepare(35, candidate) as NativeProbePreparation.Blocked
+        assertEquals(NativeProbeBlockReason.INCOMPLETE_GEOMETRY, blocked.reason)
+        assertEquals(2, blocked.pageNumber)
+    }
+
+    @Test fun incompleteNativeGeometryReportsOnlyFixedSafeCounts() {
+        val reasons = IntArray(PdfGeometryDisposition.entries.size)
+        reasons[PdfGeometryDisposition.MISSING_BOUNDS.ordinal] = 3
+        val syntheticPrivateLine = "Invented account 000011112222 and amount 999.99"
+        val candidate = PdfTextPreview(
+            pages = listOf("Date and amounts", syntheticPrivateLine),
+            emptyPageNumbers = emptyList(),
+            positionedPages = listOf(listOf(header), listOf(amount)),
+            positionedComplete = listOf(true, false),
+            geometryDiagnostics = listOf(
+                PdfGeometryDiagnostics(List(reasons.size) { 0 }),
+                PdfGeometryDiagnostics(reasons.toList())
+            )
+        )
+        val blocked = StatementNativeProbeTransport.prepare(35, candidate) as NativeProbePreparation.Blocked
+        assertEquals(NativeProbeBlockReason.INCOMPLETE_GEOMETRY, blocked.reason)
+        assertEquals(2, blocked.pageNumber)
+        assertEquals("3 unbounded text block(s)", blocked.safeDetail)
+        assertFalse(blocked.safeDetail.orEmpty().contains("000011112222"))
     }
 
     @Test fun completeTwoPagePreviewPreservesOriginalPageOrder() {
