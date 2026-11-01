@@ -42,4 +42,12 @@ class MirrorEvidenceSafetyTest {
         assertFalse(MirrorTransactionMatcher.match(first, far).autoLink)
         assertFalse(MirrorTransactionMatcher.match(first, second.copy(counterparty = "Distinct transport", counterpartyPhone = null)).autoLink)
     }
+
+    @Test fun shortOrNontransactionReferencesDoNotAutoLink() {
+        val first = row("12345", "bank")
+        val second = row(null, "wallet").copy(externalReferences = setOf("12345"))
+        assertFalse(MirrorTransactionMatcher.match(first, second).autoLink)
+        val words = first.copy(transactionCode = "REFERENCE")
+        assertFalse(MirrorTransactionMatcher.match(words, second.copy(externalReferences = setOf("REFERENCE"))).autoLink)
+    }
 }

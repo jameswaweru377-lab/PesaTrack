@@ -335,7 +335,7 @@ object MirrorTransactionMatcher {
                 Regex("""[^A-Z0-9-]"""),
                 ""
             )
-            ?.takeIf { it.length >= 5 }
+            ?.takeIf { it.length in 8..48 && it.any(Char::isDigit) }
 
     private fun normalizeAccountId(
         value: String?
