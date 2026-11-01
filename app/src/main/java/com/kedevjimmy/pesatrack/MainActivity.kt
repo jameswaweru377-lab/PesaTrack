@@ -11,6 +11,7 @@ import android.content.Intent
 import android.view.WindowManager
 import com.kedevjimmy.pesatrack.salary.SalaryReminders
 import com.kedevjimmy.pesatrack.security.AppLockManager
+import com.kedevjimmy.pesatrack.security.ScreenCapturePolicy
 import com.kedevjimmy.pesatrack.planning.BillSchedules
 import com.kedevjimmy.pesatrack.planning.ReviewAttentionReminders
 import androidx.activity.ComponentActivity
@@ -45,6 +46,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var appLockManager:
         AppLockManager
     private var appLocked by mutableStateOf(false)
+    private var captureForeground = false
     private fun readSmartIntent(intent: Intent) {
         intent.getStringExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_KEY)?.let {
             smartKey = it
@@ -116,6 +118,9 @@ class MainActivity : ComponentActivity() {
         AutomaticHistoryRepair.scheduleIfAllowed(this)
         setContent {
             val recoveryFailure by com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.failures.collectAsState()
+            // Observe this in the outer composition so PIN/biometric unlock resyncs flags.
+            val lockedForCapture = appLocked
+            androidx.compose.runtime.SideEffect { updateSecureWindowState(lockedForCapture) }
             if (recoveryFailure != null) {
                 com.kedevjimmy.pesatrack.ui.screens.BackupRecoveryBlockingScreen(onRetry = {
                     com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.retry(this)
@@ -230,7 +235,6 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         if (com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.failure != null) return
-        updateSecureWindowState()
         RecentSmsCatchUp.schedule(this)
         if (
             ::appLockManager
@@ -240,6 +244,19 @@ class MainActivity : ComponentActivity() {
         ) {
             appLocked = true
         }
+        updateSecureWindowState()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        captureForeground = true
+        if (::appLockManager.isInitialized) updateSecureWindowState()
+    }
+
+    override fun onPause() {
+        captureForeground = false
+        if (::appLockManager.isInitialized) updateSecureWindowState()
+        super.onPause()
     }
 
     override fun onStop() {
@@ -268,16 +285,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun updateSecureWindowState() {
+    private fun updateSecureWindowState(lockedForCapture: Boolean = appLocked) {
         if (
             !::appLockManager
                 .isInitialized
         ) {
             return
         }
-        if (
-            appLockManager.isEnabled()
-        ) {
+        if (ScreenCapturePolicy.shouldBlockCapture(
+                appLockEnabled = appLockManager.isEnabled(),
+                appLocked = lockedForCapture,
+                foreground = captureForeground,
+                backupRecoveryBlocked = com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.failure != null
+            )) {
             window.addFlags(
                 WindowManager.LayoutParams
                     .FLAG_SECURE

@@ -41,11 +41,13 @@ internal fun StatementImportWorkspace(
     onDismiss: () -> Unit,
     content: LazyListScope.() -> Unit
 ) {
+    val securePolicy = rememberCaptureAwareDialogPolicy()
     Dialog(
         onDismissRequest = { if (!busy) onDismiss() },
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false
+            decorFitsSystemWindows = false,
+            securePolicy = securePolicy
         )
     ) {
         Surface(
