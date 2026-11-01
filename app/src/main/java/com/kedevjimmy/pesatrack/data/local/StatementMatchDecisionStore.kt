@@ -7,6 +7,7 @@ import com.kedevjimmy.pesatrack.domain.statements.StatementEvidenceCorrelationPo
 import com.kedevjimmy.pesatrack.domain.statements.StatementMatchDecisionPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementMatchReviewPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementPossibleTransferPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementAccountMentionPolicy
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -23,7 +24,8 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
     data class Snapshot(val review: StatementMatchReviewPolicy.Review, val candidates: List<Candidate>,
                         val decisions: Map<String, Decision>, val missingOwnershipConsent: Boolean,
                         val excludedBankSourceCount: Int = 0,
-                        val possibleTransfers: List<StatementPossibleTransferPolicy.Suggestion> = emptyList())
+                        val possibleTransfers: List<StatementPossibleTransferPolicy.Suggestion> = emptyList(),
+                        val accountMentions: List<StatementAccountMentionPolicy.Hint> = emptyList())
 
     fun read(year: Int): Snapshot = synchronized(CanonicalStoreLock.monitor) { current(year) }
 
@@ -117,6 +119,17 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
         } finally { helper.close() }
         val possibleTransfers = StatementPossibleTransferPolicy.suggest(
             source.eligibleStatementObservations + source.originalActivityMessages, source.eventProof, start, end)
-        return Snapshot(review, candidates, saved, missingConsent, source.excludedBankSourceCount, possibleTransfers)
+        val shownIds = review.transfers.flatMap { it.outgoing + it.incoming }.map { it.id } +
+            review.sameMovements.flatten().map { it.id } +
+            possibleTransfers.flatMap { listOf(it.outgoing.id, it.incoming.id) } + source.eventProof.ambiguousIds
+        val bankRecords = source.eligibleStatementObservations.mapNotNull { observation ->
+            source.statements.bankDescriptions[observation.id]?.let { description ->
+                StatementAccountMentionPolicy.BankRecord(observation, description)
+            }
+        }
+        val confirmedAccounts = ownership.filterValues { it.type == "BANK" || it.type == "MOBILE_WALLET" }
+            .map { (id, account) -> StatementAccountMentionPolicy.Account(id, account.identifier) }
+        val accountMentions = StatementAccountMentionPolicy.find(bankRecords, confirmedAccounts, shownIds.toSet(), start, end)
+        return Snapshot(review, candidates, saved, missingConsent, source.excludedBankSourceCount, possibleTransfers, accountMentions)
     }
 }

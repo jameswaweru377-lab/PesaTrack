@@ -230,6 +230,24 @@ internal fun StatementMatchReviewContent(
                     MatchEvidenceLines(listOf(possible.outgoing, possible.incoming), labels)
                 }
             }
+            val mentions = snapshot?.accountMentions.orEmpty()
+            if (mentions.isNotEmpty()) item {
+                Text("Account mentions to check", color = p.ink,
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("A statement includes another saved account number. Check the original before drawing a conclusion.",
+                    color = p.muted, style = MaterialTheme.typography.bodyMedium)
+            }
+            items(mentions) { hint ->
+                StatementInsightCard {
+                    Text(matchReviewMoney(kotlin.math.abs(hint.row.movementMinor), hint.row.currency),
+                        color = p.ink, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Mentions ${labels[hint.mentionedAccountId] ?: "another account"}",
+                        color = p.ink, fontWeight = FontWeight.SemiBold)
+                    Text("A number alone does not identify the recipient or prove a transfer.",
+                        color = p.muted, style = MaterialTheme.typography.bodySmall)
+                    MatchEvidenceLines(listOf(hint.row), labels, includeReferences = false)
+                }
+            }
         }
     }
 }
@@ -271,7 +289,8 @@ private fun matchReviewMoney(minor: Long, currency: String): String {
 }
 
 @Composable
-private fun MatchEvidenceLines(rows: List<StatementEvidenceCorrelationPolicy.Observation>, labels: Map<String, String>) {
+private fun MatchEvidenceLines(rows: List<StatementEvidenceCorrelationPolicy.Observation>, labels: Map<String, String>,
+                               includeReferences: Boolean = true) {
     val p = HomeReferencePalette
     rows.forEach { row ->
         val source = when (row.source) {
@@ -280,7 +299,7 @@ private fun MatchEvidenceLines(rows: List<StatementEvidenceCorrelationPolicy.Obs
             StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT -> "Bank statement"
         }
         val direction = if (row.movementMinor < 0) "Money out" else "Money in"
-        val reference = row.reference?.takeIf { it.isNotBlank() }?.let { " · Ref $it" }.orEmpty()
+        val reference = row.reference?.takeIf { includeReferences && it.isNotBlank() }?.let { " · Ref $it" }.orEmpty()
         Text("$source · ${labels[row.accountId] ?: "Account"} · $direction · ${statementDate(row.occurredAt)}$reference", color = p.muted,
             style = MaterialTheme.typography.bodySmall)
     }
