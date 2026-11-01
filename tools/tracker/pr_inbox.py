@@ -177,7 +177,7 @@ def plan_pr_inbox(prs: list[dict], project: dict, repository: str) -> dict:
     for number, item in existing.items():
         if number in open_numbers:
             continue
-        if item["state"] == "MERGED" and item["status"] == "PR open":
+        if item["state"] == "MERGED" and item["status"] in {None, "PR open"}:
             status_updates.append((item["id"], values["Merged — needs acceptance"]))
         elif item["state"] == "CLOSED" and item["status"] == "PR open":
             clears.append(item["id"])

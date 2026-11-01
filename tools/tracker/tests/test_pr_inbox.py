@@ -70,6 +70,15 @@ class PrInboxTest(unittest.TestCase):
         self.assertEqual(["PVTI_11"], plan["clears"])
         self.assertEqual([], plan["adds"])
 
+    def test_merged_card_without_status_recovers_from_interrupted_first_write(self):
+        # addProjectV2ItemById can succeed before the status write is cancelled.
+        # If the PR merges meanwhile, a later sync must still repair its card.
+        merged = item(state="MERGED", status=None)
+        plan = plan_pr_inbox([], project([merged]), REPO)
+        self.assertEqual([], plan["adds"])
+        self.assertEqual([("PVTI_test", "merged")], plan["sets"])
+        self.assertEqual([], plan["clears"])
+
     def test_never_invents_owners_or_modifies_existing_task_issue_cards(self):
         issue = {"id": "PVTI_issue", "number": 11, "repository": REPO,
                  "status": "Claimed", "node_id": "I_test", "state": "OPEN"}
