@@ -3,11 +3,12 @@
 import json
 from email.message import Message
 from io import BytesIO
+from types import SimpleNamespace
 import unittest
 from urllib.parse import unquote, urlparse
 from urllib.error import HTTPError
 
-from tools.tracker.branch_cleanup import (MAX_CANDIDATES_PER_RUN, apply_plan,
+from tools.tracker.branch_cleanup import (MAX_CANDIDATES_PER_RUN, _lease_delete, apply_plan,
                                           build_plan, collect_inventory)
 
 
@@ -214,11 +215,13 @@ class BranchCleanupPlanTest(unittest.TestCase):
 
     def test_slash_branch_is_deleted_only_after_full_recheck(self):
         opener = FakeOpener()
-        result = apply_plan(REPOSITORY, "test-token", inventory(), opener=opener)
-        deletes = [url for method, url, _timeout in opener.requests if method == "DELETE"]
+        push_calls = []
+        result = apply_plan(REPOSITORY, "test-token", inventory(), opener=opener,
+                            pusher=lambda *args: push_calls.append(args),
+                            verifier=lambda *a, **kw: None)
         self.assertEqual([{"branch": "feature/ready", "merged_pr": 42}], result["deleted"])
-        self.assertEqual(1, len(deletes))
-        self.assertTrue(urlparse(deletes[0]).path.endswith("/git/refs/heads/feature/ready"))
+        self.assertEqual([(REPOSITORY, "test-token", "feature/ready", FEATURE_SHA)], push_calls)
+        self.assertFalse(any(method == "DELETE" for method, _url, _timeout in opener.requests))
 
     def test_api_failure_stops_the_batch_without_deleting_candidate(self):
         opener = FakeOpener(fail_path="/pulls/42")
@@ -246,11 +249,73 @@ class BranchCleanupPlanTest(unittest.TestCase):
             for index in range(MAX_CANDIDATES_PER_RUN + 1)
         ]
         result = apply_plan(REPOSITORY, "test-token", inventory(branches, pulls),
-                            opener=BulkRecheckOpener(pulls))
+                            opener=BulkRecheckOpener(pulls),
+                            pusher=lambda *args: None,
+                            verifier=lambda *args, **kwargs: None)
         self.assertEqual(MAX_CANDIDATES_PER_RUN + 1, result["candidate_count"])
         self.assertEqual(MAX_CANDIDATES_PER_RUN, result["processed_count"])
         self.assertEqual(1, result["deferred_count"])
         self.assertEqual(MAX_CANDIDATES_PER_RUN, len(result["deleted"]))
+
+    def test_unknown_open_pr_head_repository_keeps_matching_branch(self):
+        unknown = pull(99, "feature/ready", FEATURE_SHA, state="open", merged_at=None)
+        unknown["head"]["repo"] = None
+        planned = build_plan(inventory(pulls=[pull(42, "feature/ready", FEATURE_SHA), unknown]))
+        self.assertEqual([], planned["candidates"])
+        self.assertEqual(1, planned["skipped"]["open_pr"])
+        opener = FakeOpener(open_pulls=[unknown])
+        pushes = []
+        result = apply_plan(REPOSITORY, "test-token", inventory(), opener=opener,
+                            pusher=lambda *args: pushes.append(args))
+        self.assertEqual([], pushes)
+        self.assertEqual([], result["deleted"])
+        self.assertEqual("open_pr_exists_or_repository_unknown", result["skipped"][0]["reason"])
+
+    def test_remote_advance_after_last_get_blocks_lease_delete(self):
+        opener = FakeOpener()
+        attempts = []
+        def simulated_race(repository, token, branch_name, expected):
+            attempts.append((branch_name, expected))
+            opener.branch_sha = "c" * 40
+            raise RuntimeError("Exact-SHA Git lease deletion rejected or unavailable")
+        result = apply_plan(REPOSITORY, "test-token", inventory(), opener=opener,
+                            pusher=simulated_race)
+        self.assertEqual([("feature/ready", FEATURE_SHA)], attempts)
+        self.assertEqual("c" * 40, opener.branch_sha)
+        self.assertEqual([], result["deleted"])
+        self.assertEqual(1, len(result["failures"]))
+
+    def test_lease_uses_one_ref_exact_sha_without_exposing_token(self):
+        captured = []
+        def mock_git(argv, **kwargs):
+            captured.append((argv, kwargs))
+            return SimpleNamespace(returncode=0)
+        _lease_delete(REPOSITORY, "private-test-token", "feature/ready",
+                      FEATURE_SHA, runner=mock_git)
+        argv, kwargs = captured[0]
+        self.assertEqual(1, len([x for x in argv if x.startswith("--force-with-lease=")]))
+        self.assertIn(f"--force-with-lease=refs/heads/feature/ready:{FEATURE_SHA}", argv)
+        self.assertEqual(":refs/heads/feature/ready", argv[-1])
+        self.assertNotIn("private-test-token", str(argv))
+        self.assertEqual("0", kwargs["env"]["GIT_TRACE"])
+        self.assertTrue(kwargs["capture_output"])
+
+    def test_failed_lease_never_claims_deletion_or_discloses_token(self):
+        def reject(argv, **kwargs):
+            return SimpleNamespace(returncode=1, stderr="private-test-token")
+        with self.assertRaisesRegex(RuntimeError, "rejected") as error:
+            _lease_delete(REPOSITORY, "private-test-token", "feature/ready",
+                          FEATURE_SHA, runner=reject)
+        self.assertNotIn("private-test-token", str(error.exception))
+
+    def test_verification_failure_is_not_counted_as_deletion(self):
+        opener = FakeOpener()
+        def fails(*args, **kwargs):
+            raise RuntimeError("not absent")
+        result = apply_plan(REPOSITORY, "test-token", inventory(), opener=opener,
+                            pusher=lambda *args: None, verifier=fails)
+        self.assertEqual([], result["deleted"])
+        self.assertEqual(1, len(result["failures"]))
 
 
 if __name__ == "__main__":

@@ -6,8 +6,11 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
+import tempfile
 import time
+from pathlib import Path
 from urllib import error, parse, request
 
 
@@ -16,7 +19,7 @@ REPOSITORY_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 BRANCH_PATTERN = re.compile(r"^[^\x00\r\n]+$")
 SHA_PATTERN = re.compile(r"^[0-9a-fA-F]{40}$")
 MAX_PAGES = 20
-MAX_CANDIDATES_PER_RUN = 170
+MAX_CANDIDATES_PER_RUN = 10
 
 
 def _validate_repository(repository: str) -> None:
@@ -220,13 +223,15 @@ def build_plan(inventory: dict) -> dict:
         if branch["protected"]:
             skipped["protected"] += 1
             continue
-        associated = [pull for pull in pulls
-                      if pull.get("head", {}).get("ref") == name
-                      and _same_repository(pull.get("head", {}).get("repo"), repository)]
-        if any(pull.get("state") == "open" for pull in associated):
+        # Missing open-PR repository identity is uncertain; protect this ref.
+        if any(pull.get("state") == "open"
+               and pull.get("head", {}).get("ref") == name
+               and (pull["head"].get("repo") is None
+                    or _same_repository(pull["head"].get("repo"), repository))
+               for pull in pulls):
             skipped["open_pr"] += 1
             continue
-        matching = [pull for pull in associated
+        matching = [pull for pull in pulls
                     if _eligible_pull(pull, repository, default_branch, name, sha)]
         if not matching:
             skipped["no_merged_pr"] += 1
@@ -247,11 +252,9 @@ def _recheck_candidate(repository: str, token: str, candidate: dict, *, opener) 
         return False, "merged_pr_unavailable"
     if not _eligible_pull(pull, repository, default_branch, branch_name, candidate["sha"]):
         return False, "merged_pr_no_longer_proves_branch"
-    owner = repository.split("/", 1)[0]
-    open_url = _api_url(repository, "pulls", state="open", head=f"{owner}:{branch_name}", per_page=100)
-    open_pulls = _api_request(open_url, token, opener=opener)
-    if not isinstance(open_pulls, list) or any(not isinstance(item, dict) for item in open_pulls):
-        return False, "open_pr_check_invalid"
+    # Never filter by head owner: such a filter may hide head.repo=null.
+    open_pulls = _paged_rows(repository, token, "pulls", opener=opener,
+                             max_pages=MAX_PAGES, state="open")
     for item in open_pulls:
         if item.get("state") != "open":
             continue
@@ -262,8 +265,8 @@ def _recheck_candidate(repository: str, token: str, candidate: dict, *, opener) 
                                                or not isinstance(head_repo.get("full_name"), str)))):
             return False, "open_pr_check_invalid"
         if (head.get("ref") == branch_name
-                and _same_repository(head_repo, repository)):
-            return False, "open_pr_exists"
+                and (head_repo is None or _same_repository(head_repo, repository))):
+            return False, "open_pr_exists_or_repository_unknown"
 
     metadata = _api_request(_api_url(repository, ""), token, opener=opener)
     full_name = metadata.get("full_name", repository) if isinstance(metadata, dict) else None
@@ -283,7 +286,60 @@ def _recheck_candidate(repository: str, token: str, candidate: dict, *, opener) 
     return True, ""
 
 
-def apply_plan(repository: str, token: str, inventory: dict, *, opener=None) -> dict:
+def _lease_delete(repository: str, token: str, branch_name: str,
+                  expected_sha: str, *, runner=None) -> None:
+    """Delete one exact Git ref with a remote enforced compare-and-swap."""
+    _validate_repository(repository)
+    if (not isinstance(branch_name, str) or not BRANCH_PATTERN.fullmatch(branch_name)
+            or not isinstance(expected_sha, str) or not SHA_PATTERN.fullmatch(expected_sha)):
+        raise ValueError("Invalid branch or expected commit for lease deletion")
+    ref = f"refs/heads/{branch_name}"
+    with tempfile.TemporaryDirectory(prefix="pesatrack-cleanup-") as directory:
+        askpass = Path(directory) / "git-askpass.sh"
+        askpass.write_text(
+            '#!/bin/sh\ncase "$1" in\n'
+            '  *Username*) printf "%s\\n" "x-access-token" ;;\n'
+            '  *Password*) printf "%s\\n" "$PESATRACK_CLEANUP_GIT_TOKEN" ;;\n'
+            '  *) exit 1 ;;\nesac\n', encoding="utf-8")
+        askpass.chmod(0o700)
+        environment = os.environ.copy()
+        environment.update({
+            "GIT_ASKPASS": str(askpass),
+            "GIT_TERMINAL_PROMPT": "0",
+            "PESATRACK_CLEANUP_GIT_TOKEN": token,
+            "GIT_TRACE": "0",
+            "GIT_CURL_VERBOSE": "0",
+        })
+        command = [
+            "git", "-c", "credential.helper=", "push", "--porcelain",
+            f"--force-with-lease={ref}:{expected_sha}",
+            f"https://github.com/{repository}.git", f":{ref}",
+        ]
+        try:
+            result = (runner or subprocess.run)(
+                command, env=environment, capture_output=True,
+                text=True, timeout=45)
+        except (OSError, subprocess.TimeoutExpired):
+            raise RuntimeError("Lease-checked Git deletion did not finish; result unknown") from None
+        if result.returncode != 0:
+            raise RuntimeError("Exact-SHA Git lease deletion rejected or unavailable")
+
+
+def _verify_ref_absent(repository: str, token: str,
+                       branch_name: str, *, opener) -> None:
+    """Confirm successful Git deletion through GitHub, without relying on logs."""
+    url = _api_url(repository, "branches/" + parse.quote(branch_name, safe=""))
+    try:
+        _api_request(url, token, opener=opener)
+    except RuntimeError as exc:
+        if str(exc).startswith("GitHub API request failed (HTTP 404 at "):
+            return
+        raise RuntimeError(f"Branch verification failed: {exc}") from None
+    raise RuntimeError("Branch is still present after Git lease deletion")
+
+
+def apply_plan(repository: str, token: str, inventory: dict, *, opener=None,
+               pusher=None, verifier=None) -> dict:
     """Recheck each candidate and delete its exact branch ref, stopping on delete errors."""
     _validate_repository(repository)
     _validate_inventory(inventory)
@@ -314,11 +370,13 @@ def apply_plan(repository: str, token: str, inventory: dict, *, opener=None) -> 
             skipped.append({"branch": candidate["branch"], "merged_pr": candidate["merged_pr"],
                             "reason": reason})
             continue
-        ref_path = "git/refs/heads/" + parse.quote(candidate["branch"], safe="/")
         try:
-            _api_request(_api_url(repository, ref_path), token, method="DELETE", opener=api_opener)
+            (pusher or _lease_delete)(repository, token, candidate["branch"],
+                                       candidate["sha"])
+            (verifier or _verify_ref_absent)(
+                repository, token, candidate["branch"], opener=api_opener)
             deleted.append({"branch": candidate["branch"], "merged_pr": candidate["merged_pr"]})
-        except RuntimeError as exc:
+        except (RuntimeError, ValueError) as exc:
             failures.append({"branch": candidate["branch"], "merged_pr": candidate["merged_pr"],
                              "reason": str(exc)})
             break
