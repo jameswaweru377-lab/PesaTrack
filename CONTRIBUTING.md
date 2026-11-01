@@ -20,6 +20,13 @@ Thanks for taking an interest in PesaTrack. Useful bug reports, documentation fe
 5. Open a PR using the [template](.github/PULL_REQUEST_TEMPLATE.md). Link the relevant issue, describe the exact change, and list the tests you actually ran and what remains unverified.
 6. Wait for maintainer review. Passing CI does not replace manual acceptance, and an unmerged PR is not an approved release.
 
+**Statement feature hold:** new bank/PDF support, assurance promotion and
+automatic statement-derived money behavior are paused until the R1 physical
+phone and T1 executed emulator gates are proven on the same signed candidate.
+Existing import correctness/security fixes may still be reviewed on their own
+evidence. Check the [N2 admission rule](docs/acceptance/N2_STATEMENT_FEATURE_GATE.md)
+before proposing new statement scope; a green CI build alone is insufficient.
+
 ## Verification expectations
 
 - Android changes normally require JVM tests, Android lint, and debug APK assembly through the existing CI workflow.
