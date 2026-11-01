@@ -66,6 +66,14 @@ class RestrictedMergePolicyTest(unittest.TestCase):
                 fixture[3] = [{"filename": "docs/tracker/new-note.md", "status": "added"}]
                 self.assertEqual(self.decide(fixture), (False, "task-not-actionable"))
 
+    def test_unattended_merge_requires_unique_issue_owner_claim(self):
+        fixture = list(deepcopy(safe_fixture()))
+        fixture[0]["labels"] = []
+        fixture[1] = []
+        fixture[2]["body"] += "\nChat owner: CHAT-OTHER"
+        fixture[3] = [{"filename": "docs/tracker/new-note.md", "status": "added"}]
+        self.assertEqual(self.decide(fixture), (False, "task-claim-mismatch"))
+
     def test_non_owner_cannot_use_unattended_documentation_lane(self):
         fixture = list(deepcopy(safe_fixture()))
         fixture[0]["user"]["login"] = "another-contributor"
@@ -76,7 +84,9 @@ class RestrictedMergePolicyTest(unittest.TestCase):
 
     def test_ambiguous_claims_cannot_trigger_unattended_merge(self):
         for body in ("Tracks #20\nTracks #21\nChat owner: CHAT-DOCS",
-                     "Tracks #20\nChat owner: CHAT-DOCS\nChat owner: CHAT-OTHER"):
+                     "Tracks #20\nRefs #99\nChat owner: CHAT-DOCS",
+                     "Tracks #20\nChat owner: CHAT-DOCS\nChat owner: CHAT-OTHER",
+                     "Tracks #20\nChat owner: CHAT-DOCS\nChat owner: Unclaimed"):
             fixture = list(deepcopy(safe_fixture()))
             fixture[0]["body"] = body
             fixture[0]["labels"] = []

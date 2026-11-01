@@ -60,7 +60,8 @@ class ReconcileTest(unittest.TestCase):
     def test_docs_auto_acceptance_fails_closed_for_missing_or_revoked_evidence(self):
         cases = ("missing-secrets", "later-secrets-failure", "changed-file", "unknown-file",
                  "device-required", "verification-withdrawn", "incomplete", "history-unlinked",
-                 "open-newer-pr", "cross-issue-link", "owner-mismatch", "unclaimed", "untriaged")
+                 "open-newer-pr", "cross-issue-link", "owner-mismatch", "unclaimed", "untriaged",
+                 "conflicting-status", "unknown-status", "conflicting-device")
         for case in cases:
             with self.subTest(case=case):
                 selected_issue, selected_pr = docs_issue(), docs_pr()
@@ -99,6 +100,12 @@ class ReconcileTest(unittest.TestCase):
                         "Chat owner: CHAT-STATEMENTS", "Chat owner: Unclaimed")
                 elif case == "untriaged":
                     selected_issue["body"] += "\nTask status: Untriaged"
+                elif case == "conflicting-status":
+                    selected_issue["body"] += "\nTask status: Paused\nTask status: In progress"
+                elif case == "unknown-status":
+                    selected_issue["body"] += "\nTask status: something unexpected"
+                elif case == "conflicting-device":
+                    selected_issue["body"] += "\nDevice acceptance: not verified"
                 task = reconcile(snapshot)["tasks"][0]
                 self.assertNotEqual("Verified", task["status"])
                 self.assertNotEqual("none", task["acceptance"]["action"])

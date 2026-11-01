@@ -9,7 +9,7 @@ import os
 import re
 from urllib import error, parse, request
 
-from .models import TASK_STATUS_LINE
+from .models import OWNER_LINE, TRACKS_LINE, task_allows_automation
 
 
 REPOSITORY = "jameswaweru377-lab/PesaTrack"
@@ -106,7 +106,7 @@ def evaluate_candidate(pr: dict, *, main_sha: str, approvals: list, issue: dict,
     if not isinstance(body, str):
         return False, "task-claim-missing"
     task, owner = TASK.search(body), OWNER.search(body)
-    if (len(TASK.findall(body)) != 1 or len(OWNER.findall(body)) != 1
+    if (len(TRACKS_LINE.findall(body)) != 1 or len(OWNER_LINE.findall(body)) != 1
             or not task or not owner or not isinstance(issue, dict)):
         return False, "task-claim-missing"
     issue_body = issue.get("body") or ""
@@ -115,11 +115,10 @@ def evaluate_candidate(pr: dict, *, main_sha: str, approvals: list, issue: dict,
     issue_owner = OWNER.search(issue_body)
     if (issue.get("number") != int(task.group(1)) or issue.get("state") != "open"
             or "pesatrack-tracker" not in _labels(issue) or not issue_owner
+            or len(OWNER_LINE.findall(issue_body)) != 1
             or issue_owner.group(1) != owner.group(1)):
         return False, "task-claim-mismatch"
-    states = {value.casefold() for value in TASK_STATUS_LINE.findall(issue_body)}
-    if len(states) > 1 or states.intersection(
-            {"paused", "blocked", "superseded", "untriaged", "unclaimed"}):
+    if not task_allows_automation(issue_body):
         return False, "task-not-actionable"
     if not isinstance(files, list) or not files or len(files) >= 100:
         return False, "incomplete-files"

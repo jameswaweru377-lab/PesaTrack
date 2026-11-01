@@ -5,8 +5,9 @@ from __future__ import annotations
 from collections import defaultdict
 import re
 
-from .models import (checked_at, device_acceptance, explicit_task_status,
-                     final_verified, issue_pr_refs, owner_from_body, task_refs)
+from .models import (DEVICE_LINE, checked_at, device_acceptance, explicit_task_status,
+                     final_verified, issue_pr_refs, owner_from_body, task_allows_automation,
+                     task_refs)
 from .restricted_merge import _safe_addition
 
 
@@ -19,7 +20,9 @@ def _automatic_docs_acceptance(issue: dict, related: list[dict], checks: list[di
                                snapshot: dict, linked_issues: dict[int, set[int]]) -> bool:
     """Accept only complete, merged, non-executable tracker-doc evidence."""
     body = issue.get("body") or ""
-    if (not isinstance(body, str) or not related or snapshot.get("truncated")
+    if (not isinstance(body, str) or not task_allows_automation(body)
+            or not related or snapshot.get("truncated")
+            or len(DEVICE_LINE.findall(body)) != 1
             or device_acceptance(body) != "not_applicable"
             or WITHDRAWN_VERIFICATION.search(body)):
         return False
