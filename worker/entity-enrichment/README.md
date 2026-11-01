@@ -72,7 +72,11 @@ The Worker may return a category hint, but the Android app remains the final pol
 
 ## GitHub deployment workflow
 
-The repository includes `.github/workflows/entity-enrichment-deploy.yml` for repeatable manual deployment.
+The repository includes `.github/workflows/entity-enrichment-deploy.yml` for
+repeatable deployment. **It runs automatically when Worker source or either
+Wrangler config is changed on `main`**, and can also be started manually using
+`workflow_dispatch`. Merging a Worker PR therefore attempts a live deployment;
+review the configuration and rollout impact before merging.
 
 Repository secrets required by that workflow:
 
@@ -81,7 +85,8 @@ Repository secrets required by that workflow:
 
 Keep `LOGO_DEV_SECRET_KEY` in Cloudflare itself. Do not copy it into the Android build.
 
-Run **Deploy Entity Enrichment Worker** from GitHub Actions and provide the public Worker base URL, for example:
+For a manual redeployment, run **Deploy Entity Enrichment Worker** from GitHub
+Actions. The service exposes a public Worker base URL, for example:
 
 `https://pesatrack.<subdomain>.workers.dev`
 

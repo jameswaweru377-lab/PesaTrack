@@ -35,6 +35,28 @@ const allowedEnv = {
     allowLimiter(),
 };
 
+// GitHub Actions deploys the worker-local config, while Cloudflare Git Builds
+// can deploy from the repository root. Both must bind the same limiters.
+const localWrangler = JSON.parse(readFileSync(
+  new URL("./wrangler.jsonc", import.meta.url),
+  "utf8",
+));
+const rootWrangler = JSON.parse(readFileSync(
+  new URL("../../wrangler.jsonc", import.meta.url),
+  "utf8",
+));
+const limiterDefinitions = (config) =>
+  config.ratelimits
+    .map(({ name, namespace_id, simple }) => ({
+      name, namespace_id, simple,
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+assert(
+  JSON.stringify(limiterDefinitions(rootWrangler)) ===
+    JSON.stringify(limiterDefinitions(localWrangler)),
+  "root and worker-local Wrangler rate-limit bindings must match",
+);
+
 const privacyCorpus = JSON.parse(
   readFileSync(
     new URL(
