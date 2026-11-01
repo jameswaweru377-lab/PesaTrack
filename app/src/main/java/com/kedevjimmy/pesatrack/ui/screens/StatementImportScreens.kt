@@ -65,6 +65,7 @@ private data class StagedBankPdf(
 private data class SuggestedBankPdf(val label: String, val staged: StagedBankPdf)
 
 private const val UNFAMILIAR_BANK_PDF = "UNFAMILIAR_BANK"
+private const val OTHER_BANK_SOURCE = "__PESATRACK_OTHER_BANK_SOURCE__"
 
 private fun readStatement(c:Context,uri:Uri):String {
  val bytes=c.contentResolver.openInputStream(uri)?.use {input->val out=ByteArrayOutputStream();val buffer=ByteArray(8192);while(true){val n=input.read(buffer);if(n<0)break;require(out.size()+n<=StatementCsv.MAX_BYTES){"Choose a CSV smaller than 2 MB."};out.write(buffer,0,n)};out.toByteArray()} ?: error("Could not open the file.")
@@ -73,6 +74,7 @@ private fun readStatement(c:Context,uri:Uri):String {
 @Composable internal fun StatementImportSheet(onDismiss:()->Unit,onChanged:()->Unit,onPaycheckClick:()->Unit = {},statementOnly:Boolean = false,onOpenStatements:(()->Unit)? = null,onBankSaved:((String)->Unit)? = null) {
  val c=LocalContext.current;val store=remember {EverydayMoneyStore(c)};val scope=rememberCoroutineScope()
  var accounts by remember {mutableStateOf<List<MoneyAccount>>(emptyList())};var accountId by rememberSaveable {mutableStateOf("")}
+ var otherBankSource by rememberSaveable {mutableStateOf(false)}
  var rows by remember {mutableStateOf<List<StatementRow>>(emptyList())};var preview by remember {mutableStateOf<List<EverydayMoneyStore.Preview>>(emptyList())}
  var sourcePdfUri by remember {mutableStateOf<Uri?>(null)}
  var sourcePdfProviderKey by remember {mutableStateOf("SAFARICOM_MPESA")}
@@ -243,8 +245,24 @@ private fun readStatement(c:Context,uri:Uri):String {
       Text("01 · Source account",style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
      }
      Text("Select the account that appears on your statement.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-     ChoiceField("Account",accounts.firstOrNull{it.id==accountId}?.name ?: "Choose account",accounts.map {it.id to it.name},!busy&&stagedPdf==null&&stagedBankPdf==null&&sourcePdfUri==null){if(accountId!=it){invalidatePreview();bankAccountNumberDraft="";bankAccountEditingId=null;accountId=it}}
-     if(accountId.isEmpty()) Text("Choose a confirmed account before reviewing transactions.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     ChoiceField("Account",if(otherBankSource) "Other" else accounts.firstOrNull{it.id==accountId}?.name ?: "Choose account",
+      accounts.map {it.id to it.name} + (OTHER_BANK_SOURCE to "Other"),
+      !busy&&stagedPdf==null&&stagedBankPdf==null&&sourcePdfUri==null) { choice ->
+      val nextOther=choice==OTHER_BANK_SOURCE
+      if(otherBankSource!=nextOther || (!nextOther && accountId!=choice)) {
+       invalidatePreview();bankAccountNumberDraft="";bankAccountEditingId=null
+       otherBankSource=nextOther;accountId=if(nextOther) "" else choice
+      }
+     }
+     if(otherBankSource) {
+      ChoiceField("Your bank account",accounts.firstOrNull{it.id==accountId}?.name ?: "Choose bank account",
+       accounts.filter{it.type==AccountType.BANK}.map {it.id to it.name},
+       !busy&&stagedBankPdf==null&&sourcePdfUri==null) { choice ->
+       if(accountId!=choice){invalidatePreview();bankAccountNumberDraft="";bankAccountEditingId=null;accountId=choice}
+      }
+      if(accountId.isEmpty()) Text("Choose a confirmed bank account, or create one in Accounts first.",
+       style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+     } else if(accountId.isEmpty()) Text("Choose a confirmed account before reviewing transactions.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      selectedBankAccount?.let { bank ->
       if(!bankAccountNumberReady || bankAccountEditingId==bank.id) {
        Text("Complete bank account number required for PDF import. Enter the full number printed on your bank statement; the last four digits are not enough.",
@@ -321,13 +339,13 @@ private fun readStatement(c:Context,uri:Uri):String {
       if(onOpenStatements!=null) OutlinedButton(onClick={onDismiss();onOpenStatements()},enabled=!busy,
        modifier=Modifier.fillMaxWidth().heightIn(48.dp)){Text("Open Statements")}
      }
-     OutlinedButton(onClick={sourcePdfProviderKey="SAFARICOM_MPESA";statementPdfPicker.launch(arrayOf("application/pdf"))},
+     if(!otherBankSource) OutlinedButton(onClick={sourcePdfProviderKey="SAFARICOM_MPESA";statementPdfPicker.launch(arrayOf("application/pdf"))},
       enabled=!busy&&accounts.any{it.id==accountId&&it.type==AccountType.MOBILE_WALLET},
       modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
       Icon(Icons.Rounded.PictureAsPdf,null);Spacer(Modifier.width(8.dp));Text("Choose M-Pesa PDF")
      }
      if(accounts.any{it.id==accountId&&it.type==AccountType.BANK}) {
-      StatementSourceProfileRegistry.importableBankProfiles().forEach { profile ->
+      if(!otherBankSource) StatementSourceProfileRegistry.importableBankProfiles().forEach { profile ->
        OutlinedButton(onClick={sourcePdfProviderKey=profile.providerKey;statementPdfPicker.launch(arrayOf("application/pdf"))},
         enabled=!busy&&bankAccountNumberReady,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){
         Icon(Icons.Rounded.AccountBalance,null);Spacer(Modifier.width(8.dp));Text("Choose ${profile.label} PDF")
