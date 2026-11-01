@@ -49,6 +49,7 @@ object MoreVisualTokens {
     val rowDivider = Color(0xFFE4E5F2)
     val crownGold = Color(0xFFFFD34B)
 
+    val dividerStroke = .7.dp
     val space1 = 1.dp
     val waveStroke = 1.3.dp
     val space2 = 2.dp
