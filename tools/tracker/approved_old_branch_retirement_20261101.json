@@ -1,0 +1,218 @@
+{
+  "repository": "jameswaweru377-lab/PesaTrack",
+  "approved_issue": 528,
+  "cutoff_tip_date": "2026-10-02",
+  "archive_prefix": "archive/retired-20261101",
+  "candidates": [
+    {
+      "branch": "feature/progressive-onboarding-rule-learning",
+      "sha": "afeb2297107f971ae3567ea3edd38c85458c8682",
+      "tip_date": "2026-09-27"
+    },
+    {
+      "branch": "ui/premium-activity",
+      "sha": "93ccb9de93db60e917d59bc6b0620ad424498e2a",
+      "tip_date": "2026-09-27"
+    },
+    {
+      "branch": "feature/generic-debt-events",
+      "sha": "90fda9f7823c5df74456d6a3109a97c9bf8e6cc4",
+      "tip_date": "2026-09-27"
+    },
+    {
+      "branch": "feature/generic-debt-store-core",
+      "sha": "b69a688e148e0c79c3e986b93e43b9923b0038ff",
+      "tip_date": "2026-09-27"
+    },
+    {
+      "branch": "feature/generic-reversal-events",
+      "sha": "107f21eded66315dc229fc98baeb6401c0a1df23",
+      "tip_date": "2026-09-28"
+    },
+    {
+      "branch": "feature/retire-legacy-mpesa-parser",
+      "sha": "b13d570584284e6cfa2ad5bc1344446066a1413d",
+      "tip_date": "2026-09-28"
+    },
+    {
+      "branch": "feature/local-account-learning-context",
+      "sha": "d42a90ba6fa96cc288ff2680f2fb7a7c138b7c41",
+      "tip_date": "2026-09-28"
+    },
+    {
+      "branch": "feature/generic-unresolved-ledger-boundary",
+      "sha": "cdf9455f71533c3600c1a840dbd13dac0163e4b8",
+      "tip_date": "2026-09-28"
+    },
+    {
+      "branch": "feature/sanitized-online-entity-enrichment",
+      "sha": "89fea8031e3699d668aba7d1dc504941ab28a3ce",
+      "tip_date": "2026-09-29"
+    },
+    {
+      "branch": "docs/cloudflare-incident-handoff",
+      "sha": "7ae757f93cdb2f336504a8fb30f977fcce00da3d",
+      "tip_date": "2026-09-29"
+    },
+    {
+      "branch": "feature/liability-payment-bridge-activation",
+      "sha": "cc8b646c955e3360d780d6899e44346ff5bf85e3",
+      "tip_date": "2026-09-30"
+    },
+    {
+      "branch": "fix/cashflow-v2-ownership-hardening",
+      "sha": "c891de6e8c00d67abe5efab7e28fd9918cef2167",
+      "tip_date": "2026-09-30"
+    },
+    {
+      "branch": "fix/mshwari-onboarding-identity-salary",
+      "sha": "ee15c444f69b1c3c17fcb9743daef66ba26b8c41",
+      "tip_date": "2026-10-01"
+    },
+    {
+      "branch": "fix/onboarding-account-identity-mshwari",
+      "sha": "d1689a1c330e0731b126b2bcc566a23edccfe9df",
+      "tip_date": "2026-10-01"
+    },
+    {
+      "branch": "fix/onboarding-mshwari-identity",
+      "sha": "8869ca49a0040f5f97f54e17ef1a977eda39556a",
+      "tip_date": "2026-10-01"
+    },
+    {
+      "branch": "feature/brain-v3-identity-graph-foundation",
+      "sha": "0e08bf58696d039752d4273078afd98dcaaf51d6",
+      "tip_date": "2026-10-01"
+    },
+    {
+      "branch": "feature/brain-v3-identity-graph-v1",
+      "sha": "c1b1b954286cde0f3aebc5f390a83b22a1d7f300",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/brain-v3-personal-learning-evidence-v2",
+      "sha": "f645d9e0ca3daa416ff351329db7791148f9b3c4",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "fix/brain-v3-personal-learning-evidence-v2-main",
+      "sha": "bda34bc433e8e211802776f2ec69aa4256e353ca",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-bank-sacco-coverage-v3",
+      "sha": "d42d51bb75003177e43875e1d4c4364df5951c0c",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-bank-app-notifications-v3",
+      "sha": "3504d4631b7d3ec1801f50d33699bc941a2a97ab",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-financial-identity-pack-v4",
+      "sha": "139075a64d9bbc6c850668af90a1492c60535866",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-source-aware-message-pack-v3",
+      "sha": "538c3b3b4086cd1d7d213b00e0be7422b9faf0b4",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-source-aware-message-pack-v3-rebased",
+      "sha": "538c3b3b4086cd1d7d213b00e0be7422b9faf0b4",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-bank-app-notifications-v3-main",
+      "sha": "c7e77947da96c4b97b5211d8f428ab2f79a9e41e",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-bank-app-notifications-v3-rebased2",
+      "sha": "c7e77947da96c4b97b5211d8f428ab2f79a9e41e",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-financial-identity-pack-v5-rebased",
+      "sha": "8d77cdfb6cef5ca99d9dc2f8b560590cc1292b68",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-bank-app-capture-v4",
+      "sha": "a498edcce0ae5832f4ea23cfe81e53863089eddf",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-digital-lender-sources-v9",
+      "sha": "f320adcfe6e662c6020d388f156449467d2dfe69",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-source-drilldown-v9-rebased",
+      "sha": "e8d02d6c30c681cc6769c5a1de2d7fcd849f2d1a",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-source-drilldown-v9-rebased2",
+      "sha": "bbcb6d5a3e26e0c68095c4223fc3cbfa32b5600d",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-standard-family-app-source-v11",
+      "sha": "4588ff9bb3a0a8f8efa124b8f343e44495bfe4a3",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-source-drilldown-v9-rebased3",
+      "sha": "b160d2183d995c2c50467919295d4070adfa03ce",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-timiza-app-source-v12",
+      "sha": "0b069d5d7ea9bfc78ba05011c178c2947d6ae8f3",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-timiza-app-source-v12-rebased",
+      "sha": "c76d1b7a792ef66bcd08ec5049cfbd1cdd494304",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-wallet-fintech-corpus-v14",
+      "sha": "fd547d061a84c2fc9a141fb53ac534989ad1e1dd",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-timiza-app-source-v12-rebased2",
+      "sha": "7e2c1e255171ea14cb86d290cfacd19fa7311dcb",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-lender-debt-bridge-v14-rebased",
+      "sha": "7babd977f1e30ddd492e241245fac72eda827c58",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-split-debt-savings-v16",
+      "sha": "93c74589cf8507224dc172027c60de73c7e228d3",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-kashbean-source-v17",
+      "sha": "9aa52a7884248f6f57568b48e8cc17209fdf5de4",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-core-fixture-depth-v17-rebased",
+      "sha": "525cbfc476ed2183431d0f042fa531dff533f9b0",
+      "tip_date": "2026-10-02"
+    },
+    {
+      "branch": "feature/phase6-accounts-investments-v18",
+      "sha": "544609bd888b7e395de9ccc44d4a561e4183423e",
+      "tip_date": "2026-10-02"
+    }
+  ]
+}
