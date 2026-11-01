@@ -230,6 +230,24 @@ internal fun StatementMatchReviewContent(
                     MatchEvidenceLines(listOf(possible.outgoing, possible.incoming), labels)
                 }
             }
+            val possibleCopies = snapshot?.possibleCopies.orEmpty()
+            if (possibleCopies.isNotEmpty()) item {
+                Text("Other possible copies to check", color = p.ink,
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("These records are currently assigned to the same account and have the same amount and nearby dates. Check that the originals belong to this account; they may still be separate movements.",
+                    color = p.muted, style = MaterialTheme.typography.bodyMedium)
+            }
+            items(possibleCopies) { possible ->
+                val row = possible.rows.first()
+                StatementInsightCard {
+                    Text(matchReviewMoney(kotlin.math.abs(row.movementMinor), row.currency),
+                        color = p.ink, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(labels[row.accountId] ?: "Account", color = p.ink, fontWeight = FontWeight.SemiBold)
+                    Text("Separate records, same direction. Check the originals before deciding.",
+                        color = p.muted, style = MaterialTheme.typography.bodySmall)
+                    MatchEvidenceLines(possible.rows, labels)
+                }
+            }
             val mentions = snapshot?.accountMentions.orEmpty()
             if (mentions.isNotEmpty()) item {
                 Text("Account mentions to check", color = p.ink,
