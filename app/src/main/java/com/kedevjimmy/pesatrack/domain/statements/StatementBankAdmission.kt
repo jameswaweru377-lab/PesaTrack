@@ -13,10 +13,14 @@ data class StatementDocumentProof(
     val printedPageTotals: Map<Int, StatementPrintedTotal>,
     val printedGrandTotal: StatementPrintedTotal?,
     val openingBalanceMinor: Long?,
-    val assurance: StatementDocumentAssurance = StatementDocumentAssurance.FULL
+    val assurance: StatementDocumentAssurance = StatementDocumentAssurance.FULL,
+    /** Independently read from the printed Total footer, never inferred from the final row. */
+    val printedClosingBalanceMinor: Long? = null
 )
 
-enum class StatementDocumentAssurance { FULL, GRAND_TOTAL_AND_CHAIN_ONLY }
+enum class StatementDocumentAssurance {
+    FULL, GRAND_TOTAL_AND_CHAIN_ONLY, VERIFIED_DERIVED_OPENING
+}
 
 data class StatementPrintedTotal(
     val moneyOutMinor: Long,
@@ -49,8 +53,37 @@ sealed class StatementAdmissionResult {
 
 /** Strict separate boundary between readable banking evidence and saved bank history. */
 object StatementBankAdmission {
+    const val DERIVED_OPENING_ARCHIVE_FORMAT = "PDF_EQUITY_VERIFIED_DERIVED_OPENING"
     private val identityChars = Regex("[^A-Z0-9]")
     private fun identity(value: String): String = value.uppercase().replace(identityChars, "")
+
+    /** Both ends must prove the same nonprinted opening; then replay the oldest row. */
+    private fun verifiedDerivedOpening(
+        document: StatementDocumentProof, accepted: StatementTableResult.Accepted,
+        pages: List<StatementTablePage>, profile: StatementSourceProfile
+    ): Long? {
+        val closing = document.printedClosingBalanceMinor ?: return null
+        if (closing < 0L || accepted.legs.size < 2 ||
+            accepted.legs.zipWithNext().any { (a, b) -> a.occurredAt > b.occurredAt }) return null
+        val derived = try {
+            val first = accepted.legs.first()
+            val last = accepted.legs.last()
+            if (closing != last.runningBalanceMinor) return null
+            val fromFirst = Math.subtractExact(first.runningBalanceMinor, first.movementMinor)
+            val printed = document.printedGrandTotal ?: return null
+            val net = Math.subtractExact(printed.moneyInMinor, printed.moneyOutMinor)
+            val fromFooter = Math.subtractExact(closing, net)
+            if (fromFirst != fromFooter || fromFirst < 0L) return null
+            fromFirst
+        } catch (_: ArithmeticException) { return null }
+        val replay = UniversalStatementTableInterpreter.interpret(
+            pages, openingBalanceMinor = derived, profile = profile.table
+        ) as? StatementTableResult.Accepted ?: return null
+        return derived.takeIf {
+            !replay.oldestLegUnanchored && replay.legs == accepted.legs &&
+                replay.sourceRows == accepted.sourceRows
+        }
+    }
 
     fun verify(
         profile: StatementSourceProfile?,
@@ -77,28 +110,31 @@ object StatementBankAdmission {
         if (document.currency != profile.currency) return block(StatementAdmissionResult.Reason.UNKNOWN_CURRENCY)
         if (document.format !in profile.sampleValidatedFormats)
             return block(StatementAdmissionResult.Reason.UNVERIFIED_FORMAT)
-        val limited = document.assurance == StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY
-        if (limited && profile.providerKey != "KENYAN_BANK_EQUITY")
+        val derivedOpening = document.assurance == StatementDocumentAssurance.VERIFIED_DERIVED_OPENING
+        val unanchored = derivedOpening ||
+            document.assurance == StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY
+        if (unanchored && profile.providerKey != "KENYAN_BANK_EQUITY")
             return block(StatementAdmissionResult.Reason.UNVERIFIED_FORMAT)
         if (!document.allSourceRegionsAccountedFor || document.pages !in 1..160)
             return block(StatementAdmissionResult.Reason.INCOMPLETE_DOCUMENT)
         val financialPages = pages.map { it.pageNumber }.toSet()
         if (financialPages.isEmpty() || financialPages.any { it !in 1..document.pages })
             return block(StatementAdmissionResult.Reason.INCOMPLETE_DOCUMENT)
-        if (limited && (financialPages != (1..document.pages).toSet() ||
+        if (unanchored && (financialPages != (1..document.pages).toSet() ||
                 document.openingBalanceMinor != null || document.printedPageTotals.isNotEmpty()))
             return block(StatementAdmissionResult.Reason.INCOMPLETE_DOCUMENT)
         val accepted = UniversalStatementTableInterpreter.interpret(
             pages, openingBalanceMinor = document.openingBalanceMinor, profile = profile.table
         ) as? StatementTableResult.Accepted
             ?: return block(StatementAdmissionResult.Reason.UNVERIFIED_BALANCE)
-        if (accepted.oldestLegUnanchored != limited || accepted.sourceRows != accepted.legs.size ||
+        if (accepted.oldestLegUnanchored != unanchored || accepted.sourceRows != accepted.legs.size ||
             accepted.legs.isEmpty() || accepted.legs.any { it.pageNumber !in 1..document.pages })
             return block(StatementAdmissionResult.Reason.UNVERIFIED_BALANCE)
         if (!financialPages.containsAll(document.printedPageTotals.keys))
             return block(StatementAdmissionResult.Reason.INCOMPLETE_DOCUMENT)
-        if (document.printedGrandTotal == null &&
-            (limited || document.printedPageTotals.keys != financialPages))
+        if ((document.printedGrandTotal == null &&
+                (unanchored || document.printedPageTotals.keys != financialPages)) ||
+            (derivedOpening && document.printedClosingBalanceMinor == null))
             return block(StatementAdmissionResult.Reason.MISSING_PRINTED_TOTALS)
         val actualIn = runCatching { accepted.legs.filter { it.movementMinor > 0 }
             .fold(0L) { total, leg -> Math.addExact(total, leg.movementMinor) } }.getOrNull()
@@ -121,9 +157,14 @@ object StatementBankAdmission {
             if (pageIn != pageTotal.moneyInMinor || pageOut != pageTotal.moneyOutMinor)
                 return block(StatementAdmissionResult.Reason.TOTAL_MISMATCH)
         }
+        val opening = if (derivedOpening) {
+            verifiedDerivedOpening(document, accepted, pages, profile)
+                ?: return block(StatementAdmissionResult.Reason.UNVERIFIED_BALANCE)
+        } else document.openingBalanceMinor
         return StatementAdmissionResult.Accepted(
-            selectedAccount.id, ownedIdentity, profile, document.format,
-            document.openingBalanceMinor, accepted.legs, accepted.sourceRows,
+            selectedAccount.id, ownedIdentity, profile,
+            if (derivedOpening) DERIVED_OPENING_ARCHIVE_FORMAT else document.format,
+            opening, accepted.legs, accepted.sourceRows,
             actualIn, actualOut, document.assurance
         )
     }

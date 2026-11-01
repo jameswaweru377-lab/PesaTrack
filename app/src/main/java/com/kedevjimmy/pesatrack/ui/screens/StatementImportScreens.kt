@@ -200,6 +200,8 @@ private fun readStatement(c:Context,uri:Uri):String {
      stagedBankPdf=staged
      done=if(accepted.assurance==StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY)
        "All rows, adjacent balances and the final printed totals reconcile. The opening balance and page totals are unavailable; review this limited-assurance statement before saving."
+     else if(accepted.assurance==StatementDocumentAssurance.VERIFIED_DERIVED_OPENING)
+       "The printed grand totals, closing balance and every source row reconcile. The opening balance was calculated and checked from both ends, not printed. Review this verified Equity statement before saving."
      else "This bank statement passed full local extraction, account, balance and totals checks. Review its rows before saving."
     }
    }catch(e:CancellationException){throw e}
@@ -469,9 +471,12 @@ private fun readStatement(c:Context,uri:Uri):String {
   }
   stagedBankPdf?.let { ready ->
    val limited = ready.admitted.assurance==StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY
+   val derived = ready.admitted.assurance==StatementDocumentAssurance.VERIFIED_DERIVED_OPENING
    item { PesaCard {
     Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(9.dp)) {
-     Text(if(limited)"Grand-total reconciled bank statement" else "Verified bank statement",
+     Text(if(limited)"Grand-total reconciled bank statement"
+       else if(derived)"Verified Equity statement · calculated opening"
+       else "Verified bank statement",
       style=MaterialTheme.typography.titleMedium,fontWeight=FontWeight.SemiBold)
      Text("${ready.parsed.document.pages} PDF pages · ${ready.admitted.sourceRows} locally reconciled cash movements")
      Text("Money in ${toolMoney(ready.admitted.moneyInMinor)} · Money out ${toolMoney(ready.admitted.moneyOutMinor)}")
@@ -479,11 +484,14 @@ private fun readStatement(c:Context,uri:Uri):String {
       style=MaterialTheme.typography.bodySmall)
      Text(if(limited)
        "Account identity, every adjacent running balance and the final printed Money In/Out totals match. No independently printed opening balance or page totals are available. You can review this PDF's cash movements separately in Statements, but they remain outside fully verified reports, combined totals, Activity and automatic matching."
+      else if(derived)
+       "Every cash row, adjacent running balance, printed Money In/Out grand total and final printed balance match. The opening balance was calculated from both ends of this complete statement, not independently printed. These verified cash movements can appear in Statements reports; they do not create Activity entries or automatically classify income, spending or transfers."
       else "The account identity, opening balance, every running balance and printed totals were checked locally. Money out is not automatically spending; unknown categories remain unknown.",
       style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
      Row(verticalAlignment=Alignment.CenterVertically) {
       Checkbox(checked=statementPdfApproved,onCheckedChange={statementPdfApproved=it},enabled=!busy)
       Text(if(limited)"I understand the grand totals reconciled, but the opening balance was not independently printed. Save to Statements only, outside fully verified totals and Activity."
+        else if(derived)"I reviewed the source. Its opening balance was calculated from checked bank figures. Save to verified Statements only, never to Activity."
         else "I reviewed the source rows. Save only to Statements, never to Activity.",
        Modifier.weight(1f),style=MaterialTheme.typography.bodySmall)
      }
@@ -494,10 +502,11 @@ private fun readStatement(c:Context,uri:Uri):String {
         val saved=withContext(Dispatchers.IO) {
          StatementBankArchiveStore(c).save(ready.admitted,ready.parsed.tables)
         }
-        done=if(saved.added) if(limited)
-           "Saved grand-total reconciled bank evidence separately. Fully verified totals and Activity were not changed."
-          else "Saved this verified bank statement. Activity was not changed."
-          else "This statement is already saved; no duplicate was created."
+        done=if(saved.added) when {
+          limited -> "Saved grand-total reconciled bank evidence separately. Fully verified totals and Activity were not changed."
+          derived -> "Saved verified Equity cash movements with a checked calculated opening. Activity was not changed."
+          else -> "Saved this verified bank statement. Activity was not changed."
+        } else "This statement is already saved; no duplicate was created."
         stagedBankPdf=null;statementPdfApproved=false
         onBankSaved?.invoke(ready.admitted.accountId)
         onChanged();onDismiss()

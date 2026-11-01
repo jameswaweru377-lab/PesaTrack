@@ -216,6 +216,26 @@ or automatic matching. The separate archive, local safeguards, database schema
 and backup format are unchanged. Kotlin Android CI, emulator and physical Redmi
 acceptance are not yet claimed by this note.
 
+_Historical Equity calculated-opening verification (1 November 2026; Android CI/device acceptance pending):_
+The narrowly recognized 14-page graphical-header Equity format provides an
+independently printed final balance and grand Credit/Debit totals even though
+no separate opening balance or page totals are printed. A new distinct
+`VERIFIED_DERIVED_OPENING` admission tier requires every PDF page and dated row,
+correct issuer/account/currency, all adjacent running balances, both printed
+cash grand totals, the printed closing balance and two matching calculations
+of the opening balance (from the first row and from the final footer). It then
+replays all rows against that calculated opening. The source provenance stays
+explicit: **the opening was calculated, not independently printed**, and the
+locally checked PDF layout does not cryptographically authenticate the issuer.
+Only this verified source format enters existing verified Statements cash-flow
+reports; no rows enter Activity, automatic spending categories or transfers.
+The pre-existing limited-assurance archive remains intact. Reimporting the
+original PDF with consent creates a verified source, hides only the exact
+previous limited copy from the account view, and preserves its stored evidence.
+This tier is not a blanket waiver for other bank files, and no existing saved
+limited source is automatically promoted. The database and backup schemas are
+unchanged; emulator and physical-device acceptance are still required.
+
 _Profile refinement (30 October 2026; branch review, CI and device checks pending):_
 The approved Profile hierarchy retains the purple hero and local-only identity while
 removing duplicate financial mini-stats, Financial overview and More settings.

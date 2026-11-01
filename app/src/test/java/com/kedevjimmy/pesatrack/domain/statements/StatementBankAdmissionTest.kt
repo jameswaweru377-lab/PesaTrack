@@ -162,4 +162,46 @@ class StatementBankAdmissionTest {
             (admit(proof = limited.copy(detectedProviderKey = "KENYAN_BANK_KCB"))
                 as StatementAdmissionResult.Blocked).reason)
     }
+
+    private val derivedPages get() = pages.map { page -> page.copy(rows = listOf(
+        listOf("01-09-2026", "", "Invented deposit", "", "50.00", "50.57 Cr"),
+        listOf("02-09-2026", "", "Invented charge", "20.00", "", "30.57 Cr")
+    )) }
+
+    private val derivedProof get() = document.copy(
+        assurance = StatementDocumentAssurance.VERIFIED_DERIVED_OPENING,
+        openingBalanceMinor = null, printedPageTotals = emptyMap(),
+        printedClosingBalanceMinor = 3_057L
+    )
+
+    @Test fun printedClosingAndBothIndependentOpeningDerivationsAdmitVerifiedEquity() {
+        val accepted = admit(proof = derivedProof, sourcePages = derivedPages)
+            as StatementAdmissionResult.Accepted
+        assertEquals(StatementDocumentAssurance.VERIFIED_DERIVED_OPENING, accepted.assurance)
+        assertEquals(57L, accepted.openingBalanceMinor)
+        assertEquals(StatementBankAdmission.DERIVED_OPENING_ARCHIVE_FORMAT, accepted.documentFormat)
+        assertEquals(5_000L, accepted.moneyInMinor)
+        assertEquals(2_000L, accepted.moneyOutMinor)
+    }
+
+    @Test fun derivedOpeningVerificationFailsClosedForMissingOrContradictoryEvidence() {
+        assertEquals(StatementAdmissionResult.Reason.MISSING_PRINTED_TOTALS,
+            (admit(proof = derivedProof.copy(printedClosingBalanceMinor = null),
+                sourcePages = derivedPages) as StatementAdmissionResult.Blocked).reason)
+        assertEquals(StatementAdmissionResult.Reason.UNVERIFIED_BALANCE,
+            (admit(proof = derivedProof.copy(printedClosingBalanceMinor = 3_058L),
+                sourcePages = derivedPages) as StatementAdmissionResult.Blocked).reason)
+        assertEquals(StatementAdmissionResult.Reason.INCOMPLETE_DOCUMENT,
+            (admit(proof = derivedProof.copy(pages = 2),
+                sourcePages = derivedPages) as StatementAdmissionResult.Blocked).reason)
+        assertEquals(StatementAdmissionResult.Reason.INCOMPLETE_DOCUMENT,
+            (admit(proof = derivedProof.copy(printedPageTotals = document.printedPageTotals),
+                sourcePages = derivedPages) as StatementAdmissionResult.Blocked).reason)
+        assertEquals(StatementAdmissionResult.Reason.INCOMPLETE_DOCUMENT,
+            (admit(proof = derivedProof.copy(openingBalanceMinor = 57L),
+                sourcePages = derivedPages) as StatementAdmissionResult.Blocked).reason)
+        assertEquals(StatementAdmissionResult.Reason.TOTAL_MISMATCH,
+            (admit(proof = derivedProof.copy(printedGrandTotal = StatementPrintedTotal(2_001, 5_000)),
+                sourcePages = derivedPages) as StatementAdmissionResult.Blocked).reason)
+    }
 }
