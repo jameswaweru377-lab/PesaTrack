@@ -14,8 +14,8 @@ The task status is separate from the PR status, CI status and physical-device ac
 | Unclaimed | Accepted task with no active chat owner |
 | Claimed / In progress | A chat has claimed scope and is working on it |
 | PR open / CI failed / CI passed | Code or documentation is proposed, still not necessarily merged |
-| Merged — needs acceptance | GitHub merged the PR; required human/device/deployment validation remains |
-| Verified | All acceptance evidence is recorded |
+| Merged — needs acceptance | GitHub merged the PR; required automatic, device or deployment validation is still missing |
+| Verified | All applicable acceptance evidence is recorded or independently established by the narrow tracker-docs policy |
 | Blocked / Paused / Superseded | Explicit reason; never silently label fixed |
 
 An issue should record: source, severity (P0–P3), area, acceptance checks, chat owner alias, affected paths, PR links, base/head/merge SHAs, CI run and conclusion, real-device/deployment evidence, last checked time, and remaining risk. A **green CI build alone does not prove physical-device backup restore or a financial import**.
@@ -26,7 +26,7 @@ An issue should record: source, severity (P0–P3), area, acceptance checks, cha
 2. In the PR body put `Tracks #<issue>`, `Chat owner: CHAT-<TOPIC>`, affected paths and the CI/device evidence. Do not use an automatic `Closes #` keyword: merging must not close a task that still needs phone acceptance.
 3. After each CI or merge event, run the lightweight read-only tracker report. A missing result means **unknown**, not passed. It must not build Android, publish APKs, merge PRs, delete branches or auto-close Issues.
 4. Use the guarded audit-import **preview** before adding historical findings. Deduplicate by source audit ID, linked PR and existing Issues. Unverified historical suggestions stay Untriaged.
-5. Manually mark Verified only after all applicable gates are evidenced. Unverified Redmi testing is recorded explicitly.
+5. Mark Verified only after all applicable gates are evidenced. A merged tracker-documentation-only task may advance automatically under the policy below; unverified Redmi testing never does.
 
 The checked-in reconciler defaults to **dry run/read only**. Synchronizing issue metadata or applying historical imports requires a separate reviewed approval, the least-privilege token, and a human-checked target list. The GitHub Project board is only a view; GitHub Issues remain authoritative.
 
@@ -40,13 +40,41 @@ The lightweight **Development Tracker (Read-only)** workflow refreshes after lab
 
 Each ChatGPT/Codex chat must explicitly edit the canonical Issue to claim its task. A GitHub workflow cannot know whether a ChatGPT tab is currently active. The report distinguishes human `Task status: Untriaged/Paused` decisions, the recorded `Chat owner: CHAT-...` alias, open PRs not linked to approved Issues, PR overlap, and exact-commit CI. An auto-merge label is shown as *requested, gates unverified*; the restricted merge workflow still independently requires James's approval and its GitHub App token. The progress counts come from registered Issues, not inferred chat activity. The tracker does not create Issues or approve merges.
 
-## Restricted safe auto-merge (opt-in, off by default)
+## Unattended documentation lane and restricted safe auto-merge
 
-The separate **PesaTrack Restricted Safe Auto-Merge** workflow can recover a forgotten, already approved PR **only** when every safeguard passes. It never reads ChatGPT conversations. Its evidence comes from the PR, linked tracker Issue, current `main`, overlapping PRs and exact-commit CI results.
+The separate **PesaTrack Restricted Safe Auto-Merge** workflow has two narrowly
+bounded lanes. It never reads ChatGPT conversations. Its evidence comes from the
+PR, linked tracker Issue, current `main`, overlapping PRs and exact-commit CI.
 
-**Scope:** only entirely new `docs/tracker/*.md` files or entirely new `tools/tracker/tests/*.py` files. Existing-file edits, Android tests, app code, financial rules, workflows, security, migrations and releases remain manual. A stale branch, conflicting PR, missing required check or unknown state is never merged.
+**Unattended tracker-docs lane:** a PR opened by repository owner
+`jameswaweru377-lab` containing **only entirely new** `docs/tracker/*.md` files
+may be merged without a fresh approval comment or `pesatrack-safe-automerge`
+label. It must still have a non-draft same-repository head, one exact `Tracks #N`
+line, one matching `Chat owner: CHAT-...` Issue claim, current main base and merge
+base, no file overlaps, successful exact-head Android CI and PR-secrets runs,
+   and a separately credentialed GitHub App merge workflow. It rechecks
+all of these immediately before one merge. Executable `.py` tests, existing-file
+edits and all app/workflow/security/financial/release changes are **excluded**.
 
-**Owner opt-in for an individual PR:**
+**Automated acceptance:** a merged documentation-only task is `Verified`
+without a manual `Final verification: verified` line only if its Issue says
+`Device acceptance: not applicable`, all associated PRs have complete added-only
+tracker-documentation file evidence, Android CI **and** PR Secrets passed for
+every exact head, no newer open PR remains, and no explicit withdrawal, blocked
+or paused state is present. If old closed-PR history is capped, the Issue must
+explicitly name all related PRs (`Related PRs: #N`). CI cannot certify an
+Android phone or financial feature; these still need real acceptance evidence.
+The summary now shows bounded next-action codes for stale branches, failed CI
+and missing evidence. It does not automatically invent a code fix or close an
+Issue. Unverified work is left visible for an independent repair agent.
+
+**Legacy owner-approved scope:** entirely new `docs/tracker/*.md` files or
+entirely new `tools/tracker/tests/*.py` files. Existing-file edits, Android
+tests, app code, financial rules, workflows, security, migrations and releases
+remain outside this merge worker. A stale branch, conflicting PR, missing
+required check or unknown state is never merged.
+
+**Owner opt-in for an individual PR outside the unattended docs lane:**
 
 1. Link an **open** Issue labeled `pesatrack-tracker`. Put matching `Tracks #<issue number>` and `Chat owner: CHAT-<ALIAS>` lines in the PR, and `Chat owner: CHAT-<ALIAS>` in the Issue. Keep the PR open, non-draft and current with `main`.
 2. Once satisfied with the exact commit, add label `pesatrack-safe-automerge` to that PR.
@@ -60,9 +88,23 @@ The separate **PesaTrack Restricted Safe Auto-Merge** workflow can recover a for
 
 1. Create a dedicated GitHub App, installed **only** for `jameswaweru377-lab/PesaTrack`, with **Contents: read and write** (GitHub requires write to merge), **Issues: read**, **Actions: read**, and **Pull requests: read**. Do not grant access to unrelated repositories. The App has broader repository write authority than the bot's allowed paths, so protect its private key carefully.
 2. Under repository **Settings → Secrets and variables → Actions**, set variable `PESATRACK_SAFE_AUTOMERGE_CLIENT_ID` to the App's Client ID, and secret `PESATRACK_SAFE_AUTOMERGE_PRIVATE_KEY` to its private key. Never paste the key into a chat, Issue or PR.
-3. After reviewing this workflow on `main`, explicitly set repository variable `PESATRACK_SAFE_AUTOMERGE_ENABLED` to `true`. It is absent/disabled by default. Remove or set it to `false` to stop all future auto-merges.
+3. Explicitly set repository variable `PESATRACK_SAFE_AUTOMERGE_ENABLED` to
+   `true` for the existing guarded worker, and the **separate** variable
+   `PESATRACK_UNATTENDED_DOCS_ENABLED` to `true` for owner-authored new-doc
+   PRs without per-PR approval. Both default to disabled. Remove either
+   value or set it to `false` to stop that lane. Missing App credentials skip
+   merges with a warning; no secret is printed. These are one-time repository
+   permissions, not per-PR acceptance prompts. Existing-file edits and all
+   sensitive Android changes remain excluded.
 
-The automated check runs after Android CI completion, hourly as a fallback, and when manually dispatched. **It merges at most one PR per run** after revalidating the approval, branch head, checks and current `main`. It uses the GitHub App token instead of `GITHUB_TOKEN`, preserving the normal `main` push event that publishes signed APKs. View each result under **Actions → PesaTrack Restricted Safe Auto-Merge**; the existing hourly read-only tracker remains unchanged. No historical PR is opted in automatically.
+The automated check runs after Android CI completion, hourly as a fallback,
+and when manually dispatched. **It merges at most one PR per run** after
+revalidating either the unattended docs criteria or the explicit owner approval,
+branch head, checks and current `main`. It uses the GitHub App token instead
+of `GITHUB_TOKEN`, preserving the normal `main` push event that publishes signed
+APKs. View each result under **Actions → PesaTrack Restricted Safe Auto-Merge**;
+the existing hourly tracker remains unchanged. Old unlinked or overlapping PRs
+do not become eligible by historical presence alone.
 
 ## GitHub Project setup and maintenance
 

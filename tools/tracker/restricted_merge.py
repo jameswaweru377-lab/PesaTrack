@@ -1,4 +1,4 @@
-"""Fail-closed, owner-opted-in auto-merge policy for addition-only tracker work."""
+"""Fail-closed tracker auto-merge, with an owner-authored documentation lane."""
 
 from __future__ import annotations
 
@@ -8,6 +8,8 @@ import json
 import os
 import re
 from urllib import error, parse, request
+
+from .models import OWNER_LINE, TRACKS_LINE, task_allows_automation
 
 
 REPOSITORY = "jameswaweru377-lab/PesaTrack"
@@ -44,6 +46,19 @@ def _safe_addition(file: dict) -> bool:
     )
 
 
+def _unattended_documentation(pr: dict, files: list[dict]) -> bool:
+    """Only repo-owner PRs adding non-executable tracker Markdown can skip consent."""
+    return (_owner_authored(pr) and bool(files)
+            and all(isinstance(row, dict) and _safe_addition(row)
+                    and row["filename"].startswith("docs/tracker/") for row in files))
+
+
+def _owner_authored(pr: dict) -> bool:
+    author = pr.get("user")
+    return (isinstance(author, dict)
+            and author.get("login") == REPOSITORY.split("/")[0])
+
+
 def _owner_approved(comments: list, head_sha: str) -> bool:
     exact = f"PESATRACK SAFE AUTO-MERGE APPROVED: {head_sha}"
     return isinstance(comments, list) and any(
@@ -71,7 +86,8 @@ def _ci_ok(runs: list, head_sha: str) -> bool:
 
 
 def evaluate_candidate(pr: dict, *, main_sha: str, approvals: list, issue: dict,
-                       files: list, open_pr_files: list, runs: list) -> tuple[bool, str]:
+                       files: list, open_pr_files: list, runs: list,
+                       unattended_docs_enabled: bool = False) -> tuple[bool, str]:
     """Return (allowed, short reason), never guessing when evidence is partial."""
     if not isinstance(pr, dict) or not isinstance(main_sha, str) or not SHA.fullmatch(main_sha):
         return False, "invalid-snapshot"
@@ -87,13 +103,12 @@ def evaluate_candidate(pr: dict, *, main_sha: str, approvals: list, issue: dict,
         return False, "wrong-repository"
     if base.get("sha") != main_sha or pr.get("merge_base_sha") != main_sha:
         return False, "stale-main"
-    if APPROVAL_LABEL not in _labels(pr) or not _owner_approved(approvals, head_sha):
-        return False, "owner-approval-missing"
     body = pr.get("body") or ""
     if not isinstance(body, str):
         return False, "task-claim-missing"
     task, owner = TASK.search(body), OWNER.search(body)
-    if not task or not owner or not isinstance(issue, dict):
+    if (len(TRACKS_LINE.findall(body)) != 1 or len(OWNER_LINE.findall(body)) != 1
+            or not task or not owner or not isinstance(issue, dict)):
         return False, "task-claim-missing"
     issue_body = issue.get("body") or ""
     if not isinstance(issue_body, str):
@@ -101,12 +116,19 @@ def evaluate_candidate(pr: dict, *, main_sha: str, approvals: list, issue: dict,
     issue_owner = OWNER.search(issue_body)
     if (issue.get("number") != int(task.group(1)) or issue.get("state") != "open"
             or "pesatrack-tracker" not in _labels(issue) or not issue_owner
+            or len(OWNER_LINE.findall(issue_body)) != 1
             or issue_owner.group(1) != owner.group(1)):
         return False, "task-claim-mismatch"
+    if not task_allows_automation(issue_body):
+        return False, "task-not-actionable"
     if not isinstance(files, list) or not files or len(files) >= 100:
         return False, "incomplete-files"
     if any(not isinstance(file, dict) or not _safe_addition(file) for file in files):
         return False, "unsafe-path"
+    unattended = unattended_docs_enabled and _unattended_documentation(pr, files)
+    if not unattended and (APPROVAL_LABEL not in _labels(pr)
+                           or not _owner_approved(approvals, head_sha)):
+        return False, "owner-approval-missing"
     if not isinstance(open_pr_files, list):
         return False, "incomplete-overlap"
     own_paths = {file["filename"] for file in files}
@@ -162,7 +184,7 @@ def _bounded_list(client, path: str, **query) -> list:
     return value
 
 
-def _inspect(client, number: int) -> tuple[str, str | None]:
+def _inspect(client, number: int, *, unattended_docs_enabled: bool = False) -> tuple[str, str | None]:
     main = client.get("commits/main")
     pr = client.get(f"pulls/{number}")
     main_sha = main.get("sha") if isinstance(main, dict) else None
@@ -195,12 +217,14 @@ def _inspect(client, number: int) -> tuple[str, str | None]:
         raise RuntimeError("CI coverage incomplete; no merge allowed")
     allowed, reason = evaluate_candidate(pr, main_sha=main_sha, approvals=comments,
                                          issue=issue, files=files, open_pr_files=other_files,
-                                         runs=runs)
+                                         runs=runs,
+                                         unattended_docs_enabled=unattended_docs_enabled)
     return ("eligible" if allowed else reason), head_sha
 
 
-def run(repository: str, token: str, *, apply: bool = False, client=None) -> list[dict]:
-    """Scan the opted-in PRs; at most one guarded merge per invocation."""
+def run(repository: str, token: str, *, apply: bool = False, client=None,
+        unattended_docs_enabled: bool = False) -> list[dict]:
+    """Scan owner-authored and opted-in PRs; merge at most one per invocation."""
     if repository != REPOSITORY:
         raise ValueError("Only the PesaTrack repository is allowed")
     if apply and not token:
@@ -208,16 +232,21 @@ def run(repository: str, token: str, *, apply: bool = False, client=None) -> lis
     github = client or GitHubClient(repository, token)
     pulls = _bounded_list(github, "pulls", state="open")
     candidates = [pr for pr in pulls if isinstance(pr, dict)
-                  and APPROVAL_LABEL in _labels(pr)]
+                  and (APPROVAL_LABEL in _labels(pr)
+                       or (unattended_docs_enabled and _owner_authored(pr)
+                           and isinstance(pr.get("body"), str)
+                           and TASK.search(pr["body"])))]
     results = []
     for pr in candidates:
         number = pr.get("number")
         if not isinstance(number, int) or number <= 0:
             raise RuntimeError("Candidate PR number is invalid")
-        status, head_sha = _inspect(github, number)
+        status, head_sha = _inspect(github, number,
+                                    unattended_docs_enabled=unattended_docs_enabled)
         if status == "eligible" and apply:
             # Recheck every evidence source and current base immediately before mutation.
-            status, current_head = _inspect(github, number)
+            status, current_head = _inspect(github, number,
+                                            unattended_docs_enabled=unattended_docs_enabled)
             if status == "eligible" and current_head == head_sha:
                 response = github.merge(number, head_sha)
                 if not isinstance(response, dict) or response.get("merged") is not True:
@@ -240,7 +269,9 @@ def main(argv=None) -> int:
         if args.apply and (not app_token or app_token == default_token):
             raise ValueError("A separate GitHub App installation token is required to merge")
         token = app_token or default_token
-        results = run(args.repository, token, apply=args.apply)
+        results = run(args.repository, token, apply=args.apply,
+                      unattended_docs_enabled=(os.environ.get("PESATRACK_UNATTENDED_DOCS_ENABLED")
+                                               == "true"))
     except (RuntimeError, ValueError) as exc:
         print(f"Restricted auto-merge stopped: {exc}")
         return 2

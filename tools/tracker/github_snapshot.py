@@ -113,12 +113,15 @@ def fetch_snapshot(token: str, repository: str, *, opener=None, max_pages: int =
         normalized = {
             "number": number, "state": pull.get("state"),
             "body": pull.get("body"), "head_sha": head_sha,
+            "base_ref": (pull.get("base") or {}).get("ref"),
             "base_sha": (pull.get("base") or {}).get("sha"),
             "merge_commit_sha": pull.get("merge_commit_sha"),
             "merged_at": pull.get("merged_at"),
             "labels": [item.get("name") for item in pull.get("labels", [])
                        if isinstance(item, dict) and isinstance(item.get("name"), str)],
             "files": [row["filename"] for row in files if isinstance(row.get("filename"), str)],
+            "file_changes": [{"filename": row.get("filename"), "status": row.get("status")}
+                             for row in files if isinstance(row, dict)],
         }
         prs.append(normalized)
         relevant_to_task = (bool(task_refs(pull.get("body")) & tracked)
