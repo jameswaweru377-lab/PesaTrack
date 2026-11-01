@@ -8,8 +8,8 @@ import unittest
 from urllib.parse import unquote, urlparse
 from urllib.error import HTTPError
 
-from tools.tracker.branch_cleanup import (MAX_CANDIDATES_PER_RUN, _lease_delete, apply_plan,
-                                          build_plan, collect_inventory)
+from tools.tracker.branch_cleanup import (MAX_CANDIDATES_PER_RUN, _lease_delete, _verify_ref_absent,
+                                          apply_plan, build_plan, collect_inventory)
 
 
 REPOSITORY = "jameswaweru377-lab/PesaTrack"
@@ -316,6 +316,59 @@ class BranchCleanupPlanTest(unittest.TestCase):
                             pusher=lambda *args: None, verifier=fails)
         self.assertEqual([], result["deleted"])
         self.assertEqual(1, len(result["failures"]))
+
+
+    def test_deleted_ref_eventually_becomes_absent_without_repeating_push(self):
+        calls = []
+        pauses = []
+        class StaleReads:
+            def __call__(self, request, timeout=10):
+                calls.append(request.get_method())
+                if len(calls) <= 2:
+                    return Response(branch("feature/ready", FEATURE_SHA))
+                raise HTTPError(request.full_url, 404, "Not Found", Message(), None)
+        _verify_ref_absent(REPOSITORY, "fake-token", "feature/ready", FEATURE_SHA,
+                           opener=StaleReads(), sleeper=pauses.append)
+        self.assertEqual(["GET"] * 3, calls)
+        self.assertEqual([2, 2], pauses)
+
+    def test_changed_ref_after_lease_is_not_accepted_as_stale_read(self):
+        calls = []
+        class ChangedRead:
+            def __call__(self, request, timeout=10):
+                calls.append(1)
+                return Response(branch("feature/ready", "c" * 40))
+        with self.assertRaisesRegex(RuntimeError, "changed or was recreated"):
+            _verify_ref_absent(REPOSITORY, "fake-token", "feature/ready",
+                               FEATURE_SHA, opener=ChangedRead(),
+                               sleeper=lambda n: None)
+        self.assertEqual(1, len(calls))
+
+    def test_still_present_after_bounded_reads_fails_without_redelete(self):
+        calls = []
+        pauses = []
+        class AlwaysStale:
+            def __call__(self, request, timeout=10):
+                calls.append(request.get_method())
+                return Response(branch("feature/ready", FEATURE_SHA))
+        with self.assertRaisesRegex(RuntimeError, "bounded"):
+            _verify_ref_absent(REPOSITORY, "fake-token", "feature/ready",
+                               FEATURE_SHA, opener=AlwaysStale(),
+                               sleeper=pauses.append)
+        self.assertEqual(["GET"] * 5, calls)
+        self.assertEqual([2] * 4, pauses)
+
+    def test_403_verification_fails_immediately_with_no_retry(self):
+        calls = []
+        class Forbidden:
+            def __call__(self, request, timeout=10):
+                calls.append(1)
+                raise HTTPError(request.full_url, 403, "Forbidden", Message(), None)
+        with self.assertRaisesRegex(RuntimeError, "HTTP 403"):
+            _verify_ref_absent(REPOSITORY, "fake-token", "feature/ready",
+                               FEATURE_SHA, opener=Forbidden(),
+                               sleeper=lambda n: None)
+        self.assertEqual(1, len(calls))
 
 
 if __name__ == "__main__":
