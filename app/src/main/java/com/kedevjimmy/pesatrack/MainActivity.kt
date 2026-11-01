@@ -118,7 +118,9 @@ class MainActivity : ComponentActivity() {
         AutomaticHistoryRepair.scheduleIfAllowed(this)
         setContent {
             val recoveryFailure by com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.failures.collectAsState()
-            androidx.compose.runtime.SideEffect { updateSecureWindowState() }
+            // Observe this in the outer composition so PIN/biometric unlock resyncs flags.
+            val lockedForCapture = appLocked
+            androidx.compose.runtime.SideEffect { updateSecureWindowState(lockedForCapture) }
             if (recoveryFailure != null) {
                 com.kedevjimmy.pesatrack.ui.screens.BackupRecoveryBlockingScreen(onRetry = {
                     com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.retry(this)
@@ -283,7 +285,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun updateSecureWindowState() {
+    private fun updateSecureWindowState(lockedForCapture: Boolean = appLocked) {
         if (
             !::appLockManager
                 .isInitialized
@@ -292,7 +294,7 @@ class MainActivity : ComponentActivity() {
         }
         if (ScreenCapturePolicy.shouldBlockCapture(
                 appLockEnabled = appLockManager.isEnabled(),
-                appLocked = appLocked,
+                appLocked = lockedForCapture,
                 foreground = captureForeground,
                 backupRecoveryBlocked = com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.failure != null
             )) {
