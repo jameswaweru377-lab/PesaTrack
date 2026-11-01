@@ -87,6 +87,7 @@ class WorkflowContractTest(unittest.TestCase):
         intake = next(s for s in steps if s["name"] == "Discover open PRs as separate Project intake cards")
         self.assertNotIn("--apply", preview["run"])
         self.assertIn("--apply", intake["run"])
+        self.assertIn("-f tools/tracker/pr_inbox.py", intake["run"])
         self.assertIn("github.actor != 'dependabot[bot]'", intake["if"])
         self.assertIn("github.event.pull_request.head.repo.full_name == github.repository", intake["if"])
         self.assertIn("PESATRACK_TRACKER_PROJECT_SYNC_ENABLED == 'true'", intake["if"])
