@@ -320,3 +320,68 @@ jobs:
           APK_PATH: app/build/outputs/apk/release/app-release.apk
         run: bash tools/publish_rolling_apks.sh
 
+
+  restricted_review_candidate:
+    needs: [build]
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/codex/statement-signing-review-20261101' && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out the reviewed candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: c278f57a9bad7690ae7b622c8aa0ad1b1f719d59
+      - name: Check candidate identity
+        run: test "$(git rev-parse HEAD)" = c278f57a9bad7690ae7b622c8aa0ad1b1f719d59
+      - name: Set up JDK
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: '3.13'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd
+      - name: Install build tools
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6
+        with:
+          gradle-version: wrapper
+      - name: Build the signed test candidate
+        env:
+          PESATRACK_RELEASE_KEYSTORE_BASE64: ${{ secrets.PESATRACK_RELEASE_KEYSTORE_BASE64 }}
+          PESATRACK_RELEASE_STORE_PASSWORD: ${{ secrets.PESATRACK_RELEASE_STORE_PASSWORD }}
+          PESATRACK_RELEASE_KEY_ALIAS: ${{ secrets.PESATRACK_RELEASE_KEY_ALIAS }}
+          PESATRACK_RELEASE_KEY_PASSWORD: ${{ secrets.PESATRACK_RELEASE_KEY_PASSWORD }}
+          PESATRACK_VERSION_CODE: '201950'
+          PESATRACK_VERSION_NAME: '0.1.1950-review'
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          keystore="$RUNNER_TEMP/pesatrack-review.jks"
+          trap 'rm -f "$keystore"' EXIT
+          for secret in PESATRACK_RELEASE_KEYSTORE_BASE64 PESATRACK_RELEASE_STORE_PASSWORD PESATRACK_RELEASE_KEY_ALIAS PESATRACK_RELEASE_KEY_PASSWORD; do
+            test -n "${!secret}"
+          done
+          printf '%s' "$PESATRACK_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          test -s "$keystore"
+          export PESATRACK_RELEASE_KEYSTORE="$keystore"
+          ./gradlew :app:assembleRelease --stacktrace
+          apk=app/build/outputs/apk/release/app-release.apk
+          test -s "$apk"
+          mkdir -p review-artifact
+          cp "$apk" review-artifact/PesaTrack-Review.apk
+          printf '%s\n' c278f57a9bad7690ae7b622c8aa0ad1b1f719d59 > review-artifact/SOURCE_SHA.txt
+          sha256sum review-artifact/PesaTrack-Review.apk > review-artifact/APK_SHA256.txt
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs review-artifact/PesaTrack-Review.apk > review-artifact/SIGNATURE.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging review-artifact/PesaTrack-Review.apk > review-artifact/PACKAGE.txt
+      - name: Upload test artifact privately
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pesatrack-statement-review-c278f57a
+          path: review-artifact/
+          retention-days: 1
