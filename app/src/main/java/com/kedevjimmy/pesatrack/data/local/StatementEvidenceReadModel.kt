@@ -29,7 +29,8 @@ class StatementEvidenceReadModel(context: Context) {
     data class ActivityEvidenceSnapshot(
         val statements: Snapshot,
         val originalActivityMessages: List<StatementEvidenceCorrelationPolicy.Observation>,
-        val eventProof: StatementCrossSourceEventPolicy.Result
+        val eventProof: StatementCrossSourceEventPolicy.Result,
+        val excludedBankSourceCount: Int = 0
     )
 
     /**
@@ -45,11 +46,22 @@ class StatementEvidenceReadModel(context: Context) {
         val statements = read(startInclusive, endExclusive, accountFilter)
         val confirmed = FinancialUnderstandingStore.get(app).confirmedAccountIds() +
             AccountOwnershipConsentStore(app).confirmedRevisions().keys
-        val owned = EverydayMoneyStore(app).ownedAccounts().filter {
+        val accounts = EverydayMoneyStore(app).ownedAccounts().filter {
             it.enabled && it.id in confirmed &&
                 (accountFilter == null || it.id == accountFilter) &&
                 it.type in setOf(AccountType.BANK, AccountType.MOBILE_WALLET)
-        }.map { it.id }.toSet()
+        }
+        val owned = accounts.map { it.id }.toSet()
+        val bankArchive = StatementBankArchiveStore(app)
+        val matchingSources = accounts.filter { it.type == AccountType.BANK }.flatMap { account ->
+            bankArchive.sourceIdsMatchingIdentity(account.id, account.identifier)
+        }.toSet()
+        val eligibleStatements = statements.observations.filter {
+            it.source != StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT || it.sourceId in matchingSources
+        }
+        val excludedBankSources = statements.observations.filter {
+            it.source == StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT && it.sourceId !in matchingSources
+        }.map { it.sourceId }.distinct().size
         val remaining = 20_000 - statements.observations.size
         require(remaining > 0) {
             "This evidence range is too large. Choose a shorter period."
@@ -62,8 +74,9 @@ class StatementEvidenceReadModel(context: Context) {
             statements = statements,
             originalActivityMessages = messages,
             eventProof = StatementCrossSourceEventPolicy.reconcile(
-                statements.observations + messages, owned
-            )
+                eligibleStatements + messages, owned
+            ),
+            excludedBankSourceCount = excludedBankSources
         )
     }
 

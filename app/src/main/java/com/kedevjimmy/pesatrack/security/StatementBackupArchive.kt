@@ -82,7 +82,7 @@ internal object StatementBackupArchive {
         )
     )
     val columns = versionSixColumns + mapOf(
-        "statement_match_decisions_v1" to setOf("evidence_hash", "kind", "decision", "updated_at")
+        "statement_match_decisions_v1" to setOf("evidence_hash", "kind", "decision", "account_attested", "updated_at")
     )
 
     /** Legacy payloads contain precisely the old four tables, never inferred missing rows. */

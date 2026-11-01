@@ -5,9 +5,14 @@ import java.security.MessageDigest
 
 /** Decisions are valid only for the exact evidence and ownership revisions reviewed. */
 object StatementMatchDecisionPolicy {
+    data class Ownership(val revision: Long, val type: String, val identifier: String?, val name: String)
+    /** These older sources do not preserve the account identifier at capture time. */
+    fun requiresAccountAttestation(observations: List<StatementEvidenceCorrelationPolicy.Observation>): Boolean =
+        observations.any { it.source == StatementEvidenceCorrelationPolicy.Source.ACTIVITY ||
+            it.source == StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT }
     fun fingerprint(
         observations: List<StatementEvidenceCorrelationPolicy.Observation>,
-        ownershipRevisions: Map<String, Long>
+        ownership: Map<String, Ownership>
     ): String {
         require(observations.size in 2..32)
         require(observations.map { it.id }.distinct().size == observations.size)
@@ -15,7 +20,8 @@ object StatementMatchDecisionPolicy {
             row.id.isNotBlank() && row.sourceId.isNotBlank() && row.accountId.isNotBlank() &&
                 row.currency.isNotBlank() && row.occurredAt > 0 && row.movementMinor != 0L &&
                 row.movementMinor != Long.MIN_VALUE && row.ownershipConfirmed && !row.roleProtected &&
-                (ownershipRevisions[row.accountId] ?: 0L) > 0 &&
+                (ownership[row.accountId]?.revision ?: 0L) > 0 &&
+                !ownership[row.accountId]?.type.isNullOrBlank() && !ownership[row.accountId]?.name.isNullOrBlank() &&
                 (row.source == StatementEvidenceCorrelationPolicy.Source.ACTIVITY || row.sourceTotalsVerified)
         })
         val digest = MessageDigest.getInstance("SHA-256")
@@ -24,14 +30,17 @@ object StatementMatchDecisionPolicy {
             digest.update(ByteBuffer.allocate(4).putInt(bytes.size).array())
             digest.update(bytes)
         }
-        feed("statement-match-decision-v1")
+        feed("statement-match-decision-v2")
         observations.sortedBy { it.id }.forEach { row ->
             feed(row.id); feed(row.source.name); feed(row.sourceId); feed(row.accountId)
             feed(row.currency); feed(row.occurredAt.toString()); feed(row.movementMinor.toString())
             feed(if (row.reference == null) "missing" else "present")
             row.reference?.let(::feed)
             feed(row.sourceTotalsVerified.toString())
-            feed(requireNotNull(ownershipRevisions[row.accountId]).toString())
+            val account = requireNotNull(ownership[row.accountId])
+            feed(account.revision.toString()); feed(account.type); feed(account.name)
+            feed(if (account.identifier == null) "missing" else "present")
+            account.identifier?.let(::feed)
         }
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
