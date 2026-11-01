@@ -30,7 +30,90 @@ def check(head="a" * 40, conclusion="success", status="completed"):
             "conclusion": conclusion}
 
 
+def docs_pr(number=201, head="a" * 40):
+    result = pr(number, head=head, merged=True,
+                files=["docs/tracker/2026-11-01-note.md"])
+    result["file_changes"] = [{"filename": result["files"][0], "status": "added"}]
+    return result
+
+
+def docs_issue(number=100, pr_number=201):
+    result = issue(number=number, device="not applicable")
+    result["body"] += f"\nRelated PRs: #{pr_number}"
+    return result
+
+
+def complete_checks(head="a" * 40):
+    return [check(head=head), {**check(head=head), "name": "Security - PR Secrets"}]
+
+
 class ReconcileTest(unittest.TestCase):
+    def test_docs_only_merged_issue_is_verified_without_manual_final_marker(self):
+        result = reconcile({"checked_at": "2026-11-01T10:00:00Z", "main_sha": "c" * 40,
+                            "issues": [docs_issue()], "prs": [docs_pr()],
+                            "checks": complete_checks(), "historical_window_limited": True})
+        task = result["tasks"][0]
+        self.assertEqual("Verified", task["status"])
+        self.assertEqual("automatic-docs", task["acceptance"]["mode"])
+        self.assertEqual("none", task["acceptance"]["action"])
+
+    def test_docs_auto_acceptance_fails_closed_for_missing_or_revoked_evidence(self):
+        cases = ("missing-secrets", "later-secrets-failure", "changed-file", "unknown-file",
+                 "device-required", "verification-withdrawn", "incomplete", "history-unlinked",
+                 "open-newer-pr", "cross-issue-link", "owner-mismatch", "unclaimed", "untriaged")
+        for case in cases:
+            with self.subTest(case=case):
+                selected_issue, selected_pr = docs_issue(), docs_pr()
+                evidence = complete_checks()
+                snapshot = {"issues": [selected_issue], "prs": [selected_pr],
+                            "checks": evidence, "historical_window_limited": True}
+                if case == "missing-secrets":
+                    evidence.pop()
+                elif case == "later-secrets-failure":
+                    evidence[1].update(run_id=2, run_attempt=1)
+                    evidence.append({**evidence[1], "run_id": 3,
+                                     "conclusion": "failure"})
+                elif case == "changed-file":
+                    selected_pr["file_changes"][0]["status"] = "modified"
+                elif case == "unknown-file":
+                    selected_pr.pop("file_changes")
+                elif case == "device-required":
+                    selected_issue["body"] = selected_issue["body"].replace(
+                        "Device acceptance: not applicable", "Device acceptance: not verified")
+                elif case == "verification-withdrawn":
+                    selected_issue["body"] += "\nFinal verification: not verified"
+                elif case == "incomplete":
+                    snapshot["truncated"] = True
+                elif case == "history-unlinked":
+                    selected_issue["body"] = selected_issue["body"].replace(
+                        "Related PRs: #201", "")
+                elif case == "open-newer-pr":
+                    snapshot["prs"].append(pr(202))
+                elif case == "cross-issue-link":
+                    other = docs_issue(number=101)
+                    snapshot["issues"].append(other)
+                elif case == "owner-mismatch":
+                    selected_pr["body"] = "Tracks #100\nChat owner: CHAT-OTHER"
+                elif case == "unclaimed":
+                    selected_issue["body"] = selected_issue["body"].replace(
+                        "Chat owner: CHAT-STATEMENTS", "Chat owner: Unclaimed")
+                elif case == "untriaged":
+                    selected_issue["body"] += "\nTask status: Untriaged"
+                task = reconcile(snapshot)["tasks"][0]
+                self.assertNotEqual("Verified", task["status"])
+                self.assertNotEqual("none", task["acceptance"]["action"])
+
+    def test_exception_action_suggests_ci_repair_or_fresh_main_review(self):
+        failing = reconcile({"issues": [issue()], "prs": [pr(201)],
+                             "checks": [check(conclusion="failure")]})["tasks"][0]
+        self.assertEqual("repair-ci", failing["acceptance"]["action"])
+        stale = reconcile({"issues": [issue()], "prs": [pr(201)],
+                           "main_sha": "e" * 40, "checks": [check()]})["tasks"][0]
+        self.assertEqual("update-from-main", stale["acceptance"]["action"])
+        unclaimed = reconcile({"issues": [issue(owner="Unclaimed")],
+                               "prs": [], "checks": []})["tasks"][0]
+        self.assertEqual("claim-or-triage-task", unclaimed["acceptance"]["action"])
+
     def test_two_prs_for_same_task_are_preserved_without_overwriting(self):
         data = {"checked_at": "2026-10-31T10:00:00Z", "main_sha": "b" * 40,
                 "issues": [issue()],

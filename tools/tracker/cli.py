@@ -29,8 +29,8 @@ def report_markdown(data: dict) -> str:
         "Progress by canonical Issue (not live ChatGPT presence): " +
         ", ".join(f"{status}: {count}" for status, count in sorted(counts.items()))
         if counts else "No approved task Issues registered yet.", "",
-        "| Task | Owner | Status | CI | Device |",
-        "|---|---|---|---|---|",
+        "| Task | Owner | Status | CI | Device | Acceptance | Next action |",
+        "|---|---|---|---|---|---|---|",
     ]
     if not tasks:
         lines.extend(["", "No labeled tracker Issues are visible yet. This does not mean "
@@ -44,9 +44,12 @@ def report_markdown(data: dict) -> str:
                       "not appear; canonical Issue PR references are resolved separately."])
     for t in tasks:
         # Output only bounded identifiers/status values, never raw Issue bodies.
+        acceptance = t.get("acceptance") or {}
         lines.append(
             f"| {t['task_id']} | {t['owner']} | {t['status']} | "
-            f"{t['ci']} | {t['device_acceptance']} |"
+            f"{t['ci']} | {t['device_acceptance']} | "
+            f"{acceptance.get('mode', 'unknown')} | "
+            f"{acceptance.get('action', 'collect-evidence')} |"
         )
     if data["warnings"]:
         lines.extend(["", f"Cross-PR collision/linkage warnings: {len(data['warnings'])}.",

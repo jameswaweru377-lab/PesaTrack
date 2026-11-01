@@ -30,7 +30,7 @@ class FakeGitHub:
                       "merged_at": None, "merge_commit_sha": None}]
                     if page == 1 else [])
         if path.endswith("/pulls/201/files"):
-            return [{"filename": "app/src/Invented.kt"}]
+            return [{"filename": "app/src/Invented.kt", "status": "modified"}]
         if path.endswith("/actions/runs"):
             self.assert_url_head_sha(query)
             return {"workflow_runs": [{"name": "Android CI", "head_sha": "a" * 40,
@@ -49,6 +49,8 @@ class GitHubSnapshotTest(unittest.TestCase):
         self.assertEqual("b" * 40, result["main_sha"])
         self.assertEqual([123], [i["number"] for i in result["issues"]])
         self.assertEqual(["app/src/Invented.kt"], result["prs"][0]["files"])
+        self.assertEqual([{"filename": "app/src/Invented.kt", "status": "modified"}],
+                         result["prs"][0]["file_changes"])
         self.assertEqual("success", result["checks"][0]["conclusion"])
         self.assertTrue(all(url.startswith("https://api.github.com/repos/test-org/test-repo/")
                             for url, _, _ in fake.requested))

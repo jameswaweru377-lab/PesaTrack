@@ -35,6 +35,25 @@ class TrackerCliTest(unittest.TestCase):
         self.assertIn("Untriaged: 1", report)
         self.assertIn("not live ChatGPT presence", report)
 
+    def test_report_names_automatic_evidence_and_pending_repair_action(self):
+        issue = {"number": 100, "title": "Invented task", "state": "open",
+                 "body": "Chat owner: CHAT-DOCS\nDevice acceptance: not applicable\nPR: #201"}
+        pull = {"number": 201, "state": "closed", "merged_at": "2026-11-01T09:00:00Z",
+                "body": "Tracks #100\nChat owner: CHAT-DOCS", "head_sha": "a" * 40,
+                "files": ["docs/tracker/note.md"],
+                "file_changes": [{"filename": "docs/tracker/note.md", "status": "added"}]}
+        checks = [{"head_sha": "a" * 40, "name": name,
+                   "status": "completed", "conclusion": "success"}
+                  for name in ("Android CI", "Security - PR Secrets")]
+        verified = report_markdown(reconcile({"issues": [issue], "prs": [pull],
+                                              "checks": checks}))
+        self.assertIn("automatic-docs", verified)
+        self.assertIn("none", verified)
+        checks[1]["conclusion"] = "failure"
+        blocked = report_markdown(reconcile({"issues": [issue], "prs": [pull],
+                                             "checks": checks}))
+        self.assertIn("collect-acceptance-evidence", blocked)
+
 
 if __name__ == "__main__":
     unittest.main()

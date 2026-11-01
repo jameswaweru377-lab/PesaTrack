@@ -19,6 +19,7 @@ HEAD = "b" * 40
 def safe_fixture():
     pr = {
         "number": 31, "state": "open", "draft": False,
+        "user": {"login": OWNER},
         "base": {"ref": "main", "sha": MAIN},
         "head": {"sha": HEAD, "repo": {"full_name": REPO}},
         "mergeable": True, "merge_base_sha": MAIN,
@@ -47,6 +48,54 @@ class RestrictedMergePolicyTest(unittest.TestCase):
 
     def test_approved_added_tracker_docs_and_tests_are_eligible(self):
         self.assertEqual(self.decide(safe_fixture()), (True, "eligible"))
+
+    def test_owner_documentation_only_task_merges_without_manual_approval(self):
+        fixture = list(deepcopy(safe_fixture()))
+        fixture[0]["labels"] = []
+        fixture[1] = []
+        fixture[3] = [{"filename": "docs/tracker/2026-11-01-progress.md", "status": "added"}]
+        self.assertEqual(self.decide(fixture), (True, "eligible"))
+
+    def test_non_owner_cannot_use_unattended_documentation_lane(self):
+        fixture = list(deepcopy(safe_fixture()))
+        fixture[0]["user"]["login"] = "another-contributor"
+        fixture[0]["labels"] = []
+        fixture[1] = []
+        fixture[3] = [{"filename": "docs/tracker/new-note.md", "status": "added"}]
+        self.assertEqual(self.decide(fixture), (False, "owner-approval-missing"))
+
+    def test_ambiguous_claims_cannot_trigger_unattended_merge(self):
+        for body in ("Tracks #20\nTracks #21\nChat owner: CHAT-DOCS",
+                     "Tracks #20\nChat owner: CHAT-DOCS\nChat owner: CHAT-OTHER"):
+            fixture = list(deepcopy(safe_fixture()))
+            fixture[0]["body"] = body
+            fixture[0]["labels"] = []
+            fixture[1] = []
+            fixture[3] = [{"filename": "docs/tracker/new-note.md", "status": "added"}]
+            self.assertFalse(self.decide(fixture)[0])
+
+    def test_malformed_author_is_never_an_unattended_candidate(self):
+        fixture = list(deepcopy(safe_fixture()))
+        fixture[0]["user"] = "malformed"
+        fixture[0]["labels"] = []
+        fixture[1] = []
+        fixture[3] = [{"filename": "docs/tracker/new-note.md", "status": "added"}]
+        self.assertFalse(self.decide(fixture)[0])
+        client = FakeGitHub()
+        client.pr = fixture[0]
+        self.assertEqual(run(REPO, "fake", apply=False, client=client), [])
+
+    def test_unattended_lane_rejects_added_executable_or_existing_file_edits(self):
+        for path, change in (("tools/tracker/tests/test_new_case.py", "added"),
+                             ("docs/tracker/new-note.md", "modified"),
+                             ("docs/tracker/new-note.md", "renamed"),
+                             (".github/workflows/android-ci.yml", "added")):
+            with self.subTest(path=path, change=change):
+                fixture = list(deepcopy(safe_fixture()))
+                fixture[0]["labels"] = []
+                fixture[1] = []
+                fixture[3] = [{"filename": path, "status": change}]
+                self.assertFalse(self.decide(fixture)[0])
 
     def test_label_without_exact_owner_approval_never_merges(self):
         for kind in ("missing", "old-sha", "different-user", "missing-label"):
@@ -184,6 +233,14 @@ class FakeGitHub:
 
 
 class RestrictedMergeRunnerTest(unittest.TestCase):
+    def test_unlabeled_owner_documentation_task_is_discovered_without_approval(self):
+        client = FakeGitHub()
+        client.pr["labels"] = []
+        client.approvals = []
+        client.files = [{"filename": "docs/tracker/2026-11-01-progress.md", "status": "added"}]
+        self.assertEqual(run(REPO, "fake", apply=False, client=client),
+                         [{"pr": 31, "status": "eligible"}])
+
     def test_dry_run_reports_candidate_but_never_writes(self):
         client = FakeGitHub()
         result = run(REPO, "fake", apply=False, client=client)
@@ -242,6 +299,14 @@ class RestrictedMergeWorkflowContractTest(unittest.TestCase):
         self.assertIn("persist-credentials: false", workflow)
         self.assertNotIn("GITHUB_TOKEN: ${{ github.token }}", workflow)
         self.assertNotIn("secrets.GITHUB_TOKEN", workflow)
+
+    def test_unattended_lane_starts_when_app_is_configured_but_can_be_stopped(self):
+        workflow = (Path(__file__).resolve().parents[3] / ".github" / "workflows"
+                    / "restricted-safe-automerge.yml").read_text(encoding="utf-8")
+        self.assertIn("PESATRACK_SAFE_AUTOMERGE_ENABLED != 'false'", workflow)
+        self.assertIn("PESATRACK_SAFE_AUTOMERGE_CLIENT_ID != ''", workflow)
+        self.assertIn("steps.credentials.outputs.configured == 'true'", workflow)
+        self.assertIn("PESATRACK_SAFE_AUTOMERGE_PRIVATE_KEY", workflow)
 
 
 if __name__ == "__main__":
