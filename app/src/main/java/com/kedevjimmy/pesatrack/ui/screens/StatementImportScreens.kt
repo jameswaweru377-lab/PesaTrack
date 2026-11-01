@@ -54,6 +54,7 @@ import com.kedevjimmy.pesatrack.domain.statements.StatementSourceProfileRegistry
 import com.kedevjimmy.pesatrack.domain.statements.NativeBankProbeResult
 import com.kedevjimmy.pesatrack.domain.statements.StatementFallbackProbeGate
 import com.kedevjimmy.pesatrack.domain.statements.StatementKnownImportReasonPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementKnownReaderRouting
 import com.kedevjimmy.pesatrack.domain.statements.StatementProvisionalSelection
 import com.kedevjimmy.pesatrack.domain.statements.StatementProvisionalSelectionPolicy
 
@@ -61,6 +62,7 @@ private data class StagedBankPdf(
  val parsed: OfflineBankTableReader.Prepared,
  val admitted: StatementAdmissionResult.Accepted
 )
+private data class SuggestedBankPdf(val label: String, val staged: StagedBankPdf)
 
 private const val UNFAMILIAR_BANK_PDF = "UNFAMILIAR_BANK"
 
@@ -78,6 +80,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  var pdfPasswordWrong by remember {mutableStateOf(false)}
  var stagedPdf by remember {mutableStateOf<OfflineMpesaPdfReader.Prepared?>(null)}
  var stagedBankPdf by remember {mutableStateOf<StagedBankPdf?>(null)}
+ var suggestedBankPdf by remember {mutableStateOf<SuggestedBankPdf?>(null)}
  var provisionalBankPdf by remember {mutableStateOf<StatementProvisionalSelection?>(null)}
  var documentToken by remember {mutableStateOf(0L)}
  var statementPdfApproved by remember {mutableStateOf(false)}
@@ -104,7 +107,7 @@ private fun readStatement(c:Context,uri:Uri):String {
   BankStatementAccountIdentityUiPolicy.hasFullNumber(it.identifier)
  } ?: false
  val selected=remember {mutableStateMapOf<Int,Boolean>()};var error by remember {mutableStateOf<String?>(null)};var dateError by remember {mutableStateOf<String?>(null)};var done by remember {mutableStateOf<String?>(null)}
- fun invalidatePreview() {stagedPdf=null;stagedBankPdf=null;provisionalBankPdf=null;documentToken++;statementPdfApproved=false;previewSource=null;preview=emptyList();dateResult=null;selected.clear();error=null;dateError=null;done=null}
+ fun invalidatePreview() {stagedPdf=null;stagedBankPdf=null;suggestedBankPdf=null;provisionalBankPdf=null;documentToken++;statementPdfApproved=false;previewSource=null;preview=emptyList();dateResult=null;selected.clear();error=null;dateError=null;done=null}
  LaunchedEffect(Unit){try{accounts=withContext(Dispatchers.IO){store.ownedAccounts()}.filter {it.type==AccountType.BANK||it.type==AccountType.MOBILE_WALLET}}catch(e:CancellationException){throw e}catch(e:Exception){error="Could not load accounts."}}
   LaunchedEffect(selection,activityRowsRequireAccountType){
   val source=selection
@@ -137,6 +140,20 @@ private fun readStatement(c:Context,uri:Uri):String {
    done=null
   }
  }
+ suspend fun admitBank(prepared: OfflineBankTableReader.Prepared, providerKey: String, target: String): StagedBankPdf {
+  val selectedAccount=accounts.firstOrNull{it.id==target} ?: error("Choose the account first.")
+  val confirmed=withContext(Dispatchers.IO){
+   FinancialUnderstandingStore.get(c).confirmedAccountIds()+
+    AccountOwnershipConsentStore(c).confirmedRevisions().keys
+  }
+  val admission=StatementBankAdmission.verify(
+   StatementSourceProfileRegistry.forProvider(providerKey),selectedAccount,
+   confirmed,providerKey,prepared.document,prepared.tables
+  )
+  val accepted=admission as? StatementAdmissionResult.Accepted
+   ?:error(BankStatementAccountIdentityUiPolicy.safeBlockedMessage((admission as StatementAdmissionResult.Blocked).reason))
+  return StagedBankPdf(prepared,accepted)
+ }
  fun verifyPdfLocally(uri: Uri, password: String, providerKey: String) {
   sourcePdfUri=null;sourcePdfPassword="";pdfPasswordWrong=false
   invalidatePreview();reading=true
@@ -144,13 +161,27 @@ private fun readStatement(c:Context,uri:Uri):String {
   scope.launch {
    try {
     if(providerKey==UNFAMILIAR_BANK_PDF) {
-     inspectUnfamiliarPdf(uri,password,target,token)
+     val matches=mutableListOf<Pair<String, OfflineBankTableReader.Prepared>>()
+     for(profile in StatementSourceProfileRegistry.importableBankProfiles()) {
+      try {
+       val prepared=withContext(Dispatchers.IO){OfflineBankTableReader.inspect(c,uri,password,profile.providerKey)}
+       matches.add(profile.providerKey to prepared)
+      } catch (_: StatementBankInspectionBlocked) {
+       // A refusal is never admitted; the read-only probe remains available.
+      }
+     }
+     val candidate=StatementKnownReaderRouting.uniqueCandidate(matches.map {it.first})
+     if(candidate==null) inspectUnfamiliarPdf(uri,password,target,token)
+     else {
+      val staged=admitBank(matches.single {it.first==candidate}.second,candidate,target)
+      if(accountId==target && documentToken==token) {
+       suggestedBankPdf=SuggestedBankPdf(StatementSourceProfileRegistry.forProvider(candidate)!!.label,staged)
+      }
+     }
     } else if(providerKey=="SAFARICOM_MPESA") {
      stagedPdf=withContext(Dispatchers.IO){OfflineMpesaPdfReader.inspect(c,uri,password)}
      done="The full PDF passed physical extraction, official summary and provisional balance checks. Review all rows before saving."
     } else {
-     val selectedAccount=accounts.firstOrNull{it.id==accountId}
-      ?:error("Choose the account first.")
      val prepared=try {
       withContext(Dispatchers.IO){OfflineBankTableReader.inspect(c,uri,password,providerKey)}
      }catch(e:StatementBankInspectionBlocked){
@@ -161,17 +192,10 @@ private fun readStatement(c:Context,uri:Uri):String {
       }
       throw e
      }
-     val confirmed=withContext(Dispatchers.IO){
-      FinancialUnderstandingStore.get(c).confirmedAccountIds()+
-       AccountOwnershipConsentStore(c).confirmedRevisions().keys
-     }
-     val admission=StatementBankAdmission.verify(
-      StatementSourceProfileRegistry.forProvider(providerKey),selectedAccount,
-      confirmed,providerKey,prepared.document,prepared.tables
-     )
-     val accepted=admission as? StatementAdmissionResult.Accepted
-      ?:error(BankStatementAccountIdentityUiPolicy.safeBlockedMessage((admission as StatementAdmissionResult.Blocked).reason))
-     stagedBankPdf=StagedBankPdf(prepared,accepted)
+     val staged=admitBank(prepared,providerKey,target)
+     val accepted=staged.admitted
+     if(accountId!=target || documentToken!=token) return@launch
+     stagedBankPdf=staged
      done=if(accepted.assurance==StatementDocumentAssurance.GRAND_TOTAL_AND_CHAIN_ONLY)
        "All rows, adjacent balances and the final printed totals reconcile. The opening balance and page totals are unavailable; review this limited-assurance statement before saving."
      else "This bank statement passed full local extraction, account, balance and totals checks. Review its rows before saving."
@@ -183,6 +207,15 @@ private fun readStatement(c:Context,uri:Uri):String {
    catch(e:Exception){error=e.message ?: "The PDF did not pass verification. No statement records were saved."}
    finally{reading=false}
   }
+ }
+ suggestedBankPdf?.let { candidate ->
+  AlertDialog(
+   onDismissRequest={suggestedBankPdf=null},
+   title={Text("Confirm statement bank")},
+   text={Text("This document matches a supported ${candidate.label} layout. The document's issuer cannot be authenticated from its appearance. Confirm the bank before reviewing and saving.")},
+   confirmButton={TextButton(onClick={stagedBankPdf=candidate.staged;suggestedBankPdf=null}){Text("Confirm ${candidate.label}")}},
+   dismissButton={TextButton(onClick={suggestedBankPdf=null}){Text("Cancel")}}
+  )
  }
  val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()){uri->
   if(uri!=null&&!reading&&!importing&&preparing==null){
@@ -303,7 +336,7 @@ private fun readStatement(c:Context,uri:Uri):String {
       if(android.os.Build.VERSION.SDK_INT>=35) {
        OutlinedButton(onClick={sourcePdfProviderKey=UNFAMILIAR_BANK_PDF;statementPdfPicker.launch(arrayOf("application/pdf"))},
         enabled=!busy&&bankAccountNumberReady,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)) {
-        Icon(Icons.Rounded.FindInPage,null);Spacer(Modifier.width(8.dp));Text("Preview unfamiliar PDF (read-only)")
+        Icon(Icons.Rounded.FindInPage,null);Spacer(Modifier.width(8.dp));Text("Identify or preview bank PDF")
        }
       } else Text("Native unfamiliar-PDF preview needs Android 15 or newer. No statement will be imported from an unverified format.",
        style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)

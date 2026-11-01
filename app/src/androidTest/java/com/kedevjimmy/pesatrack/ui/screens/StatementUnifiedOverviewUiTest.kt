@@ -101,10 +101,35 @@ class StatementUnifiedOverviewUiTest {
                 ))
             )
         } }
-        compose.onNodeWithText("Limited assurance statements").assertExists()
+        compose.onNodeWithText("Limited assurance statements · all years").assertExists()
+        compose.onNodeWithText("1 account on file").assertExists()
         compose.onNodeWithText("No statements imported yet").assertDoesNotExist()
         compose.onNodeWithText("Equity Bank").performClick()
         assertEquals("invented-equity", selected)
+    }
+
+    @Test fun accountPickerIncludesWalletAndLimitedBankWithoutChangingYearTotals() {
+        val overview = StatementUnifiedOverviewPolicy.project(2026, listOf(coverage("wallet", "2026-08")))
+        val source = StatementBankArchiveStore.Source(
+            id = "c".repeat(64), accountId = "equity", providerKey = "KENYAN_BANK_EQUITY",
+            currency = "KES", format = "PDF", importedAt = 1_780_000_000_000L,
+            firstAt = 1_780_000_000_000L, lastAt = 1_780_000_060_000L, rows = 2,
+            moneyInMinor = 1_000L, moneyOutMinor = 250L
+        )
+        var selected = ""
+        compose.setContent { PesaTrackTheme {
+            StatementUnifiedOverviewPage(
+                overview, listOf(2026), mapOf("wallet" to "M-Pesa", "equity" to "Equity Bank"),
+                setOf("equity"), onSelectYear = {}, onSelectAccount = { selected = it },
+                onImport = {}, onBack = {}, limitedSources = listOf(source),
+                reportAccountIds = listOf("wallet")
+            )
+        } }
+        compose.onNodeWithText("2 accounts on file").assertExists()
+        compose.onNodeWithContentDescription("Choose account").performClick()
+        compose.onNodeWithText("M-Pesa").assertExists()
+        compose.onNodeWithText("Equity Bank · Limited").performClick()
+        assertEquals("equity", selected)
     }
 
     @Test fun limitedOnlyBankPageOpensTheSavedSourceReview() {

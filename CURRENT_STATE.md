@@ -2,6 +2,15 @@
 
 _Last refreshed: 31 October 2026_
 
+_Statement account visibility and supported-reader routing (verification pending):_
+The account inventory includes saved limited sources and accounts with reports
+in other years; year-scoped totals remain separate. Bank PDF identification
+tries existing supported local readers before the read-only unfamiliar preview.
+A supported candidate still requires account admission, explicit bank
+confirmation and the normal source review before saving. Incomplete documents
+are never admitted by the fallback. This change requires CI and real-device
+acceptance; graphical issuer evidence is not authentication.
+
 _Money until next salary (Task 3; draft PR #507, Android CI and device acceptance pending):_
 Plan has a separate local-only forecast card, using either a **user-confirmed
 next payday and expected amount** or the existing **estimated usual salary

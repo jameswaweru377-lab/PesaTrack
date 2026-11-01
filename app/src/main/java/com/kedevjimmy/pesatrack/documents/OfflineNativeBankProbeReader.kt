@@ -25,15 +25,20 @@ object OfflineNativeBankProbeReader {
             val preview = PdfTextReviewReader.read(context, uri, password, includePositions = true)
             withContext(Dispatchers.Default) {
                 when (val transport = StatementNativeProbeTransport.prepare(Build.VERSION.SDK_INT, preview)) {
-                    is NativeProbePreparation.Blocked -> NativeBankProbeResult.Blocked(transport.reason)
+                    is NativeProbePreparation.Blocked -> NativeBankProbeResult.Blocked(
+                        transport.reason, transport.pageNumber, transport.safeDetail
+                    )
                     is NativeProbePreparation.Ready -> when (val probe =
                         UniversalStatementReadOnlyProbe.inspect(transport.pages)) {
                         is StatementProbeResult.Provisional -> NativeBankProbeResult.Provisional(probe)
-                        is StatementProbeResult.Blocked -> NativeBankProbeResult.Blocked(when (probe.reason) {
-                            StatementProbeReason.INVALID_PAGE_SEQUENCE -> NativeProbeBlockReason.INCOMPLETE_GEOMETRY
-                            StatementProbeReason.UNRECOGNIZED_TABLE -> NativeProbeBlockReason.UNRECOGNIZED_LAYOUT
-                            StatementProbeReason.UNVERIFIED_MOVEMENTS -> NativeProbeBlockReason.UNVERIFIED_MOVEMENTS
-                        })
+                        is StatementProbeResult.Blocked -> NativeBankProbeResult.Blocked(
+                            reason = when (probe.reason) {
+                                StatementProbeReason.INVALID_PAGE_SEQUENCE -> NativeProbeBlockReason.INCOMPLETE_GEOMETRY
+                                StatementProbeReason.UNRECOGNIZED_TABLE -> NativeProbeBlockReason.UNRECOGNIZED_LAYOUT
+                                StatementProbeReason.UNVERIFIED_MOVEMENTS -> NativeProbeBlockReason.UNVERIFIED_MOVEMENTS
+                            },
+                            pageNumber = probe.pageNumber
+                        )
                     }
                 }
             }
