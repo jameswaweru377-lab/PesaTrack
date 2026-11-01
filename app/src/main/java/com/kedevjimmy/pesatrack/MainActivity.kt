@@ -43,6 +43,8 @@ class MainActivity : ComponentActivity() {
     private var smartAction by mutableStateOf("review")
     private var smartRevision by mutableStateOf("")
     private var planningRoute by mutableStateOf("budgets")
+    private var phonePageRequest by mutableStateOf(0)
+    private var phonePageRoute by mutableStateOf("")
     private lateinit var appLockManager:
         AppLockManager
     private var appLocked by mutableStateOf(false)
@@ -56,6 +58,12 @@ class MainActivity : ComponentActivity() {
             smartRevision = intent.getStringExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_REVISION).orEmpty()
         }
     }
+    private fun readPhonePageIntent(intent: Intent) {
+        intent.getStringExtra(com.kedevjimmy.pesatrack.planning.PhoneNotificationPreview.OPEN_PAGE)
+            ?.takeIf { it in setOf("bills", "salary", "budgets", "activity-attention",
+                "saving-goals", "debts", "data-health", "backup-reminder") }
+            ?.let { phonePageRoute = it; phonePageRequest++ }
+    }
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putInt("smart_request",smartOpenRequest)
         outState.putString("smart_key",smartKey)
@@ -67,6 +75,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         readSmartIntent(intent)
+        readPhonePageIntent(intent)
         if (intent.getBooleanExtra(SalaryReminders.OPEN_SALARY, false)) salaryOpenRequest++
         if (intent.getBooleanExtra(BillSchedules.OPEN_BILLS, false)) billsOpenRequest++
         if (intent.getBooleanExtra(ReviewAttentionReminders.OPEN_ACTIVITY_REVIEW, false)) reviewOpenRequest++
@@ -106,6 +115,7 @@ class MainActivity : ComponentActivity() {
             appLockManager.isEnabled()
         updateSecureWindowState()
         readSmartIntent(intent)
+        readPhonePageIntent(intent)
         if (intent.getBooleanExtra(SalaryReminders.OPEN_SALARY, false)) salaryOpenRequest++
         if (intent.getBooleanExtra(BillSchedules.OPEN_BILLS, false)) billsOpenRequest++
         if (intent.getBooleanExtra(ReviewAttentionReminders.OPEN_ACTIVITY_REVIEW, false)) reviewOpenRequest++
@@ -114,6 +124,7 @@ class MainActivity : ComponentActivity() {
         BillSchedules.schedule(this)
         com.kedevjimmy.pesatrack.planning.PlanningReminders.schedule(this)
         ReviewAttentionReminders.schedule(this)
+        com.kedevjimmy.pesatrack.planning.BackupReminders.schedule(this)
         enableEdgeToEdge()
         AutomaticHistoryRepair.scheduleIfAllowed(this)
         setContent {
@@ -198,6 +209,7 @@ class MainActivity : ComponentActivity() {
                     billsOpenRequest = billsOpenRequest,
                     reviewOpenRequest = reviewOpenRequest,
                     smartOpenRequest = smartOpenRequest, smartKey = smartKey, smartAction = smartAction, smartRevision = smartRevision,
+                    phonePageRequest = phonePageRequest, phonePageRoute = phonePageRoute,
                     onSmartRequestHandled = {
                         smartOpenRequest = 0
                         intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_KEY)
@@ -224,6 +236,7 @@ class MainActivity : ComponentActivity() {
         BillSchedules.schedule(this)
         com.kedevjimmy.pesatrack.planning.PlanningReminders.schedule(this)
         ReviewAttentionReminders.schedule(this)
+        com.kedevjimmy.pesatrack.planning.BackupReminders.schedule(this)
                         AutomaticHistoryRepair.scheduleIfAllowed(this)
                     }
                 )

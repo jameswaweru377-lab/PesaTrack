@@ -12,11 +12,13 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.work.*
 import com.kedevjimmy.pesatrack.MainActivity
+import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.RulePreset
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
+import com.kedevjimmy.pesatrack.domain.rules.PhoneAlertPolicy
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -283,33 +285,13 @@ class BillSchedules(private val context: Context) {
     fun notifyDue() {
         if (!prefs.getBoolean("reminders_allowed", true)) return
         if (Calendar.getInstance().get(Calendar.HOUR_OF_DAY) !in 8..20) return
-        if (
-            Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
+        if (!PhoneNotificationChannels.canPost(context)) return
 
         val manager =
             context.getSystemService(
                 Context.NOTIFICATION_SERVICE
             ) as NotificationManager
-        if (!manager.areNotificationsEnabled()) {
-            return
-        }
-
-        if (Build.VERSION.SDK_INT >= 26) {
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    "bills",
-                    "Bill reminders",
-                    NotificationManager.IMPORTANCE_DEFAULT
-                )
-            )
-        }
+        PhoneNotificationChannels.ensure(context, PhoneAlertPolicy.BILL_CHANNEL, "Upcoming bills")
 
         val now = Calendar.getInstance()
 
@@ -404,10 +386,10 @@ class BillSchedules(private val context: Context) {
                                 NotificationCompat
                                     .Builder(
                                         context,
-                                        "bills"
+                                        PhoneAlertPolicy.BILL_CHANNEL
                                     )
                                     .setSmallIcon(
-                                        android.R.drawable.ic_dialog_info
+                                        R.drawable.ic_pesatrack_logo
                                     )
                                     .setContentTitle(
                                         (
@@ -424,9 +406,13 @@ class BillSchedules(private val context: Context) {
                                         open
                                     )
                                     .setAutoCancel(true)
+                                    .setPriority(NotificationCompat.PRIORITY_HIGH)
                                     .setVisibility(
                                         NotificationCompat.VISIBILITY_PRIVATE
                                     )
+                                    .setPublicVersion(PhoneNotificationChannels.privatePublicVersion(
+                                        context, PhoneAlertPolicy.BILL_CHANNEL
+                                    ))
                                     .build()
                             )
                             prefs.edit()
