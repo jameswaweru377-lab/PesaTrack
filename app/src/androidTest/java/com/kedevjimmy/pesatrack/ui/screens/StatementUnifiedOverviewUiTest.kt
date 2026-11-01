@@ -153,6 +153,22 @@ class StatementUnifiedOverviewUiTest {
         compose.onNodeWithText("Not a fully verified bank report").assertExists()
     }
 
+    @Test fun multipleLimitedStatementsRemainSeparate() {
+        val first = StatementBankArchiveStore.Source(
+            id = "a".repeat(64), accountId = "invented-equity", providerKey = "KENYAN_BANK_EQUITY",
+            currency = "KES", format = "PDF", importedAt = 1_780_000_000_000L,
+            firstAt = 1_780_000_000_000L, lastAt = 1_780_000_060_000L, rows = 2,
+            moneyInMinor = 1_000L, moneyOutMinor = 250L
+        )
+        compose.setContent { PesaTrackTheme {
+            StatementLimitedBankOverviewPage("Invented Equity", listOf(first,
+                first.copy(id = "b".repeat(64), rows = 3)), onBack = {}, onImport = {})
+        } }
+        compose.onNodeWithText("Grand-total reconciled · source only").assertExists()
+        compose.onNodeWithText("Grand-total reconciled · 2 rows").assertExists()
+        compose.onNodeWithText("Grand-total reconciled · 3 rows").assertExists()
+    }
+
     @Test fun reconciledSourceCardDoesNotShowUnvalidatedStoredTotals() {
         val source = StatementBankArchiveStore.Source(
             id = "synthetic-source", accountId = "invented-equity",
