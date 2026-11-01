@@ -105,13 +105,15 @@ internal fun StatementMatchReviewContent(
                     color = p.muted, style = MaterialTheme.typography.bodyMedium)
                 Text("Only confirmed accounts are compared. Statements used in suggestions must be verified; limited statements are not included.",
                     color = p.muted, style = MaterialTheme.typography.bodySmall)
+                Text("Older messages and M-Pesa statements may not identify your account number. Check the originals in Activity or Statements.",
+                    color = p.muted, style = MaterialTheme.typography.bodySmall)
             }
         }
         if (actionError != null) item { Text(actionError, color = MaterialTheme.colorScheme.error) }
         if ((snapshot?.excludedBankSourceCount ?: 0) > 0) item {
             StatementInsightCard {
                 Text("Some bank statements were not compared", color = p.ink, fontWeight = FontWeight.SemiBold)
-                Text("The current account number no longer matches the number checked when those statements were imported. Your saved records are unchanged.",
+                Text("The current account number could not be matched to the number checked at import. Your saved records are unchanged.",
                     color = p.muted, style = MaterialTheme.typography.bodyMedium)
             }
         }

@@ -28,6 +28,7 @@ class StatementMatchReviewUiTest {
         compose.setContent { MaterialTheme { StatementMatchReviewContent(2026,
             mapOf("bank" to "Invented bank", "wallet" to "Invented wallet"), review, false, {}, {}) } }
         compose.onNodeWithText("Your records stay unchanged").assertExists()
+        compose.onNodeWithText("Older messages and M-Pesa statements may not identify your account number. Check the originals in Activity or Statements.").assertExists()
         compose.onNodeWithText("Invented bank → Invented wallet").assertExists()
         compose.onNodeWithText("Same reference and amount; money out on one account and in on the other.").assertExists()
     }
