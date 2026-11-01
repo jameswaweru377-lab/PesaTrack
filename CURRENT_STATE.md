@@ -9,6 +9,19 @@ spending, and no categories, Activity entries or verified totals are created.
 
 _Last refreshed: 1 November 2026_
 
+_Merged-branch cleanup (PR #552; 1 November 2026):_
+A separate monthly workflow proposes deletion only for unprotected, non-default
+branches whose current tip exactly matches a same-repository PR merged into the
+current default branch and which have no open same-repository PR. Manual dispatch
+previews by default; only the repository owner on the default branch can request
+manual apply. The apply job alone receives `contents: write` and rechecks each
+branch immediately before deleting its ref. No live branch has been deleted yet;
+the first preview and owner-authorized cleanup remain pending merge and green
+exact-head CI. Each run caps work at 170 candidates, paces rechecks, and reports
+any excess as deferred to stay within the documented GitHub API request budget.
+This automation does not infer active ChatGPT chats or verify Android-device
+acceptance.
+
 _A2 bill-cadence domain dependency (1 November 2026):_
 The voice-planning domain parser now uses a domain-owned `BillCadence` enum;
 the scheduling layer keeps a Kotlin source-compatible alias for existing
