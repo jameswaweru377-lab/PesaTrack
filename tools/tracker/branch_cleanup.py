@@ -326,16 +326,30 @@ def _lease_delete(repository: str, token: str, branch_name: str,
 
 
 def _verify_ref_absent(repository: str, token: str,
-                       branch_name: str, *, opener) -> None:
-    """Confirm successful Git deletion through GitHub, without relying on logs."""
+                       branch_name: str, expected_sha: str, *,
+                       opener, sleeper=time.sleep) -> None:
+    """Confirm a Git lease delete, allowing bounded GitHub read propagation."""
     url = _api_url(repository, "branches/" + parse.quote(branch_name, safe=""))
-    try:
-        _api_request(url, token, opener=opener)
-    except RuntimeError as exc:
-        if str(exc).startswith("GitHub API request failed (HTTP 404 at "):
-            return
-        raise RuntimeError(f"Branch verification failed: {exc}") from None
-    raise RuntimeError("Branch is still present after Git lease deletion")
+    for attempt in range(5):
+        try:
+            branch = _api_request(url, token, opener=opener)
+        except RuntimeError as exc:
+            if str(exc).startswith("GitHub API request failed (HTTP 404 at "):
+                return
+            # Permission/rate-limit errors are never treated as stale reads.
+            raise RuntimeError(f"Branch verification failed: {exc}") from None
+        if not isinstance(branch, dict):
+            raise RuntimeError("Branch verification returned malformed data")
+        commit = branch.get("commit")
+        current_sha = commit.get("sha") if isinstance(commit, dict) else None
+        if (branch.get("name") != branch_name
+                or not isinstance(current_sha, str)):
+            raise RuntimeError("Branch verification returned inconsistent data")
+        if current_sha != expected_sha:
+            raise RuntimeError("Branch changed or was recreated after lease deletion")
+        if attempt < 4:
+            sleeper(2)
+    raise RuntimeError("Branch is still present after bounded lease-deletion verification")
 
 
 def apply_plan(repository: str, token: str, inventory: dict, *, opener=None,
@@ -374,7 +388,8 @@ def apply_plan(repository: str, token: str, inventory: dict, *, opener=None,
             (pusher or _lease_delete)(repository, token, candidate["branch"],
                                        candidate["sha"])
             (verifier or _verify_ref_absent)(
-                repository, token, candidate["branch"], opener=api_opener)
+                repository, token, candidate["branch"], candidate["sha"],
+                opener=api_opener)
             deleted.append({"branch": candidate["branch"], "merged_pr": candidate["merged_pr"]})
         except (RuntimeError, ValueError) as exc:
             failures.append({"branch": candidate["branch"], "merged_pr": candidate["merged_pr"],
