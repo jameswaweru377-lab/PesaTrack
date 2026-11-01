@@ -236,7 +236,7 @@ jobs:
           disk-size: 4096M
           disable-animations: true
           script: |
-            ./gradlew :app:connectedDebugAndroidTest --stacktrace -Pandroid.testInstrumentationRunnerArguments.class=com.kedevjimmy.pesatrack.data.local.StatementBankArchiveIntegrationTest,com.kedevjimmy.pesatrack.ui.screens.StatementUnifiedOverviewUiTest,com.kedevjimmy.pesatrack.security.StatementArchiveBackupIntegrationTest
+            ./gradlew :app:connectedDebugAndroidTest --stacktrace -Pandroid.testInstrumentationRunnerArguments.class=com.kedevjimmy.pesatrack.data.local.StatementBankArchiveIntegrationTest,com.kedevjimmy.pesatrack.ui.screens.StatementUnifiedOverviewUiTest,com.kedevjimmy.pesatrack.ui.screens.StatementLimitedDashboardIntegrationTest,com.kedevjimmy.pesatrack.security.StatementArchiveBackupIntegrationTest
             adb logcat -d -v raw 'PesaTrackMeasurement:I' '*:S' > history-measurements.jsonl
             echo "${{ github.sha }}" > ANDROID_TEST_SOURCE_SHA.txt
 
