@@ -3,6 +3,25 @@ package com.kedevjimmy.pesatrack.ui.screens
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,7 +59,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Small local-only Plan card; expected future pay never enters today's ledger. */
+/** Compact local-only Plan status. Full evidence and confirmation remain on demand. */
 @Composable
 internal fun MoneyUntilSalaryCard(snapshot: PayCycleSnapshot) {
     val context = LocalContext.current
@@ -50,6 +69,7 @@ internal fun MoneyUntilSalaryCard(snapshot: PayCycleSnapshot) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
+    var showEvidence by remember { mutableStateOf(false) }
     var refresh by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(snapshot.cycle?.startTransactionId, revision.revision, refresh) {
@@ -67,31 +87,133 @@ internal fun MoneyUntilSalaryCard(snapshot: PayCycleSnapshot) {
         }
     }
 
-    VibrantPlanSurface {
-        Text("Money until next salary", style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold)
-        when {
-            loading -> {
-                CircularProgressIndicator()
-                Text("Checking your local balance and salary history…")
-            }
-            error -> {
-                Text("Could not check this forecast. Your money records are unchanged.")
-                TextButton(onClick = { refresh++ }) { Text("Try again") }
-            }
-            current != null -> {
-                ForecastDetails(requireNotNull(current))
-                TextButton(onClick = { editing = !editing }) {
-                    Text(if (editing) "Close forecast inputs" else "Confirm payday & balance")
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(21.dp),
+        color = Color(0xFFF1ECFF),
+        border = BorderStroke(1.dp, Color(0xFFE4D9FF)),
+        shadowElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(11.dp)
+            ) {
+                VibrantPlanIcon(
+                    Icons.Rounded.CalendarMonth, "violet",
+                    modifier = Modifier.size(48.dp), size = 48
+                )
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        "Planning status", color = PlanVibrant.ink,
+                        fontSize = 16.sp, fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        when {
+                            loading -> "Checking confirmed payday and spendable balance…"
+                            error -> "Your financial records are safe. Try checking again."
+                            current == null -> "Financial evidence is not available yet."
+                            current?.result?.lowMinor != null &&
+                                current?.result?.highMinor != null ->
+                                "A cautious money-until-salary estimate is available."
+                            else -> "More verified evidence is needed before a money-until-salary estimate."
+                        },
+                        color = PlanVibrant.muted,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
                 }
             }
-        }
-        if (editing && current != null) {
-            ForecastConfirmationForm(repository, requireNotNull(current),
-                snapshot.cycle?.startTransactionId) {
-                editing = false
-                refresh++
+            when {
+                loading -> CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = PlanVibrant.violet, strokeWidth = 2.dp
+                )
+                error -> TextButton(onClick = { refresh++ }) { Text("Try again") }
+                current != null -> {
+                    val read = requireNotNull(current)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        ForecastEvidenceChip(
+                            text = if (read.confirmation != null) "Payday confirmed" else "Confirm payday",
+                            complete = read.confirmation != null,
+                            modifier = Modifier.weight(1f)
+                        )
+                        ForecastEvidenceChip(
+                            text = if (read.hasFreshSpendableBalance) "Balance current" else "Add fresh balance",
+                            complete = read.hasFreshSpendableBalance,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    VibrantActionButton(
+                        label = if (read.confirmation != null && read.hasFreshSpendableBalance)
+                            "Review payday & balance" else "Confirm payday & balance",
+                        onClick = { editing = !editing }
+                    )
+                    if (editing) {
+                        HorizontalDivider(color = Color(0xFFDBD1F6))
+                        ForecastConfirmationForm(
+                            repository = repository,
+                            read = read,
+                            cycleStartId = snapshot.cycle?.startTransactionId
+                        ) {
+                            editing = false
+                            refresh++
+                        }
+                    }
+                    TextButton(
+                        onClick = { showEvidence = !showEvidence },
+                        modifier = Modifier.align(Alignment.End),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                            horizontal = 2.dp, vertical = 0.dp
+                        )
+                    ) {
+                        Text(
+                            if (showEvidence) "Hide forecast evidence" else "Why is an estimate unavailable?",
+                            color = PlanVibrant.violet, fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Icon(
+                            if (showEvidence) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                            contentDescription = null, modifier = Modifier.size(17.dp),
+                            tint = PlanVibrant.violet
+                        )
+                    }
+                    if (showEvidence) {
+                        HorizontalDivider(color = Color(0xFFDBD1F6))
+                        ForecastDetails(read)
+                    }
+                }
+                else -> TextButton(onClick = { refresh++ }) { Text("Retry forecast") }
             }
+        }
+    }
+}
+
+@Composable
+private fun ForecastEvidenceChip(
+    text: String, complete: Boolean, modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.heightIn(min = 33.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = if (complete) Color(0xFFE3FAEE) else Color(0xFFE8DFFF)
+    ) {
+        Row(
+            Modifier.padding(horizontal = 9.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Text(if (complete) "✓" else "○",
+                color = if (complete) Color(0xFF008A68) else Color(0xFF5920CC),
+                fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(text, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+                color = PlanVibrant.ink, maxLines = 2, lineHeight = 12.sp)
         }
     }
 }
