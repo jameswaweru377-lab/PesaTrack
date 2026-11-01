@@ -179,6 +179,7 @@ fun PlanScreen(
     var showPlanDetails by remember {
         mutableStateOf(false)
     }
+    var showFundingEvidence by remember { mutableStateOf(false) }
 
     var loading by remember { mutableStateOf(initialData == null) }
     var hasLoaded by remember { mutableStateOf(initialData != null) }
@@ -321,7 +322,8 @@ fun PlanScreen(
                 VibrantPlanHero(
                     period = formatPlanPeriod(snapshot),
                     available = formatPlanMoney(planningAvailability.availableMinor),
-                    safeToday = snapshot.safeTodayMinor?.let(::formatPlanMoney) ?: "Calculating",
+                    safeToday = snapshot.safeTodayMinor?.let(::formatPlanMoney),
+                    safeTodayPositive = (snapshot.safeTodayMinor ?: 0L) > 0L,
                     onCycleClick = onPayCycleClick
                 )
             }
@@ -434,8 +436,9 @@ fun PlanScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     nearest.forEachIndexed { index, bill ->
-                        val label = bill.rule.displayLabel ?: bill.rule.name
-                        val electricity = label.contains("power", ignoreCase = true) ||
+                        val originalLabel = bill.rule.displayLabel ?: bill.rule.name
+                        val label = planBillFriendlyName(originalLabel)
+                        val electricity = originalLabel.contains("power", ignoreCase = true) ||
                             label.contains("electric", ignoreCase = true) ||
                             label.contains("kplc", ignoreCase = true)
                         VibrantPlanListRow(
@@ -515,39 +518,48 @@ fun PlanScreen(
             }
         }
 
-        if (snapshot.cycle != null) {
-            if (
-                planningAvailability
-                    .shortfallMinor > 0L
-            ) {
-                item {
-                    PesaCard {
-                        Text(
-                            "Commitment shortfall: " +
-                                formatPlanMoney(
-                                    planningAvailability
-                                        .shortfallMinor
-                                ) +
-                                ". This is a planning gap, not an account balance.",
-                            modifier =
-                                Modifier.padding(
-                                    16.dp
-                                ),
-                            color =
-                                MaterialTheme
-                                    .colorScheme
-                                    .onSurfaceVariant
-                        )
+        val unexplained = snapshot.unexplainedFundingGapMinor
+        val shortfall = if (snapshot.cycle != null)
+            planningAvailability.shortfallMinor else 0L
+        if (unexplained > 0L || shortfall > 0L) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    VibrantPlanSourceWarning(
+                        title = if (unexplained > 0L)
+                            "Some spending still needs a source"
+                        else "Planned commitments need attention",
+                        message = when {
+                            unexplained > 0L && shortfall > 0L ->
+                                "Review unexplained spending and the calculated planning gap."
+                            unexplained > 0L ->
+                                "Review unexplained spending to improve your plan."
+                            else -> "Your planned commitments exceed recorded available funds."
+                        },
+                        onClick = { showFundingEvidence = !showFundingEvidence },
+                        expanded = showFundingEvidence
+                    )
+                    if (showFundingEvidence) {
+                        if (shortfall > 0L) {
+                            VibrantPlanSurface {
+                                Text(
+                                    "Commitment shortfall: " + formatPlanMoney(shortfall),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "This is a planning gap, not an account balance.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        if (unexplained > 0L) FundingGapCard(unexplained)
                     }
                 }
             }
+        }
 
-            if (snapshot.unexplainedFundingGapMinor > 0L) {
-                item {
-                    FundingGapCard(snapshot.unexplainedFundingGapMinor)
-                }
-            }
-
+        if (snapshot.cycle != null) {
             item {
                 PesaCard(
                     modifier =
@@ -1149,6 +1161,12 @@ private fun formatPlanPeriod(snapshot: PayCycleSnapshot): String {
             " – next payday"
     }
 }
+
+
+/** Compact payee label; the Bills destination retains the full source identity. */
+private fun planBillFriendlyName(label: String): String =
+    label.replace(Regex("\\s+for\\s+account\\b.*$", RegexOption.IGNORE_CASE), "")
+        .trim().ifBlank { label }
 
 private fun planBillDueLabel(
     dueEpochMs: Long?
