@@ -21,6 +21,8 @@ PesaTrack helps you understand money coming in, going out, and moving between yo
 
 Saved statement archives are separate evidence: saving a bank PDF does not automatically add its rows to Activity or to verified cash-flow totals. Eligible imports require their own review and verification.
 
+For a reconciled bank statement, source-only insights show gross money movement and monthly trends alongside its verification limits; outgoing movements are not assumed to be spending.
+
 Bank PDF identification runs locally, asks for bank confirmation when a supported layout matches, and preserves read-only inspection for unfamiliar layouts.
 
 **Accuracy comes first:** when a transaction, balance, or document cannot be verified confidently, PesaTrack asks for review or shows the limitation instead of inventing a number.
