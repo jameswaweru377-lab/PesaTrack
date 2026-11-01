@@ -14,7 +14,7 @@ Retire demonstrably redundant closed/unmerged PR branches in owner-authorized ba
 
 - Explicit manifest of at most 30 entries; no wildcard selection.
 - Old PR must be closed and unmerged, from this repository to default; its head SHA must match the current branch.
-- Successor PR must be merged into default, with its merge commit contained in current main. Every old PR changed file must still have the same exact Git blob as it did at the successor merge commit. Any subsequent edit, removal, or rename defers retirement.
+- Successor PR must be merged into default, with its merge commit contained in current main. Every old PR changed file must have the same exact Git blob at the successor PR's final head, its merge commit (preventing conflict-resolution drops), and current main (preventing later reversions). Any intervening edit, removal, or rename defers retirement.
 - All changed `+` and `-` lines of the old PR must occur in successor's complete GitHub PR file patch at the same path, with occurrence counts and identical contiguous hunk bodies including unchanged context. Context-free hunks, missing/truncated patches, or altered surrounding functions fail closed. This strict test intentionally defers many plausible replacements.
 - Exclude default, protected, moved, and any open-PR branch. Independently fetch fresh GitHub state before each deletion and enforce exact SHA with Git lease.
 - Use a dedicated owner-only Issue #528 command; existing schedule and ordinary cleanup stay unchanged.

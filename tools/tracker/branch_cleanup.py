@@ -325,9 +325,12 @@ def _confirmed_superseded(repository: str, token: str, candidate: dict, *, opene
 
 
 def _successor_files_unchanged(repository: str, token: str, old_pr: int,
-                               successor_merge_sha: str, default_sha: str, *, opener) -> bool:
-    """Fail closed if any old-PR path differs after the successor's merge."""
-    if (not isinstance(successor_merge_sha, str)
+                               successor_head_sha: str, successor_merge_sha: str,
+                               default_sha: str, *, opener) -> bool:
+    """Prove old-PR files were kept at merge and remain unchanged in main."""
+    if (not isinstance(successor_head_sha, str)
+            or not SHA_PATTERN.fullmatch(successor_head_sha)
+            or not isinstance(successor_merge_sha, str)
             or not SHA_PATTERN.fullmatch(successor_merge_sha)
             or not isinstance(default_sha, str) or not SHA_PATTERN.fullmatch(default_sha)):
         return False
@@ -342,6 +345,8 @@ def _successor_files_unchanged(repository: str, token: str, old_pr: int,
             return False
         content_url = "contents/" + parse.quote(path, safe="/")
         try:
+            head = _api_request(_api_url(repository, content_url, ref=successor_head_sha),
+                                token, opener=opener)
             merged = _api_request(_api_url(repository, content_url, ref=successor_merge_sha),
                                   token, opener=opener)
             current = _api_request(_api_url(repository, content_url, ref=default_sha),
@@ -350,11 +355,11 @@ def _successor_files_unchanged(repository: str, token: str, old_pr: int,
             if str(exc).startswith("GitHub API request failed (HTTP 404 at "):
                 return False
             raise
-        if (not isinstance(merged, dict) or not isinstance(current, dict)
-                or merged.get("type") != "file" or current.get("type") != "file"
-                or not isinstance(merged.get("sha"), str)
-                or not SHA_PATTERN.fullmatch(merged["sha"])
-                or current.get("sha") != merged["sha"]):
+        if (not all(isinstance(value, dict) and value.get("type") == "file"
+                    and isinstance(value.get("sha"), str)
+                    and SHA_PATTERN.fullmatch(value["sha"])
+                    for value in (head, merged, current))
+                or not head["sha"] == merged["sha"] == current["sha"]):
             return False
     return True
 
@@ -509,10 +514,12 @@ def _recheck_candidate(repository: str, token: str, candidate: dict, *, opener) 
         successor = _api_request(
             _api_url(repository, f"pulls/{candidate['successor_pr']}"), token, opener=opener)
         merge_sha = successor.get("merge_commit_sha") if isinstance(successor, dict) else None
+        successor_head = successor.get("head") if isinstance(successor, dict) else None
+        head_sha = successor_head.get("sha") if isinstance(successor_head, dict) else None
         if not _confirmed_ancestor(repository, token, merge_sha, main_sha, opener=opener):
             return False, "successor_not_in_main"
         if not _successor_files_unchanged(repository, token, candidate["old_pr"],
-                                          merge_sha, main_sha, opener=opener):
+                                          head_sha, merge_sha, main_sha, opener=opener):
             return False, "successor_files_changed_on_main"
     if ancestry_mode:
         main_branch = _api_request(

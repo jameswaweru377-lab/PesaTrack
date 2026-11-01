@@ -125,7 +125,7 @@ class SupersededRetirementTests(unittest.TestCase):
             raise AssertionError(path)
 
         self.assertTrue(_successor_files_unchanged(REPOSITORY, "", 200,
-                        "c" * 40, MAIN_SHA, opener=same))
+                        "b" * 40, "c" * 40, MAIN_SHA, opener=same))
 
         def changed(request, timeout=30):
             result = same(request, timeout)
@@ -135,7 +135,20 @@ class SupersededRetirementTests(unittest.TestCase):
             return result
 
         self.assertFalse(_successor_files_unchanged(REPOSITORY, "", 200,
-                         "c" * 40, MAIN_SHA, opener=changed))
+                         "b" * 40, "c" * 40, MAIN_SHA, opener=changed))
+
+        def conflict_resolution_dropped_change(request, timeout=30):
+            path = urlparse(request.full_url).path
+            if path.endswith("/pulls/200/files"):
+                return Response(old_files)
+            if path.endswith("/contents/a.kt"):
+                blob = "f" * 40 if "ref=" + "b" * 40 in request.full_url else sha
+                return Response({"type": "file", "sha": blob})
+            raise AssertionError(path)
+
+        self.assertFalse(_successor_files_unchanged(REPOSITORY, "", 200,
+                         "b" * 40, "c" * 40, MAIN_SHA,
+                         opener=conflict_resolution_dropped_change))
 
 
 if __name__ == "__main__":
