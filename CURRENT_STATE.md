@@ -1,5 +1,12 @@
 # PesaTrack Current State
 
+_Limited bank statement dashboard (implementation verification pending):_
+A single grand-total-reconciled bank PDF opens a source-specific dashboard with
+rechecked money-in/out totals, net movement, monthly movement bars and the
+largest outgoing rows. Multiple PDFs remain separate to avoid overlap. The
+verification notice remains visible; outgoing movements are not labelled as
+spending, and no categories, Activity entries or verified totals are created.
+
 _Last refreshed: 1 November 2026_
 
 _A2 bill-cadence domain dependency (1 November 2026):_

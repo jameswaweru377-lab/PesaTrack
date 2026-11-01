@@ -135,7 +135,7 @@ class StatementUnifiedOverviewUiTest {
         assertEquals("equity", selected)
     }
 
-    @Test fun limitedOnlyBankPageOpensTheSavedSourceReview() {
+    @Test fun limitedOnlyBankPageOpensTheSourceDashboardDirectly() {
         val saved = StatementBankArchiveStore.Source(
             id = "b".repeat(64), accountId = "invented-equity",
             providerKey = "KENYAN_BANK_EQUITY", currency = "KES", format = "PDF",
@@ -149,8 +149,7 @@ class StatementUnifiedOverviewUiTest {
                 onBack = {}, onImport = {}
             )
         } }
-        compose.onNodeWithText("Grand-total reconciled · source only").assertExists()
-        compose.onNodeWithText("Grand-total reconciled · 2 rows").performClick()
+        compose.onNodeWithText("Invented Equity").assertExists()
         compose.onNodeWithText("Not a fully verified bank report").assertExists()
     }
 
@@ -208,5 +207,19 @@ class StatementUnifiedOverviewUiTest {
         compose.onNodeWithText("Money out · KES 2.5").assertExists()
         compose.onNodeWithText("Net movement · KES 7.5").assertExists()
         compose.onNodeWithText("2026-09 · 2 rows").assertExists()
+    }
+
+    @Test fun limitedDashboardShowsMovementAndDoesNotInventSpending() {
+        val report = StatementGrandTotalReconciledPolicy.Report(
+            rows = 2, moneyInMinor = 1_000, moneyOutMinor = 250, netMinor = 750,
+            months = listOf(StatementGrandTotalReconciledPolicy.Month("2026-09", 2, 1_000, 250))
+        )
+        compose.setContent { PesaTrackTheme {
+            StatementLimitedDashboardCards(report, emptyList())
+        } }
+        compose.onNodeWithText("Money in").assertExists()
+        compose.onNodeWithText("Money out").assertExists()
+        compose.onNodeWithText("Monthly money movement").assertExists()
+        compose.onNodeWithText("Spending categories are not yet available for this statement.").assertExists()
     }
 }

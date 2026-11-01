@@ -60,7 +60,7 @@ internal fun StatementBankOverviewPage(
         }
     }
     limitedSelected?.let { selected ->
-        StatementLimitedSourcePage(selected) { limitedSelected = null }
+        StatementLimitedSourcePage(selected, { limitedSelected = null })
         return
     }
     val years = remember(months) { months.map { it.key.substringBefore('-').toInt() }.distinct().sortedDescending() }

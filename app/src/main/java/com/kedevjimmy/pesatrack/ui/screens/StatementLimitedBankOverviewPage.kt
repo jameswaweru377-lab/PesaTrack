@@ -22,9 +22,13 @@ internal fun StatementLimitedBankOverviewPage(
     onBack: () -> Unit,
     onImport: () -> Unit
 ) {
+    if (sources.size == 1) {
+        StatementLimitedSourcePage(sources.single(), onBack, accountLabel, onImport)
+        return
+    }
     var selected by remember(accountLabel) { mutableStateOf<StatementBankArchiveStore.Source?>(null) }
     selected?.let { source ->
-        StatementLimitedSourcePage(source) { selected = null }
+        StatementLimitedSourcePage(source, { selected = null }, accountLabel, onImport)
         return
     }
     BackHandler(onBack = onBack)
