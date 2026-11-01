@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 import os
 import re
@@ -236,7 +237,7 @@ def _patch_lines_contained(old_files: list, new_files: list) -> bool:
         return False
 
     def changed_lines(files):
-        lines = set()
+        lines = Counter()
         for row in files:
             if not isinstance(row, dict) or not isinstance(row.get("filename"), str):
                 return None
@@ -251,10 +252,10 @@ def _patch_lines_contained(old_files: list, new_files: list) -> bool:
             for line in patch.splitlines():
                 if line.startswith("+"):
                     additions += 1
-                    lines.add((row["filename"], line))
+                    lines[(row["filename"], line)] += 1
                 elif line.startswith("-"):
                     deletions += 1
-                    lines.add((row["filename"], line))
+                    lines[(row["filename"], line)] += 1
             if additions != row["additions"] or deletions != row["deletions"]:
                 return None
         return lines

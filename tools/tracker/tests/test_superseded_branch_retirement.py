@@ -34,6 +34,13 @@ class SupersededRetirementTests(unittest.TestCase):
                       "additions": 1, "deletions": 0}]
         self.assertFalse(_patch_lines_contained(old, successor))
 
+    def test_repeated_changed_line_must_be_preserved_twice(self):
+        old = [{"filename": "a.kt", "patch": "@@ -1 +1,2 @@\n+same\n+same",
+                "additions": 2, "deletions": 0}]
+        successor = [{"filename": "a.kt", "patch": "@@ -1 +1,2 @@\n+same\n+other",
+                      "additions": 2, "deletions": 0}]
+        self.assertFalse(_patch_lines_contained(old, successor))
+
     def test_explicit_superseded_pair_only_and_30_cap_independent(self):
         old = pull(200, "feature/old", FEATURE_SHA, merged_at=None)
         newer = pull(201, "feature/new", "c" * 40)
