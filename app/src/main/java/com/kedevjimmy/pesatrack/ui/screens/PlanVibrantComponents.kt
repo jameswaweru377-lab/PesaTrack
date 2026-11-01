@@ -295,7 +295,8 @@ internal fun VibrantPlanHero(
 internal fun VibrantPlanSourceWarning(
     message: String,
     onClick: () -> Unit,
-    expanded: Boolean = false
+    expanded: Boolean = false,
+    title: String = "Some spending still needs a source"
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
@@ -312,7 +313,7 @@ internal fun VibrantPlanSourceWarning(
                 modifier = Modifier.size(25.dp), tint = Color(0xFF9C6510))
             Column(Modifier.weight(1f)) {
                 Text(
-                    "Some spending still needs a source",
+                    title,
                     color = PlanVibrant.ink, fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
