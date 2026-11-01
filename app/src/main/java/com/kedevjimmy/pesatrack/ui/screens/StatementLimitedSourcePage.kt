@@ -10,10 +10,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
 import com.kedevjimmy.pesatrack.domain.statements.StatementGrandTotalReconciledPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementLimitedDashboardPolicy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -22,7 +24,9 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun StatementLimitedSourcePage(
     source: StatementBankArchiveStore.Source,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    accountLabel: String = "Bank statement",
+    onImport: (() -> Unit)? = null
 ) {
     BackHandler(onBack = onBack)
     val context = LocalContext.current
@@ -30,9 +34,9 @@ internal fun StatementLimitedSourcePage(
         mutableStateOf<List<StatementBankArchiveStore.Leg>?>(null)
     }
     var failed by remember(source.id) { mutableStateOf(false) }
-    val report = remember(source, rows) {
+    val dashboard = remember(source, rows) {
         rows?.let { saved ->
-            StatementGrandTotalReconciledPolicy.project(
+            StatementLimitedDashboardPolicy.project(
                 sourceId = source.id, expectedRows = source.rows,
                 expectedMoneyInMinor = source.moneyInMinor,
                 expectedMoneyOutMinor = source.moneyOutMinor,
@@ -56,6 +60,7 @@ internal fun StatementLimitedSourcePage(
         }
     }
     LazyColumn(
+        modifier = Modifier.testTag("limited-bank-dashboard"),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -65,9 +70,9 @@ internal fun StatementLimitedSourcePage(
                     Icon(Icons.Rounded.ArrowBack, "Back")
                 }
                 Column {
-                    Text("Grand-total reconciled", style = MaterialTheme.typography.titleLarge,
+                    Text(accountLabel, style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold)
-                    Text("${source.rows} locally reconciled rows",
+                    Text("Statement insights · ${source.rows} locally reconciled rows",
                         style = MaterialTheme.typography.bodyMedium)
                 }
             }
@@ -86,10 +91,23 @@ internal fun StatementLimitedSourcePage(
         if (!failed && rows == null) item {
             Text("Checking saved source rows before showing totals…")
         }
-        if (!failed && rows != null && report == null) item {
+        if (!failed && rows != null && dashboard == null) item {
             Text("Saved source rows did not reconcile with the original grand totals. Cash totals are withheld; no financial information was changed.")
         }
-        if (report != null) item { StatementGrandTotalReconciledSummary(report) }
+        if (dashboard != null) item {
+            val savedRows = rows.orEmpty().associateBy { it.number }
+            StatementLimitedDashboardCards(dashboard.report,
+                dashboard.largestOutflowRowNumbers.mapNotNull { savedRows[it] })
+        }
+        if (onImport != null) item {
+            OutlinedButton(onClick = onImport, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text("Import another statement")
+            }
+        }
+        if (rows != null) item {
+            Text("Statement transactions", style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold)
+        }
         items(rows.orEmpty(), key = { "${it.sourceId}:${it.number}" }) { leg ->
             StatementInsightCard {
                 Text(leg.description, fontWeight = FontWeight.SemiBold)
