@@ -41,6 +41,10 @@ object StatementAccountMentionPolicy {
                 row.occurredAt <= 0 || row.occurredAt !in startInclusive until endExclusive ||
                 row.movementMinor == 0L || row.movementMinor == Long.MIN_VALUE) return@mapNotNull null
             val matches = numberToken.findAll(record.description).mapNotNull tokenMatch@ { token ->
+                var suffix = token.range.last + 1
+                while (suffix < record.description.length && record.description[suffix] in ".-()") suffix++
+                if (suffix > token.range.last + 1 && suffix < record.description.length &&
+                    record.description[suffix] in '0'..'9') return@tokenMatch null
                 var preceding = token.range.first - 1
                 val reversedPrefixDigits = StringBuilder()
                 while (preceding >= 0) {
@@ -50,6 +54,10 @@ object StatementAccountMentionPolicy {
                     preceding--
                 }
                 val internationalPrefix = preceding >= 0 && record.description[preceding] == '+'
+                var before = token.range.first - 1
+                while (before >= 0 && record.description[before] in ".-()") before--
+                if (!internationalPrefix && before < token.range.first - 1 && before >= 0 &&
+                    record.description[before] in '0'..'9') return@tokenMatch null
                 val prefixDigits = reversedPrefixDigits.reverse().toString()
                 val number = when {
                     !internationalPrefix -> token.value
