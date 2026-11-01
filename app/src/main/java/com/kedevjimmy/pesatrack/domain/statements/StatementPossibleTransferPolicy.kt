@@ -12,8 +12,24 @@ object StatementPossibleTransferPolicy {
 
     private data class Bucket(val currency: String, val magnitude: Long)
     private const val MAX_ROWS = 20_000
-    private const val MAX_BUCKET_ROWS = 256
     private const val MAX_DIFFERENCE = 48L * 60L * 60L * 1_000L
+
+    /** Indices of every observation within the inclusive time window, in a sorted list. */
+    private fun nearbyRange(rows: List<StatementEvidenceCorrelationPolicy.Observation>, time: Long): IntRange {
+        val min = if (time <= MAX_DIFFERENCE) 1L else time - MAX_DIFFERENCE
+        val max = if (time > Long.MAX_VALUE - MAX_DIFFERENCE) Long.MAX_VALUE else time + MAX_DIFFERENCE
+        fun boundary(value: Long, afterEqual: Boolean): Int {
+            var low = 0
+            var high = rows.size
+            while (low < high) {
+                val middle = low + (high - low) / 2
+                val current = rows[middle].occurredAt
+                if (current < value || (afterEqual && current == value)) low = middle + 1 else high = middle
+            }
+            return low
+        }
+        return boundary(min, false) until boundary(max, true)
+    }
 
     fun suggest(
         observations: List<StatementEvidenceCorrelationPolicy.Observation>,
@@ -38,20 +54,18 @@ object StatementPossibleTransferPolicy {
         }
         val suggestions = mutableListOf<Suggestion>()
         for (bucket in buckets.values) {
-            // Busy amounts are too ambiguous for a reliable review lead; retain every original record.
-            if (bucket.size > MAX_BUCKET_ROWS) continue
-            val outgoing = bucket.filter { it.movementMinor < 0 }
-            val incoming = bucket.filter { it.movementMinor > 0 }
-            fun nearby(a: StatementEvidenceCorrelationPolicy.Observation, b: StatementEvidenceCorrelationPolicy.Observation): Boolean =
-                if (a.occurredAt >= b.occurredAt) a.occurredAt - b.occurredAt <= MAX_DIFFERENCE
-                else b.occurredAt - a.occurredAt <= MAX_DIFFERENCE
+            val outgoing = bucket.filter { it.movementMinor < 0 }.sortedBy { it.occurredAt }
+            val incoming = bucket.filter { it.movementMinor > 0 }.sortedBy { it.occurredAt }
             for (out in outgoing) {
                 if (!eligible(out)) continue
                 // Count all plausible rivals, including records that cannot themselves be suggested.
-                val matches = incoming.filter { nearby(out, it) }
-                val candidate = matches.singleOrNull() ?: continue
+                // Binary search keeps common amounts bounded without ignoring the rest of the year.
+                val matches = nearbyRange(incoming, out.occurredAt)
+                if (matches.isEmpty() || matches.first != matches.last) continue
+                val candidate = incoming[matches.first]
+                val rivals = nearbyRange(outgoing, candidate.occurredAt)
                 if (!eligible(candidate) || candidate.accountId == out.accountId ||
-                    outgoing.count { nearby(it, candidate) } != 1 ||
+                    rivals.isEmpty() || rivals.first != rivals.last ||
                     (out.occurredAt !in startInclusive until endExclusive &&
                         candidate.occurredAt !in startInclusive until endExclusive)) continue
                 suggestions += Suggestion(out, candidate)
