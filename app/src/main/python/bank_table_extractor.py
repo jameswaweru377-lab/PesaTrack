@@ -79,7 +79,7 @@ def _cells(words, columns):
         key=lambda token: (token["top"], token["x0"]))) for cell in values]
 
 
-def _label_y(words, label, after):
+def _label_y(words, label, after, required=True):
     first, second = label.split()
     found = []
     for word in words:
@@ -89,9 +89,9 @@ def _label_y(words, label, after):
                0 <= other["x0"] - word["x1"] < 25 and
                other["text"].rstrip(":").upper() == second.upper() for other in words):
             found.append(word["top"])
-    if len(found) != 1:
+    if len(found) > 1 or (required and not found):
         raise Blocked("missing_or_ambiguous_summary")
-    return found[0]
+    return found[0] if found else None
 
 
 def _issuer_account(words, profile):
@@ -168,10 +168,16 @@ def _read_page(page, page_number, profile, deadline):
                for w in body):
             raise Blocked("unaccounted_cover_amount")
         return source_id, None
-    first_footer = _label_y(words, "Page Total", dated[-1]["top"])
-    grand_y = _label_y(words, "Grand Total", first_footer)
-    uncleared_y = _label_y(words, "Uncleared Cheques", grand_y)
-    if not (header_bottom < dated[0]["top"] < dated[-1]["top"] < first_footer < grand_y < uncleared_y):
+    page_y = _label_y(words, "Page Total", dated[-1]["top"], required=False)
+    grand_y = _label_y(words, "Grand Total", dated[-1]["top"], required=False)
+    if page_y is None and grand_y is None:
+        raise Blocked("missing_or_ambiguous_summary")
+    if page_y is not None and grand_y is not None and page_y >= grand_y:
+        raise Blocked("invalid_source_regions")
+    summary_positions = [y for y in (page_y, grand_y) if y is not None]
+    first_footer = min(summary_positions)
+    uncleared_y = _label_y(words, "Uncleared Cheques", max(summary_positions))
+    if not (header_bottom < dated[0]["top"] <= dated[-1]["top"] < first_footer < uncleared_y):
         raise Blocked("invalid_source_regions")
     body = [w for w in words if header_bottom + 3 < w["top"] < first_footer - 4 and
             columns[0][0] - 1 <= w["x0"] < columns[-1][1] + 1]
@@ -214,8 +220,8 @@ def _read_page(page, page_number, profile, deadline):
             raise Blocked("balance_mismatch")
         previous_balance = balance
         source_rows.append(row)
-    page_total = _summary(words, columns, first_footer, "Page Total", profile)
-    grand_total = _summary(words, columns, grand_y, "Grand Total", profile)
+    page_total = _summary(words, columns, page_y, "Page Total", profile) if page_y is not None else None
+    grand_total = _summary(words, columns, grand_y, "Grand Total", profile) if grand_y is not None else None
     # Nonzero uncleared cheques are not posted cash legs and need a separate policy.
     uncleared_values = [w["text"] for w in words if abs(w["top"] - uncleared_y) < 4 and
                         columns[3][0] <= w["x0"] < columns[-1][1]]
@@ -224,13 +230,13 @@ def _read_page(page, page_number, profile, deadline):
     income = sum(_amount(row[4], optional=True) for row in source_rows)
     outgoing = sum(_amount(row[3], optional=True) for row in source_rows)
     if any(total["moneyInMinor"] != income or total["moneyOutMinor"] != outgoing or
-           total["balanceMinor"] != previous_balance for total in (page_total, grand_total)):
+           total["balanceMinor"] != previous_balance for total in (page_total, grand_total) if total is not None):
         raise Blocked("printed_totals_mismatch")
     return source_id, {
         "pageNumber": page_number, "headers": profile["headers"],
         "rows": source_rows, "openingBalanceMinor": opening,
-        "pageTotal": {"moneyInMinor": income, "moneyOutMinor": outgoing},
-        "grandTotal": {"moneyInMinor": income, "moneyOutMinor": outgoing},
+        "pageTotal": {"moneyInMinor": income, "moneyOutMinor": outgoing} if page_total is not None else None,
+        "grandTotal": {"moneyInMinor": income, "moneyOutMinor": outgoing} if grand_total is not None else None,
     }
 
 
@@ -279,7 +285,8 @@ def inspect_pdf(base64_data: str, password: str, provider_key: str) -> str:
                 "providerKey": provider_key, "accountIdentifier": identity,
                 "currency": profile["currency"], "format": "PDF", "pages": len(pdf.pages),
                 "openingBalanceMinor": source["openingBalanceMinor"],
-                "printedPageTotals": {str(source["pageNumber"]): source["pageTotal"]},
+                "printedPageTotals": ({str(source["pageNumber"]): source["pageTotal"]}
+                                      if source["pageTotal"] is not None else {}),
                 "printedGrandTotal": source["grandTotal"],
                 "allSourceRegionsAccountedFor": True,
             }, "tables": [{"pageNumber": source["pageNumber"],

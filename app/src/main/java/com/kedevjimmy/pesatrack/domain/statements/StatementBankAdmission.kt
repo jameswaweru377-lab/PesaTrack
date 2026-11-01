@@ -95,8 +95,10 @@ object StatementBankAdmission {
         if (accepted.oldestLegUnanchored != limited || accepted.sourceRows != accepted.legs.size ||
             accepted.legs.isEmpty() || accepted.legs.any { it.pageNumber !in 1..document.pages })
             return block(StatementAdmissionResult.Reason.UNVERIFIED_BALANCE)
-        if (document.printedGrandTotal == null ||
-            (!limited && document.printedPageTotals.keys != financialPages))
+        if (!financialPages.containsAll(document.printedPageTotals.keys))
+            return block(StatementAdmissionResult.Reason.INCOMPLETE_DOCUMENT)
+        if (document.printedGrandTotal == null &&
+            (limited || document.printedPageTotals.keys != financialPages))
             return block(StatementAdmissionResult.Reason.MISSING_PRINTED_TOTALS)
         val actualIn = runCatching { accepted.legs.filter { it.movementMinor > 0 }
             .fold(0L) { total, leg -> Math.addExact(total, leg.movementMinor) } }.getOrNull()
@@ -105,9 +107,9 @@ object StatementBankAdmission {
             .fold(0L) { total, leg -> Math.addExact(total, Math.negateExact(leg.movementMinor)) } }.getOrNull()
             ?: return block(StatementAdmissionResult.Reason.TOTAL_MISMATCH)
         val printed = document.printedGrandTotal
-        if (actualIn != printed.moneyInMinor || actualOut != printed.moneyOutMinor)
+        if (printed != null && (actualIn != printed.moneyInMinor || actualOut != printed.moneyOutMinor))
             return block(StatementAdmissionResult.Reason.TOTAL_MISMATCH)
-        for (page in if (limited) emptySet() else financialPages) {
+        for (page in document.printedPageTotals.keys) {
             val pageLegs = accepted.legs.filter { it.pageNumber == page }
             val pageIn = runCatching { pageLegs.filter { it.movementMinor > 0 }
                 .fold(0L) { total, leg -> Math.addExact(total, leg.movementMinor) } }.getOrNull()

@@ -76,15 +76,15 @@ object OfflineBankTableReader {
                 }) == null)
             }
         }
-        val grand = source.getJSONObject("printedGrandTotal")
+        val grand = source.optJSONObject("printedGrandTotal")
         val proof = StatementDocumentProof(
             detectedProviderKey = source.getString("providerKey"),
             detectedAccountIdentifier = source.getString("accountIdentifier"),
             currency = source.getString("currency"), format = source.getString("format"),
             allSourceRegionsAccountedFor = source.getBoolean("allSourceRegionsAccountedFor"),
             pages = count, printedPageTotals = perPage,
-            printedGrandTotal = StatementPrintedTotal(grand.getLong("moneyOutMinor"),
-                grand.getLong("moneyInMinor")),
+            printedGrandTotal = grand?.let { StatementPrintedTotal(it.getLong("moneyOutMinor"),
+                it.getLong("moneyInMinor")) },
             openingBalanceMinor = if (source.isNull("openingBalanceMinor")) null
                 else source.getLong("openingBalanceMinor"),
             assurance = when (source.optString("assurance")) {
