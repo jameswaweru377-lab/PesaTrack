@@ -56,6 +56,16 @@ class StatementMatchReviewPolicyTest {
         assertTrue(StatementMatchReviewPolicy.project(rows, proof).transfers.isEmpty())
     }
 
+    @Test fun malformedOrUnverifiedSameMovementIsNotDisplayed() {
+        val a = observation("a", "wallet", Long.MIN_VALUE, StatementEvidenceCorrelationPolicy.Source.ACTIVITY)
+        val b = observation("b", "wallet", Long.MIN_VALUE, StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT)
+        val proof = StatementCrossSourceEventPolicy.Result(listOf(setOf("a", "b")), emptyList(), emptySet(), emptySet())
+        assertTrue(StatementMatchReviewPolicy.project(listOf(a, b), proof).sameMovements.isEmpty())
+        val valid = a.copy(movementMinor = 500, reference = "CUSTOMER")
+        val unverified = b.copy(movementMinor = 500, reference = "CUSTOMER", sourceTotalsVerified = false)
+        assertTrue(StatementMatchReviewPolicy.project(listOf(valid, unverified), proof).sameMovements.isEmpty())
+    }
+
     @Test fun yearBoundarySearchIncludesCompetitorOfAnOutsideCandidate() {
         val yearEnd = 1_800_000_000_000L
         val hour = 60L * 60 * 1_000
