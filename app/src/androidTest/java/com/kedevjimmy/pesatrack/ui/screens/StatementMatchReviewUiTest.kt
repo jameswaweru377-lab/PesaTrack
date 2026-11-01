@@ -12,6 +12,7 @@ import androidx.compose.ui.test.isToggleable
 import com.kedevjimmy.pesatrack.data.local.StatementMatchDecisionStore
 import com.kedevjimmy.pesatrack.domain.statements.StatementEvidenceCorrelationPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementMatchReviewPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementPossibleTransferPolicy
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertEquals
@@ -79,5 +80,23 @@ class StatementMatchReviewUiTest {
         compose.onNode(isToggleable()).performClick()
         compose.onNodeWithText("Confirm match").performClick()
         assertEquals(true, attested)
+    }
+
+    @Test fun weakerSuggestionClearlyExplainsThatAmountAndDateAreNotProof() {
+        fun row(id: String, account: String, amount: Long) = StatementEvidenceCorrelationPolicy.Observation(
+            id, StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT, id, account, "KES",
+            1_700_000_000_000L, amount, null, true, sourceTotalsVerified = true)
+        val out = row("out", "bank", -500)
+        val incoming = row("in", "wallet", 500)
+        val review = StatementMatchReviewPolicy.Review(emptyList(), emptyList(), 0)
+        val suggestion = StatementPossibleTransferPolicy.Suggestion(out, incoming)
+        val snapshot = StatementMatchDecisionStore.Snapshot(review, emptyList(), emptyMap(), false,
+            possibleTransfers = listOf(suggestion))
+        compose.setContent { MaterialTheme { StatementMatchReviewContent(2026, emptyMap(), review, false, {}, {}, snapshot = snapshot) } }
+        compose.onNodeWithTag("statement-match-review").performScrollToNode(hasText("Other movements to check"))
+        compose.onNodeWithText("These are weaker suggestions and may be unrelated. Check the originals before deciding.").assertExists()
+        compose.onNodeWithTag("statement-match-review").performScrollToNode(hasText("Same amount and nearby dates. This alone does not prove a transfer."))
+        compose.onNodeWithText("Same amount and nearby dates. This alone does not prove a transfer.").assertExists()
+        compose.onNodeWithText("Confirm").assertDoesNotExist()
     }
 }

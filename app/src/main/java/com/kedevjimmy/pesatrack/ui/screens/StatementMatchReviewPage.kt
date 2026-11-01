@@ -208,6 +208,28 @@ internal fun StatementMatchReviewContent(
                         rows, busy, onConfirm = { confirming = it }, onDecision = onDecision)
                 }
             }
+            val possibleTransfers = snapshot?.possibleTransfers.orEmpty()
+            if (possibleTransfers.isNotEmpty()) item {
+                Text("Other movements to check", color = p.ink,
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("These are weaker suggestions and may be unrelated. Check the originals before deciding.",
+                    color = p.muted, style = MaterialTheme.typography.bodyMedium)
+            }
+            items(possibleTransfers) { possible ->
+                StatementInsightCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.CompareArrows, null, tint = p.purple)
+                        Spacer(Modifier.width(10.dp))
+                        Text(matchReviewMoney(-possible.outgoing.movementMinor, possible.outgoing.currency),
+                            color = p.ink, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    }
+                    Text("${labels[possible.outgoing.accountId] ?: "Account"} → ${labels[possible.incoming.accountId] ?: "Account"}",
+                        color = p.ink, fontWeight = FontWeight.SemiBold)
+                    Text("Same amount and nearby dates. This alone does not prove a transfer.",
+                        color = p.muted, style = MaterialTheme.typography.bodySmall)
+                    MatchEvidenceLines(listOf(possible.outgoing, possible.incoming), labels)
+                }
+            }
         }
     }
 }
