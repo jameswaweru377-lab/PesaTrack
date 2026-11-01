@@ -70,6 +70,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kedevjimmy.pesatrack.data.profile.ProfilePhotoStore
+import com.kedevjimmy.pesatrack.ui.theme.MoreVisualTokens as M
 
 /**
  * Approved More page (November 2026).
@@ -77,15 +78,7 @@ import com.kedevjimmy.pesatrack.data.profile.ProfilePhotoStore
  * Presentation only. Every destination stays wired to an existing feature;
  * profile name and photo are loaded from the device, never hardcoded sample data.
  */
-private object MorePalette {
-    val ink = Color(0xFF12123E)
-    val muted = Color(0xFF5B638E)
-    val purple = Color(0xFF6212F5)
-    val lavender = Color(0xFFEEE7FF)
-    val blue = Color(0xFF106DFA)
-    val mint = Color(0xFF00A96A)
-    val orange = Color(0xFFFF7438)
-}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,8 +104,6 @@ fun MoreScreen(
     var photo by remember { mutableStateOf<Bitmap?>(photoStore.load()) }
     var avatar by remember { mutableStateOf(preferences.getString("profile_avatar", "J").orEmpty()) }
     var importOptionsOpen by remember { mutableStateOf(false) }
-
-    // After editing Profile, return to More with the updated real name and photo.
     DisposableEffect(lifecycleOwner, photoStore, preferences) {
         val listener = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -126,153 +117,121 @@ fun MoreScreen(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize()
-            .padding(scaffoldPadding)
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFFF7F6FF), Color(0xFFF7F8FF), Color(0xFFF0F3FF))
-                )
-            ),
-        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxSize().padding(scaffoldPadding)
+            .background(Brush.verticalGradient(listOf(M.canvasTop, M.canvasMiddle, M.canvasBottom))),
+        contentPadding = PaddingValues(
+            start = M.space14, end = M.space14, top = M.space8, bottom = M.space24
+        ),
+        verticalArrangement = Arrangement.spacedBy(M.space12)
     ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text(
-                    "More", color = MorePalette.ink,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 28.sp, lineHeight = 32.sp
-                )
-                Text(
-                    "Manage your account, data and app settings.",
-                    color = MorePalette.muted, fontSize = 12.sp, lineHeight = 16.sp
-                )
-            }
+        item { MorePageHeading() }
+        item { MoreProfileHero(name.ifBlank { "Your profile" }, avatar, photo, onProfileClick) }
+        item { MoreWorkspaceSection(onStatementActivityClick, { importOptionsOpen = true },
+            onAccountsClick, onReportsClick) }
+        item { MorePreferencesSection(onProfileSectionClick, onSettingsClick) }
+        item { MoreSupportSection(onProfileSectionClick, onDataHealthClick,
+            onPastTransactionsClick, onAccountsClick) }
+    }
+    if (importOptionsOpen) {
+        MoreImportChoiceSheet(
+            onDismiss = { importOptionsOpen = false },
+            onSms = { importOptionsOpen = false; onImportClick() },
+            onStatement = { importOptionsOpen = false; onStatementActivityClick() }
+        )
+    }
+}
+
+@Composable
+private fun MorePageHeading() {
+    Column(verticalArrangement = Arrangement.spacedBy(M.space1)) {
+        Text("More", color = M.ink,
+            fontWeight = FontWeight.ExtraBold, fontSize = 28.sp, lineHeight = 32.sp)
+        Text("Manage your account, data and app settings.",
+            color = M.muted, fontSize = 12.sp, lineHeight = 16.sp)
+    }
+}
+
+@Composable
+private fun MoreWorkspaceSection(
+    statements: () -> Unit, imports: () -> Unit,
+    accounts: () -> Unit, reports: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(M.space8)) {
+        MoreSectionTitle("Money workspace")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(M.space5)) {
+            MoreWorkspaceTile(Modifier.weight(1f), Icons.Rounded.Description,
+                M.iconStatement, M.iconPurpleSoft, "Statements", "Imported evidence", statements)
+            MoreWorkspaceTile(Modifier.weight(1f), Icons.Rounded.FileDownload,
+                M.blue, M.iconBlueSoft, "Imports", "SMS, PDF & CSV", imports)
+            MoreWorkspaceTile(Modifier.weight(1f), Icons.Rounded.AccountBalanceWallet,
+                M.mint, M.iconMintSoft, "Accounts", "Wallets & banks", accounts)
+            MoreWorkspaceTile(Modifier.weight(1f), Icons.Rounded.BarChart,
+                M.purple, M.iconPurpleSoft, "Reports", "Trends & insights", reports)
         }
-        item {
-            MoreProfileHero(
-                name = name.ifBlank { "Your profile" },
-                avatar = avatar,
-                photo = photo,
-                onClick = onProfileClick
-            )
+    }
+}
+
+@Composable
+private fun MorePreferencesSection(openProfile: (String) -> Unit, settings: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(M.space8)) {
+        MoreSectionTitle("App preferences")
+        MoreSettingsGroup {
+            MoreSettingsRow(Icons.Rounded.NotificationsNone, "Notifications",
+                "Bills, budgets & reminders", "purple") { openProfile("notifications") }
+            MoreSettingsRow(Icons.Rounded.Lock, "App lock & security",
+                "PIN, fingerprint & access", "green") { openProfile("security") }
+            MoreSettingsRow(Icons.Rounded.Palette, "Appearance",
+                "Theme, text size & display", "orange") { openProfile("appearance") }
+            MoreSettingsRow(Icons.Rounded.Shield, "Privacy & data",
+                "Permissions and data control", "blue") { openProfile("privacy") }
+            MoreSettingsRow(Icons.Rounded.Settings, "Settings",
+                "General app behavior", "purple", last = true, onClick = settings)
         }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                MoreSectionTitle("Money workspace")
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    MoreWorkspaceTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Rounded.Description,
-                        iconTint = Color(0xFF6F19E9),
-                        iconBackground = Color(0xFFEEE5FF),
-                        title = "Statements",
-                        subtitle = "Imported evidence",
-                        onClick = onStatementActivityClick
-                    )
-                    MoreWorkspaceTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Rounded.FileDownload,
-                        iconTint = MorePalette.blue,
-                        iconBackground = Color(0xFFE6EEFF),
-                        title = "Imports",
-                        subtitle = "SMS, PDF & CSV",
-                        onClick = { importOptionsOpen = true }
-                    )
-                    MoreWorkspaceTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Rounded.AccountBalanceWallet,
-                        iconTint = MorePalette.mint,
-                        iconBackground = Color(0xFFDBFAEE),
-                        title = "Accounts",
-                        subtitle = "Wallets & banks",
-                        onClick = onAccountsClick
-                    )
-                    MoreWorkspaceTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Rounded.BarChart,
-                        iconTint = MorePalette.purple,
-                        iconBackground = Color(0xFFEEE5FF),
-                        title = "Reports",
-                        subtitle = "Trends & insights",
-                        onClick = onReportsClick
-                    )
-                }
-            }
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                MoreSectionTitle("App preferences")
-                MoreSettingsGroup {
-                    MoreSettingsRow(Icons.Rounded.NotificationsNone, "Notifications",
-                        "Bills, budgets & reminders", "purple") {
-                        onProfileSectionClick("notifications")
-                    }
-                    MoreSettingsRow(Icons.Rounded.Lock, "App lock & security",
-                        "PIN, fingerprint & access", "green") {
-                        onProfileSectionClick("security")
-                    }
-                    MoreSettingsRow(Icons.Rounded.Palette, "Appearance",
-                        "Theme, text size & display", "orange") {
-                        onProfileSectionClick("appearance")
-                    }
-                    MoreSettingsRow(Icons.Rounded.Shield, "Privacy & data",
-                        "Permissions and data control", "blue") {
-                        onProfileSectionClick("privacy")
-                    }
-                    MoreSettingsRow(Icons.Rounded.Settings, "Settings",
-                        "General app behavior", "purple", onClick = onSettingsClick, last = true)
-                }
-            }
-        }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                MoreSectionTitle("Support & tools")
-                MoreSettingsGroup {
-                    MoreSettingsRow(Icons.Rounded.SupportAgent, "Help & support",
-                        "Guides, FAQs & contact", "blue") {
-                        onProfileSectionClick("support")
-                    }
-                    MoreSettingsRow(Icons.Rounded.Build, "Advanced troubleshooting",
-                        "Diagnostics & data checks", "purple", onClick = onDataHealthClick)
-                    MoreSettingsRow(Icons.Rounded.History, "Past transactions",
-                        "Review older activity", "blue", onClick = onPastTransactionsClick)
-                    MoreSettingsRow(Icons.Rounded.Wallet, "Funds",
-                        "Balances, sources & movement", "green", onClick = onAccountsClick)
-                    MoreSettingsRow(Icons.Rounded.Info, "About PesaTrack",
-                        "Version, legal & product info", "purple", last = true) {
-                        onProfileSectionClick("about")
-                    }
-                }
+    }
+}
+
+@Composable
+private fun MoreSupportSection(
+    openProfile: (String) -> Unit, diagnostics: () -> Unit,
+    pastTransactions: () -> Unit, funds: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(M.space8)) {
+        MoreSectionTitle("Support & tools")
+        MoreSettingsGroup {
+            MoreSettingsRow(Icons.Rounded.SupportAgent, "Help & support",
+                "Guides, FAQs & contact", "blue") { openProfile("support") }
+            MoreSettingsRow(Icons.Rounded.Build, "Advanced troubleshooting",
+                "Diagnostics & data checks", "purple", onClick = diagnostics)
+            MoreSettingsRow(Icons.Rounded.History, "Past transactions",
+                "Review older activity", "blue", onClick = pastTransactions)
+            MoreSettingsRow(Icons.Rounded.Wallet, "Funds",
+                "Balances, sources & movement", "green", onClick = funds)
+            MoreSettingsRow(Icons.Rounded.Info, "About PesaTrack",
+                "Version, legal & product info", "purple", last = true) {
+                openProfile("about")
             }
         }
     }
-    if (importOptionsOpen) {
-        ModalBottomSheet(onDismissRequest = { importOptionsOpen = false }) {
-            Column(
-                Modifier.fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text("Import money records", fontSize = 20.sp,
-                    fontWeight = FontWeight.ExtraBold, color = MorePalette.ink)
-                Text("Choose how to add older records to PesaTrack.",
-                    color = MorePalette.muted, fontSize = 13.sp)
-                MoreSettingsGroup {
-                    MoreSettingsRow(Icons.Rounded.History, "Import financial SMS",
-                        "Bring in older money messages on this phone", "blue") {
-                        importOptionsOpen = false
-                        onImportClick()
-                    }
-                    MoreSettingsRow(Icons.Rounded.Description, "Import PDF or CSV statement",
-                        "Use the statement import workspace", "purple", last = true) {
-                        importOptionsOpen = false
-                        onStatementActivityClick()
-                    }
-                }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MoreImportChoiceSheet(onDismiss: () -> Unit, onSms: () -> Unit,
+    onStatement: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().padding(
+            start = M.space16, end = M.space16, bottom = M.space28
+        ), verticalArrangement = Arrangement.spacedBy(M.space12)) {
+            Text("Import money records", fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold, color = M.ink)
+            Text("Choose how to add older records to PesaTrack.",
+                color = M.muted, fontSize = 13.sp)
+            MoreSettingsGroup {
+                MoreSettingsRow(Icons.Rounded.History, "Import financial SMS",
+                    "Bring in older money messages on this phone", "blue", onClick = onSms)
+                MoreSettingsRow(Icons.Rounded.Description, "Import PDF or CSV statement",
+                    "Use the statement import workspace", "purple",
+                    last = true, onClick = onStatement)
             }
         }
     }
@@ -282,11 +241,11 @@ fun MoreScreen(
 private fun MoreSectionTitle(title: String) {
     Text(
         text = title,
-        color = MorePalette.ink,
+        color = M.ink,
         fontSize = 17.sp,
         lineHeight = 21.sp,
         fontWeight = FontWeight.ExtraBold,
-        modifier = Modifier.padding(start = 8.dp)
+        modifier = Modifier.padding(start = M.space8)
     )
 }
 
@@ -294,116 +253,115 @@ private fun MoreSectionTitle(title: String) {
 @Composable
 private fun MoreProfileHero(name: String, avatar: String, photo: Bitmap?, onClick: () -> Unit) {
     Surface(
-        modifier = Modifier.fillMaxWidth().height(104.dp).clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        color = Color(0xFF5A0DF5),
-        shadowElevation = 6.dp
+        modifier = Modifier.fillMaxWidth().height(M.heroHeight).clickable(onClick = onClick),
+        shape = RoundedCornerShape(M.space20),
+        color = M.heroBase, shadowElevation = M.space6
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize().background(
-                Brush.linearGradient(
-                    listOf(Color(0xFF801DFF), Color(0xFF4204CB), Color(0xFF0956E8))
-                )
-            )
-        ) {
-            Canvas(Modifier.fillMaxSize()) {
-                val width = size.width
-                val height = size.height
-                val wave = Path().apply {
-                    moveTo(width * .46f, height)
-                    cubicTo(width * .77f, height * .70f, width * .78f, height * 1.11f, width, height * .54f)
-                    lineTo(width, height)
-                    close()
-                }
-                drawPath(wave, Brush.horizontalGradient(
-                    listOf(Color(0xFF7C43FF).copy(alpha = .50f), Color(0xFFC34AFF).copy(alpha = .76f))
-                ))
-                val highlight = Path().apply {
-                    moveTo(width * .47f, height)
-                    cubicTo(width * .73f, height * .62f, width * .83f, height * .97f, width, height * .48f)
-                }
-                drawPath(highlight, Color(0xFF5CE2FF).copy(alpha = .68f),
-                    style = Stroke(width = 1.3.dp.toPx()))
+        Box(Modifier.fillMaxSize().background(Brush.linearGradient(
+            listOf(M.heroBright, M.heroDeep, M.heroBlue)
+        ))) {
+            MoreHeroWaves(Modifier.matchParentSize())
+            MoreHeroContent(name, avatar, photo, onClick)
+        }
+    }
+}
+
+@Composable
+private fun MoreHeroWaves(modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val width = size.width
+        val height = size.height
+        val wave = Path().apply {
+            moveTo(width * .46f, height)
+            cubicTo(width * .77f, height * .70f, width * .78f, height * 1.11f,
+                width, height * .54f)
+            lineTo(width, height)
+            close()
+        }
+        drawPath(wave, Brush.horizontalGradient(listOf(
+            M.wavePurple.copy(alpha = .50f), M.wavePink.copy(alpha = .76f)
+        )))
+        val highlight = Path().apply {
+            moveTo(width * .47f, height)
+            cubicTo(width * .73f, height * .62f, width * .83f, height * .97f,
+                width, height * .48f)
+        }
+        drawPath(highlight, M.waveCyan.copy(alpha = .68f),
+            style = Stroke(width = M.waveStroke.toPx()))
+    }
+}
+
+@Composable
+private fun MoreHeroContent(name: String, avatar: String, photo: Bitmap?, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxSize().padding(horizontal = M.space13, vertical = M.space11),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(M.space11)
+    ) {
+        MoreHeroAvatar(name, avatar, photo)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(M.space6)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(M.space5)) {
+                Text(name, color = Color.White, fontSize = 15.sp,
+                    lineHeight = 19.sp, fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f))
+                MorePremiumBadge()
             }
-            Row(
-                Modifier.fillMaxSize().padding(horizontal = 13.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(11.dp)
-            ) {
-                Surface(
-                    modifier = Modifier.size(70.dp),
-                    shape = CircleShape,
-                    color = Color(0xFFDCD2FF),
-                    border = androidx.compose.foundation.BorderStroke(2.dp, Color.White)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        if (photo != null) {
-                            Image(photo.asImageBitmap(), contentDescription = "Your profile photo",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize())
-                        } else {
-                            Text(
-                                name.trim().firstOrNull()?.uppercaseChar()?.toString()
-                                    ?: avatar.take(1).ifBlank { "J" },
-                                fontSize = 29.sp, fontWeight = FontWeight.Bold,
-                                color = Color(0xFF3709BD)
-                            )
-                        }
-                    }
-                }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Text(
-                            name, color = Color.White, fontSize = 15.sp,
-                            lineHeight = 19.sp, fontWeight = FontWeight.ExtraBold,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Surface(
-                            color = Color.White.copy(alpha = .10f),
-                            shape = RoundedCornerShape(20.dp),
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp, Color.White.copy(alpha = .72f)
-                            )
-                        ) {
-                            Row(
-                                Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(3.dp)
-                            ) {
-                                MoreCrownGlyph()
-                                Text("Premium", color = Color.White, fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                    Text("Your money, your plans.", color = Color.White.copy(alpha = .94f),
-                        fontSize = 11.sp, maxLines = 1)
-                    Surface(
-                        color = Color.White,
-                        shape = RoundedCornerShape(18.dp),
-                        modifier = Modifier.clickable(onClick = onClick)
-                    ) {
-                        Row(
-                            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.spacedBy(5.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("View profile", fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                                color = Color(0xFF4810C8))
-                            Icon(Icons.Rounded.ArrowForward, contentDescription = null,
-                                modifier = Modifier.size(14.dp), tint = Color(0xFF4810C8))
-                        }
-                    }
-                }
+            Text("Your money, your plans.", color = Color.White.copy(alpha = .94f),
+                fontSize = 11.sp, maxLines = 1)
+            MoreViewProfileAction(onClick)
+        }
+    }
+}
+
+@Composable
+private fun MoreHeroAvatar(name: String, avatar: String, photo: Bitmap?) {
+    Surface(
+        modifier = Modifier.size(M.avatarSize),
+        shape = CircleShape, color = M.avatarBackground,
+        border = androidx.compose.foundation.BorderStroke(M.space2, Color.White)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            if (photo != null) {
+                Image(photo.asImageBitmap(), contentDescription = "Your profile photo",
+                    contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            } else {
+                Text(name.trim().firstOrNull()?.uppercaseChar()?.toString()
+                    ?: avatar.take(1).ifBlank { "J" },
+                    fontSize = 29.sp, fontWeight = FontWeight.Bold, color = M.avatarInk)
             }
+        }
+    }
+}
+
+@Composable
+private fun MorePremiumBadge() {
+    Surface(color = Color.White.copy(alpha = .10f), shape = RoundedCornerShape(M.space20),
+        border = androidx.compose.foundation.BorderStroke(
+            M.space1, Color.White.copy(alpha = .72f)
+        )) {
+        Row(Modifier.padding(horizontal = M.space7, vertical = M.space4),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(M.space3)) {
+            MoreCrownGlyph()
+            Text("Premium", color = Color.White, fontSize = 9.sp,
+                fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun MoreViewProfileAction(onClick: () -> Unit) {
+    Surface(color = Color.White, shape = RoundedCornerShape(M.space18),
+        modifier = Modifier.clickable(onClick = onClick)) {
+        Row(Modifier.padding(horizontal = M.space12, vertical = M.space6),
+            horizontalArrangement = Arrangement.spacedBy(M.space5),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text("View profile", fontSize = 11.sp,
+                fontWeight = FontWeight.Bold, color = M.actionInk)
+            Icon(Icons.Rounded.ArrowForward, contentDescription = null,
+                modifier = Modifier.size(M.space14), tint = M.actionInk)
         }
     }
 }
@@ -419,30 +377,30 @@ private fun MoreWorkspaceTile(
     onClick: () -> Unit
 ) {
     Surface(
-        modifier = modifier.heightIn(min = 108.dp).clickable(onClick = onClick),
+        modifier = modifier.heightIn(min = M.workspaceTileHeight).clickable(onClick = onClick),
         color = Color.White,
-        shape = RoundedCornerShape(17.dp),
-        shadowElevation = 3.dp,
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF1EDFF))
+        shape = RoundedCornerShape(M.space17),
+        shadowElevation = M.space3,
+        border = androidx.compose.foundation.BorderStroke(M.space1, M.workspaceBorder)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = M.space4, vertical = M.space10),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+            verticalArrangement = Arrangement.spacedBy(M.space5)
         ) {
             Surface(
-                modifier = Modifier.size(42.dp),
-                shape = RoundedCornerShape(15.dp),
+                modifier = Modifier.size(M.iconMedium),
+                shape = RoundedCornerShape(M.space15),
                 color = iconBackground
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(icon, contentDescription = null,
-                        tint = iconTint, modifier = Modifier.size(23.dp))
+                        tint = iconTint, modifier = Modifier.size(M.space23))
                 }
             }
-            Text(title, color = MorePalette.ink, fontSize = 11.sp,
+            Text(title, color = M.ink, fontSize = 11.sp,
                 fontWeight = FontWeight.ExtraBold, maxLines = 1)
-            Text(subtitle, color = MorePalette.muted, fontSize = 9.sp,
+            Text(subtitle, color = M.muted, fontSize = 9.sp,
                 lineHeight = 11.sp, maxLines = 2,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
@@ -454,11 +412,11 @@ private fun MoreSettingsGroup(content: @Composable ColumnScope.() -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = Color.White,
-        shape = RoundedCornerShape(20.dp),
-        shadowElevation = 3.dp,
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF0EEFC))
+        shape = RoundedCornerShape(M.space20),
+        shadowElevation = M.space3,
+        border = androidx.compose.foundation.BorderStroke(M.space1, M.groupBorder)
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 11.dp), content = content)
+        Column(Modifier.fillMaxWidth().padding(horizontal = M.space11), content = content)
     }
 }
 
@@ -472,40 +430,40 @@ private fun MoreSettingsRow(
     onClick: () -> Unit
 ) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 58.dp).clickable(onClick = onClick)
-            .padding(horizontal = 3.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        Modifier.fillMaxWidth().heightIn(min = M.listRowHeight).clickable(onClick = onClick)
+            .padding(horizontal = M.space3, vertical = M.space8),
+        horizontalArrangement = Arrangement.spacedBy(M.space10),
         verticalAlignment = Alignment.CenterVertically
     ) {
         val (background, tint) = when (tone) {
-            "green" -> Color(0xFFDFF9EC) to Color(0xFF08A573)
-            "orange" -> Color(0xFFFFEADF) to Color(0xFFFF6E2C)
-            "blue" -> Color(0xFFE3EFFF) to Color(0xFF087BF8)
-            else -> Color(0xFFEDE5FF) to Color(0xFF6725EB)
+            "green" -> M.greenSoft to M.green
+            "orange" -> M.orangeSoft to M.orangeBright
+            "blue" -> M.blueSoft to M.blueBright
+            else -> M.purpleSoft to M.purpleBright
         }
         Surface(
-            modifier = Modifier.size(36.dp),
+            modifier = Modifier.size(M.iconSmall),
             color = background,
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(M.space12)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(icon, contentDescription = null, tint = tint,
-                    modifier = Modifier.size(20.dp))
+                    modifier = Modifier.size(M.space20))
             }
         }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, color = MorePalette.ink, fontWeight = FontWeight.Bold,
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(M.space2)) {
+            Text(title, color = M.ink, fontWeight = FontWeight.Bold,
                 fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(subtitle, color = MorePalette.muted, fontSize = 10.sp,
+            Text(subtitle, color = M.muted, fontSize = 10.sp,
                 lineHeight = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Icon(Icons.Rounded.ChevronRight, contentDescription = null,
-            tint = Color(0xFF555E92), modifier = Modifier.size(21.dp))
+            tint = M.arrowInk, modifier = Modifier.size(M.space21))
     }
     if (!last) HorizontalDivider(
-        color = Color(0xFFE4E5F2),
-        thickness = .7.dp,
-        modifier = Modifier.padding(start = 48.dp)
+        color = M.rowDivider,
+        thickness = .M.space7,
+        modifier = Modifier.padding(start = M.touchTarget)
     )
 }
 
@@ -513,7 +471,7 @@ private fun MoreSettingsRow(
 /** Tiny vector crown from the approved badge, no network image or icon dependency. */
 @Composable
 private fun MoreCrownGlyph() {
-    Canvas(Modifier.size(12.dp)) {
+    Canvas(Modifier.size(M.space12)) {
         val crown = Path().apply {
             moveTo(size.width * .08f, size.height * .25f)
             lineTo(size.width * .31f, size.height * .52f)
@@ -524,6 +482,6 @@ private fun MoreCrownGlyph() {
             lineTo(size.width * .16f, size.height * .80f)
             close()
         }
-        drawPath(crown, Color(0xFFFFD34B))
+        drawPath(crown, M.crownGold)
     }
 }
