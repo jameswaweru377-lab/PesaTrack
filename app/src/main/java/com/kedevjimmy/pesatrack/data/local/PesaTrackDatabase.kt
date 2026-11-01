@@ -45,6 +45,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         createOwnedTransferReviewTables(db)
         PayrollJournalSchema.statements.forEach { db.execSQL(it) }
         EvidenceJournalSchema.create(db)
+        createFingerprintConflictsTable(db)
         seedDefaultAccounts(db)
         createIndexes(db)
         createTriggers(db)
@@ -510,6 +511,7 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         if (oldVersion < 38) createOwnedTransferReviewTables(db)
         if (oldVersion < 39) PayrollJournalSchema.statements.forEach { db.execSQL(it) }
         if (oldVersion < 40) EvidenceJournalSchema.create(db)
+        if (oldVersion < 41) createFingerprintConflictsTable(db)
 
         createIndexes(db)
         createTriggers(db)
@@ -822,6 +824,26 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
                 evidence_time_delta_ms INTEGER,
                 relation_type TEXT,
                 related_transaction_id INTEGER
+            )
+            """.trimIndent()
+        )
+    }
+
+    private fun createFingerprintConflictsTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS fingerprint_conflicts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                existing_transaction_id INTEGER NOT NULL,
+                evidence_digest TEXT NOT NULL UNIQUE,
+                source_kind TEXT NOT NULL,
+                transaction_code TEXT NOT NULL,
+                type TEXT NOT NULL,
+                amount_minor INTEGER NOT NULL,
+                fee_minor INTEGER NOT NULL,
+                occurred_at_epoch_ms INTEGER NOT NULL,
+                review_state TEXT NOT NULL DEFAULT 'PENDING',
+                FOREIGN KEY(existing_transaction_id) REFERENCES transactions(id) ON DELETE RESTRICT
             )
             """.trimIndent()
         )
@@ -1774,6 +1796,6 @@ internal class PesaTrackDatabase(context: Context) : SQLiteOpenHelper(
         }
 
         private const val DATABASE_NAME = "pesatrack.db"
-        private const val DATABASE_VERSION = 40
+        private const val DATABASE_VERSION = 41
     }
 }
