@@ -1,0 +1,25 @@
+# Guarded superseded branch retirement
+
+## Intent
+
+Retire demonstrably redundant closed/unmerged PR branches in owner-authorized batches without altering app code, approved UI, or independent active work. A closed PR stays available on GitHub as review history.
+
+## Approaches
+
+- **Age/title-only cleanup:** fast but rejects unique code without proof; excluded.
+- **Manually delete all closed branches:** difficult to audit and not safe under concurrent development; excluded.
+- **Reviewed manifest plus live mechanical proof (selected):** commit-pinned branch/old-PR/new-PR triplets, file patch containment, successor commit in current main, exact-tip lease deletion.
+
+## Rules
+
+- Explicit manifest of at most 30 entries; no wildcard selection.
+- Old PR must be closed and unmerged, from this repository to default; its head SHA must match the current branch.
+- Successor PR must be merged into default, with its merge commit contained in current main.
+- All changed `+` and `-` lines of the old PR must occur in successor's complete GitHub PR file patch at the same path. Missing/truncated patches fail closed. This strict test intentionally defers many plausible replacements.
+- Exclude default, protected, moved, and any open-PR branch. Independently fetch fresh GitHub state before each deletion and enforce exact SHA with Git lease.
+- Use a dedicated owner-only Issue #528 command; existing schedule and ordinary cleanup stay unchanged.
+- Equity, instrumentation, and current approved UI are not placed in the manifest.
+
+## First candidate
+
+Closed/unmerged PR #200 at `3c6585383aed5d33e1f67932cf1d6fe8c9d67259` has identical changed-line patch membership within merged PR #201. Other older branches with non-contained patches are deferred, not assumed redundant.

@@ -1,0 +1,77 @@
+"""Superseded-PR cleanup cannot retire changed or unproven branches."""
+
+import unittest
+
+from tools.tracker.branch_cleanup import _patch_lines_contained, _confirmed_superseded, build_plan
+from tools.tracker.tests.test_branch_cleanup import REPOSITORY, MAIN_SHA, FEATURE_SHA, branch, inventory, pull
+from tools.tracker.tests.test_branch_cleanup import Response
+from urllib.parse import urlparse
+
+
+class SupersededRetirementTests(unittest.TestCase):
+    def test_patch_containment_requires_all_added_and_removed_lines(self):
+        old = [{"filename": "a.kt", "patch": "@@ -1 +1 @@\n-old\n+new"}]
+        new = [{"filename": "a.kt", "patch": "@@ -1 +1,2 @@\n-old\n+new\n+extra"}]
+        self.assertTrue(_patch_lines_contained(old, new))
+        new[0]["patch"] = "@@ -1 +1 @@\n-different\n+new"
+        self.assertFalse(_patch_lines_contained(old, new))
+
+    def test_patch_containment_fails_closed_on_missing_patch(self):
+        self.assertFalse(_patch_lines_contained([{"filename": "a.kt"}], [{"filename": "a.kt", "patch": "+x"}]))
+        self.assertFalse(_patch_lines_contained([], []))
+
+    def test_explicit_superseded_pair_only_and_30_cap_independent(self):
+        old = pull(200, "feature/old", FEATURE_SHA, merged_at=None)
+        newer = pull(201, "feature/new", "c" * 40)
+        snap = inventory([branch("main", MAIN_SHA), branch("feature/old", FEATURE_SHA)], [old, newer])
+        pair = {"branch": "feature/old", "sha": FEATURE_SHA, "old_pr": 200, "successor_pr": 201}
+        plan = build_plan(snap, superseded_pairs=[pair])
+        self.assertEqual(["feature/old"], [item["branch"] for item in plan["candidates"]])
+        self.assertEqual("superseded", plan["candidates"][0]["evidence"])
+        self.assertEqual(30, plan["limit"])
+
+    def test_changed_head_or_open_pr_not_retired(self):
+        old = pull(200, "feature/old", FEATURE_SHA, merged_at=None)
+        newer = pull(201, "feature/new", "c" * 40)
+        pair = {"branch": "feature/old", "sha": FEATURE_SHA, "old_pr": 200, "successor_pr": 201}
+        snap = inventory([branch("main", MAIN_SHA), branch("feature/old", "d" * 40)], [old, newer])
+        self.assertEqual([], build_plan(snap, superseded_pairs=[pair])["candidates"])
+        snap = inventory([branch("main", MAIN_SHA), branch("feature/old", FEATURE_SHA)], [old, newer,
+                         pull(202, "feature/old", FEATURE_SHA, state="open", merged_at=None)])
+        self.assertEqual([], build_plan(snap, superseded_pairs=[pair])["candidates"])
+
+    def test_unlisted_merged_branches_are_not_selected(self):
+        old = pull(200, "feature/old", FEATURE_SHA, merged_at=None)
+        newer = pull(201, "feature/new", "c" * 40)
+        other = pull(202, "feature/already-merged", "d" * 40)
+        snap = inventory([branch("main", MAIN_SHA), branch("feature/old", FEATURE_SHA),
+                          branch("feature/already-merged", "d" * 40)], [old, newer, other])
+        pair = {"branch": "feature/old", "sha": FEATURE_SHA, "old_pr": 200, "successor_pr": 201}
+        result = build_plan(snap, superseded_pairs=[pair])
+        self.assertEqual(["feature/old"], [item["branch"] for item in result["candidates"]])
+
+    def test_live_patch_proof_requires_merged_successor_and_complete_files(self):
+        old = pull(200, "feature/old", FEATURE_SHA, merged_at=None)
+        newer = pull(201, "feature/new", "c" * 40)
+        candidate = {"branch": "feature/old", "sha": FEATURE_SHA,
+                     "old_pr": 200, "successor_pr": 201, "default_branch": "main"}
+
+        def opener(request, timeout=30):
+            path = urlparse(request.full_url).path
+            if path.endswith("/pulls/200"):
+                return Response(old)
+            if path.endswith("/pulls/201"):
+                return Response(newer)
+            if path.endswith("/pulls/200/files"):
+                return Response([{"filename": "a.kt", "patch": "@@ -1 +1 @@\n-old\n+new"}])
+            if path.endswith("/pulls/201/files"):
+                return Response([{"filename": "a.kt", "patch": "@@ -1 +1,2 @@\n-old\n+new\n+extra"}])
+            raise AssertionError(path)
+
+        self.assertTrue(_confirmed_superseded(REPOSITORY, "", candidate, opener=opener))
+        newer["merged_at"] = None
+        self.assertFalse(_confirmed_superseded(REPOSITORY, "", candidate, opener=opener))
+
+
+if __name__ == "__main__":
+    unittest.main()
