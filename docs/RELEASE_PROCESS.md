@@ -47,6 +47,17 @@ Both **Android CI** rolling publication and the manual **Signed Android Release*
 
 `PESATRACK_RELEASE_KEYSTORE_BASE64` is the base64 representation of the release keystore. Keep the original keystore in a separately protected offline location. Losing the signing material can prevent future updates under the same signing identity.
 
+**Manual signing branch gate (N3):** the `release` job in `Signed Android Release` is eligible only for a `workflow_dispatch` on `refs/heads/main`, after its required validation jobs succeed. Selecting another branch in **Run workflow** cannot sign using the unmodified checked-in workflow. The main-push `ci-apk` publisher in Android CI is independent and unchanged.
+
+**Remaining GitHub-side security gate (owner must verify):** an `if` condition inside a workflow is not sufficient by itself. Anyone able to edit and manually run a copy of that workflow on a different branch could remove the condition, while repository-wide secrets might still be available. Before treating signing custody as protected, confirm all of the following in repository settings:
+
+- `main` is protected against direct/unreviewed updates; workflow changes require appropriate reviews and required checks.
+- All maintainers use two-factor authentication and have only the access they need.
+- A protected signing environment restricts deployment to the intended branch, with appropriately scoped signing secrets and, if practical, required human approval. Both the independent manual signer and the main-push rolling publisher must retain access to the **same** permanent key under the final configuration. Do not move/delete the current repository secrets until both paths have been tested without publishing a new identity.
+- The keystore and its separate password recovery record have been verified on independent offline media using the recovery instructions below. The existing encrypted recovery folder on the same C: drive is not independent media.
+
+Repository protection, environment settings, sign-in enforcement and offline media possession cannot be proven by a YAML test or source-code review; N3 remains a partial custody control until the owner checks them.
+
 ### Permanent signing identity provisioned on 29 October 2026
 
 One new permanent release identity was created after confirming that the four release-signing secrets were absent. All four secret names were verified after provisioning under `jameswaweru377-lab`; their values must never appear in repository files or logs.
@@ -80,7 +91,7 @@ GitHub Actions materializes a temporary runner copy from its protected secret. T
 ## Build flow
 
 1. Open GitHub Actions -> **Signed Android Release**.
-2. Choose **Run workflow**.
+2. Select the **`main`** branch and choose **Run workflow**. Selecting another branch skips the signing job; it does not produce a signed release.
 3. Enter an intentional version name and a version code greater than the last release. Leave run_instrumentation off by default; enable it only when the user explicitly requests emulator validation. When enabled, emulator checks must pass before signing.
 4. The workflow validates the Worker contract, runs JVM tests and release lint, then builds both:
    - signed AAB for Play;

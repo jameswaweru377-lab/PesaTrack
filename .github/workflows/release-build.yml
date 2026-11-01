@@ -232,7 +232,7 @@ jobs:
             ANDROID_TEST_SOURCE_SHA.txt
 
   release:
-    if: ${{ always() && github.event_name == 'workflow_dispatch' && needs.validate_build.result == 'success' && (needs.validate_android.result == 'success' || needs.validate_android.result == 'skipped') }}
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && needs.validate_build.result == 'success' && (needs.validate_android.result == 'success' || needs.validate_android.result == 'skipped') }}
     needs: [validate_build, validate_android]
     runs-on: ubuntu-latest
     timeout-minutes: 35
