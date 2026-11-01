@@ -7,7 +7,7 @@ import android.database.sqlite.SQLiteOpenHelper
 /** One lossless schema for legacy M-Pesa evidence and independent bank evidence. */
 internal class StatementArchiveDb(context: Context) :
     SQLiteOpenHelper(context, "pesatrack_statement_activity.db", null, VERSION) {
-    companion object { const val VERSION = 6 }
+    companion object { const val VERSION = 7 }
 
     override fun onConfigure(db: SQLiteDatabase) {
         super.onConfigure(db)
@@ -45,6 +45,7 @@ internal class StatementArchiveDb(context: Context) :
         createLegacyCategories(db)
         createBankEvidence(db)
         createLimitedBankEvidence(db)
+        createMatchDecisions(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -57,6 +58,16 @@ internal class StatementArchiveDb(context: Context) :
         if (oldVersion < 4) createGlobalHistoryIndex(db)
         if (oldVersion < 5) createBankEvidence(db)
         if (oldVersion < 6) createLimitedBankEvidence(db)
+        if (oldVersion < 7) createMatchDecisions(db)
+    }
+
+    private fun createMatchDecisions(db: SQLiteDatabase) {
+        db.execSQL("""CREATE TABLE IF NOT EXISTS statement_match_decisions_v1 (
+            evidence_hash TEXT PRIMARY KEY NOT NULL CHECK(length(evidence_hash) = 64),
+            kind TEXT NOT NULL CHECK(kind IN ('TRANSFER', 'SAME_MOVEMENT')),
+            decision TEXT NOT NULL CHECK(decision IN ('CONFIRMED', 'NOT_SAME')),
+            updated_at INTEGER NOT NULL CHECK(updated_at > 0)
+        )""".trimIndent())
     }
 
     private fun createLegacyCategories(db: SQLiteDatabase) {

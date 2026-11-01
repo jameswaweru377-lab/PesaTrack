@@ -29,9 +29,10 @@ internal object StatementBackupArchive {
         "statement_legs_v2",
         "statement_category_labels_v2"
     )
-    val tablesInRestoreOrder = verifiedTablesInRestoreOrder + listOf(
+    val versionSixTablesInRestoreOrder = verifiedTablesInRestoreOrder + listOf(
         "statement_limited_sources_v1", "statement_limited_legs_v1"
     )
+    val tablesInRestoreOrder = versionSixTablesInRestoreOrder + "statement_match_decisions_v1"
 
     // Keep this explicit: a statement schema upgrade requires a reviewed
     // archive-format migration, never best-effort column dropping.
@@ -68,7 +69,7 @@ internal object StatementBackupArchive {
             "source_id", "leg_number", "category_id"
         )
     )
-    val columns = verifiedColumns + mapOf(
+    val versionSixColumns = verifiedColumns + mapOf(
         "statement_limited_sources_v1" to setOf(
             "id", "account_id", "provider_key", "account_identity_hash",
             "currency", "document_format", "imported_at", "row_count",
@@ -80,11 +81,15 @@ internal object StatementBackupArchive {
             "running_balance_minor", "source_cells_json"
         )
     )
+    val columns = versionSixColumns + mapOf(
+        "statement_match_decisions_v1" to setOf("evidence_hash", "kind", "decision", "updated_at")
+    )
 
     /** Legacy payloads contain precisely the old four tables, never inferred missing rows. */
     fun backupColumnsFor(version: Int): Map<String, Set<String>> = when (version) {
         3, 4 -> legacyColumns
         5 -> verifiedColumns
+        6 -> versionSixColumns
         SCHEMA_VERSION -> columns
         else -> throw IllegalArgumentException("Unsupported saved statement history schema.")
     }
@@ -102,7 +107,8 @@ internal object StatementBackupArchive {
         return try {
             db.readableDatabase.rawQuery(
                 "SELECT 1 FROM statement_sources_v2 UNION ALL " +
-                    "SELECT 1 FROM statement_limited_sources_v1 LIMIT 1", null
+                    "SELECT 1 FROM statement_limited_sources_v1 UNION ALL " +
+                    "SELECT 1 FROM statement_match_decisions_v1 LIMIT 1", null
             ).use { it.moveToFirst() }
         } finally { db.close() }
     }

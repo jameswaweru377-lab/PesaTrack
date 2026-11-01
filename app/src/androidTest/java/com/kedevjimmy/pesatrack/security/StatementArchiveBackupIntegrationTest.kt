@@ -112,10 +112,56 @@ class StatementArchiveBackupIntegrationTest {
 
     private fun clearStatementArchive() = archive { db ->
         listOf(
+            "statement_match_decisions_v1",
             "statement_limited_legs_v1", "statement_limited_sources_v1",
             "statement_category_labels_v2", "statement_legs_v2", "statement_sources_v2",
             "statement_category_labels", "statement_activity_lines", "statement_category_rules", "statement_batches"
         ).forEach { db.delete(it, null, null) }
+    }
+
+    @Test fun savedMatchDecisionSurvivesEncryptedBackupWithoutChangingTransactions() {
+        seedBankEvidence()
+        archive { db -> db.insertOrThrow("statement_match_decisions_v1", null, ContentValues().apply {
+            put("evidence_hash", "f".repeat(64)); put("kind", "TRANSFER")
+            put("decision", "CONFIRMED"); put("updated_at", 1_780_000_000_000L)
+        }) }
+        val backup = manager.exportEncryptedBytes(password)
+        clearStatementArchive()
+        manager.restoreEncryptedBytes(backup, password)
+        archive { db ->
+            assertEquals("CONFIRMED", db.compileStatement("SELECT decision FROM statement_match_decisions_v1").simpleQueryForString())
+            assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_sources_v2").simpleQueryForLong())
+        }
+        assertEquals(0L, PesaTrackDatabase.get(app).readableDatabase
+            .compileStatement("SELECT COUNT(*) FROM transactions").simpleQueryForLong())
+    }
+
+    @Test fun versionSixBackupRestoresWithoutInventingMatchDecisions() {
+        seedBankEvidence()
+        val legacy = EncryptedBackupFixture.rewrite(manager.exportEncryptedBytes(password), password) { root ->
+            val section = root.getAsJsonObject("statementArchive")
+            section.addProperty("schemaVersion", 6)
+            section.getAsJsonObject("tables").remove("statement_match_decisions_v1")
+        }
+        clearStatementArchive()
+        manager.restoreEncryptedBytes(legacy, password)
+        archive { db ->
+            assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_sources_v2").simpleQueryForLong())
+            assertEquals(0L, db.compileStatement("SELECT COUNT(*) FROM statement_match_decisions_v1").simpleQueryForLong())
+        }
+    }
+
+    @Test fun versionSixArchiveMigratesWithoutChangingSavedSources() {
+        seedBankEvidence()
+        archive { db ->
+            db.execSQL("DROP TABLE statement_match_decisions_v1")
+            db.version = 6
+        }
+        archive { db ->
+            assertEquals(StatementArchiveDb.VERSION, db.version)
+            assertEquals(1L, db.compileStatement("SELECT COUNT(*) FROM statement_sources_v2").simpleQueryForLong())
+            assertEquals(0L, db.compileStatement("SELECT COUNT(*) FROM statement_match_decisions_v1").simpleQueryForLong())
+        }
     }
 
     private fun seedBankEvidence(format: String = "PDF") = archive { db ->
@@ -231,6 +277,7 @@ class StatementArchiveBackupIntegrationTest {
         seedArchive()
         archive { db ->
             // Recreate the existing v4 schema in this isolated test database.
+            db.execSQL("DROP TABLE statement_match_decisions_v1")
             db.execSQL("DROP TABLE statement_limited_legs_v1")
             db.execSQL("DROP TABLE statement_limited_sources_v1")
             db.execSQL("DROP TABLE statement_category_labels_v2")
@@ -351,6 +398,7 @@ class StatementArchiveBackupIntegrationTest {
             section.addProperty("schemaVersion", 5)
             val tables = section.getAsJsonObject("tables")
             listOf("statement_limited_sources_v1", "statement_limited_legs_v1").forEach(tables::remove)
+            tables.remove("statement_match_decisions_v1")
         }
         clearStatementArchive()
         assertEquals(1, manager.restoreEncryptedBytes(v5, password).statementRows)
@@ -365,6 +413,7 @@ class StatementArchiveBackupIntegrationTest {
     @Test fun upgradeFromV5PreservesVerifiedEvidenceAndCreatesLimitedTables() {
         seedBankEvidence()
         archive { db ->
+            db.execSQL("DROP TABLE statement_match_decisions_v1")
             db.execSQL("DROP TABLE statement_limited_legs_v1")
             db.execSQL("DROP TABLE statement_limited_sources_v1")
             db.version = 5
@@ -385,6 +434,7 @@ class StatementArchiveBackupIntegrationTest {
                 val archive = root.getAsJsonObject("statementArchive")
                 archive.addProperty("schemaVersion", oldVersion)
                 val tables = archive.getAsJsonObject("tables")
+                tables.remove("statement_match_decisions_v1")
                 listOf("statement_sources_v2", "statement_legs_v2", "statement_category_labels_v2")
                     .forEach(tables::remove)
                 listOf("statement_limited_sources_v1", "statement_limited_legs_v1")

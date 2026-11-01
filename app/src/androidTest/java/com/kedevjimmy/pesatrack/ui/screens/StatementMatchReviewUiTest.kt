@@ -3,10 +3,16 @@ package com.kedevjimmy.pesatrack.ui.screens
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
+import com.kedevjimmy.pesatrack.data.local.StatementMatchDecisionStore
 import com.kedevjimmy.pesatrack.domain.statements.StatementEvidenceCorrelationPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementMatchReviewPolicy
 import org.junit.Rule
 import org.junit.Test
+import org.junit.Assert.assertEquals
 
 class StatementMatchReviewUiTest {
     @get:Rule val compose = createComposeRule()
@@ -31,5 +37,24 @@ class StatementMatchReviewUiTest {
         compose.setContent { MaterialTheme { StatementMatchReviewContent(2026, emptyMap(), review, false, {}, {}) } }
         compose.onNodeWithText("No strong matches found").assertExists()
         compose.onNodeWithText("Some movements may have different references or missing evidence. This does not mean they are unrelated.").assertExists()
+    }
+
+    @Test fun confirmingMatchAsksBeforeSavingAndExplainsNoFinancialChanges() {
+        fun row(id: String, account: String, movement: Long) =
+            StatementEvidenceCorrelationPolicy.Observation(id, StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT,
+                id, account, "KES", 1_700_000_000_000L, movement, "ABC1234567", true, sourceTotalsVerified = true)
+        val out = row("out", "bank", -500)
+        val incoming = row("in", "wallet", 500)
+        val review = StatementMatchReviewPolicy.Review(listOf(StatementMatchReviewPolicy.Transfer(listOf(out), listOf(incoming))), emptyList(), 0)
+        val candidate = StatementMatchDecisionStore.Candidate(StatementMatchDecisionStore.Kind.TRANSFER, listOf(out, incoming), "a".repeat(64))
+        val snapshot = StatementMatchDecisionStore.Snapshot(review, listOf(candidate), emptyMap(), false)
+        var decision: StatementMatchDecisionStore.Decision? = null
+        compose.setContent { MaterialTheme { StatementMatchReviewContent(2026, emptyMap(), review, false, {}, {},
+            snapshot = snapshot, onDecision = { _, value -> decision = value }) } }
+        compose.onNodeWithTag("statement-match-review").performScrollToNode(hasText("Confirm"))
+        compose.onNodeWithText("Confirm").performClick()
+        compose.onNodeWithText("This saves your review choice. It does not yet change Activity, balances, categories or report totals.").assertExists()
+        compose.onNodeWithText("Confirm match").performClick()
+        assertEquals(StatementMatchDecisionStore.Decision.CONFIRMED, decision)
     }
 }
