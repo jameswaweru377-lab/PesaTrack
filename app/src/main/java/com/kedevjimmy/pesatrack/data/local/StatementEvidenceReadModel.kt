@@ -30,7 +30,8 @@ class StatementEvidenceReadModel(context: Context) {
         val statements: Snapshot,
         val originalActivityMessages: List<StatementEvidenceCorrelationPolicy.Observation>,
         val eventProof: StatementCrossSourceEventPolicy.Result,
-        val excludedBankSourceCount: Int = 0
+        val excludedBankSourceCount: Int = 0,
+        val eligibleStatementObservations: List<StatementEvidenceCorrelationPolicy.Observation> = emptyList()
     )
 
     /**
@@ -76,7 +77,8 @@ class StatementEvidenceReadModel(context: Context) {
             eventProof = StatementCrossSourceEventPolicy.reconcile(
                 eligibleStatements + messages, owned
             ),
-            excludedBankSourceCount = excludedBankSources
+            excludedBankSourceCount = excludedBankSources,
+            eligibleStatementObservations = eligibleStatements
         )
     }
 

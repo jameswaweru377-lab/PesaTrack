@@ -8,6 +8,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Calculate
+import androidx.compose.material.icons.rounded.Toll
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Upload
+import androidx.compose.material.icons.rounded.ReceiptLong
+import androidx.compose.material.icons.rounded.Savings
+import androidx.compose.material.icons.rounded.EventAvailable
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material.icons.rounded.Analytics
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -505,6 +516,235 @@ internal fun VibrantRing(percent: Float, modifier: Modifier = Modifier,
             Text(valueLabel, color=PlanVibrant.ink,
                 fontSize=19.sp, fontWeight=FontWeight.ExtraBold)
             Text(subtitle, fontSize=10.sp, color=PlanVibrant.muted, maxLines=1)
+        }
+    }
+}
+
+
+/**
+ * Approved Plan details replacement (2026-11-01).
+ *
+ * This composable only presents the exact values given by PlanScreen. It deliberately
+ * does not calculate balances, infer income, or alter the trusted planning policy.
+ * The header stays collapsed by default and is the only expansion affordance.
+ */
+@Composable
+internal fun VibrantPlanMoneyBreakdown(
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    startingFunds: String,
+    received: String,
+    cashPaid: String,
+    fees: String,
+    saved: String,
+    committed: String,
+    available: String
+) {
+    val ink = Color(0xFF11123F)
+    val muted = Color(0xFF686B9C)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(25.dp),
+        color = Color(0xFFFDFDFF),
+        border = BorderStroke(1.dp, Color(0xFFEAE5F8)),
+        shadowElevation = 4.dp
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(
+                horizontal = 17.dp, vertical = 16.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable(role = Role.Button, onClick = onToggle)
+                    .semantics {
+                        stateDescription = if (expanded) "Expanded" else "Collapsed"
+                        contentDescription = "Your money breakdown. How your available money is calculated"
+                    }
+                    .padding(vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.size(56.dp),
+                    color = Color(0xFFE3DFFF),
+                    shape = CircleShape
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.Calculate,
+                            contentDescription = null,
+                            tint = Color(0xFF5B10E7),
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        "Your money breakdown",
+                        color = ink, fontSize = 18.sp, lineHeight = 23.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        "How your available money is calculated",
+                        color = muted, fontSize = 11.sp, lineHeight = 15.sp
+                    )
+                }
+                Icon(
+                    imageVector = if (expanded) Icons.Rounded.ExpandLess
+                        else Icons.Rounded.ExpandMore,
+                    contentDescription = null,
+                    tint = Color(0xFF594E9B),
+                    modifier = Modifier.size(25.dp)
+                )
+            }
+            if (expanded) {
+                Spacer(Modifier.height(15.dp))
+                VibrantBreakdownRow(
+                    Icons.Rounded.Toll, Color(0xFFDEF8ED), Color(0xFF008D63),
+                    "Starting funds", startingFunds, Color(0xFF075D41)
+                )
+                HorizontalDivider(color = Color(0xFFE9E5F8), thickness = 1.dp)
+                VibrantBreakdownRow(
+                    Icons.Rounded.Download, Color(0xFFDEFAEB), Color(0xFF00A474),
+                    "Other money received", received, Color(0xFF075D41)
+                )
+                HorizontalDivider(color = Color(0xFFE9E5F8), thickness = 1.dp)
+                VibrantBreakdownRow(
+                    Icons.Rounded.Upload, Color(0xFFFFE3EC), Color(0xFFE8397A),
+                    "Cash paid", cashPaid, ink
+                )
+                HorizontalDivider(color = Color(0xFFE9E5F8), thickness = 1.dp)
+                VibrantBreakdownRow(
+                    Icons.Rounded.ReceiptLong, Color(0xFFFFEBDD), Color(0xFFF07A43),
+                    "Fees", fees, ink
+                )
+                HorizontalDivider(color = Color(0xFFE9E5F8), thickness = 1.dp)
+                VibrantBreakdownRow(
+                    Icons.Rounded.Savings, Color(0xFFE1EFFF), Color(0xFF137EDB),
+                    "Moved to savings", saved, ink
+                )
+                HorizontalDivider(color = Color(0xFFE9E5F8), thickness = 1.dp)
+                VibrantBreakdownRow(
+                    Icons.Rounded.EventAvailable, Color(0xFFEEE5FF), Color(0xFF6D20E9),
+                    "Still committed", committed, ink
+                )
+                Spacer(Modifier.height(11.dp))
+                VibrantBreakdownResult(available)
+                Spacer(Modifier.height(15.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Info,
+                        contentDescription = null,
+                        tint = Color(0xFF746BAD),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        "Based on salary, spending, savings and commitments for this cycle.",
+                        color = muted,
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VibrantBreakdownRow(
+    icon: ImageVector,
+    background: Color,
+    tint: Color,
+    label: String,
+    value: String,
+    valueColor: Color
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 61.dp)
+            .padding(vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(11.dp)
+    ) {
+        Surface(
+            modifier = Modifier.size(39.dp),
+            color = background,
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    icon, contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+        Text(
+            label, modifier = Modifier.weight(1f),
+            fontSize = 13.sp, lineHeight = 17.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF10123C)
+        )
+        Text(
+            value,
+            fontSize = 13.sp, lineHeight = 17.sp,
+            fontWeight = FontWeight.Bold,
+            color = valueColor,
+            textAlign = TextAlign.End,
+            maxLines = 2
+        )
+    }
+}
+
+@Composable
+private fun VibrantBreakdownResult(available: String) {
+    Box(
+        modifier = Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(21.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        Color(0xFFF0E9FF),
+                        Color(0xFFE5D6FF),
+                        Color(0xFFC79CFA)
+                    )
+                )
+            )
+    ) {
+        Box(
+            modifier = Modifier.align(Alignment.BottomEnd)
+                .offset(x = 88.dp, y = 83.dp)
+                .size(175.dp)
+                .background(Color(0xFFAA75F5).copy(alpha = .22f), CircleShape)
+        )
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .padding(horizontal = 17.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                "Available after commitments",
+                color = Color(0xFF2A1177),
+                fontSize = 14.sp, lineHeight = 19.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                available, color = Color(0xFF241071),
+                fontSize = 31.sp, lineHeight = 37.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                "Planning amount, not your account balance.",
+                color = Color(0xFF585393),
+                fontSize = 11.sp, lineHeight = 15.sp
+            )
         }
     }
 }

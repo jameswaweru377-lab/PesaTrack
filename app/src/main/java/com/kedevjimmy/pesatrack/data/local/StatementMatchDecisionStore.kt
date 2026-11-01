@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.domain.statements.StatementEvidenceCorrelationPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementMatchDecisionPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementMatchReviewPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementPossibleTransferPolicy
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -21,7 +22,8 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
     }
     data class Snapshot(val review: StatementMatchReviewPolicy.Review, val candidates: List<Candidate>,
                         val decisions: Map<String, Decision>, val missingOwnershipConsent: Boolean,
-                        val excludedBankSourceCount: Int = 0)
+                        val excludedBankSourceCount: Int = 0,
+                        val possibleTransfers: List<StatementPossibleTransferPolicy.Suggestion> = emptyList())
 
     fun read(year: Int): Snapshot = synchronized(CanonicalStoreLock.monitor) { current(year) }
 
@@ -113,6 +115,8 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
                 }
             }
         } finally { helper.close() }
-        return Snapshot(review, candidates, saved, missingConsent, source.excludedBankSourceCount)
+        val possibleTransfers = StatementPossibleTransferPolicy.suggest(
+            source.eligibleStatementObservations + source.originalActivityMessages, source.eventProof, start, end)
+        return Snapshot(review, candidates, saved, missingConsent, source.excludedBankSourceCount, possibleTransfers)
     }
 }
