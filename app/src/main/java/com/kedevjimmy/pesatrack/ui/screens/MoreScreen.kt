@@ -40,6 +40,7 @@ import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.Wallet
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -106,6 +107,7 @@ fun MoreScreen(
     var name by remember { mutableStateOf(preferences.getString("profile_name", "").orEmpty()) }
     var photo by remember { mutableStateOf<Bitmap?>(photoStore.load()) }
     var avatar by remember { mutableStateOf(preferences.getString("profile_avatar", "J").orEmpty()) }
+    var importOptionsOpen by remember { mutableStateOf(false) }
 
     // After editing Profile, return to More with the updated real name and photo.
     DisposableEffect(lifecycleOwner, photoStore, preferences) {
@@ -175,7 +177,7 @@ fun MoreScreen(
                         iconBackground = Color(0xFFE6EEFF),
                         title = "Imports",
                         subtitle = "SMS, PDF & CSV",
-                        onClick = onImportClick
+                        onClick = { importOptionsOpen = true }
                     )
                     MoreWorkspaceTile(
                         modifier = Modifier.weight(1f),
@@ -240,6 +242,32 @@ fun MoreScreen(
                     MoreSettingsRow(Icons.Rounded.Info, "About PesaTrack",
                         "Version, legal & product info", "purple", last = true) {
                         onProfileSectionClick("about")
+                    }
+                }
+            }
+        }
+    }
+    if (importOptionsOpen) {
+        ModalBottomSheet(onDismissRequest = { importOptionsOpen = false }) {
+            Column(
+                Modifier.fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("Import money records", fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold, color = MorePalette.ink)
+                Text("Choose how to add older records to PesaTrack.",
+                    color = MorePalette.muted, fontSize = 13.sp)
+                MoreSettingsGroup {
+                    MoreSettingsRow(Icons.Rounded.History, "Import financial SMS",
+                        "Bring in older money messages on this phone", "blue") {
+                        importOptionsOpen = false
+                        onImportClick()
+                    }
+                    MoreSettingsRow(Icons.Rounded.Description, "Import PDF or CSV statement",
+                        "Use the statement import workspace", "purple", last = true) {
+                        importOptionsOpen = false
+                        onStatementActivityClick()
                     }
                 }
             }
