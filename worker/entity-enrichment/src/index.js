@@ -180,6 +180,15 @@ const knownPublicNames = new Set([
   "zuri properties",
 ]);
 
+// A commercial suffix is insufficient when the label starts like a person's
+// name. This conservative set cannot identify every person or business.
+const personLikeOpeningTokens = new Set([
+  "achieng", "alice", "anne", "brian", "david", "faith",
+  "grace", "jane", "john", "joseph", "kevin", "mary",
+  "maryann", "moses", "otieno", "peter", "ruth", "samuel",
+  "susan", "wanjiku",
+]);
+
 const strongBusinessSignals = new Set([
   "bank",
   "sacco",
@@ -228,6 +237,8 @@ function isClearlyCommercial(value) {
 
   const words = normalized.split(" ").filter(Boolean);
   if (words.length < 2 || words.length > 6) return false;
+
+  if (personLikeOpeningTokens.has(words[0])) return false;
 
   if (words.some((word) => word.length === 10 && !strongBusinessSignals.has(word))) {
     return false;
