@@ -3,7 +3,6 @@ package com.kedevjimmy.pesatrack.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Bolt
@@ -29,7 +27,6 @@ import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Paid
 import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.TrackChanges
 import androidx.compose.material.icons.rounded.WarningAmber
@@ -561,163 +558,19 @@ fun PlanScreen(
 
         if (snapshot.cycle != null) {
             item {
-                PesaCard(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                showPlanDetails =
-                                    !showPlanDetails
-                            }
-                ) {
-                    Column(Modifier.padding(16.dp)) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconBubble(
-                                Icons.Rounded.BarChart,
-                                size = 42.dp,
-                                background = pesaToneContainer("blue"),
-                                tint = pesaToneContent("blue")
-                            )
-                            Column(
-                                Modifier
-                                    .weight(1f)
-                                    .padding(start = 11.dp)
-                            ) {
-                                Text(
-                                    "Plan details",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Text(
-                                    "Cycle totals and accounting",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Icon(
-                                if (showPlanDetails)
-                                    Icons.Rounded.ExpandLess
-                                else
-                                    Icons.Rounded.ExpandMore,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        if (showPlanDetails) {
-                            Spacer(Modifier.height(14.dp))
-                            BoxWithConstraints(Modifier.fillMaxWidth()) {
-                                if (maxWidth < 600.dp) {
-                                    Column(
-                                        verticalArrangement =
-                                            Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        Row(
-                                            horizontalArrangement =
-                                                Arrangement.spacedBy(10.dp)
-                                        ) {
-                                            PlanMetric(
-                                                "Starting funds",
-                                                formatPlanMoney(snapshot.startingFundsMinor),
-                                                "Salary + carryover",
-                                                "green",
-                                                Modifier.weight(1f)
-                                            )
-                                            PlanMetric(
-                                                "Committed",
-                                                formatPlanMoney(snapshot.remainingCommitmentsMinor),
-                                                "Still protected",
-                                                "amber",
-                                                Modifier.weight(1f)
-                                            )
-                                        }
-                                        Row(
-                                            horizontalArrangement =
-                                                Arrangement.spacedBy(10.dp)
-                                        ) {
-                                            PlanMetric(
-                                                "Saved",
-                                                formatPlanMoney(snapshot.savingsMinor),
-                                                "Moved to savings",
-                                                "blue",
-                                                Modifier.weight(1f)
-                                            )
-                                            PlanMetric(
-                                                "Available",
-                                                formatPlanMoney(planningAvailability.availableMinor),
-                                                "Free to live",
-                                                "violet",
-                                                Modifier.weight(1f)
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    Row(
-                                        horizontalArrangement =
-                                            Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        PlanMetric(
-                                            "Starting funds",
-                                            formatPlanMoney(snapshot.startingFundsMinor),
-                                            "Salary + carryover",
-                                            "green",
-                                            Modifier.weight(1f)
-                                        )
-                                        PlanMetric(
-                                            "Committed",
-                                            formatPlanMoney(snapshot.remainingCommitmentsMinor),
-                                            "Still protected",
-                                            "amber",
-                                            Modifier.weight(1f)
-                                        )
-                                        PlanMetric(
-                                            "Saved",
-                                            formatPlanMoney(snapshot.savingsMinor),
-                                            "Moved to savings",
-                                            "blue",
-                                            Modifier.weight(1f)
-                                        )
-                                        PlanMetric(
-                                            "Available",
-                                            formatPlanMoney(planningAvailability.availableMinor),
-                                            "Free to live",
-                                            "violet",
-                                            Modifier.weight(1f)
-                                        )
-                                    }
-                                }
-                            }
-
-                            Spacer(Modifier.height(14.dp))
-                            AccountingRow(
-                                "Salary + carryover",
-                                snapshot.startingFundsMinor
-                            )
-                            AccountingRow(
-                                "Other money received",
-                                snapshot.additionalIncomeMinor
-                            )
-                            AccountingRow(
-                                "Cash paid",
-                                -snapshot.spentMinor
-                            )
-                            AccountingRow(
-                                "Fees",
-                                -snapshot.feesMinor
-                            )
-                            AccountingRow(
-                                "Savings allocations",
-                                -snapshot.savingsMinor
-                            )
-                            AccountingRow(
-                                "Still committed",
-                                -snapshot.remainingCommitmentsMinor
-                            )
-                        }
-                    }
-                }
+                // The approved breakdown uses the existing pay-cycle ledger and
+                // policy-computed availability without recomputing any finances.
+                VibrantPlanMoneyBreakdown(
+                    expanded = showPlanDetails,
+                    onToggle = { showPlanDetails = !showPlanDetails },
+                    startingFunds = formatSignedPlanMoney(snapshot.startingFundsMinor),
+                    received = formatSignedPlanMoney(snapshot.additionalIncomeMinor),
+                    cashPaid = formatSignedPlanMoney(-snapshot.spentMinor),
+                    fees = formatSignedPlanMoney(-snapshot.feesMinor),
+                    saved = formatSignedPlanMoney(-snapshot.savingsMinor),
+                    committed = formatSignedPlanMoney(-snapshot.remainingCommitmentsMinor),
+                    available = formatPlanMoney(planningAvailability.availableMinor)
+                )
             }
         }
     }
@@ -843,47 +696,6 @@ private fun PlanHero(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun PlanMetric(
-    label: String,
-    value: String,
-    helper: String,
-    tone: String,
-    modifier: Modifier
-) {
-    PesaCard(modifier) {
-        Column(Modifier.padding(14.dp)) {
-            IconBubble(
-                when (label) {
-                    "Saved" -> Icons.Rounded.Savings
-                    "Committed" -> Icons.Rounded.Shield
-                    "Starting funds" -> Icons.Rounded.AccountBalanceWallet
-                    else -> Icons.Rounded.Paid
-                },
-                size = 36.dp,
-                background = pesaToneContainer(tone),
-                tint = pesaToneContent(tone)
-            )
-            Text(
-                label,
-                modifier = Modifier.padding(top = 9.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                value,
-                style = MaterialTheme.typography.titleLarge,
-                maxLines = 1
-            )
-            Text(
-                helper,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -1114,28 +926,6 @@ private fun PlanCommitment(item: CommitmentProgress) {
         }
     }
 }
-
-@Composable
-private fun AccountingRow(
-    label: String,
-    value: Long
-) {
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            label,
-            modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            formatSignedPlanMoney(value),
-            style = MaterialTheme.typography.titleSmall
-        )
-    }
-}
-
 
 private fun planProgressPercent(saved: Long, target: Long): Int? =
     if (target <= 0L) null else
