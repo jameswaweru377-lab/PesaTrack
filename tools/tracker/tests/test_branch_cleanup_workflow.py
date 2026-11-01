@@ -76,6 +76,16 @@ class BranchCleanupWorkflowTest(unittest.TestCase):
         self.assertEqual("10", str(__import__("tools.tracker.branch_cleanup", fromlist=[
             "MAX_CANDIDATES_PER_RUN"]).MAX_CANDIDATES_PER_RUN))
 
+    def test_ancestor_command_is_separate_and_preserves_monthly_strict_mode(self):
+        command = "/pesatrack-cleanup-ancestors-apply-10"
+        for job in (self.workflow["jobs"]["preview"], self.workflow["jobs"]["apply"]):
+            self.assertIn(command, job["if"])
+            self.assertIn(command, str(job["env"]))
+            run = next(step["run"] for step in job["steps"]
+                       if step.get("id") in ("preview", "apply"))
+            self.assertIn("--include-ancestors", run)
+            self.assertIn("PESATRACK_CLEANUP_ANCESTORS", run)
+
 
 if __name__ == "__main__":
     unittest.main()
