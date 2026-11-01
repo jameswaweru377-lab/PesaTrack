@@ -169,7 +169,7 @@ jobs:
 
       - name: Upload sanitized Python lab evaluation evidence
         if: success() || failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: python-kotlin-sanitized-evaluation
           path: app/build/python-lab/*.json
@@ -178,7 +178,7 @@ jobs:
 
       - name: Upload debug APK for gated publication
         if: success()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pesatrack-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
@@ -235,7 +235,7 @@ jobs:
 
       - name: Retain invented Android test and timing evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-ci-results
           retention-days: 14
