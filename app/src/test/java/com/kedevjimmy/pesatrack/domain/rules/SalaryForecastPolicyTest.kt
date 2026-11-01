@@ -74,6 +74,17 @@ class SalaryForecastPolicyTest {
         assertEquals(SalaryForecastStatus.NEEDS_DATA, reviewed.status)
     }
 
+    @Test fun compactPaydayBadgeUsesTheForecastDateBounds() {
+        assertNull(SalaryForecastPolicy.paydayWindowProblem(now + 5 * day, now + 5 * day, now))
+        assertNull(SalaryForecastPolicy.paydayWindowProblem(now + 45 * day, now + 45 * day, now))
+        assertTrue(SalaryForecastPolicy.paydayWindowProblem(now - 1L, now - 1L, now)
+            ?.contains("passed") == true)
+        assertTrue(SalaryForecastPolicy.paydayWindowProblem(now + 46 * day, now + 46 * day, now)
+            ?.contains("45") == true)
+        assertTrue(SalaryForecastPolicy.paydayWindowProblem(null, null, now)
+            ?.contains("payday") == true)
+    }
+
     @Test fun overdueConfirmedDateAndOverdueWindowNeverRollForward() {
         val past = SalaryForecastPolicy.evaluate(completeFacts().copy(
             confirmedPaydayEpochMs = now - day
