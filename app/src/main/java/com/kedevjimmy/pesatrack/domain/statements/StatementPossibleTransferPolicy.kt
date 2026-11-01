@@ -17,7 +17,7 @@ object StatementPossibleTransferPolicy {
     private const val MAX_DIFFERENCE = 48L * 60L * 60L * 1_000L
 
     /** Indices of every observation within the inclusive time window, in a sorted list. */
-    private fun nearbyRange(rows: List<StatementEvidenceCorrelationPolicy.Observation>, time: Long): IntRange {
+    internal fun nearbyRange(rows: List<StatementEvidenceCorrelationPolicy.Observation>, time: Long): IntRange {
         val min = if (time <= MAX_DIFFERENCE) 1L else time - MAX_DIFFERENCE
         val max = if (time > Long.MAX_VALUE - MAX_DIFFERENCE) Long.MAX_VALUE else time + MAX_DIFFERENCE
         fun boundary(value: Long, afterEqual: Boolean): Int {

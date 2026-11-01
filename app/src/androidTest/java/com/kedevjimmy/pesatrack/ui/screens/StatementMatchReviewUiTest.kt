@@ -14,6 +14,7 @@ import com.kedevjimmy.pesatrack.domain.statements.StatementEvidenceCorrelationPo
 import com.kedevjimmy.pesatrack.domain.statements.StatementMatchReviewPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementPossibleTransferPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementAccountMentionPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementPossibleCopyPolicy
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertEquals
@@ -114,6 +115,24 @@ class StatementMatchReviewUiTest {
         compose.onNodeWithText("Mentions Invented wallet").assertExists()
         compose.onNodeWithText("A number alone does not identify the recipient or prove a transfer.").assertExists()
         compose.onNodeWithText("0712345678", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("Confirm").assertDoesNotExist()
+    }
+
+    @Test fun weakerCopySuggestionDoesNotClaimTheyAreDuplicates() {
+        fun row(id: String, source: StatementEvidenceCorrelationPolicy.Source) = StatementEvidenceCorrelationPolicy.Observation(
+            id, source, id, "wallet", "KES", 1_700_000_000_000L, -500, null, true, sourceTotalsVerified = true)
+        val review = StatementMatchReviewPolicy.Review(emptyList(), emptyList(), 0)
+        val suggestion = StatementPossibleCopyPolicy.Suggestion(listOf(row("activity:42", StatementEvidenceCorrelationPolicy.Source.ACTIVITY),
+            row("statement", StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT)))
+        val snapshot = StatementMatchDecisionStore.Snapshot(review, emptyList(), emptyMap(), false, possibleCopies = listOf(suggestion))
+        var openedId: Long? = null
+        compose.setContent { MaterialTheme { StatementMatchReviewContent(2026, emptyMap(), review, false, {}, {},
+            snapshot = snapshot, onOpenActivity = { openedId = it }) } }
+        compose.onNodeWithTag("statement-match-review").performScrollToNode(hasText("Other possible copies to check"))
+        compose.onNodeWithText("These records are currently assigned to the same account and have the same amount and nearby dates. Check that the originals belong to this account; they may still be separate movements.").assertExists()
+        compose.onNodeWithTag("statement-match-review").performScrollToNode(hasText("Open Activity record"))
+        compose.onNodeWithText("Open Activity record").performClick()
+        assertEquals(42L, openedId)
         compose.onNodeWithText("Confirm").assertDoesNotExist()
     }
 }

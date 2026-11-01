@@ -352,7 +352,9 @@ internal fun StatementIntelligenceDashboard(
                 }
                 Box(Modifier.fillMaxWidth().weight(1f)) {
                 if (page == StatementPage.MATCH_REVIEW) {
-                    StatementMatchReviewPage(overviewYear, accountLabels) { page = StatementPage.ALL_ACCOUNTS }
+                    StatementMatchReviewPage(overviewYear, accountLabels, onOpenActivity = onActivityTransactionClick) {
+                        page = StatementPage.ALL_ACCOUNTS
+                    }
                 } else if (dataError && page != StatementPage.ALL_ACCOUNTS) {
                     Column(Modifier.padding(20.dp)) {
                         Text("Could not open the saved statement report. Your financial records were not changed.",

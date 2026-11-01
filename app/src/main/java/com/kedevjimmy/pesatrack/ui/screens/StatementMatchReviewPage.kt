@@ -29,7 +29,8 @@ import java.text.NumberFormat
 import java.util.Locale
 
 @Composable
-internal fun StatementMatchReviewPage(year: Int, labels: Map<String, String>, onBack: () -> Unit) {
+internal fun StatementMatchReviewPage(year: Int, labels: Map<String, String>,
+                                      onOpenActivity: (Long) -> Unit = {}, onBack: () -> Unit) {
     val context = LocalContext.current
     val store = remember(context) { StatementMatchDecisionStore(context) }
     val scope = rememberCoroutineScope()
@@ -48,7 +49,7 @@ internal fun StatementMatchReviewPage(year: Int, labels: Map<String, String>, on
         catch (_: Exception) { failed = true }
     }
     StatementMatchReviewContent(year, labels, snapshot?.review, failed, onBack, { attempt++ },
-        snapshot = snapshot, busy = busy, actionError = actionError) { candidate, expected, decision, attested ->
+        snapshot = snapshot, busy = busy, actionError = actionError, onOpenActivity = onOpenActivity) { candidate, expected, decision, attested ->
         if (!busy) {
             busy = true; actionError = null
             scope.launch {
@@ -74,6 +75,7 @@ internal fun StatementMatchReviewContent(
     failed: Boolean, onBack: () -> Unit, onRetry: () -> Unit,
     snapshot: StatementMatchDecisionStore.Snapshot? = null, busy: Boolean = false,
     actionError: String? = null,
+    onOpenActivity: (Long) -> Unit = {},
     onDecision: (StatementMatchDecisionStore.Candidate, StatementMatchDecisionStore.Decision?, StatementMatchDecisionStore.Decision?, Boolean) -> Unit = { _, _, _, _ -> }
 ) {
     val p = HomeReferencePalette
@@ -182,7 +184,7 @@ internal fun StatementMatchReviewContent(
                         color = p.ink, fontWeight = FontWeight.SemiBold)
                     Text("Same reference and amount; money out on one account and in on the other.",
                         color = p.muted, style = MaterialTheme.typography.bodySmall)
-                    MatchEvidenceLines(transfer.outgoing + transfer.incoming, labels)
+                    MatchEvidenceLines(transfer.outgoing + transfer.incoming, labels, onOpenActivity = onOpenActivity)
                     MatchDecisionActions(snapshot, StatementMatchDecisionStore.Kind.TRANSFER,
                         transfer.outgoing + transfer.incoming, busy, onConfirm = { confirming = it }, onDecision = onDecision)
                 }
@@ -203,7 +205,7 @@ internal fun StatementMatchReviewContent(
                     Text(labels[row.accountId] ?: "Account", color = p.ink, fontWeight = FontWeight.SemiBold)
                     Text("Same reference, account, direction and amount across these records.",
                         color = p.muted, style = MaterialTheme.typography.bodySmall)
-                    MatchEvidenceLines(rows, labels)
+                    MatchEvidenceLines(rows, labels, onOpenActivity = onOpenActivity)
                     MatchDecisionActions(snapshot, StatementMatchDecisionStore.Kind.SAME_MOVEMENT,
                         rows, busy, onConfirm = { confirming = it }, onDecision = onDecision)
                 }
@@ -227,7 +229,25 @@ internal fun StatementMatchReviewContent(
                         color = p.ink, fontWeight = FontWeight.SemiBold)
                     Text("Same amount and nearby dates. This alone does not prove a transfer.",
                         color = p.muted, style = MaterialTheme.typography.bodySmall)
-                    MatchEvidenceLines(listOf(possible.outgoing, possible.incoming), labels)
+                    MatchEvidenceLines(listOf(possible.outgoing, possible.incoming), labels, onOpenActivity = onOpenActivity)
+                }
+            }
+            val possibleCopies = snapshot?.possibleCopies.orEmpty()
+            if (possibleCopies.isNotEmpty()) item {
+                Text("Other possible copies to check", color = p.ink,
+                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("These records are currently assigned to the same account and have the same amount and nearby dates. Check that the originals belong to this account; they may still be separate movements.",
+                    color = p.muted, style = MaterialTheme.typography.bodyMedium)
+            }
+            items(possibleCopies) { possible ->
+                val row = possible.rows.first()
+                StatementInsightCard {
+                    Text(matchReviewMoney(kotlin.math.abs(row.movementMinor), row.currency),
+                        color = p.ink, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(labels[row.accountId] ?: "Account", color = p.ink, fontWeight = FontWeight.SemiBold)
+                    Text("Separate records, same direction. Check the originals before deciding.",
+                        color = p.muted, style = MaterialTheme.typography.bodySmall)
+                    MatchEvidenceLines(possible.rows, labels, onOpenActivity = onOpenActivity)
                 }
             }
             val mentions = snapshot?.accountMentions.orEmpty()
@@ -290,8 +310,13 @@ private fun matchReviewMoney(minor: Long, currency: String): String {
 
 @Composable
 private fun MatchEvidenceLines(rows: List<StatementEvidenceCorrelationPolicy.Observation>, labels: Map<String, String>,
-                               includeReferences: Boolean = true) {
+                               includeReferences: Boolean = true, onOpenActivity: (Long) -> Unit = {}) {
     val p = HomeReferencePalette
+    fun activityId(row: StatementEvidenceCorrelationPolicy.Observation): Long? =
+        if (row.source == StatementEvidenceCorrelationPolicy.Source.ACTIVITY && row.id.startsWith("activity:"))
+            row.id.removePrefix("activity:").toLongOrNull()?.takeIf { it > 0L } else null
+    val activityCount = rows.count { activityId(it) != null }
+    var activityNumber = 0
     rows.forEach { row ->
         val source = when (row.source) {
             StatementEvidenceCorrelationPolicy.Source.ACTIVITY -> "Activity message"
@@ -302,5 +327,11 @@ private fun MatchEvidenceLines(rows: List<StatementEvidenceCorrelationPolicy.Obs
         val reference = row.reference?.takeIf { includeReferences && it.isNotBlank() }?.let { " · Ref $it" }.orEmpty()
         Text("$source · ${labels[row.accountId] ?: "Account"} · $direction · ${statementDate(row.occurredAt)}$reference", color = p.muted,
             style = MaterialTheme.typography.bodySmall)
+        val id = activityId(row)
+        if (id != null) {
+            activityNumber++
+            val label = if (activityCount > 1) "Open Activity record $activityNumber" else "Open Activity record"
+            TextButton(onClick = { onOpenActivity(id) }) { Text(label) }
+        }
     }
 }
