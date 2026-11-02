@@ -16,11 +16,15 @@ internal class FingerprintConflictReviewReader(context: Context) {
     private val app = context.applicationContext
 
     fun read(year: Int): List<FingerprintConflictReviewItem> {
-        val conflicts = FingerprintConflictStore.listPending(PesaTrackDatabase.get(app).readableDatabase)
-            .filter { row ->
-                Calendar.getInstance().apply { timeInMillis = row.occurredAtEpochMs }
-                    .get(Calendar.YEAR) == year
-            }
+        val start = Calendar.getInstance().apply {
+            clear(); set(year, Calendar.JANUARY, 1)
+        }.timeInMillis
+        val end = Calendar.getInstance().apply {
+            clear(); set(year + 1, Calendar.JANUARY, 1)
+        }.timeInMillis
+        val conflicts = FingerprintConflictStore.listPending(
+            PesaTrackDatabase.get(app).readableDatabase, start, end
+        )
         if (conflicts.isEmpty()) return emptyList()
         val store = TransactionStore.get(app)
         val originals = conflicts.map { it.existingTransactionId }.distinct()

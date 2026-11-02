@@ -20,15 +20,20 @@ internal object FingerprintConflictStore {
         val occurredAtEpochMs: Long
     )
 
-    fun listPending(db: SQLiteDatabase): List<PendingConflict> = db.rawQuery(
+    fun listPending(
+        db: SQLiteDatabase,
+        startInclusive: Long = 0L,
+        endExclusive: Long = Long.MAX_VALUE
+    ): List<PendingConflict> = db.rawQuery(
         """
         SELECT id, existing_transaction_id, source_kind, transaction_code,
                type, amount_minor, fee_minor, occurred_at_epoch_ms
         FROM fingerprint_conflicts
         WHERE review_state = 'PENDING'
+          AND occurred_at_epoch_ms >= ? AND occurred_at_epoch_ms < ?
         ORDER BY id DESC
         LIMIT 200
-        """.trimIndent(), null
+        """.trimIndent(), arrayOf(startInclusive.toString(), endExclusive.toString())
     ).use { cursor ->
         buildList {
             while (cursor.moveToNext()) {

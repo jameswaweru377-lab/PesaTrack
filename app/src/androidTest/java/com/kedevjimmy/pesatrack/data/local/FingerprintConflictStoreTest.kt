@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.data.local
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.kedevjimmy.pesatrack.domain.ingestion.FingerprintFacts
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ParsedMpesaTransaction
 import org.junit.After
@@ -12,6 +13,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.Calendar
 
 @RunWith(AndroidJUnit4::class)
 class FingerprintConflictStoreTest {
@@ -89,6 +91,37 @@ class FingerprintConflictStoreTest {
         assertEquals(45_000L, item.originalAmountMinor)
         assertEquals(46_000L, item.incomingAmountMinor)
         assertTrue(FingerprintConflictReviewReader(context).read(2025).isEmpty())
+        assertEquals(1, count("transactions"))
+    }
+
+    @Test fun olderYearConflictRemainsVisibleAfterTwoHundredNewerConflicts() {
+        val store = TransactionStore.get(context)
+        store.insertIfNew(observation(45_000L), null, "sms", epoch)
+        val original = store.getByTransactionCode("SYNTHETIC123")!!
+        val db = PesaTrackDatabase.get(context).writableDatabase
+        val stored = FingerprintFacts(
+            original.transactionCode, original.type, original.amountMinor,
+            original.feeMinor, original.occurredAtEpochMs
+        )
+        val newerYear = Calendar.getInstance().apply {
+            clear(); set(2027, Calendar.JANUARY, 1)
+        }.timeInMillis
+        val olderYear = Calendar.getInstance().apply {
+            clear(); set(2026, Calendar.JANUARY, 1)
+        }.timeInMillis
+        assertTrue(FingerprintConflictStore.recordIfConflicting(
+            db, original.id, stored,
+            FingerprintFacts("SYNTHETIC123", original.type, 46_000L, 0L, olderYear), "sms"
+        ))
+        repeat(200) { index ->
+            assertTrue(FingerprintConflictStore.recordIfConflicting(
+                db, original.id, stored,
+                FingerprintFacts("SYNTHETIC123", original.type, 47_000L, 0L, newerYear + index),
+                "notification"
+            ))
+        }
+        assertEquals(1, FingerprintConflictReviewReader(context).read(2026).size)
+        assertEquals(200, FingerprintConflictReviewReader(context).read(2027).size)
         assertEquals(1, count("transactions"))
     }
 }
