@@ -57,7 +57,7 @@ provider or in app-side records, and PesaTrack does not deliberately log it.
 
 ## Backups and exports
 
-If you create an encrypted PesaTrack backup, the encrypted file is written only to a location you choose through Android's document picker. Keep your backup passphrase safe; PesaTrack cannot recover a forgotten passphrase.
+If you create an encrypted PesaTrack backup, the encrypted file is written only to a location you choose through Android's document picker. New backups require a passphrase of at least 12 characters; older encrypted backups using eight-character passphrases remain restorable. Keep your backup passphrase safe; PesaTrack cannot recover a forgotten passphrase.
 
 CSV or other user-requested exports may contain financial data. Once exported, those files are controlled by the storage location and apps you choose to share them with.
 
