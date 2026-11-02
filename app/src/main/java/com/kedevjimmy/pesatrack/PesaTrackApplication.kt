@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack
 
 import android.app.Application
+import android.os.StrictMode
 import com.kedevjimmy.pesatrack.security.BackupRecoveryStatus
 
 class PesaTrackApplication : Application() {
@@ -12,5 +13,15 @@ class PesaTrackApplication : Application() {
         // Restore must reconcile before activities or workers read restored settings.
         BackupRecoveryStatus.retry(this)
         com.kedevjimmy.pesatrack.planning.SmartNoticeLifecycle.start(this)
+        // T4: report main-thread disk access in debug builds; never crash or log in release.
+        if (BuildConfig.DEBUG) {
+            StrictMode.setThreadPolicy(
+                StrictMode.ThreadPolicy.Builder()
+                    .detectDiskReads()
+                    .detectDiskWrites()
+                    .penaltyLog()
+                    .build()
+            )
+        }
     }
 }

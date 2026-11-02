@@ -504,6 +504,7 @@ The next test expansion should add broader migration fixtures, performance bench
 - SMS-permission surfaces provide an explicit disclosure before requesting historical SMS access.
 - Release builds accept explicit version code/name inputs; a protected release identity and signed rolling APK already exist. Signing continuity and actual physical-phone upgrade acceptance remain release gates, independently of a successful workflow.
 - Historical SMS import reports scan/match/insert progress, supports cooperative cancellation, and retains a short-lived checkpoint so interrupted imports can resume by SMS date/id without rescanning the completed portion. Activity review/duplicate work is now bounded to unresolved/recent rows, duplicate matching stops at the policy time window, and month/account lookups use v33 ledger indexes. Physical-device large-ledger measurement still remains.
+- T4 first diagnostic slice: normal-process debug builds install Android StrictMode main-thread disk read/write warnings after backup recovery. It logs warnings without crashing; release builds and the isolated PDF process do not install it. Source wiring tests pass; runtime Logcat evidence, off-main-thread store-call migration and timed large-history lock measurements remain **not verified**.
 
 ## Release status
 
