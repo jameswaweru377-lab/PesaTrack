@@ -7,7 +7,7 @@ import org.junit.Test
 
 class DuplicateAccountingAcceptanceGateTest {
     @Test
-    fun allKnownStrongMirrorFixturesAutoLink() {
+    fun onlyFixturesWithSharedReferencesAutoLink() {
         val fixtures =
             listOf(
                 mirrorFixture(
@@ -133,23 +133,11 @@ class DuplicateAccountingAcceptanceGateTest {
                 )
             )
 
-        val failures =
-            fixtures.filterNot {
-                MirrorTransactionMatcher
-                    .match(
-                        it.first,
-                        it.second
-                    )
-                    .autoLink
-            }
-
-        assertTrue(
-            "Known mirror fixtures failed to auto-link: " +
-                failures.joinToString {
-                    it.name
-                },
-            failures.isEmpty()
-        )
+        val referenceBacked = setOf("shared external reference", "same transaction code")
+        fixtures.forEach { fixture ->
+            val linked = MirrorTransactionMatcher.match(fixture.first, fixture.second).autoLink
+            assertEquals("Unexpected automatic match for ${fixture.name}", fixture.name in referenceBacked, linked)
+        }
     }
 
     @Test

@@ -18,6 +18,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.StatementMatchDecisionStore
+import com.kedevjimmy.pesatrack.data.local.FingerprintConflictReviewItem
+import com.kedevjimmy.pesatrack.data.local.FingerprintConflictReviewReader
 import com.kedevjimmy.pesatrack.domain.statements.StatementEvidenceCorrelationPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementMatchReviewPolicy
 import kotlinx.coroutines.CancellationException
@@ -33,9 +35,12 @@ internal fun StatementMatchReviewPage(year: Int, labels: Map<String, String>,
                                       onOpenActivity: (Long) -> Unit = {}, onBack: () -> Unit) {
     val context = LocalContext.current
     val store = remember(context) { StatementMatchDecisionStore(context) }
+    val conflictReader = remember(context) { FingerprintConflictReviewReader(context) }
     val scope = rememberCoroutineScope()
     var snapshot by remember(year) { mutableStateOf<StatementMatchDecisionStore.Snapshot?>(null) }
     var failed by remember(year) { mutableStateOf(false) }
+    var conflicts by remember(year) { mutableStateOf<List<FingerprintConflictReviewItem>>(emptyList()) }
+    var conflictFailed by remember(year) { mutableStateOf(false) }
     var attempt by remember(year) { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
     var actionError by remember { mutableStateOf<String?>(null) }
@@ -48,8 +53,16 @@ internal fun StatementMatchReviewPage(year: Int, labels: Map<String, String>,
         } catch (e: CancellationException) { throw e }
         catch (_: Exception) { failed = true }
     }
+    LaunchedEffect(year, attempt, ledgerRevision.revision) {
+        conflictFailed = false
+        try {
+            conflicts = withContext(Dispatchers.IO) { conflictReader.read(year) }
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { conflictFailed = true }
+    }
     StatementMatchReviewContent(year, labels, snapshot?.review, failed, onBack, { attempt++ },
-        snapshot = snapshot, busy = busy, actionError = actionError, onOpenActivity = onOpenActivity) { candidate, expected, decision, attested ->
+        snapshot = snapshot, busy = busy, actionError = actionError, onOpenActivity = onOpenActivity,
+        conflicts = conflicts, conflictFailed = conflictFailed) { candidate, expected, decision, attested ->
         if (!busy) {
             busy = true; actionError = null
             scope.launch {
@@ -76,6 +89,8 @@ internal fun StatementMatchReviewContent(
     snapshot: StatementMatchDecisionStore.Snapshot? = null, busy: Boolean = false,
     actionError: String? = null,
     onOpenActivity: (Long) -> Unit = {},
+    conflicts: List<FingerprintConflictReviewItem> = emptyList(),
+    conflictFailed: Boolean = false,
     onDecision: (StatementMatchDecisionStore.Candidate, StatementMatchDecisionStore.Decision?, StatementMatchDecisionStore.Decision?, Boolean) -> Unit = { _, _, _, _ -> }
 ) {
     val p = HomeReferencePalette
@@ -125,6 +140,21 @@ internal fun StatementMatchReviewContent(
             }
         }
         if (actionError != null) item { Text(actionError, color = MaterialTheme.colorScheme.error) }
+        if (conflictFailed) item {
+            StatementInsightCard {
+                Text("Could not read conflicting evidence. Try again; your records are unchanged.")
+                TextButton(onClick = onRetry) { Text("Retry") }
+            }
+        }
+        if (conflicts.isNotEmpty()) item {
+            Text("Conflicting transaction evidence", color = p.ink,
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("The same code has contradictory details. These observations remain separate and have not changed totals.",
+                color = p.muted, style = MaterialTheme.typography.bodySmall)
+        }
+        items(conflicts) { conflict ->
+            FingerprintConflictReviewCard(conflict, onOpenActivity)
+        }
         if ((snapshot?.excludedBankSourceCount ?: 0) > 0) item {
             StatementInsightCard {
                 Text("Some bank statements were not compared", color = p.ink, fontWeight = FontWeight.SemiBold)
