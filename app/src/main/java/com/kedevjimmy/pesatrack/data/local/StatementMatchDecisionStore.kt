@@ -12,6 +12,7 @@ import com.kedevjimmy.pesatrack.domain.statements.StatementPossibleCopyPolicy
 import com.kedevjimmy.pesatrack.domain.statements.CrossSourceTotalsPreviewPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementUnifiedOverviewPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementReconciliationPreviewPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementReconciledLegProjectionPolicy
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -32,7 +33,8 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
                         val accountMentions: List<StatementAccountMentionPolicy.Hint> = emptyList(),
                         val possibleCopies: List<StatementPossibleCopyPolicy.Suggestion> = emptyList(),
                         val totalsPreview: CrossSourceTotalsPreviewPolicy.Preview? = null,
-                        val reconciliationPreview: StatementReconciliationPreviewPolicy.Preview? = null)
+                        val reconciliationPreview: StatementReconciliationPreviewPolicy.Preview? = null,
+                        val legProjection: StatementReconciledLegProjectionPolicy.Projection? = null)
 
     fun read(year: Int): Snapshot = synchronized(CanonicalStoreLock.monitor) { current(year) }
 
@@ -148,12 +150,13 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
         val totalsPreview = CrossSourceTotalsPreviewPolicy.project(
             activitySummary?.let { CrossSourceTotalsPreviewPolicy.ActivityTotals(it.incomeMinor, it.spentMinor) },
             statementCash, review.transfers.size + review.sameMovements.size, review.ambiguousCount)
-        val proposed = StatementReconciliationPreviewPolicy.project(review,
-            candidates.mapNotNull { candidate ->
-                saved[candidate.hash]?.let { candidate.rows.map { it.id }.toSet() to
-                    StatementReconciliationPreviewPolicy.Decision.valueOf(it.name) }
-            }.toMap())
+        val decisionsByIds = candidates.mapNotNull { candidate ->
+            saved[candidate.hash]?.let { candidate.rows.map { it.id }.toSet() to
+                StatementReconciliationPreviewPolicy.Decision.valueOf(it.name) }
+        }.toMap()
+        val proposed = StatementReconciliationPreviewPolicy.project(review, decisionsByIds)
+        val legProjection = StatementReconciledLegProjectionPolicy.project(review, decisionsByIds)
         return Snapshot(review, candidates, saved, missingConsent, source.excludedBankSourceCount,
-            possibleTransfers, accountMentions, possibleCopies, totalsPreview, proposed)
+            possibleTransfers, accountMentions, possibleCopies, totalsPreview, proposed, legProjection)
     }
 }

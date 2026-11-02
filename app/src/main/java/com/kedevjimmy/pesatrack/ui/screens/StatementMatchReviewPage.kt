@@ -191,6 +191,18 @@ internal fun StatementMatchReviewContent(
                 }
             }
         }
+        snapshot?.legProjection?.let { projection ->
+            if (projection.confirmedInternalTransfers > 0 || projection.confirmedSameLegGroups > 0) item {
+                StatementInsightCard {
+                    Text("Cash-leg accounting projection · not applied", fontWeight = FontWeight.SemiBold, color = p.ink)
+                    Text("${projection.observationCount} source observations represent ${projection.uniqueCashLegCount} distinct cash legs in confirmed groups.")
+                    Text("${projection.confirmedSameLegGroups} reviewed same-leg groups · ${projection.confirmedInternalTransfers} reviewed own-account transfers")
+                    Text("Internal-transfer amount: ${matchReviewMoney(projection.confirmedInternalTransferMinor, "KES")}")
+                    Text("Internal transfers contribute no new income or external spending. This projection does not yet change Home, Activity, Statements or Reports totals.",
+                        style = MaterialTheme.typography.bodySmall, color = p.muted)
+                }
+            }
+        }
         if (actionError != null) item { Text(actionError, color = MaterialTheme.colorScheme.error) }
         if (conflictFailed) item {
             StatementInsightCard {
