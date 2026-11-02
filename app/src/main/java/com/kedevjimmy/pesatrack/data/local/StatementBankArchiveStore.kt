@@ -34,6 +34,23 @@ class StatementBankArchiveStore(context: Context) {
     )
     data class SaveResult(val added: Boolean, val sourceId: String)
 
+    /** Read-only filter: a saved source must still belong to the current full account identity. */
+    fun sourceIdsMatchingIdentity(accountId: String, currentIdentifier: String?): Set<String> {
+        val normalized = currentIdentifier.orEmpty().uppercase(java.util.Locale.ROOT)
+            .replace(Regex("[^A-Z0-9]"), "")
+        if (normalized.length < 8 || normalized.any { !it.isDigit() }) return emptySet()
+        val identityHash = MessageDigest.getInstance("SHA-256")
+            .digest(normalized.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+        val helper = StatementArchiveDb(app)
+        try {
+            return helper.readableDatabase.rawQuery(
+                "SELECT id FROM statement_sources_v2 WHERE account_id=? AND account_identity_hash=?",
+                arrayOf(accountId, identityHash)).use { cursor -> buildSet {
+                    while (cursor.moveToNext()) add(cursor.getString(0))
+                } }
+        } finally { helper.close() }
+    }
+
     /** A statement must match a confirmed account, not simply a bank-shaped name. */
     private fun requireConfirmedBank(accountId: String, accountIdentity: String) {
         val confirmed = FinancialUnderstandingStore.get(app).confirmedAccountIds() +

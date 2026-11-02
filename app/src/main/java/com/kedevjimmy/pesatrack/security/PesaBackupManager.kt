@@ -446,7 +446,7 @@ class PesaBackupManager(
             )
                 ?.asInt
                 ?: 0
-        if (currentSchema == 40 && backupSchema in 34..39) {
+        if (currentSchema == 41 && backupSchema in 34..40) {
             val tables = payload.getAsJsonObject("tables")
                 ?: throw IllegalArgumentException("This backup is missing its ledger tables.")
             val missing = BackupSchemaCompatibility.emptyTables(backupSchema)
