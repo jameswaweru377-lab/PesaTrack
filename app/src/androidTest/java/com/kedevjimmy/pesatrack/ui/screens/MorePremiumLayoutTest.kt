@@ -34,6 +34,7 @@ class MorePremiumLayoutTest {
                     onImportClick = { destination = "imports" },
                     onPastTransactionsClick = { destination = "activity" },
                     onStatementActivityClick = { destination = "statements" },
+                    onStatementImportClick = { destination = "statement-import" },
                     onDataHealthClick = { destination = "diagnostics" },
                     onSettingsClick = { destination = "settings" },
                     onReportsClick = { destination = "reports" }
@@ -66,6 +67,7 @@ class MorePremiumLayoutTest {
                     onImportClick = { destination = "imports" },
                     onPastTransactionsClick = { destination = "activity" },
                     onStatementActivityClick = { destination = "statements" },
+                    onStatementImportClick = { destination = "statement-import" },
                     onDataHealthClick = { destination = "diagnostics" },
                     onSettingsClick = { destination = "settings" },
                     onReportsClick = { destination = "reports" }
