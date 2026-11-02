@@ -146,7 +146,8 @@ fun ProfileScreen(
             onHistoricalImportClick ?: onSettingsClick
         )
         "policy" -> LegalInformationPage(scaffoldPadding, { page = legalReturnPage }, LegalNotice.PRIVACY)
-        "terms" -> LegalInformationPage(scaffoldPadding, { page = "about" }, LegalNotice.TERMS)
+        "terms" -> LegalInformationPage(scaffoldPadding,
+            { if (initialPage == "terms") onBack() else page = "about" }, LegalNotice.TERMS)
         "financial_notice" -> LegalInformationPage(scaffoldPadding, { page = "about" }, LegalNotice.FINANCIAL)
         else -> ProfileHomeScreen(
             padding = scaffoldPadding,
