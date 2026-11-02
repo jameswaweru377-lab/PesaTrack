@@ -48,9 +48,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: |
-            ./gradlew :app:connectedDebugAndroidTest --stacktrace \
-              -Pandroid.testInstrumentationRunnerArguments.class=com.kedevjimmy.pesatrack.data.local.ActivityMirrorSafetyIntegrationTest,com.kedevjimmy.pesatrack.data.local.FingerprintConflictStoreTest,com.kedevjimmy.pesatrack.security.FingerprintConflictBackupTest,com.kedevjimmy.pesatrack.security.StatementArchiveBackupIntegrationTest,com.kedevjimmy.pesatrack.data.local.StatementMatchDecisionStoreTest
+          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace -Pandroid.testInstrumentationRunnerArguments.class=com.kedevjimmy.pesatrack.data.local.ActivityMirrorSafetyIntegrationTest,com.kedevjimmy.pesatrack.data.local.FingerprintConflictStoreTest,com.kedevjimmy.pesatrack.security.FingerprintConflictBackupTest,com.kedevjimmy.pesatrack.security.StatementArchiveBackupIntegrationTest,com.kedevjimmy.pesatrack.data.local.StatementMatchDecisionStoreTest
 
       - name: Retain Android test results only
         if: always()
