@@ -743,15 +743,13 @@ fun PesaTrackApp(
             })
         ) { entry ->
             val initialSection = entry.arguments?.getString("section") ?: "home"
-            var profilePage by rememberSaveable(initialSection) { mutableStateOf(initialSection) }
             AppScaffold(
                 onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
                 onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
                 onNotificationsClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
-                currentTab = MainTab.MORE,
+                currentTab = null,
                 onTabSelected = ::navigateToTab,
-                showTopBar = profilePage == "home",
-                useHomeHeader = profilePage == "home"
+                showTopBar = false
             ) { padding ->
                 ProfileScreen(
                     scaffoldPadding = padding,
@@ -764,7 +762,6 @@ fun PesaTrackApp(
                     homeCache = homeScreenCache,
                     onPlanClick = { navigateToTab(MainTab.PLAN) },
                     onActivityClick = { navigateToTab(MainTab.ACTIVITY) },
-                    onPageChanged = { profilePage = it },
                     initialPage = initialSection
                 )
             }

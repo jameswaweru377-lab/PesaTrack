@@ -132,7 +132,7 @@ fun MoreScreen(
             onAccountsClick, onReportsClick) }
         item { MorePreferencesSection(onProfileSectionClick, onSettingsClick) }
         item { MoreSupportSection(onProfileSectionClick, onDataHealthClick,
-            onPastTransactionsClick, onAccountsClick, { backupOpen = true }) }
+            { backupOpen = true }) }
     }
     if (backupOpen) BackupRestoreSheet(onDismiss = { backupOpen = false })
     if (importOptionsOpen) {
@@ -196,7 +196,7 @@ private fun MorePreferencesSection(openProfile: (String) -> Unit, settings: () -
 @Composable
 private fun MoreSupportSection(
     openProfile: (String) -> Unit, diagnostics: () -> Unit,
-    pastTransactions: () -> Unit, funds: () -> Unit, backup: () -> Unit
+    backup: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(M.space8)) {
         MoreSectionTitle("Support & tools")
@@ -205,10 +205,6 @@ private fun MoreSupportSection(
                 "Guides, FAQs & contact", "blue") { openProfile("support") }
             MoreSettingsRow(Icons.Rounded.Build, "Advanced troubleshooting",
                 "Diagnostics & data checks", "purple", onClick = diagnostics)
-            MoreSettingsRow(Icons.Rounded.History, "Past transactions",
-                "Review older activity", "blue", onClick = pastTransactions)
-            MoreSettingsRow(Icons.Rounded.Wallet, "Funds",
-                "Balances, sources & movement", "green", onClick = funds)
             MoreSettingsRow(Icons.Rounded.FileDownload, "Backup & restore",
                 "Encrypted backup of your financial records", "blue", onClick = backup)
             MoreSettingsRow(Icons.Rounded.Description, "Terms of Service",

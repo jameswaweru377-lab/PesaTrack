@@ -5,9 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -18,20 +16,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.BuildConfig
-import com.kedevjimmy.pesatrack.data.profile.ProfilePhotoStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.security.AppLockManager
-import com.kedevjimmy.pesatrack.ui.components.IconBubble
-import com.kedevjimmy.pesatrack.ui.components.PesaCard
-import com.kedevjimmy.pesatrack.ui.components.SectionHeader
-import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
-import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
 
 @Composable
@@ -153,14 +143,12 @@ fun ProfileScreen(
             back = onBack,
             name = prefs.getString("profile_name", "").orEmpty().ifBlank { "Your profile" },
             avatar = prefs.getString("profile_avatar", "🌿") ?: "🌿",
+            city = prefs.getString("profile_city", "").orEmpty(),
+            bio = prefs.getString("profile_bio", "").orEmpty(),
             moneyHabits = financialPresentation,
             onMoneyHabits = { page = "habits" },
             personal = { page = "personal" },
-            security = { page = "security" },
-            notifications = { page = "notifications" },
-            appearance = { page = "appearance" },
-            support = { page = "support" },
-            about = { page = "about" }
+            onPayCycle = onPlanClick ?: onSettingsClick
         )
     }
 }
@@ -171,108 +159,52 @@ private fun ProfileHomeScreen(
     back: () -> Unit,
     name: String,
     avatar: String,
+    city: String,
+    bio: String,
     moneyHabits: ProfileMoneyHabitsPresentation,
     onMoneyHabits: () -> Unit,
     personal: () -> Unit,
-    security: () -> Unit,
-    notifications: () -> Unit,
-    appearance: () -> Unit,
-    support: () -> Unit,
-    about: () -> Unit
+    onPayCycle: () -> Unit
 ) {
-    ProfilePremiumPage("Profile", padding, back) {
+    Box(Modifier.fillMaxSize().background(C.canvas)) {
+      LazyColumn(
+          modifier = Modifier.fillMaxSize().padding(padding),
+          verticalArrangement = Arrangement.spacedBy(12.dp),
+          contentPadding = PaddingValues(bottom = 24.dp)
+      ) {
         item {
-            ProfileGradientBanner(name = name, avatar = avatar, onEdit = personal)
+            ProfileDetailTopBar(back)
         }
         item {
-            ProfileMoneyHabitsCard(moneyHabits, onMoneyHabits)
+            ProfileCoverHeader(avatar = avatar, onAvatarEdit = personal)
         }
-        item { ProfileSection("Your account") }
         item {
-            ProfileMenuGroup(
-                listOf(
-                    ProfileMenuItem(Icons.Rounded.Person, "Personal information",
-                        "Photo, name & email", "violet", personal),
-                    ProfileMenuItem(Icons.Rounded.Security, "App lock & security",
-                        "PIN, fingerprint & lock timing", "green", security),
-                    ProfileMenuItem(Icons.Rounded.NotificationsActive, "Notifications",
-                        "Bills, budgets & reminders", "red", notifications),
-                    ProfileMenuItem(Icons.Rounded.Palette, "Appearance",
-                        "Light theme & display", "amber", appearance)
-                )
-            )
+            ProfileIdentityDetails(name, city, bio, onEdit = personal)
         }
-        item { ProfileSection("Support") }
         item {
-            ProfileMenuGroup(listOf(
-                ProfileMenuItem(Icons.Rounded.SupportAgent, "Help & support",
-                    "Guides & troubleshooting", "blue", support),
-                ProfileMenuItem(Icons.Rounded.Info, "About PesaTrack",
-                    "Version, privacy & app details", "violet", about)
-            ))
-        }
-    }
-}
-
-@Composable
-private fun ProfileGradientBanner(name: String, avatar: String, onEdit: () -> Unit) {
-    val context = LocalContext.current
-    val photo = remember(context) { ProfilePhotoStore(context).load() }
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        color = Color.Transparent,
-        contentColor = Color.White,
-        shadowElevation = 3.dp
-    ) {
-        Box(Modifier.background(Brush.linearGradient(listOf(C.violetBright, C.violet, C.violetDeep)))) {
-          ProfileBannerWavesPublic(Modifier.matchParentSize())
-          Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(contentAlignment = Alignment.BottomEnd) {
-                    Surface(modifier = Modifier.size(108.dp), shape = CircleShape,
-                        color = Color.White.copy(alpha = .18f),
-                        border = androidx.compose.foundation.BorderStroke(3.dp, Color.White)) {
-                      Box(contentAlignment = Alignment.Center) {
-                        if (photo != null) {
-                            Image(photo.asImageBitmap(), "Profile photo", Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop)
-                        } else {
-                            Text(avatar, style = MaterialTheme.typography.headlineMedium)
-                        }
-                      }
-                    }
-                    Surface(modifier = Modifier.size(34.dp).clickable(onClick = onEdit),
-                        shape = CircleShape, color = Color.White) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.PhotoCamera, null, tint = C.violet,
-                                modifier = Modifier.size(19.dp))
-                        }
-                    }
-                }
-                Column(Modifier.weight(1f).padding(horizontal = 13.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Smartphone, null, Modifier.size(16.dp), tint = Color.White)
-                        Text("Only on this device", modifier = Modifier.padding(start = 6.dp),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = .88f))
-                    }
-                    OutlinedButton(onClick = onEdit,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = .8f))) {
-                        Text("Edit profile")
-                    }
-                }
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                ProfileMoneyHabitsCard(moneyHabits, onMoneyHabits)
             }
-            Text("Your money, your plans.", style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = .9f))
-          }
         }
+        item { Box(Modifier.padding(horizontal = 16.dp)) { ProfileSection("Your profile") } }
+        item {
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                ProfileMenuGroup(listOf(
+                    ProfileMenuItem(Icons.Rounded.Person, "Personal information",
+                        "Photo, name, city & about me", "violet", personal),
+                    ProfileMenuItem(Icons.Rounded.CalendarMonth, "Pay cycle",
+                        "View your salary cycle in Plan", "green", onPayCycle)
+                ))
+            }
+        }
+        item {
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                ProfileHint("Your personal profile stays on this phone. App settings are in More.")
+            }
+        }
+      }
     }
 }
-
 private data class ProfileMenuItem(
     val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val title: String,

@@ -1,7 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Lock
@@ -12,7 +11,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
@@ -30,7 +28,8 @@ fun PersonalDetailsScreen(padding: PaddingValues, onBack: () -> Unit, title: Str
     val prefs = remember { context.getSharedPreferences("pesatrack_preferences", 0) }
     var name by rememberSaveable { mutableStateOf(prefs.getString("profile_name", "").orEmpty()) }
     var avatar by rememberSaveable { mutableStateOf(prefs.getString("profile_avatar", "🌿") ?: "🌿") }
-    var email by rememberSaveable { mutableStateOf(prefs.getString("profile_email", "").orEmpty()) }
+    var city by rememberSaveable { mutableStateOf(prefs.getString("profile_city", "").orEmpty()) }
+    var bio by rememberSaveable { mutableStateOf(prefs.getString("profile_bio", "").orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
     var showEmojiChoices by rememberSaveable { mutableStateOf(false) }
     var saved by remember { mutableStateOf(false) }
@@ -56,15 +55,25 @@ fun PersonalDetailsScreen(padding: PaddingValues, onBack: () -> Unit, title: Str
                             onValueChange = { name = it.take(60); error = null; saved = false },
                             placeholder = { Text("What should we call you?") },
                             singleLine = true, shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth())
+                            modifier = Modifier.fillMaxWidth(), isError = error == "Enter your display name.")
                         HorizontalDivider(color = C.outline)
-                        Text("Email (optional)", style = MaterialTheme.typography.labelLarge,
+                        Text("City or town (optional)", style = MaterialTheme.typography.labelLarge,
                             color = C.muted)
-                        OutlinedTextField(value = email,
-                            onValueChange = { email = it.take(120); error = null; saved = false },
-                            placeholder = { Text("Add an email") },
+                        OutlinedTextField(value = city,
+                            onValueChange = { city = it.take(60); error = null; saved = false },
+                            placeholder = { Text("e.g. Nairobi") },
                             singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                            shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth())
+                        Text("Shown only in your private profile. No location permission is needed.",
+                            style = MaterialTheme.typography.bodySmall, color = C.muted)
+                        HorizontalDivider(color = C.outline)
+                        Text("About me (optional)", style = MaterialTheme.typography.labelLarge,
+                            color = C.muted)
+                        OutlinedTextField(value = bio,
+                            onValueChange = { bio = it.take(160); error = null; saved = false },
+                            placeholder = { Text("A little about your money journey") },
+                            minLines = 2, maxLines = 3,
+                            supportingText = { Text("${bio.length}/160") },
                             shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth())
                     }
                 }
@@ -107,12 +116,12 @@ fun PersonalDetailsScreen(padding: PaddingValues, onBack: () -> Unit, title: Str
             item {
                 ProfileGradientButton("Save changes", action = {
                     when (attemptProfileSave(
-                        name, avatar, email,
-                        emailValid = { android.util.Patterns.EMAIL_ADDRESS.matcher(it).matches() },
-                        persist = { savedName, savedAvatar, savedEmail ->
+                        name, avatar, city, bio,
+                        persist = { savedName, savedAvatar, savedCity, savedBio ->
                             prefs.edit().putString("profile_name", savedName)
                                 .putString("profile_avatar", savedAvatar)
-                                .putString("profile_email", savedEmail).commit()
+                                .putString("profile_city", savedCity)
+                                .putString("profile_bio", savedBio).commit()
                         }
                     )) {
                         ProfileSaveResult.SAVED -> {
@@ -120,8 +129,8 @@ fun PersonalDetailsScreen(padding: PaddingValues, onBack: () -> Unit, title: Str
                             saved = true
                             scope.launch { delay(4000); saved = false }
                         }
-                        ProfileSaveResult.INVALID_EMAIL ->
-                            error = "Enter a valid email, or leave it blank."
+                        ProfileSaveResult.INVALID_NAME ->
+                            error = "Enter your display name."
                         ProfileSaveResult.FAILED ->
                             error = "Couldn't save changes. Try again."
                     }
