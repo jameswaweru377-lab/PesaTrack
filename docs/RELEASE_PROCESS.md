@@ -1,6 +1,6 @@
 # PesaTrack Release Process
 
-_Last updated: 29 October 2026_
+_Last updated: 2 November 2026_
 
 PesaTrack's rolling user-installable release uses the **existing protected release-signing identity**. The debug APK remains an internal workflow artifact and is not a user update download.
 
@@ -12,6 +12,30 @@ After Android CI succeeds on a push to `main`, its publish job builds a release-
 - `PesaTrack-Update.apk` — **the same signed bytes** intended for installation over a compatible earlier app.
 
 These filenames stay fixed. The job replaces both attachments and deletes old debug/commit-specific APK attachments after a successful signed upload. Android does not support safe in-place upgrades via APK filename or a special smaller delta file: only app ID, signing identity and `versionCode` govern that decision.
+
+**Latest-main freshness gate:** the rolling publisher queries GitHub's live
+`main` ref and requires it to match the CI-tested `GITHUB_SHA` before any
+release mutation and again before uploading. A stale commit, failed GitHub
+lookup or malformed ref stops publication; existing APKs remain untouched
+when refused before upload. GitHub Release upload itself is not an atomic
+operation with a branch update: if `main` advances during upload, the
+current upload must finish consistently and the newer validated `main` run
+must replace it. Signature
+and increasing-version checks remain separate mandatory gates.
+
+**CI runtime:** ordinary PRs and `main` pushes still run Kotlin/Android
+validation, and Android instrumentation remains manual opt-in. A docs-only
+push currently **still** triggers the normal `main` validation and signed
+rolling publication. Optimizing this to skip only signed publication for
+documentation-only changes is a separate workflow PR after overlapping
+open workflow edits clear; never disable required checks through a broad
+`paths-ignore` rule.
+
+**Engineering wait time:** use completed check events or a few-minute
+status check rather than polling an active Gradle step every few seconds.
+During a long CI run, take an independently claimed task on its own branch
+only when it has no file overlap; leave the tested PR head unchanged until
+the exact-head result is known.
 
 Do not mistake the attached APKs for Android instrumentation or physical-phone upgrade proof. The existing Redmi installation may have been signed by an ephemeral CI debug key; in that case, this new release certificate is not directly compatible. Never uninstall or reset until encrypted backup/restore and a one-time migration are verified and explicitly approved.
 

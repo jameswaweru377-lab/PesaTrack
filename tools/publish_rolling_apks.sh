@@ -20,6 +20,22 @@ if [[ ! "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]; then
   exit 1
 fi
 
+require_current_main() {
+  local current_main
+  if ! current_main="$(gh api "repos/${GH_REPO}/git/ref/heads/main" --jq '.object.sha' 2>/dev/null)"; then
+    echo 'Cannot verify the current main commit; refusing signed APK publication' >&2
+    return 1
+  fi
+  if [[ ! "$current_main" =~ ^[0-9a-f]{40}$ ]]; then
+    echo 'Invalid remote main commit; refusing signed APK publication' >&2
+    return 1
+  fi
+  if [[ "$current_main" != "$GITHUB_SHA" ]]; then
+    echo 'Main advanced past this tested commit; refusing stale signed APK publication' >&2
+    return 1
+  fi
+}
+
 if [[ ! -s "$APK_PATH" ]]; then
   echo 'Expected signed APK is missing' >&2
   exit 1
@@ -67,6 +83,9 @@ for required in "sdkVersion:'24'" "targetSdkVersion:'36'" "native-code: 'arm64-v
   fi
 done
 
+# A newer main push must not be replaced by an older successful build.
+require_current_main
+
 tmp_dir="$(mktemp -d)"
 trap 'rm -r -- "$tmp_dir"' EXIT
 
@@ -95,6 +114,8 @@ cp -- "$APK_PATH" "$tmp_dir/PesaTrack-Full.apk"
 cp -- "$APK_PATH" "$tmp_dir/PesaTrack-Update.apk"
 cmp -s -- "$tmp_dir/PesaTrack-Full.apk" "$tmp_dir/PesaTrack-Update.apk"
 
+# Build time and the previous-APK compatibility checks can outlive a new merge.
+require_current_main
 gh release upload ci-apk \
   "$tmp_dir/PesaTrack-Full.apk" "$tmp_dir/PesaTrack-Update.apk" --clobber
 

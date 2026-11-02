@@ -31,7 +31,7 @@ esac
 """,
             "aapt": """#!/bin/sh
 case "$3" in
-  *previous*) number="${TEST_PREVIOUS_VERSION:-10}" ;;
+  *PesaTrack-Update.apk) number="${TEST_PREVIOUS_VERSION:-10}" ;;
   *) number="${PESATRACK_VERSION_CODE}" ;;
 esac
 printf "package: name='com.kedevjimmy.pesatrack' versionCode='%s' versionName='0.1.0'\\n" "$number"
@@ -49,7 +49,20 @@ import os, pathlib, shutil, sys
 argv = sys.argv[1:]
 root = pathlib.Path(os.environ['TEST_GH_STATE'])
 root.mkdir(exist_ok=True)
-if argv[:2] == ['release', 'view']:
+if argv[:1] == ['api']:
+    expected = 'repos/' + os.environ['GH_REPO'] + '/git/ref/heads/main'
+    if len(argv) != 4 or argv[1:] != [expected, '--jq', '.object.sha']:
+        sys.exit('unexpected GitHub ref lookup: ' + repr(argv))
+    query_count = root / 'main-query-count'
+    count = int(query_count.read_text()) + 1 if query_count.exists() else 1
+    query_count.write_text(str(count))
+    if os.environ.get('TEST_GH_MAIN_ERROR') == '1':
+        sys.exit(1)
+    if count > int(os.environ.get('TEST_GH_MAIN_ADVANCE_AFTER', '999')):
+        print('ffffffffffffffffffffffffffffffffffffffff')
+    else:
+        print(os.environ.get('TEST_GH_MAIN_SHA', os.environ['GITHUB_SHA']))
+elif argv[:2] == ['release', 'view']:
     if '--json' in argv:
         for p in sorted(root.glob('*.apk')):
             print(p.name)
@@ -141,6 +154,43 @@ else:
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse((self.release / "PesaTrack-Update.apk").exists())
 
+    def test_refuses_stale_main_without_changing_existing_apks(self):
+        old = self.apk.read_bytes()
+        for name in ("PesaTrack-Full.apk", "PesaTrack-Update.apk"):
+            (self.release / name).write_bytes(old)
+        self.env["TEST_GH_MAIN_SHA"] = "f" * 40
+        result = self.run_publisher()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("main", result.stdout.lower())
+        for name in ("PesaTrack-Full.apk", "PesaTrack-Update.apk"):
+            self.assertEqual((self.release / name).read_bytes(), old)
+
+    def test_refuses_unverifiable_main_without_mutation(self):
+        self.env["TEST_GH_MAIN_ERROR"] = "1"
+        result = self.run_publisher()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("main", result.stdout.lower())
+        self.assertFalse((self.release / "PesaTrack-Full.apk").exists())
+        self.assertFalse((self.release / "PesaTrack-Update.apk").exists())
+
+    def test_refuses_malformed_remote_main_sha(self):
+        self.env["TEST_GH_MAIN_SHA"] = "not-a-commit-sha"
+        result = self.run_publisher()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("main", result.stdout.lower())
+        self.assertFalse((self.release / "PesaTrack-Update.apk").exists())
+
+    def test_refuses_main_advance_after_first_lookup_before_upload(self):
+        old = self.apk.read_bytes()
+        for name in ("PesaTrack-Full.apk", "PesaTrack-Update.apk"):
+            (self.release / name).write_bytes(old)
+        self.env["TEST_GH_MAIN_ADVANCE_AFTER"] = "1"
+        result = self.run_publisher()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("main", result.stdout.lower())
+        self.assertGreaterEqual(int((self.release / "main-query-count").read_text()), 2)
+        for name in ("PesaTrack-Full.apk", "PesaTrack-Update.apk"):
+            self.assertEqual((self.release / name).read_bytes(), old)
 
 class RollingWorkflowWiringTest(unittest.TestCase):
     def test_main_publication_uses_release_signing_and_not_debug_attachments(self):
