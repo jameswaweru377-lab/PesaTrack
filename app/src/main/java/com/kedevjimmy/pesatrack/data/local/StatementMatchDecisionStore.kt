@@ -40,6 +40,13 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
 
     fun read(year: Int): Snapshot = synchronized(CanonicalStoreLock.monitor) { current(year) }
 
+    /** Conflict checks include boundary evidence even when its cards belong to the adjacent year. */
+    fun confirmedObservationIds(year: Int): Set<String> = synchronized(CanonicalStoreLock.monitor) {
+        val snapshot = current(year, includeBoundaryContext = true)
+        snapshot.candidates.filter { snapshot.decisions[it.hash] == Decision.CONFIRMED }
+            .flatMap { it.rows }.mapTo(mutableSetOf()) { it.id }
+    }
+
     /** Re-read evidence and ownership before saving; stale UI selections cannot be confirmed. */
     fun decide(year: Int, expectedHash: String, kind: Kind, expectedDecision: Decision?, decision: Decision?,
                accountAttested: Boolean = false): Result =
@@ -58,6 +65,9 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
                         return@synchronized Result.ACCOUNT_CHECK_REQUIRED
                     if (decision == Decision.CONFIRMED) {
                         val ids = selected.single().rows.map { it.id }.toSet()
+                        // Both review entry points must enforce the same single-use rule.
+                        val reconciledIds = TransferReconciliationStore(app).confirmedObservationIds(year)
+                        if (ids.any { it in reconciledIds }) return@synchronized Result.CONFLICT
                         if (snapshot.candidates.any { other -> other.hash != expectedHash &&
                                 snapshot.decisions[other.hash] == Decision.CONFIRMED &&
                                 other.rows.any { it.id in ids } }) return@synchronized Result.CONFLICT
@@ -82,7 +92,7 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
             Result.SAVED
         }
 
-    private fun current(year: Int): Snapshot {
+    private fun current(year: Int, includeBoundaryContext: Boolean = false): Snapshot {
         require(year in 1970..2100)
         val calendar = Calendar.getInstance(TimeZone.getTimeZone("Africa/Nairobi")).apply {
             clear(); set(year, Calendar.JANUARY, 1, 0, 0, 0)
@@ -93,7 +103,9 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
         val window = StatementMatchReviewPolicy.evidenceWindow(start, end)
         val source = StatementEvidenceReadModel(app).readWithActivityEvidence(window.startInclusive, window.endExclusive)
         val review = StatementMatchReviewPolicy.project(
-            source.statements.observations + source.originalActivityMessages, source.eventProof, start, end)
+            source.statements.observations + source.originalActivityMessages, source.eventProof,
+            if (includeBoundaryContext) window.startInclusive else start,
+            if (includeBoundaryContext) window.endExclusive else end)
         val revisions = AccountOwnershipConsentStore(app).confirmedRevisions()
         val ownership = AccountStore.get(app).listAccounts().mapNotNull { account ->
             val revision = revisions[account.id] ?: return@mapNotNull null

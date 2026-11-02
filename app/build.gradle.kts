@@ -196,6 +196,8 @@ dependencies {
     implementation("com.google.code.gson:gson:2.13.1")
 
     testImplementation("junit:junit:4.13.2")
+    // Exercise reconciliation persistence against isolated Android databases on the host.
+    testImplementation("org.robolectric:robolectric:4.16.1")
     // Local JVM HTTP tests need actual JSON behavior instead of Android's null-returning stubs.
     testImplementation("org.json:json:20260719")
 

@@ -353,7 +353,7 @@ internal fun StatementIntelligenceDashboard(
                 }
                 Box(Modifier.fillMaxWidth().weight(1f)) {
                 if (page == StatementPage.MATCH_REVIEW) {
-                    StatementMatchReviewPage(overviewYear, accountLabels, onOpenActivity = onActivityTransactionClick) {
+            TransferReconciliationWorkspace(overviewYear, accountLabels, onOpenActivity = onActivityTransactionClick) {
                         page = StatementPage.ALL_ACCOUNTS
                     }
                 } else if (dataError && page != StatementPage.ALL_ACCOUNTS) {
