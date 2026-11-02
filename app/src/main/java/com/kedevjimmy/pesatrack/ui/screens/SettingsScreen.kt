@@ -61,54 +61,29 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
             financialNotice = { legalReturnPage = "about"; page = "financial_notice" })
         else -> EverydayPage("Settings", scaffoldPadding, onBack) {
             item {
-                PesaCard(Modifier.fillMaxWidth().clickable(onClick = onProfileClick)) {
-                    Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(44.dp)) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Rounded.Person, null, tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                        Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                            Text(context.getSharedPreferences("pesatrack_preferences", 0).getString("profile_name", "").orEmpty().ifBlank { "Your profile" },
-                                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Personal details and profile security", style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Automation & message access",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold)
+            }
+            item {
+                SettingsGroup {
+                    SettingsCompactRow(Icons.Rounded.Tune, "Automatic sorting",
+                        "Salary, regular payments and transfers", onSmartRulesClick)
+                    SettingsCompactRow(Icons.Rounded.Message, "Money message access",
+                        "Review SMS permissions and allowed sources") {
+                        accessReturnPage = "settings"
+                        page = "access"
                     }
                 }
             }
-            item { Text("Preferences", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold) }
-            item { SettingsGroup {
-                SettingsCompactRow(Icons.Rounded.Notifications, "Reminders", "Bills, budgets and savings") { page = "reminders" }
-            } }
             item {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Privacy & data", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text("Stored on this phone", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                Text(
+                    "Profile, notifications, app lock, backup and legal information are now in More.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                )
             }
-            item { SettingsGroup {
-                SettingsCompactRow(Icons.Rounded.Security, "Privacy", "Your data and your choices") { privacyReturnPage = "settings"; page = "privacy" }
-                SettingsCompactRow(Icons.Rounded.Info, "Privacy Policy", "Pre-release policy and personal-data rights") { legalReturnPage = "settings"; page = "legal_privacy" }
-                SettingsCompactRow(Icons.Rounded.Message, "Money message access", "SMS history and bank-app updates") { accessReturnPage = "settings"; page = "access" }
-                SettingsCompactRow(Icons.Rounded.Lock, "App lock", "Protect PesaTrack with a PIN") { lock = true }
-                SettingsCompactRow(Icons.Rounded.Backup, "Backup & restore", "Encrypted backup stored where you choose") { backup = true }
-            } }
-            item {
-                Text("Help & more", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            }
-            item { SettingsGroup {
-                SettingsCompactRow(Icons.Rounded.Tune, "Automatic sorting", "Salary, regular payments and transfers", onSmartRulesClick)
-                SettingsCompactRow(Icons.Rounded.HelpOutline, "Help", "Answers and troubleshooting") { page = "help" }
-                SettingsCompactRow(Icons.Rounded.Info, "Terms of Service", "Pre-release draft · Your responsibilities and rights") { legalReturnPage = "settings"; page = "terms" }
-                SettingsCompactRow(Icons.Rounded.Info, "Financial information notice", "Accuracy, debt evidence and financial decisions") { legalReturnPage = "settings"; page = "financial_notice" }
-                SettingsCompactRow(Icons.Rounded.Info, "About PesaTrack", "App information") { page = "about" }
-            } }
-            item { Text("Each setting opens a focused page. Sensitive actions explain what changes before you confirm.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)) }
         }
     }
 }
