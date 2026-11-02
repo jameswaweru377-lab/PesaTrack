@@ -14,7 +14,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.work.*
 import com.kedevjimmy.pesatrack.MainActivity
-import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.rules.*
 import com.kedevjimmy.pesatrack.security.BackupRecoveryStatus
@@ -123,10 +122,16 @@ object SmartNoticeCoordinator {
             Intent(c,SmartNoticeDismissReceiver::class.java).setAction("dismiss:${selected.key}:${selected.revision}")
                 .putExtra("key",selected.key).putExtra("revision",selected.revision),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val public = NotificationCompat.Builder(c,channel).setSmallIcon(R.drawable.ic_pesatrack_logo)
-            .setContentTitle("PesaTrack").setContentText("Open PesaTrack when convenient.").build()
-        val builder = NotificationCompat.Builder(c,channel).setSmallIcon(R.drawable.ic_pesatrack_logo)
-            .setContentTitle(title).setContentText(text).setContentIntent(open("review"))
+        val (badge, icon, link) = when (selected.kind) {
+            SmartNoticeKind.ACCOUNT -> Triple("ACCOUNT", PhoneNoticeDesign.Illustration.SHIELD, "Review account")
+            SmartNoticeKind.ACTIVITY -> Triple("ACTIVITY", PhoneNoticeDesign.Illustration.REVIEW, "Review activity")
+            SmartNoticeKind.PAYMENT -> Triple("DEBT", PhoneNoticeDesign.Illustration.PEOPLE, "Review payment")
+            SmartNoticeKind.DISCOVERY -> Triple("DEBT", PhoneNoticeDesign.Illustration.PEOPLE, "View money owed")
+        }
+        val public = PhoneNotificationChannels.privatePublicVersion(c, channel)
+        val builder = PhoneNoticeDesign.apply(
+            NotificationCompat.Builder(c,channel), c, badge, title, text, link, icon, open("review")
+        )
             .setDeleteIntent(deleted).setAutoCancel(true).setOnlyAlertOnce(true)
             .setPriority(if (quiet) NotificationCompat.PRIORITY_LOW else NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
