@@ -22,6 +22,9 @@ import com.kedevjimmy.pesatrack.data.local.FingerprintConflictReviewItem
 import com.kedevjimmy.pesatrack.data.local.FingerprintConflictReviewReader
 import com.kedevjimmy.pesatrack.domain.statements.StatementEvidenceCorrelationPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementMatchReviewPolicy
+import com.kedevjimmy.pesatrack.domain.statements.CrossSourceTotalsPreviewPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementReconciliationPreviewPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementUnifiedOverviewPolicy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -40,6 +43,9 @@ internal fun StatementMatchReviewPage(year: Int, labels: Map<String, String>,
     var snapshot by remember(year) { mutableStateOf<StatementMatchDecisionStore.Snapshot?>(null) }
     var failed by remember(year) { mutableStateOf(false) }
     var conflicts by remember(year) { mutableStateOf<List<FingerprintConflictReviewItem>>(emptyList()) }
+    var nextConflictId by remember(year) { mutableStateOf<Long?>(null) }
+    var conflictLoading by remember(year) { mutableStateOf(false) }
+    var conflictPageAttempt by remember(year) { mutableIntStateOf(0) }
     var conflictFailed by remember(year) { mutableStateOf(false) }
     var attempt by remember(year) { mutableIntStateOf(0) }
     var busy by remember { mutableStateOf(false) }
@@ -55,14 +61,32 @@ internal fun StatementMatchReviewPage(year: Int, labels: Map<String, String>,
     }
     LaunchedEffect(year, attempt, ledgerRevision.revision) {
         conflictFailed = false
+        conflicts = emptyList()
+        nextConflictId = null
+        conflictPageAttempt = 0
         try {
-            conflicts = withContext(Dispatchers.IO) { conflictReader.read(year) }
+            val page = withContext(Dispatchers.IO) { conflictReader.readPage(year) }
+            conflicts = page.items
+            nextConflictId = page.nextBeforeId
         } catch (e: CancellationException) { throw e }
         catch (_: Exception) { conflictFailed = true }
     }
+    LaunchedEffect(year, conflictPageAttempt) {
+        if (conflictPageAttempt == 0) return@LaunchedEffect
+        val cursor = nextConflictId ?: return@LaunchedEffect
+        conflictLoading = true
+        try {
+            val page = withContext(Dispatchers.IO) { conflictReader.readPage(year, cursor) }
+            conflicts = (conflicts + page.items).distinctBy { it.conflictId }
+            nextConflictId = page.nextBeforeId
+        } catch (e: CancellationException) { throw e }
+        catch (_: Exception) { conflictFailed = true }
+        finally { conflictLoading = false }
+    }
     StatementMatchReviewContent(year, labels, snapshot?.review, failed, onBack, { attempt++ },
         snapshot = snapshot, busy = busy, actionError = actionError, onOpenActivity = onOpenActivity,
-        conflicts = conflicts, conflictFailed = conflictFailed) { candidate, expected, decision, attested ->
+        conflicts = conflicts, conflictFailed = conflictFailed, conflictHasMore = nextConflictId != null,
+        conflictLoading = conflictLoading, onLoadOlderConflicts = { if (!conflictLoading) conflictPageAttempt++ }) { candidate, expected, decision, attested ->
         if (!busy) {
             busy = true; actionError = null
             scope.launch {
@@ -91,6 +115,8 @@ internal fun StatementMatchReviewContent(
     onOpenActivity: (Long) -> Unit = {},
     conflicts: List<FingerprintConflictReviewItem> = emptyList(),
     conflictFailed: Boolean = false,
+    conflictHasMore: Boolean = false, conflictLoading: Boolean = false,
+    onLoadOlderConflicts: () -> Unit = {},
     onDecision: (StatementMatchDecisionStore.Candidate, StatementMatchDecisionStore.Decision?, StatementMatchDecisionStore.Decision?, Boolean) -> Unit = { _, _, _, _ -> }
 ) {
     val p = HomeReferencePalette
@@ -139,6 +165,32 @@ internal fun StatementMatchReviewContent(
                     color = p.muted, style = MaterialTheme.typography.bodySmall)
             }
         }
+        snapshot?.totalsPreview?.let { comparison ->
+            item {
+                StatementInsightCard {
+                    Text("Activity and Statements · separate totals", fontWeight = FontWeight.SemiBold, color = p.ink)
+                    Text("Activity categorizes money earned and spent. Statements count gross account cash legs, including transfers between your own accounts.",
+                        style = MaterialTheme.typography.bodySmall, color = p.muted)
+                    Text("Activity money in: ${comparison.activity?.let { matchReviewMoney(it.incomeMinor, "KES") } ?: "Unavailable"}")
+                    Text("Activity spending: ${comparison.activity?.let { matchReviewMoney(it.spendingMinor, "KES") } ?: "Unavailable"}")
+                    Text("Verified statement cash in: ${comparison.statementMoneyInMinor?.let { matchReviewMoney(it, "KES") } ?: "Withheld / unavailable"}")
+                    Text("Verified statement cash out: ${comparison.statementMoneyOutMinor?.let { matchReviewMoney(it, "KES") } ?: "Withheld / unavailable"}")
+                    Text("These totals cover different scopes and cannot be subtracted or added to produce a reconciled balance.",
+                        style = MaterialTheme.typography.bodySmall, color = p.muted)
+                }
+            }
+        }
+        snapshot?.reconciliationPreview?.let { proposal ->
+            item {
+                StatementInsightCard {
+                    Text("Reconciliation preview · not applied", fontWeight = FontWeight.SemiBold, color = p.ink)
+                    Text("${proposal.confirmedCopies} reviewed possible copies · ${proposal.confirmedTransfers} reviewed possible transfers")
+                    Text("${proposal.pendingSuggestions} awaiting a decision · ${proposal.unresolvedEvidenceCount} ambiguous records")
+                    Text("Confirm, reject or undo to change this preview only. No transaction, balance or report total is changed.",
+                        style = MaterialTheme.typography.bodySmall, color = p.muted)
+                }
+            }
+        }
         if (actionError != null) item { Text(actionError, color = MaterialTheme.colorScheme.error) }
         if (conflictFailed) item {
             StatementInsightCard {
@@ -154,6 +206,12 @@ internal fun StatementMatchReviewContent(
         }
         items(conflicts) { conflict ->
             FingerprintConflictReviewCard(conflict, onOpenActivity)
+        }
+        if (conflictHasMore) item {
+            TextButton(onClick = onLoadOlderConflicts, enabled = !conflictLoading,
+                modifier = Modifier.testTag("load-older-fingerprint-conflicts")) {
+                Text(if (conflictLoading) "Loading older conflicts…" else "Load older conflicts")
+            }
         }
         if ((snapshot?.excludedBankSourceCount ?: 0) > 0) item {
             StatementInsightCard {

@@ -9,30 +9,49 @@ internal data class FingerprintConflictReviewItem(
     val transactionCode: String,
     val originalAmountMinor: Long,
     val incomingAmountMinor: Long,
-    val sourceKind: String
+    val sourceKind: String,
+    val conflictId: Long = 0
 )
 
 internal class FingerprintConflictReviewReader(context: Context) {
     private val app = context.applicationContext
+    data class Page(val items: List<FingerprintConflictReviewItem>, val nextBeforeId: Long?)
 
+    /** Compatibility helper for existing readers/tests; UI uses bounded readPage. */
     fun read(year: Int): List<FingerprintConflictReviewItem> {
-        val start = Calendar.getInstance().apply {
+        val result = mutableListOf<FingerprintConflictReviewItem>()
+        var cursor: Long? = Long.MAX_VALUE
+        while (cursor != null) {
+            val page = readPage(year, cursor)
+            result.addAll(page.items)
+            cursor = page.nextBeforeId
+        }
+        return result
+    }
+
+    fun readPage(year: Int, beforeId: Long = Long.MAX_VALUE, limit: Int = 50): Page {
+        require(year in 1970..2100)
+        require(beforeId > 0 && limit in 1..100)
+        val zone = java.util.TimeZone.getTimeZone("Africa/Nairobi")
+        val start = Calendar.getInstance(zone).apply {
             clear(); set(year, Calendar.JANUARY, 1)
         }.timeInMillis
-        val end = Calendar.getInstance().apply {
+        val end = Calendar.getInstance(zone).apply {
             clear(); set(year + 1, Calendar.JANUARY, 1)
         }.timeInMillis
         val conflicts = FingerprintConflictStore.listPending(
-            PesaTrackDatabase.get(app).readableDatabase, start, end
+            PesaTrackDatabase.get(app).readableDatabase, start, end, beforeId, limit + 1
         )
-        if (conflicts.isEmpty()) return emptyList()
+        if (conflicts.isEmpty()) return Page(emptyList(), null)
+        val visible = conflicts.take(limit)
         val store = TransactionStore.get(app)
-        val originals = conflicts.map { it.existingTransactionId }.distinct()
+        val originals = visible.map { it.existingTransactionId }.distinct()
             .chunked(50).flatMap { ids -> store.getByIds(ids).values }
             .associateBy { it.id }
-        return conflicts.mapNotNull { conflict ->
+        val items = visible.mapNotNull { conflict ->
             originals[conflict.existingTransactionId]?.let { original ->
                 FingerprintConflictReviewItem(
+                    conflictId = conflict.id,
                     existingTransactionId = original.id,
                     transactionCode = conflict.transactionCode,
                     originalAmountMinor = original.amountMinor,
@@ -41,5 +60,6 @@ internal class FingerprintConflictReviewReader(context: Context) {
                 )
             }
         }
+        return Page(items, if (conflicts.size > limit) visible.last().id else null)
     }
 }
