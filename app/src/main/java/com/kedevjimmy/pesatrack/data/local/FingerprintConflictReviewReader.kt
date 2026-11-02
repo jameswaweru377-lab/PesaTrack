@@ -22,7 +22,10 @@ internal class FingerprintConflictReviewReader(context: Context) {
                     .get(Calendar.YEAR) == year
             }
         if (conflicts.isEmpty()) return emptyList()
-        val originals = TransactionStore.get(app).getByIds(conflicts.map { it.existingTransactionId })
+        val store = TransactionStore.get(app)
+        val originals = conflicts.map { it.existingTransactionId }.distinct()
+            .chunked(50).flatMap { ids -> store.getByIds(ids).values }
+            .associateBy { it.id }
         return conflicts.mapNotNull { conflict ->
             originals[conflict.existingTransactionId]?.let { original ->
                 FingerprintConflictReviewItem(
