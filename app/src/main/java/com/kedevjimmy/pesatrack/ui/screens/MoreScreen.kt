@@ -211,6 +211,10 @@ private fun MoreSupportSection(
                 "Balances, sources & movement", "green", onClick = funds)
             MoreSettingsRow(Icons.Rounded.FileDownload, "Backup & restore",
                 "Encrypted backup of your financial records", "blue", onClick = backup)
+            MoreSettingsRow(Icons.Rounded.Description, "Terms of Service",
+                "Legal terms and important notices", "purple") {
+                openProfile("terms")
+            }
             MoreSettingsRow(Icons.Rounded.Info, "About PesaTrack",
                 "Version, legal & product info", "purple", last = true) {
                 openProfile("about")
