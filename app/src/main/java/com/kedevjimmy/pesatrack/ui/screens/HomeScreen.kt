@@ -1512,6 +1512,10 @@ fun HomeScreen(
                 onAccounts = onAccountsClick
             )
         }
+        item(key = "annual-accounting-evidence") {
+            SharedAccountingEvidenceNotice(selectedCalendar.get(Calendar.YEAR),
+                ledgerUpdateState.revision, onReportsClick)
+        }
         item(key = "reference-this-month") {
             ReferenceHomeMonth(
                 range = monthRange,

@@ -11,6 +11,17 @@ Local verification passed 427 selected tests, APK assembly, lint and security
 checks; rebased-head CI and real-device acceptance are separate evidence.
 See [transfer reconciliation](docs/TRANSFER_RECONCILIATION.md) for scope and limits.
 
+_Cross-screen accounting evidence and truthful Statements cards (3 November 2026; CI pending):_
+Home and Activity show a small annual evidence notice only when reviewed transfer
+or unresolved evidence exists. It links to the existing Reports/Statements review
+routes and does not alter the month-scoped financial cards. The verified Statements
+overview now distinguishes Money In, Expenses and Transfers, with gross Money Out
+retained in expandable details. **Expenses is withheld** until the entire scope
+can be safely classified; verified gross withdrawals are not renamed or treated
+as expenses. Reviewed transfer amount is shown only when the shared annual
+evidence matches the verified cash scope and has no unresolved items. This is
+read-only; no matching engine, ledger, backup, schema or posted total changes.
+
 _Annual Reports accounting-evidence preview (2 November 2026; CI pending):_
 The Reports **Year** view includes a separate, read-only accounting evidence card
 using the same shared projection as Statements match review. Activity income and
