@@ -210,6 +210,10 @@ class MainActivity : ComponentActivity() {
                     reviewOpenRequest = reviewOpenRequest,
                     smartOpenRequest = smartOpenRequest, smartKey = smartKey, smartAction = smartAction, smartRevision = smartRevision,
                     phonePageRequest = phonePageRequest, phonePageRoute = phonePageRoute,
+                    onPhoneRequestHandled = {
+                        phonePageRequest = 0
+                        intent.removeExtra(com.kedevjimmy.pesatrack.planning.PhoneNotificationPreview.OPEN_PAGE)
+                    },
                     onSmartRequestHandled = {
                         smartOpenRequest = 0
                         intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_KEY)

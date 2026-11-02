@@ -1,0 +1,8 @@
+[
+  {
+    "branch": "fix/message-lab-resolution-semantic-agreement-v38",
+    "sha": "3c6585383aed5d33e1f67932cf1d6fe8c9d67259",
+    "old_pr": 200,
+    "successor_pr": 201
+  }
+]

@@ -35,6 +35,6 @@ before proposing new statement scope; a green CI build alone is insufficient.
 - Worker changes must pass their relevant syntax and contract checks.
 - Documentation-only changes should verify links and accuracy; they are not evidence that an Android build or device journey passed.
 
-Keep the current **Home / Activity / Plan / More** navigation and approved designs unless a change is separately approved. Do not alter release signing, APK publishing, privacy permissions, or user-data semantics incidentally.
+Keep the current **Home / Activity / Plan / Accounts / More** navigation and approved designs unless a change is separately approved. Do not alter release signing, APK publishing, privacy permissions, or user-data semantics incidentally.
 
 Please also read our [Code of Conduct](CODE_OF_CONDUCT.md).

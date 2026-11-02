@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.security
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.SharedPreferences
+import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.gson.JsonObject
@@ -11,6 +12,8 @@ import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import java.io.File
+import java.io.ByteArrayInputStream
+import java.io.DataInputStream
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -43,6 +46,49 @@ class BackupRecoveryIntegrationTest {
         context.deleteSharedPreferences(SECOND_PREFS)
         BackupRecoveryStatus.failure = null
         File(context.cacheDir, "blocked-journal-parent").delete()
+    }
+
+    @Test
+    fun newBackupCreationRejectsElevenCharactersAtBothEntryPoints() {
+        val short = "12345678901"
+        val expected = "Use at least 12 characters for your new backup."
+
+        val bytesError = runCatching { manager.exportEncryptedBytes(short) }.exceptionOrNull()
+        assertTrue(bytesError is IllegalArgumentException)
+        assertEquals(expected, bytesError?.message)
+
+        val fileError = runCatching { manager.exportEncrypted(Uri.EMPTY, short) }.exceptionOrNull()
+        assertTrue(fileError is IllegalArgumentException)
+        assertEquals(expected, fileError?.message)
+    }
+
+    @Test
+    fun newBackupCreationAcceptsExactlyTwelveCharacters() {
+        val passphrase = "123456789012"
+        val encrypted = manager.exportEncryptedBytes(passphrase)
+
+        assertTrue(manager.previewEncryptedBytes(encrypted, passphrase).tableCount > 0)
+    }
+
+    @Test
+    fun legacyEightCharacterBackupAt180kIterationsStillRestores() {
+        val saved = saveCurrentRule()
+        val original = manager.exportEncryptedBytes(PASSPHRASE)
+        val legacy = EncryptedBackupFixture.rewrite(
+            original,
+            PASSPHRASE,
+            newPassphrase = "12345678"
+        ) { }
+
+        DataInputStream(ByteArrayInputStream(legacy)).use { input ->
+            val magic = ByteArray(8)
+            input.readFully(magic)
+            assertEquals("PESABK01", String(magic, Charsets.US_ASCII))
+            assertEquals(180_000, input.readInt())
+        }
+        assertTrue(manager.previewEncryptedBytes(legacy, "12345678").rowCount > 0)
+        manager.restoreEncryptedBytes(legacy, "12345678")
+        assertEquals(listOf(saved.id), RuleStore.get(context).listRules().map { it.id })
     }
 
     @Test

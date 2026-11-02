@@ -1,0 +1,113 @@
+{
+  "repository": "jameswaweru377-lab/PesaTrack",
+  "approved_issue": 528,
+  "cutoff_tip_date": "2026-10-24",
+  "archive_prefix": "archive/retired-20261102-wave3",
+  "candidates": [
+    {
+      "branch": "fix/audit-notification-source-trust-2026-10-09",
+      "sha": "400b13ce02b1a83cf0cc5b97bd856980cbb20f79",
+      "tip_date": "2026-10-09"
+    },
+    {
+      "branch": "fix/audit-resource-bounds-2026-10-09",
+      "sha": "6a1552593a23e68c3bea03ea71212d2cb563a765",
+      "tip_date": "2026-10-09"
+    },
+    {
+      "branch": "fix/audit-history-reprocess-2026-10-09",
+      "sha": "eca24a056d70ebeb68bc7ce9be80f5a506350779",
+      "tip_date": "2026-10-09"
+    },
+    {
+      "branch": "fix/transaction-actions-placement-2026-10-09",
+      "sha": "59896db2265ddcc8f0be4b122c4fd9849f955f3b",
+      "tip_date": "2026-10-09"
+    },
+    {
+      "branch": "fix/audit-financial-correctness-2026-10-09",
+      "sha": "73317810d9b1eaa579a75aa1c2fd1aa56fe937f8",
+      "tip_date": "2026-10-09"
+    },
+    {
+      "branch": "fix/audit-release-gates-2026-10-09",
+      "sha": "487021d872772b2846c95c0ea6a2ee5c1b5973ba",
+      "tip_date": "2026-10-09"
+    },
+    {
+      "branch": "fix/pbkdf2-api24-compatibility-2026-10-09",
+      "sha": "7ae1e1889f15af8ba43c3b174304df5086fa9e3a",
+      "tip_date": "2026-10-09"
+    },
+    {
+      "branch": "fix/audit-money-safety-2026-10-09",
+      "sha": "e8f7405368a7c44a5da8bafb97fe3760d7d16114",
+      "tip_date": "2026-10-09"
+    },
+    {
+      "branch": "fix/audit-coverage-2026-10-09",
+      "sha": "68228cb918501e0e915c9a04d8cfe257923025b2",
+      "tip_date": "2026-10-09"
+    },
+    {
+      "branch": "feature/pesatrack2-phase-b-corrections-staging",
+      "sha": "25e70e7525464e11e11ad697befc74308982c89a",
+      "tip_date": "2026-10-11"
+    },
+    {
+      "branch": "feat/statement-import-studio-353",
+      "sha": "5b042200efa733870ef7eb0ed7ad79cc0a0d2e4b",
+      "tip_date": "2026-10-12"
+    },
+    {
+      "branch": "fix/mpesa-statement-currency-evidence-352",
+      "sha": "668c8e99752b2f79fa4008f656f74991a452cc19",
+      "tip_date": "2026-10-12"
+    },
+    {
+      "branch": "fix/mpesa-reversal-hyphen-reference-layout",
+      "sha": "3a706f71da887ed78097dcdf33dc507888d1a8ec",
+      "tip_date": "2026-10-12"
+    },
+    {
+      "branch": "feature/universal-statement-engine-v2-pdf-geometry",
+      "sha": "bef72ebd6f18825d5053cbd2b055b80247641cba",
+      "tip_date": "2026-10-12"
+    },
+    {
+      "branch": "feature/universal-statement-engine-v2-local-pdf-geometry-transport",
+      "sha": "63c9c73a8ea63a32cb7c1e5cc222b73f3a627c7f",
+      "tip_date": "2026-10-12"
+    },
+    {
+      "branch": "feat/video-audit-ux-simplification-20261016",
+      "sha": "72f2241bf5b7fa4ba43199c81cb3b4eb1ef2ca66",
+      "tip_date": "2026-10-16"
+    },
+    {
+      "branch": "feat/home-plan-audit-hierarchy-20261016",
+      "sha": "b4b8b9b71d95d0c6632d71a4a2f5f18422341dfc",
+      "tip_date": "2026-10-16"
+    },
+    {
+      "branch": "verify/home-b-and-activity-list-408-409",
+      "sha": "5e42ac848d3533d8cfa88647ce10f0dabf106960",
+      "tip_date": "2026-10-17"
+    },
+    {
+      "branch": "ui/vibrant-plan-five-screens-20261022",
+      "sha": "67837b3a7dcfd5955ac302efcb1f2aa7f3f1a1b8",
+      "tip_date": "2026-10-22"
+    },
+    {
+      "branch": "codex/plan-goals-paycycle-visual-consistency-20261022",
+      "sha": "cc93de905479481f1b487f4c79a03959cf8f5212",
+      "tip_date": "2026-10-23"
+    },
+    {
+      "branch": "ux/more-section-navigation",
+      "sha": "31136cec39f153e961b6d36dc5fb30d5dec2800e",
+      "tip_date": "2026-10-24"
+    }
+  ]
+}

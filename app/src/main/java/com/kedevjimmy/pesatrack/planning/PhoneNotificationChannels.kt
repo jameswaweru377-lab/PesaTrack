@@ -31,7 +31,7 @@ object PhoneNotificationChannels {
 
     fun privatePublicVersion(context: Context, id: String): android.app.Notification =
         NotificationCompat.Builder(context, id)
-            .setSmallIcon(R.drawable.ic_pesatrack_logo)
+            .setSmallIcon(R.drawable.ic_pesatrack_notification)
             .setContentTitle("PesaTrack reminder")
             .setContentText("Open PesaTrack to review your reminder.")
             .build()

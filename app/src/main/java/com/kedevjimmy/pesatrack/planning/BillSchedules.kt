@@ -12,13 +12,14 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.work.*
 import com.kedevjimmy.pesatrack.MainActivity
-import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.RulePreset
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
 import com.kedevjimmy.pesatrack.domain.rules.PhoneAlertPolicy
+import com.kedevjimmy.pesatrack.domain.rules.BillNotificationCopy
+import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -379,42 +380,28 @@ class BillSchedules(private val context: Context) {
                                             PendingIntent.FLAG_UPDATE_CURRENT
                                     )
 
-                            manager.notify(
-                                bill.rule.id +
-                                    dueEpochMs,
-                                921,
-                                NotificationCompat
-                                    .Builder(
-                                        context,
-                                        PhoneAlertPolicy.BILL_CHANNEL
-                                    )
-                                    .setSmallIcon(
-                                        R.drawable.ic_pesatrack_logo
-                                    )
-                                    .setContentTitle(
-                                        (
-                                            bill.rule
-                                                .displayLabel
-                                                ?: bill.rule.name
-                                            ) +
-                                            " is coming up"
-                                    )
-                                    .setContentText(
-                                        "Open PesaTrack to check this bill."
-                                    )
-                                    .setContentIntent(
-                                        open
-                                    )
-                                    .setAutoCancel(true)
-                                    .setPriority(NotificationCompat.PRIORITY_HIGH)
-                                    .setVisibility(
-                                        NotificationCompat.VISIBILITY_PRIVATE
-                                    )
-                                    .setPublicVersion(PhoneNotificationChannels.privatePublicVersion(
-                                        context, PhoneAlertPolicy.BILL_CHANNEL
-                                    ))
-                                    .build()
-                            )
+                            val category = bill.rule.category
+                            val notice = PhoneNoticeDesign.apply(
+                                NotificationCompat.Builder(context, PhoneAlertPolicy.BILL_CHANNEL),
+                                context,
+                                BillNotificationCopy.badge(category),
+                                BillNotificationCopy.merchant(bill.rule.displayLabel, bill.rule.name),
+                                BillNotificationCopy.description(category),
+                                "View bill",
+                                if (category == TransactionCategory.RENT) PhoneNoticeDesign.Illustration.HOME
+                                else PhoneNoticeDesign.Illustration.BELL,
+                                open
+                            ).setAutoCancel(true)
+                                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                                .setPublicVersion(PhoneNotificationChannels.privatePublicVersion(
+                                    context, PhoneAlertPolicy.BILL_CHANNEL
+                                )).build()
+                            try {
+                                manager.notify(bill.rule.id + dueEpochMs, 921, notice)
+                            } catch (_: SecurityException) {
+                                return@forEach
+                            }
                             prefs.edit()
                                 .putBoolean(
                                     key,

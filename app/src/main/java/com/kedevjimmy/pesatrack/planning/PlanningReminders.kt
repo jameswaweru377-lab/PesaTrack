@@ -12,7 +12,6 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.work.*
 import com.kedevjimmy.pesatrack.MainActivity
-import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.rules.PlanningReminderPolicy
@@ -49,8 +48,9 @@ object PlanningReminders {
         if(enabled(c,"budgets")) progress.budgets.forEach { budget ->
             val level=PlanningReminderPolicy.budgetLevel(budget.saved,budget.target) ?: return@forEach
             post(c,"budgets", "budget:${budget.id}:${budget.periodKey.ifBlank { month }}:${budget.target}:$level",
-                if(level=="over") "Budget limit reached" else "Getting close to your budget",
-                "${budget.name}: you've used ${PlanningReminderPolicy.share(budget.saved,budget.target)} of your budget.","budgets")
+                budget.name.ifBlank { "Your budget" },
+                if (level == "over") "Limit reached: ${PlanningReminderPolicy.share(budget.saved,budget.target)} used."
+                else "You've used ${PlanningReminderPolicy.share(budget.saved,budget.target)} of your budget.","budgets")
         }
         if(enabled(c,"goals")) {
             val store=TransactionStore.get(c)
@@ -61,7 +61,8 @@ object PlanningReminders {
                 val last=GoalSavingHistoryPolicy.observations(rows,goal.id,types).filter { it.deltaMinor>0 }.maxOfOrNull { it.epochMs } ?: baseline
                 val due=Calendar.getInstance().apply { timeInMillis=last; add(Calendar.MONTH,1) }.timeInMillis
                 if(PlanningReminderPolicy.goalDue(now.timeInMillis,due,goal.saved,goal.target))
-                    post(c,"goals","goal:${goal.id}:$month:$last","Keep your savings moving","It's been a month since a contribution to ${goal.name}. Save a little when you can.","saving-goals")
+                    post(c,"goals","goal:${goal.id}:$month:$last",goal.name.ifBlank { "Your savings goal" },
+                        "It's been a month since you saved towards this goal.","saving-goals")
             }
         }
     }
@@ -72,11 +73,16 @@ object PlanningReminders {
         PhoneNotificationChannels.ensure(c,PhoneAlertPolicy.PLAN_CHANNEL,"Budget and savings reminders")
         val intent=Intent(c,MainActivity::class.java).putExtra(OPEN_PLAN,route).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         val open=PendingIntent.getActivity(c,if(kind=="budgets") 925 else 926,intent,PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val notification=NotificationCompat.Builder(c,PhoneAlertPolicy.PLAN_CHANNEL).setSmallIcon(R.drawable.ic_pesatrack_logo).setContentTitle(title).setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text)).setContentIntent(open).setAutoCancel(true)
+        val budget = kind == "budgets"
+        val notification = PhoneNoticeDesign.apply(
+            NotificationCompat.Builder(c, PhoneAlertPolicy.PLAN_CHANNEL), c,
+            if (budget) "BUDGET" else "SAVINGS", title, text,
+            if (budget) "View budget" else "View goal",
+            if (budget) PhoneNoticeDesign.Illustration.WALLET else PhoneNoticeDesign.Illustration.TARGET, open
+        ).setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(PhoneNotificationChannels.privatePublicVersion(c,PhoneAlertPolicy.PLAN_CHANNEL)).build()
-        manager.notify("$kind:$key",925,notification)
+        try { manager.notify("$kind:$key",925,notification) } catch (_: SecurityException) { return }
         prefs.edit().putBoolean(key,true).apply()
     }
 }

@@ -1,5 +1,14 @@
 # PesaTrack Current State
 
+_S3 backup creation protection (2 November 2026; Android CI and device acceptance pending):_
+The backup creation screen and `PesaBackupManager` now enforce a minimum
+12-character passphrase when exporting a **new** encrypted `.ptb` file.
+Existing backup preview and restore continue to accept eight-character
+passphrases; the 180,000-iteration AES-GCM backup format, supported decrypt
+iteration range, app ID, database schema and financial records are unchanged.
+Local pure-Kotlin policy verification is separate from the Android integration
+tests, which still need execution and real-phone backup/restore acceptance.
+
 _Limited bank statement dashboard (implementation verification pending):_
 A single grand-total-reconciled bank PDF opens a source-specific dashboard with
 rechecked money-in/out totals, net movement, monthly movement bars and the
@@ -403,9 +412,15 @@ The current product includes the canonical ledger, provider-neutral financial in
 
 ## Offline financial laboratory
 
-- Python is development-only: fixed invented fixtures and read-only comparison
-  with actual Kotlin outputs; no device SMS or ledger import, network/model
-  integration, or Python runtime shipped in the APK.
+- The Python financial **laboratory** (`tools/python_lab`) is development-only:
+  fixed invented fixtures and read-only comparisons with Kotlin outputs, with
+  no device SMS/ledger input or network/model integration. This laboratory
+  code is not bundled in the app.
+- Separately, the Android APK **does** embed Python 3.13 through Chaquopy for
+  offline PDF extraction (`pdfplumber==0.11.9`). This does not send documents
+  off-device. The current native build is ARM64-only with Android 7.0+ support;
+  see `docs/acceptance/R2_ANDROID_COMPATIBILITY.md` for installation limits,
+  pinned versus transitive dependencies, and unmeasured size contribution.
 - Four contract groups cover sender/account ownership evidence, configured
   transfers, debt interpretation histories and remembered merchant identities.
   29 authored scenarios at eight monetary scales produce 232 regression cases;
@@ -504,6 +519,7 @@ The next test expansion should add broader migration fixtures, performance bench
 - SMS-permission surfaces provide an explicit disclosure before requesting historical SMS access.
 - Release builds accept explicit version code/name inputs; a protected release identity and signed rolling APK already exist. Signing continuity and actual physical-phone upgrade acceptance remain release gates, independently of a successful workflow.
 - Historical SMS import reports scan/match/insert progress, supports cooperative cancellation, and retains a short-lived checkpoint so interrupted imports can resume by SMS date/id without rescanning the completed portion. Activity review/duplicate work is now bounded to unresolved/recent rows, duplicate matching stops at the policy time window, and month/account lookups use v33 ledger indexes. Physical-device large-ledger measurement still remains.
+- T4 first diagnostic slice: normal-process debug builds install Android StrictMode main-thread disk read/write warnings after backup recovery. It logs warnings without crashing; release builds and the isolated PDF process do not install it. Source wiring tests pass; runtime Logcat evidence, off-main-thread store-call migration and timed large-history lock measurements remain **not verified**.
 
 ## Release status
 
@@ -519,7 +535,7 @@ Not yet public-store ready. Remaining release blockers include:
 
 ## Architecture rule for next work
 
-Improve architecture incrementally during approved feature and fix work: extract focused responsibilities only in related code, preserve financial behavior and tests, and avoid whole-app rewrites. Preserve the four visible bottom tabs Home / Activity / Plan / More (Accounts remains an internal destination), and keep parser expansion evidence-driven.
+Improve architecture incrementally during approved feature and fix work: extract focused responsibilities only in related code, preserve financial behavior and tests, and avoid whole-app rewrites. Preserve the latest approved five visible bottom tabs Home / Activity / Plan / Accounts / More, with Accounts linked directly to its existing destination; do not revert to the old four-tab arrangement. Keep parser expansion evidence-driven.
 
 ## Owed to me history review
 

@@ -76,7 +76,7 @@ fun PesaTrackApp(
     smartOpenRequest: Int = 0, smartKey: String = "", smartAction: String = "review", smartRevision: String = "",
     onSmartRequestHandled: () -> Unit = {},
     planningOpenRequest: Int = 0, planningRoute: String = "budgets",
-    phonePageRequest: Int = 0, phonePageRoute: String = ""
+    phonePageRequest: Int = 0, phonePageRoute: String = "", onPhoneRequestHandled: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     val planScreenCache = remember { com.kedevjimmy.pesatrack.ui.screens.PlanScreenCache() }
@@ -107,7 +107,10 @@ fun PesaTrackApp(
         if (phonePageRequest > 0 && setupComplete && phonePageRoute in setOf(
                 "bills", "salary", "budgets", "activity-attention", "saving-goals",
                 "debts", "data-health", "backup-reminder"
-            )) navController.navigate(phonePageRoute) { launchSingleTop = true }
+            )) {
+            navController.navigate(phonePageRoute) { launchSingleTop = true }
+            onPhoneRequestHandled()
+        }
     }
 
     LaunchedEffect(reviewOpenRequest, setupComplete) {
@@ -530,39 +533,54 @@ fun PesaTrackApp(
         }
 
         composable(MainTab.MORE.route) {
-            AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
+            AppScaffold(
+                onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
+                onNotificationsClick = {
+                    navController.navigate("profile?section=notifications") { launchSingleTop = true }
+                },
+                onPaycheckClick = {
+                    navController.navigate("paycheck-analysis") { launchSingleTop = true }
+                },
                 currentTab = MainTab.MORE,
+                useHomeHeader = true,
                 onTabSelected = ::navigateToTab,
-                onStatementsClick = { navController.navigate("statement-activity") { launchSingleTop = true } }
+                onStatementsClick = {
+                    navController.navigate("statement-activity") { launchSingleTop = true }
+                }
             ) { padding ->
                 MoreScreen(
                     scaffoldPadding = padding,
                     onAccountsClick = { navigateToTab(MainTab.ACCOUNTS) },
                     onProfileClick = {
-                        navController.navigate("profile")
+                        navController.navigate("profile") { launchSingleTop = true }
+                    },
+                    onProfileSectionClick = { section ->
+                        // Strict section allowlist: these are real Profile destinations.
+                        if (section in setOf(
+                                "notifications", "security", "appearance", "privacy", "support", "about", "terms"
+                            )
+                        ) {
+                            navController.navigate("profile?section=$section") { launchSingleTop = true }
+                        }
                     },
                     onImportClick = {
-                        navController.navigate(
-                            "historical-import"
-                        )
+                        navController.navigate("historical-import") { launchSingleTop = true }
                     },
+                    onPastTransactionsClick = { navigateToTab(MainTab.ACTIVITY) },
                     onStatementActivityClick = {
                         navController.navigate("statement-activity") { launchSingleTop = true }
                     },
+                    onStatementImportClick = {
+                        navController.navigate("statement-import") { launchSingleTop = true }
+                    },
                     onDataHealthClick = {
-                        navController.navigate("data-health")
+                        navController.navigate("data-health") { launchSingleTop = true }
                     },
                     onSettingsClick = {
-                        navController.navigate("settings")
+                        navController.navigate("settings") { launchSingleTop = true }
                     },
                     onReportsClick = {
-                        navController.navigate("reports")
-                    },
-                    onBillsClick = {
-                        navController.navigate("bills")
-                    },
-                    onGoalsClick = {
-                        navController.navigate("saving-goals")
+                        navController.navigate("reports") { launchSingleTop = true }
                     }
                 )
             }
@@ -581,6 +599,30 @@ fun PesaTrackApp(
                 StatementIntelligenceDashboard(
                     onDismiss = { navController.popBackStack() },
                     modifier = Modifier.padding(padding),
+                    onActivityTransactionClick = { id ->
+                        navController.navigate("transaction-detail/$id")
+                    }
+                )
+            }
+        }
+
+        composable("statement-import") {
+            // Directly opens the existing issuer chooser and PDF/CSV importer.
+            AppScaffold(
+                currentTab = MainTab.MORE,
+                onTabSelected = ::navigateToTab,
+                onProfileClick = {
+                    navController.navigate("profile") { launchSingleTop = true }
+                },
+                onStatementsClick = {
+                    navController.navigate("statement-activity") { launchSingleTop = true }
+                },
+                useHomeHeader = true
+            ) { padding ->
+                StatementIntelligenceDashboard(
+                    onDismiss = { navController.popBackStack() },
+                    modifier = Modifier.padding(padding),
+                    startImport = true,
                     onActivityTransactionClick = { id ->
                         navController.navigate("transaction-detail/$id")
                     }
@@ -693,8 +735,15 @@ fun PesaTrackApp(
             }
         }
 
-        composable("profile") {
-            var profilePage by rememberSaveable { mutableStateOf("home") }
+        composable(
+            route = "profile?section={section}",
+            arguments = listOf(navArgument("section") {
+                type = NavType.StringType
+                defaultValue = "home"
+            })
+        ) { entry ->
+            val initialSection = entry.arguments?.getString("section") ?: "home"
+            var profilePage by rememberSaveable(initialSection) { mutableStateOf(initialSection) }
             AppScaffold(
                 onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
                 onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
@@ -715,7 +764,8 @@ fun PesaTrackApp(
                     homeCache = homeScreenCache,
                     onPlanClick = { navigateToTab(MainTab.PLAN) },
                     onActivityClick = { navigateToTab(MainTab.ACTIVITY) },
-                    onPageChanged = { profilePage = it }
+                    onPageChanged = { profilePage = it },
+                    initialPage = initialSection
                 )
             }
         }

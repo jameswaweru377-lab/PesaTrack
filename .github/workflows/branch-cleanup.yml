@@ -30,7 +30,8 @@ jobs:
        github.actor == 'jameswaweru377-lab' &&
        github.event.comment.user.login == 'jameswaweru377-lab' &&
        (github.event.comment.body == '/pesatrack-cleanup-apply-10' ||
-        github.event.comment.body == '/pesatrack-cleanup-ancestors-apply-10'))
+        github.event.comment.body == '/pesatrack-cleanup-ancestors-apply-10' ||
+        github.event.comment.body == '/pesatrack-cleanup-superseded-apply-30'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -38,6 +39,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ github.token }}
       PESATRACK_CLEANUP_ANCESTORS: ${{ github.event_name == 'issue_comment' && github.event.comment.body == '/pesatrack-cleanup-ancestors-apply-10' }}
+      PESATRACK_CLEANUP_SUPERSEDED: ${{ github.event_name == 'issue_comment' && github.event.comment.body == '/pesatrack-cleanup-superseded-apply-30' }}
     steps:
       - name: Check out the requested workflow ref
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -53,6 +55,7 @@ jobs:
           set +e
           mode=()
           if [ "$PESATRACK_CLEANUP_ANCESTORS" = "true" ]; then mode+=(--include-ancestors); fi
+          if [ "$PESATRACK_CLEANUP_SUPERSEDED" = "true" ]; then mode+=(--superseded-manifest tools/tracker/superseded_retirement_20261101.json); fi
           python3 tools/tracker/branch_cleanup.py --repository "$GITHUB_REPOSITORY" "${mode[@]}" > "$RUNNER_TEMP/branch-cleanup-preview.json"
           status=$?
           set -e
@@ -68,7 +71,9 @@ jobs:
                    f"Repository: `{report.get('repository', 'unknown')}`  ",
                    f"Default branch: `{report.get('default_branch', 'unknown')}`  ",
                    f"Eligible branches: **{len(candidates)}**", ""]
-          if report.get("mode") == "ancestors":
+          if report.get("mode") == "superseded":
+              lines.append("Owner-only superseded-PR mode: explicitly reviewed closed/unmerged proposals with merged successors. Live PR identities, complete patch containment, open PRs, branch protection and exact tip are rechecked before a lease delete; at most 30.")
+          elif report.get("mode") == "ancestors":
               lines.append("Owner-only ancestor mode: exact merged PR heads or tips proven contained in the unchanged current default head. Open, protected, changed and uncertain branches remain excluded.")
           else:
               lines.append("Only exact current branch tips from same-repository PRs merged into the current default branch qualify. Protected, open-PR, unmatched, incomplete and changed branches are skipped.")
@@ -78,7 +83,8 @@ jobs:
           if report.get("skipped"):
               lines.append("")
           for candidate in candidates[:200]:
-              evidence = ("fully contained in current main" if candidate.get("evidence") == "ancestor"
+              evidence = (f"superseded PR #{candidate['old_pr']} by merged PR #{candidate['successor_pr']}" if candidate.get("evidence") == "superseded"
+                          else "fully contained in current main" if candidate.get("evidence") == "ancestor"
                           else f"merged PR #{candidate['merged_pr']}")
               lines.append(f"- `{candidate['branch']}` — {evidence}")
           if len(candidates) > 200:
@@ -102,7 +108,8 @@ jobs:
          github.actor == 'jameswaweru377-lab' &&
          github.event.comment.user.login == 'jameswaweru377-lab' &&
          (github.event.comment.body == '/pesatrack-cleanup-apply-10' ||
-          github.event.comment.body == '/pesatrack-cleanup-ancestors-apply-10'))
+          github.event.comment.body == '/pesatrack-cleanup-ancestors-apply-10' ||
+          github.event.comment.body == '/pesatrack-cleanup-superseded-apply-30'))
       )
     runs-on: ubuntu-latest
     permissions:
@@ -111,6 +118,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ github.token }}
       PESATRACK_CLEANUP_ANCESTORS: ${{ github.event_name == 'issue_comment' && github.event.comment.body == '/pesatrack-cleanup-ancestors-apply-10' }}
+      PESATRACK_CLEANUP_SUPERSEDED: ${{ github.event_name == 'issue_comment' && github.event.comment.body == '/pesatrack-cleanup-superseded-apply-30' }}
     steps:
       - name: Check out the default branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -126,6 +134,7 @@ jobs:
           set +e
           mode=()
           if [ "$PESATRACK_CLEANUP_ANCESTORS" = "true" ]; then mode+=(--include-ancestors); fi
+          if [ "$PESATRACK_CLEANUP_SUPERSEDED" = "true" ]; then mode+=(--superseded-manifest tools/tracker/superseded_retirement_20261101.json); fi
           python3 tools/tracker/branch_cleanup.py --repository "$GITHUB_REPOSITORY" --apply "${mode[@]}" > "$RUNNER_TEMP/branch-cleanup-apply.json"
           status=$?
           set -e
@@ -147,7 +156,8 @@ jobs:
           for reason, count in sorted(report.get("initial_skipped", {}).items()):
               lines.append(f"- Kept {count} branches: {reason.replace('_', ' ')}")
           for item in deleted:
-              evidence = ("confirmed ancestor" if item.get("merged_pr") is None
+              evidence = ("verified superseded PR" if item.get("evidence") == "superseded"
+                          else "confirmed ancestor" if item.get("merged_pr") is None
                           else f"merged PR #{item['merged_pr']}")
               lines.append(f"- Deleted `{item['branch']}` — {evidence}")
           for item in skipped:

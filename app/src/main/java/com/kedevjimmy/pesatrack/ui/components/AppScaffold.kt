@@ -37,10 +37,9 @@ enum class MainTab(
 }
 
 /**
- * Primary navigation deliberately keeps the Accounts destination addressable,
- * but moves its entry point into More and Profile. The center action is a real
- * tools sheet, never a dead-end FAB. Top bar belongs to the scaffold, not a
- * scrolling screen, so it stays anchored during long Activity lists.
+ * Primary navigation includes Home, Activity, Plan, Accounts and More as
+ * shown by the approved premium design. The anchored header and bottom bar
+ * are owned by this scaffold, not by each scrolling destination.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

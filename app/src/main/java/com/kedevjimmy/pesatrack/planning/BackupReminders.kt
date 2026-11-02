@@ -11,7 +11,6 @@ import androidx.work.Worker
 import androidx.work.WorkerParameters
 import androidx.work.WorkManager
 import com.kedevjimmy.pesatrack.MainActivity
-import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.domain.rules.BackupReminderPolicy
 import com.kedevjimmy.pesatrack.domain.rules.PhoneAlertPolicy
 import java.util.Calendar
@@ -41,8 +40,10 @@ object BackupReminders {
     fun schedule(context: Context) {
         if (!enabled(context)) return
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-            WORK, ExistingPeriodicWorkPolicy.KEEP,
-            PeriodicWorkRequestBuilder<BackupReminderWorker>(1, TimeUnit.DAYS).build()
+            WORK, ExistingPeriodicWorkPolicy.UPDATE,
+            // Checking a few times a day avoids an indefinitely night-time-only schedule;
+            // BackupReminderPolicy still allows at most one monthly, daytime prompt.
+            PeriodicWorkRequestBuilder<BackupReminderWorker>(6, TimeUnit.HOURS).build()
         )
     }
 
@@ -70,13 +71,12 @@ object BackupReminders {
         val open = PendingIntent.getActivity(
             context, NOTICE_ID, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        val detail = "Your last verified backup is over a month old, or you haven't saved one yet."
-        val notification = NotificationCompat.Builder(context, PhoneAlertPolicy.BACKUP_CHANNEL)
-            .setSmallIcon(R.drawable.ic_pesatrack_logo)
-            .setContentTitle("Time to back up your records")
-            .setContentText(detail)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(detail))
-            .setContentIntent(open)
+        val notification = PhoneNoticeDesign.apply(
+            NotificationCompat.Builder(context, PhoneAlertPolicy.BACKUP_CHANNEL), context,
+            "BACKUP", "Keep your records safe",
+            "It's time to save a private backup of your records.",
+            "Back up now", PhoneNoticeDesign.Illustration.CLOUD, open
+        )
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)

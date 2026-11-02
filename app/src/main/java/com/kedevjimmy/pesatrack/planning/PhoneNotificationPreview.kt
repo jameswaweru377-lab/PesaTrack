@@ -12,7 +12,6 @@ import androidx.work.Worker
 import androidx.work.WorkerParameters
 import androidx.work.WorkManager
 import com.kedevjimmy.pesatrack.MainActivity
-import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.domain.rules.PhoneAlertPolicy
 import com.kedevjimmy.pesatrack.domain.rules.PhoneAlertType
 import java.util.concurrent.TimeUnit
@@ -48,12 +47,20 @@ object PhoneNotificationPreview {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val public = PhoneNotificationChannels.privatePublicVersion(context, CHANNEL)
-        val notice = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(R.drawable.ic_pesatrack_logo)
-            .setContentTitle(alert.previewTitle)
-            .setContentText(alert.previewBody)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(alert.previewBody))
-            .setContentIntent(open)
+        val (illustration, action) = when (alert) {
+            PhoneAlertType.BILL -> PhoneNoticeDesign.Illustration.HOME to "View bills"
+            PhoneAlertType.SALARY -> PhoneNoticeDesign.Illustration.WALLET to "View salary"
+            PhoneAlertType.BUDGET -> PhoneNoticeDesign.Illustration.WALLET to "View budget"
+            PhoneAlertType.REVIEW -> PhoneNoticeDesign.Illustration.REVIEW to "Review activity"
+            PhoneAlertType.GOAL -> PhoneNoticeDesign.Illustration.TARGET to "View goal"
+            PhoneAlertType.DEBT -> PhoneNoticeDesign.Illustration.PEOPLE to "View money owed"
+            PhoneAlertType.DATA -> PhoneNoticeDesign.Illustration.SHIELD to "Review data"
+            PhoneAlertType.BACKUP -> PhoneNoticeDesign.Illustration.CLOUD to "Open backup"
+        }
+        val notice = PhoneNoticeDesign.apply(
+            NotificationCompat.Builder(context, CHANNEL), context,
+            "TEST ${alert.name}", alert.previewTitle, alert.previewBody, action, illustration, open
+        )
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)

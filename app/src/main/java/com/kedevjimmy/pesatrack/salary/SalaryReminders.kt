@@ -14,13 +14,13 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.work.*
 import com.kedevjimmy.pesatrack.MainActivity
-import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.rules.SalaryReminderPolicy
 import com.kedevjimmy.pesatrack.domain.rules.PhoneAlertPolicy
 import com.kedevjimmy.pesatrack.planning.PhoneNotificationChannels
+import com.kedevjimmy.pesatrack.planning.PhoneNoticeDesign
 import java.util.concurrent.TimeUnit
 
 object SalaryReminders {
@@ -81,10 +81,12 @@ object SalaryReminders {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val defer = PendingIntent.getBroadcast(context, 911, Intent(context, SalaryReminderReceiver::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            val notification = NotificationCompat.Builder(context, CHANNEL)
-                .setSmallIcon(R.drawable.ic_pesatrack_logo).setContentTitle("Has your salary arrived?")
-                .setContentText("No salary entry detected after your expected payday. Add a receipt if it arrived.")
-                .setStyle(NotificationCompat.BigTextStyle().bigText("No salary entry detected after your expected payday. If it arrived without a message, record its actual receipt date and amount."))
+            val notification = PhoneNoticeDesign.apply(
+                NotificationCompat.Builder(context, CHANNEL), context,
+                "SALARY", "Has your salary arrived?",
+                "No salary entry found after your expected payday.",
+                "Add salary", PhoneNoticeDesign.Illustration.WALLET, open
+            )
                 .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setContentIntent(open).setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setPublicVersion(PhoneNotificationChannels.privatePublicVersion(context, CHANNEL))

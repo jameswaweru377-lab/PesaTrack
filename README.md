@@ -38,9 +38,9 @@ Bank PDF identification runs locally, asks for bank confirmation when a supporte
 | 🤝 | **Keep track of debts** | Distinguish loans and repayments from ordinary purchases and transfers, with user confirmation where needed. |
 | 🔐 | **Keep control of your data** | Use local storage, optional app lock, encrypted user-created backups, and privacy controls. |
 
-### Four places to find what matters
+### Five places to find what matters
 
-**Home** for the overview · **Activity** for your ledger · **Plan** for commitments and goals · **More** for accounts, statements, reports and settings.
+**Home** for the overview · **Activity** for your ledger · **Plan** for commitments and goals · **Accounts** for your money sources · **More** for statements, reports and settings.
 
 > **Screenshots:** A gallery of real, privacy-safe screens will be added after device capture and review. Unlocked screens can temporarily be captured for private UI feedback, so redact personal transactions, account numbers, and statement details before sharing. No private records will be published as examples.
 
