@@ -6,7 +6,7 @@
     android:orientation="horizontal"
     android:gravity="center_vertical">
 
-    <View
+    <TextView
         android:layout_width="3dp"
         android:layout_height="match_parent"
         android:background="@color/notice_purple" />
