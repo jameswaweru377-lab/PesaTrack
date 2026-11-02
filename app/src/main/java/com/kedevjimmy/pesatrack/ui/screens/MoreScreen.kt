@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Description
@@ -90,6 +91,7 @@ fun MoreScreen(
     onImportClick: () -> Unit,
     onPastTransactionsClick: () -> Unit,
     onStatementActivityClick: () -> Unit,
+    onStatementImportClick: () -> Unit,
     onDataHealthClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onReportsClick: () -> Unit
@@ -104,6 +106,7 @@ fun MoreScreen(
     var photo by remember { mutableStateOf<Bitmap?>(photoStore.load()) }
     var avatar by remember { mutableStateOf(preferences.getString("profile_avatar", "J").orEmpty()) }
     var importOptionsOpen by remember { mutableStateOf(false) }
+    var backupOpen by remember { mutableStateOf(false) }
     DisposableEffect(lifecycleOwner, photoStore, preferences) {
         val listener = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -128,7 +131,7 @@ fun MoreScreen(
         item { MoreProfileHero(name.ifBlank { "Your profile" }, avatar, photo, onProfileClick) }
         item { MoreWorkspaceSection(onStatementActivityClick, { importOptionsOpen = true },
             onAccountsClick, onReportsClick) }
-        item { MorePreferencesSection(onProfileSectionClick, onSettingsClick) }
+        item { MorePreferencesSection(onProfileSectionClick, onSettingsClick, { backupOpen = true }) }
         item { MoreSupportSection(onProfileSectionClick, onDataHealthClick,
             onPastTransactionsClick, onAccountsClick) }
     }
@@ -136,8 +139,11 @@ fun MoreScreen(
         MoreImportChoiceSheet(
             onDismiss = { importOptionsOpen = false },
             onSms = { importOptionsOpen = false; onImportClick() },
-            onStatement = { importOptionsOpen = false; onStatementActivityClick() }
+            onStatement = { importOptionsOpen = false; onStatementImportClick() }
         )
+    }
+    if (backupOpen) {
+        BackupRestoreSheet(onDismiss = { backupOpen = false })
     }
 }
 
@@ -172,7 +178,9 @@ private fun MoreWorkspaceSection(
 }
 
 @Composable
-private fun MorePreferencesSection(openProfile: (String) -> Unit, settings: () -> Unit) {
+private fun MorePreferencesSection(
+    openProfile: (String) -> Unit, settings: () -> Unit, backup: () -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(M.space8)) {
         MoreSectionTitle("App preferences")
         MoreSettingsGroup {
@@ -184,6 +192,8 @@ private fun MorePreferencesSection(openProfile: (String) -> Unit, settings: () -
                 "Theme, text size & display", "orange") { openProfile("appearance") }
             MoreSettingsRow(Icons.Rounded.Shield, "Privacy & data",
                 "Permissions and data control", "blue") { openProfile("privacy") }
+            MoreSettingsRow(Icons.Rounded.Backup, "Backup & restore",
+                "Encrypted copies of your records", "blue", onClick = backup)
             MoreSettingsRow(Icons.Rounded.Settings, "Settings",
                 "General app behavior", "purple", last = true, onClick = settings)
         }
@@ -206,6 +216,10 @@ private fun MoreSupportSection(
                 "Review older activity", "blue", onClick = pastTransactions)
             MoreSettingsRow(Icons.Rounded.Wallet, "Funds",
                 "Balances, sources & movement", "green", onClick = funds)
+            MoreSettingsRow(Icons.Rounded.Description, "Terms of Service",
+                "Legal terms and responsibilities", "blue") {
+                openProfile("terms")
+            }
             MoreSettingsRow(Icons.Rounded.Info, "About PesaTrack",
                 "Version, legal & product info", "purple", last = true) {
                 openProfile("about")
@@ -271,22 +285,33 @@ private fun MoreHeroWaves(modifier: Modifier = Modifier) {
     Canvas(modifier) {
         val width = size.width
         val height = size.height
-        val wave = Path().apply {
-            moveTo(width * .46f, height)
-            cubicTo(width * .77f, height * .70f, width * .78f, height * 1.11f,
-                width, height * .54f)
+        // Approved reference: visible layered ribbons sweeping into the lower right.
+        val baseWave = Path().apply {
+            moveTo(width * .35f, height)
+            cubicTo(width * .58f, height * .94f, width * .76f, height * .43f,
+                width, height * .67f)
             lineTo(width, height)
             close()
         }
-        drawPath(wave, Brush.horizontalGradient(listOf(
-            M.wavePurple.copy(alpha = .50f), M.wavePink.copy(alpha = .76f)
+        drawPath(baseWave, Brush.horizontalGradient(listOf(
+            M.wavePurple.copy(alpha = .28f), M.wavePink.copy(alpha = .78f)
+        )))
+        val blueRibbon = Path().apply {
+            moveTo(width * .49f, height)
+            cubicTo(width * .73f, height * .83f, width * .79f, height * .59f,
+                width, height * .38f)
+            lineTo(width, height)
+            close()
+        }
+        drawPath(blueRibbon, Brush.horizontalGradient(listOf(
+            M.waveCyan.copy(alpha = .13f), M.waveCyan.copy(alpha = .53f)
         )))
         val highlight = Path().apply {
-            moveTo(width * .47f, height)
-            cubicTo(width * .73f, height * .62f, width * .83f, height * .97f,
-                width, height * .48f)
+            moveTo(width * .37f, height)
+            cubicTo(width * .61f, height * .95f, width * .80f, height * .44f,
+                width, height * .55f)
         }
-        drawPath(highlight, M.waveCyan.copy(alpha = .68f),
+        drawPath(highlight, M.waveCyan.copy(alpha = .85f),
             style = Stroke(width = M.waveStroke.toPx()))
     }
 }
@@ -299,7 +324,7 @@ private fun MoreHeroContent(name: String, avatar: String, photo: Bitmap?, onClic
         horizontalArrangement = Arrangement.spacedBy(M.space11)
     ) {
         MoreHeroAvatar(name, avatar, photo)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(M.space6)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(M.space3)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(M.space5)) {
                 Text(name, color = Color.White, fontSize = 15.sp,
@@ -354,8 +379,8 @@ private fun MorePremiumBadge() {
 @Composable
 private fun MoreViewProfileAction(onClick: () -> Unit) {
     Surface(color = Color.White, shape = RoundedCornerShape(M.space18),
-        modifier = Modifier.clickable(onClick = onClick)) {
-        Row(Modifier.padding(horizontal = M.space12, vertical = M.space6),
+        modifier = Modifier.heightIn(min = M.space28).clickable(onClick = onClick)) {
+        Row(Modifier.padding(horizontal = M.space12, vertical = M.space4),
             horizontalArrangement = Arrangement.spacedBy(M.space5),
             verticalAlignment = Alignment.CenterVertically) {
             Text("View profile", fontSize = 11.sp,
