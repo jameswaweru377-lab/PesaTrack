@@ -60,7 +60,8 @@ private fun statementCategoryGroup(id: String?, labels: Map<String, String>): St
 internal fun StatementIntelligenceDashboard(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    onActivityTransactionClick: (Long) -> Unit = {}
+    onActivityTransactionClick: (Long) -> Unit = {},
+    startImport: Boolean = false
 ) {
     val context = LocalContext.current
     val store = remember(context) { StatementActivityStore(context) }
@@ -98,7 +99,7 @@ internal fun StatementIntelligenceDashboard(
     var linkedActivityId by remember { mutableStateOf<Long?>(null) }
     var deleteTarget by remember { mutableStateOf<StatementActivityStore.Batch?>(null) }
     var deleteError by remember { mutableStateOf(false) }
-    var importing by remember { mutableStateOf(false) }
+    var importing by remember { mutableStateOf(startImport) }
     var query by remember { mutableStateOf("") }
     var browseQuery by remember { mutableStateOf("") }
     var flowFilter by remember { mutableStateOf<StatementFlow?>(null) }
