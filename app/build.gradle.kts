@@ -101,9 +101,8 @@ android {
                 .replace("\"", "\\\"")}\""
         )
         minSdk = 24
-        // Production remains ARM64; CI may opt into x86_64 for its emulator only.
-        val testEmulatorAbi = providers.gradleProperty("pesatrack.testEmulatorAbi").orNull
-        ndk { abiFilters += listOf(if (testEmulatorAbi == "x86_64") "x86_64" else "arm64-v8a") }
+        // Embedded Python native dependencies were resolved for ARM64.
+        ndk { abiFilters += listOf("arm64-v8a") }
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
