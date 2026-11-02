@@ -20,8 +20,9 @@ MAX_OLD_RETIREMENTS = 42
 EXPECTED_PREFIX = "archive/retired-20261101"
 EXPECTED_CUTOFF = "2026-10-02"
 APPROVED_BATCHES = {
-    EXPECTED_PREFIX: EXPECTED_CUTOFF,
-    "archive/retired-20261101-wave2": "2026-10-09",
+    EXPECTED_PREFIX: (EXPECTED_CUTOFF, 42),
+    "archive/retired-20261101-wave2": ("2026-10-09", 42),
+    "archive/retired-20261102-wave3": ("2026-10-24", 21),
 }
 
 
@@ -31,9 +32,9 @@ def _validated_entries(snapshot: dict, manifest: dict) -> list[dict]:
             or manifest.get("repository") != snapshot["repository"]
             or manifest.get("approved_issue") != 528
             or manifest.get("archive_prefix") not in APPROVED_BATCHES
-            or manifest.get("cutoff_tip_date") != APPROVED_BATCHES.get(manifest.get("archive_prefix"))
+            or manifest.get("cutoff_tip_date") != APPROVED_BATCHES.get(manifest.get("archive_prefix"), (None, None))[0]
             or not isinstance(manifest.get("candidates"), list)
-            or len(manifest["candidates"]) != MAX_OLD_RETIREMENTS):
+            or len(manifest["candidates"]) != APPROVED_BATCHES.get(manifest.get("archive_prefix"), (None, None))[1]):
         raise ValueError("Retirement manifest must be the exact owner-approved batch")
     seen = set()
     for item in manifest["candidates"]:
