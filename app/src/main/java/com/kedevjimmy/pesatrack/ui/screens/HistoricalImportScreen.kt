@@ -61,7 +61,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 private enum class ImportWindow {
     THIS_MONTH,
     LAST_30_DAYS,
-    LAST_90_DAYS
+    LAST_90_DAYS,
+    ALL_HISTORY
 }
 
 @Composable
@@ -76,7 +77,7 @@ fun HistoricalImportScreen(
         mutableStateOf(hasSmsPermission(context))
     }
     var permissionDenied by remember { mutableStateOf(false) }
-    var selectedWindow by remember { mutableStateOf(ImportWindow.THIS_MONTH) }
+    var selectedWindow by rememberSaveable { mutableStateOf(ImportWindow.LAST_90_DAYS) }
     var importing by remember { mutableStateOf(false) }
     var stopping by remember { mutableStateOf(false) }
     var progress by remember {
@@ -303,8 +304,16 @@ fun HistoricalImportScreen(
                             Modifier.weight(1f)
                         )
                     }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        WindowChip(
+                            "All history",
+                            selectedWindow == ImportWindow.ALL_HISTORY,
+                            { selectedWindow = ImportWindow.ALL_HISTORY },
+                            Modifier.weight(1f)
+                        )
+                    }
                     Text(
-                        "Imported transactions keep their original SMS/transaction date. Re-importing the same messages is safe because duplicates are ignored.",
+                        "Only recognized financial messages are saved. Existing transactions are not added again. Use All history to check older messages; the scan may take longer.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -414,6 +423,29 @@ fun HistoricalImportScreen(
                         ImportResultRow("New transactions added", importResult.inserted)
                         ImportResultRow("Duplicates skipped", importResult.duplicates)
                         ImportResultRow("Unrelated messages ignored", importResult.ignored)
+                        if (!importResult.cancelled && importResult.inserted == 0) {
+                            Text(
+                                when {
+                                    importResult.scanned == 0 ->
+                                        "No SMS found in this date range. Choose 90 days or All history if you expected older messages."
+                                    importResult.matched == 0 ->
+                                        "No supported financial transactions were recognized in this range. Only financial records are imported; try All history or check allowed financial sources."
+                                    importResult.duplicates > 0 ->
+                                        "No new transactions needed adding. Some records were already present and were safely skipped."
+                                    else ->
+                                        "The scan finished without new transactions. Messages may already be recorded, contain account updates rather than transactions, or need a supported source rule."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (importResult.inserted > 0) {
+                            Text(
+                                "Added financial records are available in Activity. Existing messages were not duplicated.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         if (importResult.resumed) {
                             Text(
                                 "This run resumed from the most recent saved checkpoint instead of rescanning the completed part of the interrupted import.",
@@ -537,6 +569,11 @@ private fun importStart(window: ImportWindow): Long {
         }
         ImportWindow.LAST_90_DAYS -> {
             calendar.add(Calendar.DAY_OF_YEAR, -90)
+        }
+        ImportWindow.ALL_HISTORY -> {
+            // A positive epoch avoids invalid checkpoint dates and reaches
+            // any normal SMS history on the device, without a server import.
+            return 946684800000L // 2000-01-01 UTC
         }
     }
 
