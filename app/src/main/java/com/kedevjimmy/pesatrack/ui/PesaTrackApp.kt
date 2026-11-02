@@ -544,7 +544,7 @@ fun PesaTrackApp(
                     onProfileSectionClick = { section ->
                         // Strict section allowlist: these are real Profile destinations.
                         if (section in setOf(
-                                "notifications", "security", "appearance", "privacy", "support", "about"
+                                "notifications", "security", "appearance", "privacy", "support", "about", "terms"
                             )
                         ) {
                             navController.navigate("profile?section=$section") { launchSingleTop = true }
