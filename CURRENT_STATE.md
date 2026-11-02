@@ -1,5 +1,16 @@
 # PesaTrack Current State
 
+_Transfer reconciliation review (3 November 2026; GitHub verification pending):_
+Statements match review opens a transfer workspace using shared references or
+exact directional account routes, with ambiguous and missing-counterpart states.
+Confirmation, rejection and undo affect review metadata only; financial totals,
+categories and original movements remain unchanged. Both review entry points
+guard against conflicting confirmations, including year-boundary evidence.
+The existing shared accounting preview remains available through Other matches.
+Local verification passed 427 selected tests, APK assembly, lint and security
+checks; rebased-head CI and real-device acceptance are separate evidence.
+See [transfer reconciliation](docs/TRANSFER_RECONCILIATION.md) for scope and limits.
+
 _Annual Reports accounting-evidence preview (2 November 2026; CI pending):_
 The Reports **Year** view includes a separate, read-only accounting evidence card
 using the same shared projection as Statements match review. Activity income and
