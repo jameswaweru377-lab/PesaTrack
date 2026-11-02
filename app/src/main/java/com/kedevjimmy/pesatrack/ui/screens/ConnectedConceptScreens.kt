@@ -216,7 +216,7 @@ fun ReportsInsightsScreen(
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                android.util.Log.w("PesaTrackScreens", "Annual accounting evidence unavailable", failure)
+                android.util.Log.w("PesaTrackScreens", "Annual accounting evidence unavailable")
                 null
             }
         }
