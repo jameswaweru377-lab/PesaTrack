@@ -90,6 +90,7 @@ fun MoreScreen(
     onImportClick: () -> Unit,
     onPastTransactionsClick: () -> Unit,
     onStatementActivityClick: () -> Unit,
+    onStatementImportClick: () -> Unit,
     onDataHealthClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onReportsClick: () -> Unit
@@ -136,7 +137,7 @@ fun MoreScreen(
         MoreImportChoiceSheet(
             onDismiss = { importOptionsOpen = false },
             onSms = { importOptionsOpen = false; onImportClick() },
-            onStatement = { importOptionsOpen = false; onStatementActivityClick() }
+            onStatement = { importOptionsOpen = false; onStatementImportClick() }
         )
     }
 }
@@ -206,6 +207,10 @@ private fun MoreSupportSection(
                 "Review older activity", "blue", onClick = pastTransactions)
             MoreSettingsRow(Icons.Rounded.Wallet, "Funds",
                 "Balances, sources & movement", "green", onClick = funds)
+            MoreSettingsRow(Icons.Rounded.FileDownload, "Backup & restore",
+                "Encrypted backup of your financial records", "blue") {
+                openProfile("backup")
+            }
             MoreSettingsRow(Icons.Rounded.Info, "About PesaTrack",
                 "Version, legal & product info", "purple", last = true) {
                 openProfile("about")
@@ -299,7 +304,7 @@ private fun MoreHeroContent(name: String, avatar: String, photo: Bitmap?, onClic
         horizontalArrangement = Arrangement.spacedBy(M.space11)
     ) {
         MoreHeroAvatar(name, avatar, photo)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(M.space6)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(M.space3)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(M.space5)) {
                 Text(name, color = Color.White, fontSize = 15.sp,
@@ -309,7 +314,7 @@ private fun MoreHeroContent(name: String, avatar: String, photo: Bitmap?, onClic
                 MorePremiumBadge()
             }
             Text("Your money, your plans.", color = Color.White.copy(alpha = .94f),
-                fontSize = 11.sp, maxLines = 1)
+                fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1)
             MoreViewProfileAction(onClick)
         }
     }
@@ -358,8 +363,8 @@ private fun MoreViewProfileAction(onClick: () -> Unit) {
         Row(Modifier.padding(horizontal = M.space12, vertical = M.space6),
             horizontalArrangement = Arrangement.spacedBy(M.space5),
             verticalAlignment = Alignment.CenterVertically) {
-            Text("View profile", fontSize = 11.sp,
-                fontWeight = FontWeight.Bold, color = M.actionInk)
+            Text("View profile", fontSize = 12.sp, lineHeight = 16.sp,
+                fontWeight = FontWeight.Bold, color = M.actionInk, maxLines = 1)
             Icon(Icons.Rounded.ArrowForward, contentDescription = null,
                 modifier = Modifier.size(M.space14), tint = M.actionInk)
         }
