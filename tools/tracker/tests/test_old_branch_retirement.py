@@ -20,6 +20,20 @@ def manifest(sha=FEATURE_SHA):
 
 
 class OldBranchRetirementTests(unittest.TestCase):
+    def test_third_batch_retires_21_old_unclaimed_refs(self):
+        data = manifest()
+        data["archive_prefix"] = "archive/retired-20261102-wave3"
+        data["cutoff_tip_date"] = "2026-10-24"
+        data["candidates"] = data["candidates"][:21]
+        data["candidates"][0]["tip_date"] = "2026-10-24"
+        result = plan_retirement(inventory(), data)
+        self.assertEqual(21, result["approved_count"])
+        self.assertEqual("archive/retired-20261102-wave3/feature/ready",
+                         result["candidates"][0]["archive_ref"])
+        data["candidates"][0]["tip_date"] = "2026-10-25"
+        with self.assertRaises(ValueError):
+            plan_retirement(inventory(), data)
+
     def test_explicit_approved_tip_is_candidate(self):
         result = plan_retirement(inventory(), manifest())
         self.assertEqual(["feature/ready"], [x["branch"] for x in result["candidates"]])
