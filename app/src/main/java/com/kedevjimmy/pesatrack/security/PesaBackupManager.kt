@@ -63,7 +63,7 @@ class PesaBackupManager(
         uri: Uri,
         passphrase: String
     ): BackupSummary {
-        requirePassphrase(passphrase)
+        BackupPassphrasePolicy.requireForCreation(passphrase)
 
         val payload =
             synchronized(
@@ -130,7 +130,7 @@ class PesaBackupManager(
         uri: Uri,
         passphrase: String
     ): RestoreSummary {
-        requirePassphrase(passphrase)
+        BackupPassphrasePolicy.requireForRestore(passphrase)
 
         val encrypted =
             readEncryptedBackup(uri)
@@ -144,7 +144,7 @@ class PesaBackupManager(
         uri: Uri,
         passphrase: String
     ): BackupPreview {
-        requirePassphrase(passphrase)
+        BackupPassphrasePolicy.requireForRestore(passphrase)
         return previewEncryptedBytes(
             encrypted =
                 readEncryptedBackup(uri),
@@ -153,7 +153,7 @@ class PesaBackupManager(
     }
 
     fun previewEncryptedForRestore(uri: Uri, passphrase: String): VerifiedBackupFile {
-        requirePassphrase(passphrase)
+        BackupPassphrasePolicy.requireForRestore(passphrase)
         val encrypted = readEncryptedBackup(uri)
         return VerifiedBackupFile(
             preview = previewEncryptedBytes(encrypted, passphrase),
@@ -163,7 +163,7 @@ class PesaBackupManager(
 
     /** Re-read once, reject changed documents before mutation, then restore those exact bytes. */
     fun restoreApprovedFile(uri: Uri, passphrase: String, approved: VerifiedBackupFile): RestoreSummary {
-        requirePassphrase(passphrase)
+        BackupPassphrasePolicy.requireForRestore(passphrase)
         val encrypted = readEncryptedBackup(uri)
         require(approved.identity.matches(encrypted)) {
             "This backup changed after preview. Select and review the file again before restoring."
@@ -174,7 +174,7 @@ class PesaBackupManager(
     internal fun exportEncryptedBytes(
         passphrase: String
     ): ByteArray {
-        requirePassphrase(passphrase)
+        BackupPassphrasePolicy.requireForCreation(passphrase)
         val payload =
             synchronized(
                 CanonicalStoreLock.monitor
@@ -196,7 +196,7 @@ class PesaBackupManager(
         encrypted: ByteArray,
         passphrase: String
     ): BackupPreview {
-        requirePassphrase(passphrase)
+        BackupPassphrasePolicy.requireForRestore(passphrase)
         val payload =
             parseEncryptedPayload(
                 encrypted = encrypted,
@@ -211,7 +211,7 @@ class PesaBackupManager(
         encrypted: ByteArray,
         passphrase: String
     ): RestoreSummary {
-        requirePassphrase(passphrase)
+        BackupPassphrasePolicy.requireForRestore(passphrase)
         val payload =
             parseEncryptedPayload(
                 encrypted = encrypted,
@@ -1268,16 +1268,6 @@ class PesaBackupManager(
                 quote + quote
             ) +
             quote
-    }
-
-    private fun requirePassphrase(
-        passphrase: String
-    ) {
-        require(
-            passphrase.length >= 8
-        ) {
-            "Use a backup passphrase with at least 8 characters."
-        }
     }
 
     companion object {

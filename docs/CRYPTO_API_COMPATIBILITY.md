@@ -4,6 +4,16 @@ Android supplies `PBKDF2WithHmacSHA256` through `SecretKeyFactory` starting at A
 
 `PasswordKeyDerivation` keeps the original native factory on API 26 and newer. Only API 24/25 select `Pbkdf2Sha256`, an implementation of RFC 8018 section 5.2 using the platform `HmacSHA256` primitive. Passwords are UTF-8, block counters are four-byte big-endian, each block XORs exactly the requested iteration count, and output is truncated to the requested number of bytes. The app still uses 120,000 iterations for PINs and 180,000 for newly exported backups; existing supported backup iteration values are preserved during restore. Salt, AES-GCM parameters, key lengths and stored formats remain unchanged. No SHA-1 substitution or new dependency is introduced.
 
+New encrypted backups require at least **12 passphrase characters** at both the
+creation screen and manager entry points. To preserve older `.ptb` files,
+preview and restoration still accept passphrases of **8 or more characters**.
+Restore accepts stored PBKDF2 counts from **50,000 through 500,000** inclusive,
+including historical 180,000-iteration backups. No existing encrypted backup
+is rewritten, and this policy change does not increase the derivation count.
+The 180,000-iteration Android 24 compatibility vector exists in
+`Pbkdf2CompatibilityIntegrationTest`; device execution must be recorded
+separately from JVM tests and Android CI compilation.
+
 Mutable password-byte and intermediate arrays are cleared when derivation finishes; caller-owned password/salt arrays are preserved. This is best-effort memory hygiene, not a promise that immutable Strings or provider-internal key state can be erased.
 
 Sources: [Android SecretKeyFactory algorithm support](https://developer.android.com/reference/javax/crypto/SecretKeyFactory), [RFC 8018 section 5.2](https://www.rfc-editor.org/rfc/rfc8018#section-5.2).

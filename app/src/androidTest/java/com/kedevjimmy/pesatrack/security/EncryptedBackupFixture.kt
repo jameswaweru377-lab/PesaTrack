@@ -19,6 +19,7 @@ internal object EncryptedBackupFixture {
     fun rewrite(
         exported: ByteArray,
         passphrase: String,
+        newPassphrase: String = passphrase,
         mutate: (JsonObject) -> Unit
     ): ByteArray {
         val input = DataInputStream(ByteArrayInputStream(exported))
@@ -30,24 +31,16 @@ internal object EncryptedBackupFixture {
         val ciphertext = ByteArray(input.readInt()).also { input.readFully(it) }
         // API24/25 lack the native provider. Fixed independent vectors and the modern
         // wire-cipher fixture validate this fallback in Pbkdf2CompatibilityIntegrationTest.
-        val keyBytes = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            val password = passphrase.toCharArray()
-            try { Pbkdf2Sha256.derive(password, salt, iterations, 256) }
-            finally { password.fill('\u0000') }
-        } else {
-            val spec = PBEKeySpec(passphrase.toCharArray(), salt, iterations, 256)
-            try {
-                SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
-            } finally { spec.clearPassword() }
-        }
-        val key = SecretKeySpec(keyBytes, "AES")
+        val key = SecretKeySpec(deriveKey(passphrase, salt, iterations), "AES")
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, iv))
         val payload = JsonParser.parseString(String(cipher.doFinal(ciphertext), Charsets.UTF_8))
             .asJsonObject
         mutate(payload)
         val replacementIv = ByteArray(12).also { SecureRandom().nextBytes(it) }
-        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(128, replacementIv))
+        val replacementKey = if (newPassphrase == passphrase) key else
+            SecretKeySpec(deriveKey(newPassphrase, salt, iterations), "AES")
+        cipher.init(Cipher.ENCRYPT_MODE, replacementKey, GCMParameterSpec(128, replacementIv))
         val rewritten = cipher.doFinal(payload.toString().toByteArray(Charsets.UTF_8))
         return ByteArrayOutputStream().also { buffer ->
             DataOutputStream(buffer).use { output ->
@@ -62,5 +55,17 @@ internal object EncryptedBackupFixture {
             }
         }.toByteArray()
     }
+
+    private fun deriveKey(passphrase: String, salt: ByteArray, iterations: Int): ByteArray =
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            val password = passphrase.toCharArray()
+            try { Pbkdf2Sha256.derive(password, salt, iterations, 256) }
+            finally { password.fill('\u0000') }
+        } else {
+            val spec = PBEKeySpec(passphrase.toCharArray(), salt, iterations, 256)
+            try {
+                SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
+            } finally { spec.clearPassword() }
+        }
 }
 

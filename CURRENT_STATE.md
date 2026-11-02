@@ -1,5 +1,14 @@
 # PesaTrack Current State
 
+_S3 backup creation protection (2 November 2026; Android CI and device acceptance pending):_
+The backup creation screen and `PesaBackupManager` now enforce a minimum
+12-character passphrase when exporting a **new** encrypted `.ptb` file.
+Existing backup preview and restore continue to accept eight-character
+passphrases; the 180,000-iteration AES-GCM backup format, supported decrypt
+iteration range, app ID, database schema and financial records are unchanged.
+Local pure-Kotlin policy verification is separate from the Android integration
+tests, which still need execution and real-phone backup/restore acceptance.
+
 _Limited bank statement dashboard (implementation verification pending):_
 A single grand-total-reconciled bank PDF opens a source-specific dashboard with
 rechecked money-in/out totals, net movement, monthly movement bars and the
