@@ -22,6 +22,17 @@ class StatementBankArchiveIntegrationTest {
         listOf("02-09-2026", "", "Invented fee", "20.00", "", "30.00 Cr")
     )))
 
+    @Test fun savedSourceCannotMatchAChangedAccountNumber() {
+        val bank = AccountStore.get(app).save("Invented Equity", AccountType.BANK)
+        AccountStore.get(app).updateDetails(bank.id, "001234567890", null)
+        AccountOwnershipConsentStore(app).recordConsent(bank.id, true)
+        val source = store.save(accepted(bank.id), pages)
+        assertTrue(source.sourceId in store.sourceIdsMatchingIdentity(bank.id, "001234567890"))
+        AccountStore.get(app).updateDetails(bank.id, "009999999999", null)
+        assertTrue(store.sourceIdsMatchingIdentity(bank.id, "009999999999").isEmpty())
+        assertEquals(1, store.sourcesFor(bank.id).size)
+    }
+
     @Before fun setUp() {
         app = ApplicationProvider.getApplicationContext()
         PesaTrackDatabase.resetForTests()

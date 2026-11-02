@@ -23,6 +23,18 @@ import org.junit.runner.RunWith
 class StatementUnifiedOverviewUiTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun reviewEntryOpensMatchReview() {
+        val overview = StatementUnifiedOverviewPolicy.project(2026, emptyList())
+        var opened = false
+        compose.setContent { PesaTrackTheme {
+            StatementUnifiedOverviewPage(overview, listOf(2026), emptyMap(), emptySet(),
+                onSelectYear = {}, onSelectAccount = {}, onImport = {}, onBack = {},
+                onOpenMatchReview = { opened = true })
+        } }
+        compose.onNodeWithText("Review possible matches").performClick()
+        assertEquals(true, opened)
+    }
+
     private fun coverage(account: String, month: String, review: Boolean = false) =
         StatementSourceCoveragePolicy.MonthCoverage(
             accountId = account, currency = "KES", monthKey = month,

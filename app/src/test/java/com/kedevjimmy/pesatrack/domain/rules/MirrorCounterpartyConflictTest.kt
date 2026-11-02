@@ -34,7 +34,7 @@ class MirrorCounterpartyConflictTest {
     }
 
     @Test
-    fun sameMerchantCodedAndCodelessCopyCanStillLink() {
+    fun sameMerchantWithoutSharedReferenceRequiresReview() {
         val first = sample(
             code = "TSTCODE101",
             counterparty = "RIVER MARKET",
@@ -48,12 +48,12 @@ class MirrorCounterpartyConflictTest {
             at = 1_018_000L,
             sourcePackage = "com.example.otherbank"
         )
-        // Token overlap proves this isn't a positively conflicting merchant.
-        assertTrue(MirrorTransactionMatcher.match(first, second).autoLink)
+        // A shared name can also describe two real purchases.
+        assertFalse(MirrorTransactionMatcher.match(first, second).autoLink)
     }
 
     @Test
-    fun exactSharedExternalReferenceStillBeatsDifferentlyNamedMerchantLabels() {
+    fun sharedReferenceDoesNotOverrideContradictoryMerchantLabels() {
         val first = sample(
             code = "TSTCODE102",
             counterparty = "RIVER MARKET",
@@ -69,8 +69,8 @@ class MirrorCounterpartyConflictTest {
         ).copy(externalReferences = setOf("LINK12345"))
 
         val match = MirrorTransactionMatcher.match(first, second)
-        assertTrue(match.autoLink)
-        assertEquals(MirrorMatchReason.EXACT_SHARED_REFERENCE, match.reason)
+        assertFalse(match.autoLink)
+        assertEquals(MirrorMatchReason.NONE, match.reason)
     }
 
     @Test
@@ -92,7 +92,7 @@ class MirrorCounterpartyConflictTest {
     }
 
     @Test
-    fun complementaryBankWalletMovementIsNotRejectedForDifferentNames() {
+    fun complementaryMovementsWithoutSharedReferenceRequireReview() {
         val bank = sample(
             code = "EQA123456",
             counterparty = "Bank Sender",
@@ -106,7 +106,7 @@ class MirrorCounterpartyConflictTest {
             at = 1_012_000L,
             sourcePackage = "com.example.otherbank"
         )
-        assertTrue(MirrorTransactionMatcher.match(bank, wallet).autoLink)
+        assertFalse(MirrorTransactionMatcher.match(bank, wallet).autoLink)
     }
 
     private fun sample(
