@@ -18,6 +18,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -25,10 +26,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
+import com.kedevjimmy.pesatrack.data.local.StatementMatchDecisionStore
+import com.kedevjimmy.pesatrack.domain.statements.SharedAccountingViewPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementOverviewCardsPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementSavedAccountVisibility
 import com.kedevjimmy.pesatrack.domain.statements.StatementUnifiedOverviewPolicy
 import java.text.DateFormatSymbols
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** An all-account statement evidence index with verified gross cash movements. */
 @Composable
@@ -50,6 +57,19 @@ internal fun StatementUnifiedOverviewPage(
     val shortMonths = remember { DateFormatSymbols(Locale.ENGLISH).shortMonths }
     var yearMenu by remember { mutableStateOf(false) }
     var accountMenu by remember { mutableStateOf(false) }
+    var showGrossDetails by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    var accounting by remember(overview.year) { mutableStateOf<SharedAccountingViewPolicy.View?>(null) }
+    LaunchedEffect(overview) {
+        accounting = null
+        try {
+            accounting = withContext(Dispatchers.IO) {
+                StatementMatchDecisionStore(context).read(overview.year).sharedAccounting
+            }
+        } catch (cancelled: CancellationException) { throw cancelled
+        } catch (_: Exception) { accounting = null }
+    }
+    val cards = StatementOverviewCardsPolicy.project(overview.cashSummary, accounting)
     val accounts = overview.accountRows
     val accountInventory = remember(accounts, limitedSources, reportAccountIds) {
         StatementSavedAccountVisibility.overview(
@@ -229,12 +249,24 @@ internal fun StatementUnifiedOverviewPage(
                             Spacer(Modifier.height(17.dp))
                             HorizontalDivider(color = Color.White.copy(alpha = .22f), thickness = .8.dp)
                             Spacer(Modifier.height(13.dp))
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                StatementUnifiedCashMetric("Money in", overview.cashSummary.moneyInMinor,
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                StatementUnifiedCashMetric("Money in", cards.moneyInMinor,
                                     Modifier.weight(1f))
-                                StatementUnifiedCashMetric("Money out", overview.cashSummary.moneyOutMinor,
+                                StatementUnifiedCashMetric("Expenses", cards.verifiedExpensesMinor,
+                                    Modifier.weight(1f))
+                                StatementUnifiedCashMetric("Transfers", cards.reviewedTransfersMinor,
                                     Modifier.weight(1f))
                             }
+                            Text("Expenses are withheld until all outgoing movements are safely classified.",
+                                color = Color.White.copy(alpha = .86f), fontSize = 11.sp)
+                            TextButton(onClick = { showGrossDetails = !showGrossDetails }) {
+                                Text(if (showGrossDetails) "Hide gross cash movements" else "Gross money out · details",
+                                    color = Color.White)
+                            }
+                            if (showGrossDetails) Text("Gross money out: " +
+                                (cards.grossMoneyOutMinor?.let(::statementMoney) ?: "Unavailable") +
+                                " · Includes transfers and other non-expense movements",
+                                color = Color.White, style = MaterialTheme.typography.bodySmall)
                             Spacer(Modifier.height(10.dp))
                             Text(when (overview.cashSummary.status) {
                                 StatementUnifiedOverviewPolicy.CashStatus.AVAILABLE ->
@@ -391,7 +423,7 @@ private fun StatementUnifiedCashMetric(label: String, amount: Long?, modifier: M
         Text(label, color = Color.White.copy(alpha = .87f), fontSize = 12.sp,
             fontWeight = FontWeight.Medium)
         Text(amount?.let(::statementMoney) ?: "—", color = Color.White,
-            fontSize = 20.sp, fontWeight = FontWeight.ExtraBold,
+            fontSize = 16.sp, fontWeight = FontWeight.ExtraBold,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

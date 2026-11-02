@@ -946,6 +946,11 @@ fun ActivityScreen(
                     )
                 }
             }
+            if (onStatementsClick != null) item(key = "annual-accounting-evidence") {
+                val year = Calendar.getInstance().apply { timeInMillis = selectedMonthEpochMs }
+                    .get(Calendar.YEAR)
+                SharedAccountingEvidenceNotice(year, ledgerUpdateState.revision, onStatementsClick)
+            }
 
             val needsAttentionCount =
                 globalOverview.reviewGroups
