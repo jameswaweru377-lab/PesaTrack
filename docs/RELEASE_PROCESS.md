@@ -18,10 +18,10 @@ These filenames stay fixed. The job replaces both attachments and deletes old de
 release mutation and again before uploading. A stale commit, failed GitHub
 lookup or malformed ref stops publication; existing APKs remain untouched
 when refused before upload. GitHub Release upload itself is not an atomic
-operation with a branch update: if `main` advances during upload, the
-current upload must finish consistently and the newer validated `main` run
-must replace it. Signature
-and increasing-version checks remain separate mandatory gates.
+operation with a branch update: a newer main push may cancel an older run
+mid-upload, temporarily leaving incomplete attachments. The newer validated
+`main` run must then repair the rolling release. Signature and
+increasing-version checks remain separate mandatory gates.
 
 **CI runtime:** ordinary PRs and `main` pushes still run Kotlin/Android
 validation, and Android instrumentation remains manual opt-in. A docs-only

@@ -49,6 +49,8 @@ import os, pathlib, shutil, sys
 argv = sys.argv[1:]
 root = pathlib.Path(os.environ['TEST_GH_STATE'])
 root.mkdir(exist_ok=True)
+if argv[:1] == ['release'] and len(argv) > 1 and argv[1] in ('create', 'upload', 'delete-asset', 'edit'):
+    (root / 'release-mutated').touch()
 if argv[:1] == ['api']:
     expected = 'repos/' + os.environ['GH_REPO'] + '/git/ref/heads/main'
     if len(argv) != 4 or argv[1:] != [expected, '--jq', '.object.sha']:
@@ -114,6 +116,14 @@ else:
             text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         )
 
+    def distinct_previous_apk(self):
+        previous = self.work / "previous.apk"
+        with zipfile.ZipFile(previous, "w") as archive:
+            archive.writestr("AndroidManifest.xml", "older invented release")
+        old = previous.read_bytes()
+        self.assertNotEqual(old, self.apk.read_bytes())
+        return old
+
     def test_publishes_exactly_two_identical_assets_and_prunes_history(self):
         (self.release / "PesaTrack-debug-old.apk").write_text("old")
         (self.release / "PesaTrack-debug.apk").write_text("old")
@@ -155,7 +165,7 @@ else:
         self.assertFalse((self.release / "PesaTrack-Update.apk").exists())
 
     def test_refuses_stale_main_without_changing_existing_apks(self):
-        old = self.apk.read_bytes()
+        old = self.distinct_previous_apk()
         for name in ("PesaTrack-Full.apk", "PesaTrack-Update.apk"):
             (self.release / name).write_bytes(old)
         self.env["TEST_GH_MAIN_SHA"] = "f" * 40
@@ -164,6 +174,7 @@ else:
         self.assertIn("main", result.stdout.lower())
         for name in ("PesaTrack-Full.apk", "PesaTrack-Update.apk"):
             self.assertEqual((self.release / name).read_bytes(), old)
+        self.assertFalse((self.release / "release-mutated").exists())
 
     def test_refuses_unverifiable_main_without_mutation(self):
         self.env["TEST_GH_MAIN_ERROR"] = "1"
@@ -172,6 +183,7 @@ else:
         self.assertIn("main", result.stdout.lower())
         self.assertFalse((self.release / "PesaTrack-Full.apk").exists())
         self.assertFalse((self.release / "PesaTrack-Update.apk").exists())
+        self.assertFalse((self.release / "release-mutated").exists())
 
     def test_refuses_malformed_remote_main_sha(self):
         self.env["TEST_GH_MAIN_SHA"] = "not-a-commit-sha"
@@ -179,9 +191,10 @@ else:
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("main", result.stdout.lower())
         self.assertFalse((self.release / "PesaTrack-Update.apk").exists())
+        self.assertFalse((self.release / "release-mutated").exists())
 
     def test_refuses_main_advance_after_first_lookup_before_upload(self):
-        old = self.apk.read_bytes()
+        old = self.distinct_previous_apk()
         for name in ("PesaTrack-Full.apk", "PesaTrack-Update.apk"):
             (self.release / name).write_bytes(old)
         self.env["TEST_GH_MAIN_ADVANCE_AFTER"] = "1"
@@ -191,6 +204,16 @@ else:
         self.assertGreaterEqual(int((self.release / "main-query-count").read_text()), 2)
         for name in ("PesaTrack-Full.apk", "PesaTrack-Update.apk"):
             self.assertEqual((self.release / name).read_bytes(), old)
+        self.assertFalse((self.release / "release-mutated").exists())
+
+    def test_refuses_to_create_empty_release_if_main_advances_before_first_upload(self):
+        (self.release / "exists").unlink()
+        self.env["TEST_GH_MAIN_ADVANCE_AFTER"] = "1"
+        result = self.run_publisher()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("main", result.stdout.lower())
+        self.assertFalse((self.release / "exists").exists())
+        self.assertFalse((self.release / "release-mutated").exists())
 
 class RollingWorkflowWiringTest(unittest.TestCase):
     def test_main_publication_uses_release_signing_and_not_debug_attachments(self):

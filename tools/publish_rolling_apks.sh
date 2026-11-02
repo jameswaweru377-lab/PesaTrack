@@ -89,6 +89,7 @@ require_current_main
 tmp_dir="$(mktemp -d)"
 trap 'rm -r -- "$tmp_dir"' EXIT
 
+release_missing=0
 if gh release view ci-apk >/dev/null 2>&1; then
   existing_assets="$(gh release view ci-apk --json assets --jq '.assets[].name')"
   if printf '%s\n' "$existing_assets" | grep -Fxq 'PesaTrack-Update.apk'; then
@@ -106,8 +107,7 @@ if gh release view ci-apk >/dev/null 2>&1; then
     fi
   fi
 else
-  gh release create ci-apk --target "$GITHUB_SHA" \
-    --title 'PesaTrack Rolling CI APK' --notes 'Signed update channel; see current release notes.' --prerelease
+  release_missing=1
 fi
 
 cp -- "$APK_PATH" "$tmp_dir/PesaTrack-Full.apk"
@@ -116,6 +116,10 @@ cmp -s -- "$tmp_dir/PesaTrack-Full.apk" "$tmp_dir/PesaTrack-Update.apk"
 
 # Build time and the previous-APK compatibility checks can outlive a new merge.
 require_current_main
+if (( release_missing )); then
+  gh release create ci-apk --target "$GITHUB_SHA" \
+    --title 'PesaTrack Rolling CI APK' --notes 'Signed update channel; see current release notes.' --prerelease
+fi
 gh release upload ci-apk \
   "$tmp_dir/PesaTrack-Full.apk" "$tmp_dir/PesaTrack-Update.apk" --clobber
 
