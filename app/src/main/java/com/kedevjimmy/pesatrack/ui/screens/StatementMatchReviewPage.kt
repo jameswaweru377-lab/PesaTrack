@@ -165,16 +165,16 @@ internal fun StatementMatchReviewContent(
                     color = p.muted, style = MaterialTheme.typography.bodySmall)
             }
         }
-        snapshot?.totalsPreview?.let { comparison ->
+        snapshot?.sharedAccounting?.let { comparison ->
             item {
                 StatementInsightCard {
                     Text("Activity and Statements · separate totals", fontWeight = FontWeight.SemiBold, color = p.ink)
                     Text("Activity categorizes money earned and spent. Statements count gross account cash legs, including transfers between your own accounts.",
                         style = MaterialTheme.typography.bodySmall, color = p.muted)
-                    Text("Activity money in: ${comparison.activity?.let { matchReviewMoney(it.incomeMinor, "KES") } ?: "Unavailable"}")
-                    Text("Activity spending: ${comparison.activity?.let { matchReviewMoney(it.spendingMinor, "KES") } ?: "Unavailable"}")
-                    Text("Verified statement cash in: ${comparison.statementMoneyInMinor?.let { matchReviewMoney(it, "KES") } ?: "Withheld / unavailable"}")
-                    Text("Verified statement cash out: ${comparison.statementMoneyOutMinor?.let { matchReviewMoney(it, "KES") } ?: "Withheld / unavailable"}")
+                    Text("Activity money in: ${comparison.activityIncomeMinor?.let { matchReviewMoney(it, "KES") } ?: "Unavailable"}")
+                    Text("Activity spending: ${comparison.activitySpendingMinor?.let { matchReviewMoney(it, "KES") } ?: "Unavailable"}")
+                    Text("Verified statement cash in: ${comparison.statementGrossInMinor?.let { matchReviewMoney(it, "KES") } ?: "Withheld / unavailable"}")
+                    Text("Verified statement cash out: ${comparison.statementGrossOutMinor?.let { matchReviewMoney(it, "KES") } ?: "Withheld / unavailable"}")
                     Text("These totals cover different scopes and cannot be subtracted or added to produce a reconciled balance.",
                         style = MaterialTheme.typography.bodySmall, color = p.muted)
                 }
@@ -191,13 +191,13 @@ internal fun StatementMatchReviewContent(
                 }
             }
         }
-        snapshot?.legProjection?.let { projection ->
+        snapshot?.sharedAccounting?.let { projection ->
             if (projection.confirmedInternalTransfers > 0 || projection.confirmedSameLegGroups > 0) item {
                 StatementInsightCard {
-                    Text("Cash-leg accounting projection · not applied", fontWeight = FontWeight.SemiBold, color = p.ink)
-                    Text("${projection.observationCount} source observations represent ${projection.uniqueCashLegCount} distinct cash legs in confirmed groups.")
+                    Text("Shared accounting view · review only", fontWeight = FontWeight.SemiBold, color = p.ink)
+                    Text("${projection.confirmedUniqueCashLegs} distinct cash legs in confirmed groups.")
                     Text("${projection.confirmedSameLegGroups} reviewed same-leg groups · ${projection.confirmedInternalTransfers} reviewed own-account transfers")
-                    Text("Internal-transfer amount: ${matchReviewMoney(projection.confirmedInternalTransferMinor, "KES")}")
+                    Text("Internal-transfer preview: ${matchReviewMoney(projection.reviewedInternalTransfersMinor, "KES")}")
                     Text("Internal transfers contribute no new income or external spending. This projection does not yet change Home, Activity, Statements or Reports totals.",
                         style = MaterialTheme.typography.bodySmall, color = p.muted)
                 }
