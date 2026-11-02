@@ -1,5 +1,14 @@
 # PesaTrack Current State
 
+_Annual Reports accounting-evidence preview (2 November 2026; CI pending):_
+The Reports **Year** view includes a separate, read-only accounting evidence card
+using the same shared projection as Statements match review. Activity income and
+spending remain distinct from verified Statement gross cash movement and confirmed
+own-account transfers. Missing or uncertain evidence stays unavailable or flagged;
+the existing Reports hero, posted totals, ledger and reconciliation decisions do
+not change. Week and Month suppress the annual card to avoid period mismatches.
+No phone or instrumentation acceptance is claimed.
+
 _S3 backup creation protection (2 November 2026; Android CI and device acceptance pending):_
 The backup creation screen and `PesaBackupManager` now enforce a minimum
 12-character passphrase when exporting a **new** encrypted `.ptb` file.

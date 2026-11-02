@@ -27,6 +27,8 @@ import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import com.kedevjimmy.pesatrack.domain.statements.SharedAccountingReportScopePolicy
+import com.kedevjimmy.pesatrack.domain.statements.SharedAccountingViewPolicy
 import com.kedevjimmy.pesatrack.ui.components.*
 import com.kedevjimmy.pesatrack.ui.components.ConceptLoadError
 import kotlinx.coroutines.Dispatchers
@@ -194,6 +196,7 @@ fun ReportsInsightsScreen(
     var loanShares by remember { mutableStateOf<Map<Long,Long>>(emptyMap()) }
     var categoryReview by remember { mutableStateOf<List<ReportReviewCandidate>>(emptyList()) }
     var showCategoryReview by remember(period) { mutableStateOf(false) }
+    var annualAccounting by remember { mutableStateOf<SharedAccountingViewPolicy.View?>(null) }
     var labels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var moneyHealth by remember {
         mutableStateOf<MoneyPictureHealth?>(null)
@@ -201,6 +204,23 @@ fun ReportsInsightsScreen(
 
     var loadError by remember { mutableStateOf<String?>(null) }
     var retryLoad by remember { mutableIntStateOf(0) }
+    LaunchedEffect(revision.revision, period, retryLoad) {
+        annualAccounting = null
+        if (period == "Year") {
+            val year = Calendar.getInstance().get(Calendar.YEAR)
+            annualAccounting = try {
+                val evidence = withContext(Dispatchers.IO) {
+                    StatementMatchDecisionStore(context).read(year).sharedAccounting
+                }
+                SharedAccountingReportScopePolicy.forPeriod(period, year, evidence)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                android.util.Log.w("PesaTrackScreens", "Annual accounting evidence unavailable", failure)
+                null
+            }
+        }
+    }
     LaunchedEffect(revision.revision, period, retryLoad) {
         loadError = null
         categoryReview = emptyList()
@@ -423,6 +443,9 @@ fun ReportsInsightsScreen(
                     },
                 eyebrow = reportPeriodLabel ?: period
             )
+        }
+        if (period == "Year") item {
+            SharedAccountingReportCard(annualAccounting)
         }
         item {
             PesaCard {
