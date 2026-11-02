@@ -9,6 +9,43 @@ import java.security.MessageDigest
 
 /** Sidecar evidence only: these rows never participate in the canonical money ledger. */
 internal object FingerprintConflictStore {
+    data class PendingConflict(
+        val id: Long,
+        val existingTransactionId: Long,
+        val sourceKind: String,
+        val transactionCode: String,
+        val type: String,
+        val amountMinor: Long,
+        val feeMinor: Long,
+        val occurredAtEpochMs: Long
+    )
+
+    fun listPending(db: SQLiteDatabase): List<PendingConflict> = db.rawQuery(
+        """
+        SELECT id, existing_transaction_id, source_kind, transaction_code,
+               type, amount_minor, fee_minor, occurred_at_epoch_ms
+        FROM fingerprint_conflicts
+        WHERE review_state = 'PENDING'
+        ORDER BY id DESC
+        LIMIT 200
+        """.trimIndent(), null
+    ).use { cursor ->
+        buildList {
+            while (cursor.moveToNext()) {
+                add(PendingConflict(
+                    id = cursor.getLong(0),
+                    existingTransactionId = cursor.getLong(1),
+                    sourceKind = cursor.getString(2),
+                    transactionCode = cursor.getString(3),
+                    type = cursor.getString(4),
+                    amountMinor = cursor.getLong(5),
+                    feeMinor = cursor.getLong(6),
+                    occurredAtEpochMs = cursor.getLong(7)
+                ))
+            }
+        }
+    }
+
     fun capture(
         db: SQLiteDatabase,
         stored: StoredTransaction,

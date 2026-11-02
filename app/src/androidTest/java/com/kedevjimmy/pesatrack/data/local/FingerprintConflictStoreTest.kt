@@ -68,4 +68,16 @@ class FingerprintConflictStoreTest {
         assertEquals(0L, store.getByTransactionCode("SYNTHETIC123")!!.feeMinor)
         assertEquals(1, count("fingerprint_conflicts"))
     }
+
+    @Test fun pendingConflictCanBeReadWithoutPostingAnotherTransaction() {
+        val store = TransactionStore.get(context)
+        store.insertIfNew(observation(45_000L), null, "sms", epoch)
+        store.insertIfNew(observation(46_000L), null, "notification", epoch + 1000L)
+        val pending = FingerprintConflictStore.listPending(PesaTrackDatabase.get(context).readableDatabase)
+        assertEquals(1, pending.size)
+        assertEquals("SYNTHETIC123", pending.single().transactionCode)
+        assertEquals(46_000L, pending.single().amountMinor)
+        assertEquals("notification", pending.single().sourceKind)
+        assertEquals(1, count("transactions"))
+    }
 }
