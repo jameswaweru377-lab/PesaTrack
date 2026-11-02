@@ -1,9 +1,13 @@
 # N2 — Statement feature-admission gate
 
-**Current decision: HOLD NEW STATEMENT FEATURES.** R1 physical-device acceptance
-is `NOT RUN`, and the T1 persistence suite is not yet a required, executed
-release-candidate gate. A planned test, green JVM build or uploaded preview APK
-does not lift this hold.
+**Current decision: HOLD NEW POSTING OR ASSURANCE-PROMOTION FEATURES.** On
+2 November 2026, the owner waived mandatory R1 physical-device acceptance and
+T1 Android persistence instrumentation for the scoped, non-posting cross-source
+review integration. Neither test has passed; the waiver does not make them PASS.
+This permits an individually reviewed metadata-only integration after exact-head
+CI, financial-invariant regression tests, and a latest-`main` compatibility
+review. It does not cover automatic posting, totals reconciliation, new
+importers, or promotion of statement assurance.
 
 This is a **development and release decision rule**, not an app feature or a
 GitHub Action that automatically blocks PRs. The owner and reviewers must apply
@@ -32,16 +36,18 @@ is **an expansion**, even if described as a bug fix: it needs its own explicit
 owner decision and the appropriate financial evidence. Active draft work stays
 draft until it meets its own gates; this checklist alone authorizes no merge.
 
-## Evidence required before new features resume
+## Evidence required before posting or assurance features resume
 
 Record a **single final candidate's full source SHA** and link all evidence.
-Any `FAIL`, `NOT RUN`, missing link, or different source SHA keeps admission
-**BLOCKED**. Re-run changed journeys if a later candidate changes relevant code.
+For posting or assurance-promotion scope, any `FAIL`, `NOT RUN`, missing link,
+or different source SHA keeps admission **BLOCKED**. The owner waiver above
+applies only to non-posting review scope. Re-run changed journeys if later
+code changes affect relevant behavior.
 
 | Gate | Required result | Current result |
 |---|---|---|
-| R1 signed physical-phone test | All five journeys and preflight PASS on a named device, using only disposable invented records | **NOT RUN** |
-| T1 Android persistence emulator | An **executed** exact-SHA run with migration, backup/restore, ingestion atomicity, replay, debt and money-aggregate checks PASS | **NOT VERIFIED** |
+| R1 signed physical-phone test | Recommended for non-posting review, required for broader admission | **NOT RUN; OWNER WAIVER FOR REVIEW ONLY** |
+| T1 Android persistence emulator | Recommended for non-posting review, required for broader admission | **NOT VERIFIED; OWNER WAIVER FOR REVIEW ONLY** |
 | Candidate CI and artifact | Exact-SHA Android JVM, lint, build and relevant privacy/security checks PASS; signed identity and version continuity verified | Not a substitute for R1/T1 |
 | Scope approval | Owner reviews the proposed *new* statement capability and its negative, duplicate and financial-correctness coverage after the gates above | **NOT GRANTED BY THIS CHECKLIST** |
 
@@ -58,11 +64,11 @@ and CI run, not in an unsupported claim in this checklist.
 | Evidence | Value |
 |---|---|
 | Full candidate SHA | NOT RECORDED |
-| R1 signed physical-device acceptance record / PASS | NOT RUN |
-| T1 executed emulator run / PASS | NOT VERIFIED |
+| R1 signed physical-device acceptance record / PASS | NOT RUN; waived for review only |
+| T1 executed emulator run / PASS | NOT VERIFIED; waived for review only |
 | Exact-SHA Android CI and signing continuity | NOT RECORDED |
 | Proposed new statement capability and financial safety review | NOT PROPOSED |
-| Owner's dated resume decision | **HOLD** |
+| Owner's dated resume decision | **2026-11-02: allow review-only integration after current-head checks; retain HOLD for posting and assurance changes** |
 
 References: [PesaTrack release process](../RELEASE_PROCESS.md),
 [current state](../../CURRENT_STATE.md), and the N2 canonical tracker
