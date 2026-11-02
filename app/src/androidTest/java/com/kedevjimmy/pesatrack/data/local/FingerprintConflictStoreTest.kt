@@ -80,4 +80,15 @@ class FingerprintConflictStoreTest {
         assertEquals("notification", pending.single().sourceKind)
         assertEquals(1, count("transactions"))
     }
+
+    @Test fun reviewReaderKeepsOriginalAmountAndExcludesOtherYears() {
+        val store = TransactionStore.get(context)
+        store.insertIfNew(observation(45_000L), null, "sms", epoch)
+        store.insertIfNew(observation(46_000L), null, "notification", epoch + 1000L)
+        val item = FingerprintConflictReviewReader(context).read(2026).single()
+        assertEquals(45_000L, item.originalAmountMinor)
+        assertEquals(46_000L, item.incomingAmountMinor)
+        assertTrue(FingerprintConflictReviewReader(context).read(2025).isEmpty())
+        assertEquals(1, count("transactions"))
+    }
 }
