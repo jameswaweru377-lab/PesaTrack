@@ -14,12 +14,20 @@ import com.kedevjimmy.pesatrack.domain.statements.StatementSourceCoveragePolicy
 class StatementEvidenceReadModel(context: Context) {
     private val app = context.applicationContext
 
+    /** Keeps private source descriptions out of generated data-class diagnostics. */
+    class PrivateBankDescriptions internal constructor(private val values: Map<String, String>) {
+        operator fun get(id: String): String? = values[id]
+        override fun toString(): String = "[private bank descriptions]"
+    }
+
     data class Snapshot(
         val observations: List<StatementEvidenceCorrelationPolicy.Observation>,
         val correlation: StatementEvidenceCorrelationPolicy.Result,
         val coverage: List<StatementSourceCoveragePolicy.MonthCoverage>,
         val representedAccounts: Set<String>,
-        val representedSources: Set<String>
+        val representedSources: Set<String>,
+        /** Local-only source text, populated solely for the explicit match review. Never log it. */
+        val bankDescriptions: PrivateBankDescriptions = PrivateBankDescriptions(emptyMap())
     )
 
     /**
@@ -29,7 +37,9 @@ class StatementEvidenceReadModel(context: Context) {
     data class ActivityEvidenceSnapshot(
         val statements: Snapshot,
         val originalActivityMessages: List<StatementEvidenceCorrelationPolicy.Observation>,
-        val eventProof: StatementCrossSourceEventPolicy.Result
+        val eventProof: StatementCrossSourceEventPolicy.Result,
+        val excludedBankSourceCount: Int = 0,
+        val eligibleStatementObservations: List<StatementEvidenceCorrelationPolicy.Observation> = emptyList()
     )
 
     /**
@@ -42,14 +52,25 @@ class StatementEvidenceReadModel(context: Context) {
         endExclusive: Long,
         accountFilter: String? = null
     ): ActivityEvidenceSnapshot {
-        val statements = read(startInclusive, endExclusive, accountFilter)
+        val statements = read(startInclusive, endExclusive, accountFilter, includeBankDescriptions = true)
         val confirmed = FinancialUnderstandingStore.get(app).confirmedAccountIds() +
             AccountOwnershipConsentStore(app).confirmedRevisions().keys
-        val owned = EverydayMoneyStore(app).ownedAccounts().filter {
+        val accounts = EverydayMoneyStore(app).ownedAccounts().filter {
             it.enabled && it.id in confirmed &&
                 (accountFilter == null || it.id == accountFilter) &&
                 it.type in setOf(AccountType.BANK, AccountType.MOBILE_WALLET)
-        }.map { it.id }.toSet()
+        }
+        val owned = accounts.map { it.id }.toSet()
+        val bankArchive = StatementBankArchiveStore(app)
+        val matchingSources = accounts.filter { it.type == AccountType.BANK }.flatMap { account ->
+            bankArchive.sourceIdsMatchingIdentity(account.id, account.identifier)
+        }.toSet()
+        val eligibleStatements = statements.observations.filter {
+            it.source != StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT || it.sourceId in matchingSources
+        }
+        val excludedBankSources = statements.observations.filter {
+            it.source == StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT && it.sourceId !in matchingSources
+        }.map { it.sourceId }.distinct().size
         val remaining = 20_000 - statements.observations.size
         require(remaining > 0) {
             "This evidence range is too large. Choose a shorter period."
@@ -62,13 +83,16 @@ class StatementEvidenceReadModel(context: Context) {
             statements = statements,
             originalActivityMessages = messages,
             eventProof = StatementCrossSourceEventPolicy.reconcile(
-                statements.observations + messages, owned
-            )
+                eligibleStatements + messages, owned
+            ),
+            excludedBankSourceCount = excludedBankSources,
+            eligibleStatementObservations = eligibleStatements
         )
     }
 
     /** Bounded [startInclusive, endExclusive) source view; call on a worker thread. */
-    fun read(startInclusive: Long, endExclusive: Long, accountFilter: String? = null): Snapshot {
+    fun read(startInclusive: Long, endExclusive: Long, accountFilter: String? = null,
+             includeBankDescriptions: Boolean = false): Snapshot {
         require(startInclusive > 0L && endExclusive > startInclusive)
         require(accountFilter == null || accountFilter.isNotBlank())
         val confirmed = FinancialUnderstandingStore.get(app).confirmedAccountIds() +
@@ -78,6 +102,7 @@ class StatementEvidenceReadModel(context: Context) {
                 it.type in setOf(AccountType.BANK, AccountType.MOBILE_WALLET)
         }
         val evidence = mutableListOf<StatementEvidenceCorrelationPolicy.Observation>()
+        val bankDescriptions = mutableMapOf<String, String>()
         fun add(observation: StatementEvidenceCorrelationPolicy.Observation) {
             require(evidence.size < 20_000) {
                 "This evidence range is too large. Choose a shorter period."
@@ -107,14 +132,16 @@ class StatementEvidenceReadModel(context: Context) {
                 if (source.lastAt < startInclusive || source.firstAt >= endExclusive) continue
                 for (leg in archive.legsFor(source.id)) {
                     if (leg.occurredAt !in startInclusive until endExclusive) continue
+                    val evidenceId = "bank:${source.id}:${leg.number}"
                     add(StatementEvidenceCorrelationPolicy.Observation(
-                        id = "bank:${source.id}:${leg.number}",
+                        id = evidenceId,
                         source = StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT,
                         sourceId = source.id, accountId = source.accountId,
                         currency = source.currency, occurredAt = leg.occurredAt,
                         movementMinor = leg.movementMinor, reference = leg.reference,
                         ownershipConfirmed = true, sourceTotalsVerified = true
                     ))
+                    if (includeBankDescriptions) bankDescriptions[evidenceId] = leg.description
                 }
             }
         }
@@ -125,6 +152,6 @@ class StatementEvidenceReadModel(context: Context) {
         return Snapshot(ordered,
             StatementEvidenceCorrelationPolicy.reconcile(ordered, confirmed),
             StatementSourceCoveragePolicy.analyze(ordered),
-            ordered.map { it.accountId }.toSet(), ordered.map { it.sourceId }.toSet())
+            ordered.map { it.accountId }.toSet(), ordered.map { it.sourceId }.toSet(), PrivateBankDescriptions(bankDescriptions))
     }
 }

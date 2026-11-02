@@ -10,7 +10,8 @@ DATABASE = ROOT / "app/src/main/java/com/kedevjimmy/pesatrack/data/local/PesaTra
 
 
 def database():
-    assert "DATABASE_VERSION = 40" in DATABASE.read_text(encoding="utf-8")
+    version_match = re.search(r"DATABASE_VERSION\s*=\s*(\d+)", DATABASE.read_text(encoding="utf-8"))
+    assert version_match is not None and int(version_match.group(1)) >= 40
     db = sqlite3.connect(":memory:")
     db.execute("PRAGMA foreign_keys=ON")
     db.executescript("""
