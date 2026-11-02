@@ -135,6 +135,10 @@ android {
     }
 
     buildTypes {
+        getByName("debug") {
+            // Review APK installs beside the existing PesaTrack; no shared app data.
+            applicationIdSuffix = ".review"
+        }
         getByName("release") {
             if (releaseSigningConfigured) {
                 signingConfig =
