@@ -761,6 +761,7 @@ fun PesaTrackApp(
                     onHistoricalImportClick = { navController.navigate("historical-import") },
                     homeCache = homeScreenCache,
                     onPlanClick = { navigateToTab(MainTab.PLAN) },
+                    onPayCycleClick = { navController.navigate("pay-cycle") },
                     onActivityClick = { navigateToTab(MainTab.ACTIVITY) },
                     initialPage = initialSection
                 )

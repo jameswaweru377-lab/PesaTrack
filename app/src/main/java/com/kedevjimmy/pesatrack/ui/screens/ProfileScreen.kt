@@ -35,6 +35,7 @@ fun ProfileScreen(
     onHistoricalImportClick: (() -> Unit)? = null,
     homeCache: HomeScreenCache? = null,
     onPlanClick: (() -> Unit)? = null,
+    onPayCycleClick: (() -> Unit)? = null,
     onActivityClick: (() -> Unit)? = null,
     onPageChanged: (String) -> Unit = {},
     initialPage: String = "home"
@@ -148,7 +149,7 @@ fun ProfileScreen(
             moneyHabits = financialPresentation,
             onMoneyHabits = { page = "habits" },
             personal = { page = "personal" },
-            onPayCycle = onPlanClick ?: onSettingsClick
+            onPayCycle = onPayCycleClick ?: onPlanClick ?: onSettingsClick
         )
     }
 }
