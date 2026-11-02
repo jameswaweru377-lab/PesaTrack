@@ -557,6 +557,9 @@ fun PesaTrackApp(
                     onStatementActivityClick = {
                         navController.navigate("statement-activity") { launchSingleTop = true }
                     },
+                    onStatementImportClick = {
+                        navController.navigate("statement-import") { launchSingleTop = true }
+                    },
                     onDataHealthClick = {
                         navController.navigate("data-health") { launchSingleTop = true }
                     },
@@ -583,6 +586,30 @@ fun PesaTrackApp(
                 StatementIntelligenceDashboard(
                     onDismiss = { navController.popBackStack() },
                     modifier = Modifier.padding(padding),
+                    onActivityTransactionClick = { id ->
+                        navController.navigate("transaction-detail/$id")
+                    }
+                )
+            }
+        }
+
+        composable("statement-import") {
+            // Directly opens the existing issuer chooser and PDF/CSV importer.
+            AppScaffold(
+                currentTab = MainTab.MORE,
+                onTabSelected = ::navigateToTab,
+                onProfileClick = {
+                    navController.navigate("profile") { launchSingleTop = true }
+                },
+                onStatementsClick = {
+                    navController.navigate("statement-activity") { launchSingleTop = true }
+                },
+                useHomeHeader = true
+            ) { padding ->
+                StatementIntelligenceDashboard(
+                    onDismiss = { navController.popBackStack() },
+                    modifier = Modifier.padding(padding),
+                    startImport = true,
                     onActivityTransactionClick = { id ->
                         navController.navigate("transaction-detail/$id")
                     }
