@@ -403,9 +403,15 @@ The current product includes the canonical ledger, provider-neutral financial in
 
 ## Offline financial laboratory
 
-- Python is development-only: fixed invented fixtures and read-only comparison
-  with actual Kotlin outputs; no device SMS or ledger import, network/model
-  integration, or Python runtime shipped in the APK.
+- The Python financial **laboratory** (`tools/python_lab`) is development-only:
+  fixed invented fixtures and read-only comparisons with Kotlin outputs, with
+  no device SMS/ledger input or network/model integration. This laboratory
+  code is not bundled in the app.
+- Separately, the Android APK **does** embed Python 3.13 through Chaquopy for
+  offline PDF extraction (`pdfplumber==0.11.9`). This does not send documents
+  off-device. The current native build is ARM64-only with Android 7.0+ support;
+  see `docs/acceptance/R2_ANDROID_COMPATIBILITY.md` for installation limits,
+  pinned versus transitive dependencies, and unmeasured size contribution.
 - Four contract groups cover sender/account ownership evidence, configured
   transfers, debt interpretation histories and remembered merchant identities.
   29 authored scenarios at eight monetary scales produce 232 regression cases;
