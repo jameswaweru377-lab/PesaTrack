@@ -375,7 +375,7 @@ class PesaTrackDatabaseMigrationTest {
 
     private companion object {
         const val DATABASE_NAME = "pesatrack.db"
-        const val CURRENT_VERSION = 40
+        const val CURRENT_VERSION = 41
         const val V1_FINGERPRINT = "migration-fixture-v1"
         const val V30_FINGERPRINT = "migration-fixture-v30"
         const val TEST_AMOUNT_MINOR = 12_345L

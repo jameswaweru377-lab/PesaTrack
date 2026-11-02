@@ -185,6 +185,9 @@ class TransactionStore private constructor(context: Context) {
         } else {
             val existing = getByTransactionCode(parsed.transactionCode)
             if (existing != null && (evidence != null || existing.sourceKind == "manual_setup")) {
+                if (FingerprintConflictStore.capture(
+                    database.writableDatabase, existing, parsed, occurredAtEpochMs, sourceKind
+                )) return false
                 if (evidence != null) updateExistingDuplicateWithEvidence(
                     stored = existing,
                     parsed = parsed,
@@ -328,6 +331,9 @@ class TransactionStore private constructor(context: Context) {
         val existingFingerprint =
             getByFingerprint(fingerprint)
         if (existingFingerprint != null) {
+            if (FingerprintConflictStore.capture(
+                database.writableDatabase, existingFingerprint, parsed, occurredAtEpochMs, sourceKind
+            )) return false
             val preservesUserDecision =
                 existingFingerprint.reviewState in
                     setOf(
