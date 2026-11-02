@@ -61,7 +61,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 private enum class ImportWindow {
     THIS_MONTH,
     LAST_30_DAYS,
-    LAST_90_DAYS
+    LAST_90_DAYS,
+    ALL_HISTORY
 }
 
 @Composable
@@ -303,6 +304,19 @@ fun HistoricalImportScreen(
                             Modifier.weight(1f)
                         )
                     }
+                    WindowChip(
+                        "All history",
+                        selectedWindow == ImportWindow.ALL_HISTORY,
+                        { selectedWindow = ImportWindow.ALL_HISTORY },
+                        Modifier.fillMaxWidth()
+                    )
+                    if (selectedWindow == ImportWindow.ALL_HISTORY) {
+                        Text(
+                            "This may scan a large SMS history. Only recognized financial records are saved; existing transactions are skipped.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     Text(
                         "Imported transactions keep their original SMS/transaction date. Re-importing the same messages is safe because duplicates are ignored.",
                         style = MaterialTheme.typography.bodySmall,
@@ -414,6 +428,20 @@ fun HistoricalImportScreen(
                         ImportResultRow("New transactions added", importResult.inserted)
                         ImportResultRow("Duplicates skipped", importResult.duplicates)
                         ImportResultRow("Unrelated messages ignored", importResult.ignored)
+                        if (importResult.inserted == 0) {
+                            Text(
+                                when {
+                                    importResult.matched > 0 ->
+                                        "No new transactions were added. Matched financial messages may already be saved, may update existing records, or may not represent new ledger movements."
+                                    importResult.scanned == 0 ->
+                                        "No SMS were found in the selected range. Try All history or check SMS access."
+                                    else ->
+                                        "No supported financial transactions were found in this range. Try All history or review the enabled financial sources."
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         if (importResult.resumed) {
                             Text(
                                 "This run resumed from the most recent saved checkpoint instead of rescanning the completed part of the interrupted import.",
@@ -522,6 +550,7 @@ private fun hasSmsPermission(context: Context): Boolean =
     context.checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
 
 private fun importStart(window: ImportWindow): Long {
+    if (window == ImportWindow.ALL_HISTORY) return 0L
     val calendar = Calendar.getInstance()
 
     when (window) {
@@ -538,6 +567,7 @@ private fun importStart(window: ImportWindow): Long {
         ImportWindow.LAST_90_DAYS -> {
             calendar.add(Calendar.DAY_OF_YEAR, -90)
         }
+        ImportWindow.ALL_HISTORY -> return 0L
     }
 
     return calendar.timeInMillis

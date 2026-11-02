@@ -90,6 +90,7 @@ fun MoreScreen(
     onImportClick: () -> Unit,
     onPastTransactionsClick: () -> Unit,
     onStatementActivityClick: () -> Unit,
+    onStatementImportClick: () -> Unit,
     onDataHealthClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onReportsClick: () -> Unit
@@ -104,6 +105,7 @@ fun MoreScreen(
     var photo by remember { mutableStateOf<Bitmap?>(photoStore.load()) }
     var avatar by remember { mutableStateOf(preferences.getString("profile_avatar", "J").orEmpty()) }
     var importOptionsOpen by remember { mutableStateOf(false) }
+    var backupOpen by remember { mutableStateOf(false) }
     DisposableEffect(lifecycleOwner, photoStore, preferences) {
         val listener = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -130,13 +132,14 @@ fun MoreScreen(
             onAccountsClick, onReportsClick) }
         item { MorePreferencesSection(onProfileSectionClick, onSettingsClick) }
         item { MoreSupportSection(onProfileSectionClick, onDataHealthClick,
-            onPastTransactionsClick, onAccountsClick) }
+            onPastTransactionsClick, onAccountsClick, { backupOpen = true }) }
     }
+    if (backupOpen) BackupRestoreSheet(onDismiss = { backupOpen = false })
     if (importOptionsOpen) {
         MoreImportChoiceSheet(
             onDismiss = { importOptionsOpen = false },
             onSms = { importOptionsOpen = false; onImportClick() },
-            onStatement = { importOptionsOpen = false; onStatementActivityClick() }
+            onStatement = { importOptionsOpen = false; onStatementImportClick() }
         )
     }
 }
@@ -193,7 +196,7 @@ private fun MorePreferencesSection(openProfile: (String) -> Unit, settings: () -
 @Composable
 private fun MoreSupportSection(
     openProfile: (String) -> Unit, diagnostics: () -> Unit,
-    pastTransactions: () -> Unit, funds: () -> Unit
+    pastTransactions: () -> Unit, funds: () -> Unit, backup: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(M.space8)) {
         MoreSectionTitle("Support & tools")
@@ -206,6 +209,12 @@ private fun MoreSupportSection(
                 "Review older activity", "blue", onClick = pastTransactions)
             MoreSettingsRow(Icons.Rounded.Wallet, "Funds",
                 "Balances, sources & movement", "green", onClick = funds)
+            MoreSettingsRow(Icons.Rounded.FileDownload, "Backup & restore",
+                "Encrypted backup of your financial records", "blue", onClick = backup)
+            MoreSettingsRow(Icons.Rounded.Description, "Terms of Service",
+                "Legal terms and important notices", "purple") {
+                openProfile("terms")
+            }
             MoreSettingsRow(Icons.Rounded.Info, "About PesaTrack",
                 "Version, legal & product info", "purple", last = true) {
                 openProfile("about")
@@ -299,7 +308,7 @@ private fun MoreHeroContent(name: String, avatar: String, photo: Bitmap?, onClic
         horizontalArrangement = Arrangement.spacedBy(M.space11)
     ) {
         MoreHeroAvatar(name, avatar, photo)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(M.space6)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(M.space3)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(M.space5)) {
                 Text(name, color = Color.White, fontSize = 15.sp,
@@ -309,7 +318,7 @@ private fun MoreHeroContent(name: String, avatar: String, photo: Bitmap?, onClic
                 MorePremiumBadge()
             }
             Text("Your money, your plans.", color = Color.White.copy(alpha = .94f),
-                fontSize = 11.sp, maxLines = 1)
+                fontSize = 11.sp, lineHeight = 14.sp, maxLines = 1)
             MoreViewProfileAction(onClick)
         }
     }
@@ -358,8 +367,8 @@ private fun MoreViewProfileAction(onClick: () -> Unit) {
         Row(Modifier.padding(horizontal = M.space12, vertical = M.space6),
             horizontalArrangement = Arrangement.spacedBy(M.space5),
             verticalAlignment = Alignment.CenterVertically) {
-            Text("View profile", fontSize = 11.sp,
-                fontWeight = FontWeight.Bold, color = M.actionInk)
+            Text("View profile", fontSize = 12.sp, lineHeight = 16.sp,
+                fontWeight = FontWeight.Bold, color = M.actionInk, maxLines = 1)
             Icon(Icons.Rounded.ArrowForward, contentDescription = null,
                 modifier = Modifier.size(M.space14), tint = M.actionInk)
         }
