@@ -17,6 +17,9 @@ import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.RulePreset
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.rules.SmartRuleEngine
+import com.kedevjimmy.pesatrack.domain.rules.PhoneAlertPolicy
+import com.kedevjimmy.pesatrack.domain.rules.BillNotificationCopy
+import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -283,33 +286,13 @@ class BillSchedules(private val context: Context) {
     fun notifyDue() {
         if (!prefs.getBoolean("reminders_allowed", true)) return
         if (Calendar.getInstance().get(Calendar.HOUR_OF_DAY) !in 8..20) return
-        if (
-            Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
+        if (!PhoneNotificationChannels.canPost(context)) return
 
         val manager =
             context.getSystemService(
                 Context.NOTIFICATION_SERVICE
             ) as NotificationManager
-        if (!manager.areNotificationsEnabled()) {
-            return
-        }
-
-        if (Build.VERSION.SDK_INT >= 26) {
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    "bills",
-                    "Bill reminders",
-                    NotificationManager.IMPORTANCE_DEFAULT
-                )
-            )
-        }
+        PhoneNotificationChannels.ensure(context, PhoneAlertPolicy.BILL_CHANNEL, "Upcoming bills")
 
         val now = Calendar.getInstance()
 
@@ -397,38 +380,28 @@ class BillSchedules(private val context: Context) {
                                             PendingIntent.FLAG_UPDATE_CURRENT
                                     )
 
-                            manager.notify(
-                                bill.rule.id +
-                                    dueEpochMs,
-                                921,
-                                NotificationCompat
-                                    .Builder(
-                                        context,
-                                        "bills"
-                                    )
-                                    .setSmallIcon(
-                                        android.R.drawable.ic_dialog_info
-                                    )
-                                    .setContentTitle(
-                                        (
-                                            bill.rule
-                                                .displayLabel
-                                                ?: bill.rule.name
-                                            ) +
-                                            " is coming up"
-                                    )
-                                    .setContentText(
-                                        "Open PesaTrack to check this bill."
-                                    )
-                                    .setContentIntent(
-                                        open
-                                    )
-                                    .setAutoCancel(true)
-                                    .setVisibility(
-                                        NotificationCompat.VISIBILITY_PRIVATE
-                                    )
-                                    .build()
-                            )
+                            val category = bill.rule.category
+                            val notice = PhoneNoticeDesign.apply(
+                                NotificationCompat.Builder(context, PhoneAlertPolicy.BILL_CHANNEL),
+                                context,
+                                BillNotificationCopy.badge(category),
+                                BillNotificationCopy.merchant(bill.rule.displayLabel, bill.rule.name),
+                                BillNotificationCopy.description(category),
+                                "View bill",
+                                if (category == TransactionCategory.RENT) PhoneNoticeDesign.Illustration.HOME
+                                else PhoneNoticeDesign.Illustration.BELL,
+                                open
+                            ).setAutoCancel(true)
+                                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+                                .setPublicVersion(PhoneNotificationChannels.privatePublicVersion(
+                                    context, PhoneAlertPolicy.BILL_CHANNEL
+                                )).build()
+                            try {
+                                manager.notify(bill.rule.id + dueEpochMs, 921, notice)
+                            } catch (_: SecurityException) {
+                                return@forEach
+                            }
                             prefs.edit()
                                 .putBoolean(
                                     key,

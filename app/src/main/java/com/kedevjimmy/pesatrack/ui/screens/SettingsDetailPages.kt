@@ -40,6 +40,10 @@ import com.kedevjimmy.pesatrack.ingestion.NotificationSourceTrustStore
 import com.kedevjimmy.pesatrack.planning.BillSchedules
 import com.kedevjimmy.pesatrack.planning.PlanningReminders
 import com.kedevjimmy.pesatrack.planning.ReviewAttentionReminders
+import com.kedevjimmy.pesatrack.planning.BackupReminders
+import com.kedevjimmy.pesatrack.planning.PhoneNotificationPreview
+import com.kedevjimmy.pesatrack.salary.SalaryReminders
+import com.kedevjimmy.pesatrack.domain.rules.PhoneAlertType
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
@@ -207,6 +211,8 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
     var billOn by remember { mutableStateOf(bills.remindersEnabled()) }
     var budgetOn by remember { mutableStateOf(PlanningReminders.enabled(context, "budgets")) }
     var goalOn by remember { mutableStateOf(PlanningReminders.enabled(context, "goals")) }
+    var salaryOn by remember { mutableStateOf(SalaryReminders.preferences(context).getBoolean("salary_reminders_enabled", false)) }
+    var backupOn by remember { mutableStateOf(BackupReminders.enabled(context)) }
     var activityReviewOn by remember { mutableStateOf(ReviewAttentionReminders.enabled(context)) }
     val smart = remember { com.kedevjimmy.pesatrack.planning.SmartNoticePreferences(context) }
     var accountReviewOn by remember { mutableStateOf(smart.enabled(com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.ACCOUNT)) }
@@ -215,6 +221,10 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
     var smartMode by remember { mutableStateOf(smart.mode()) }
     var snoozed by remember { mutableStateOf(smart.snoozeUntil() > System.currentTimeMillis()) }
     var moreOptions by rememberSaveable { mutableStateOf(false) }
+    var showTests by rememberSaveable { mutableStateOf(false) }
+    var testType by remember { mutableStateOf(PhoneAlertType.BILL) }
+    var testDelay by remember { mutableIntStateOf(0) }
+    var testStatus by remember { mutableStateOf("") }
     var allowed by remember { mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled()) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it }
     val settings = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { allowed = NotificationManagerCompat.from(context).areNotificationsEnabled() }
@@ -243,6 +253,11 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
                     ProfileTone.BLUE, checked = billOn, onToggle = {
                         billOn = it; bills.setGlobalReminderLeadDays(lead, it); if (it) ask()
                     }),
+                ProfilePremiumItem(Icons.Rounded.Payments, "Salary checks",
+                    "Check if your expected payday passes without a receipt", ProfileTone.GREEN,
+                    checked = salaryOn, onToggle = {
+                        salaryOn = it; SalaryReminders.setEnabled(context, it); if (it) ask()
+                    }),
                 ProfilePremiumItem(Icons.Rounded.WarningAmber, "Budget warnings",
                     "Be alerted when you're close to your limit", ProfileTone.PINK,
                     checked = budgetOn, onToggle = {
@@ -259,7 +274,7 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
                         activityReviewOn = it; ReviewAttentionReminders.setEnabled(context, it); if (it) ask()
                     }),
                 ProfilePremiumItem(Icons.Rounded.Groups, "They owe me",
-                    "Get reminded about outstanding payments", ProfileTone.AMBER,
+                    "Review possible repayments, never guessed due dates", ProfileTone.AMBER,
                     checked = paymentOn, onToggle = {
                         paymentOn = it
                         com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(
@@ -270,6 +285,66 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
                     "See the result after your local imports", ProfileTone.BLUE,
                     onClick = { moreOptions = true })
             ))
+        }
+        item { ProfilePremiumGroup(listOf(
+            ProfilePremiumItem(Icons.Rounded.AccountCircle, "Account & data review",
+                "Check accounts that need confirmation", ProfileTone.BLUE,
+                checked = accountReviewOn, onToggle = {
+                    accountReviewOn = it
+                    com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(
+                        context, com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.ACCOUNT, it)
+                    if (it) ask()
+                }),
+            ProfilePremiumItem(Icons.Rounded.Backup, "Monthly backup reminder",
+                "An occasional nudge to save an encrypted backup", ProfileTone.VIOLET,
+                checked = backupOn, onToggle = {
+                    backupOn = it; BackupReminders.setEnabled(context, it); if (it) ask()
+                })
+        )) }
+        item { ProfilePremiumGroup(listOf(ProfilePremiumItem(
+            Icons.Rounded.NotificationsActive, "Send a test phone alert",
+            "Preview a real Android alert now or in 10, 20 or 30 minutes",
+            ProfileTone.GREEN, onClick = { showTests = !showTests }
+        ))) }
+        if (showTests) item {
+            PesaCard {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Test a phone pop-up", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("These are sample messages. They don't change your money records.")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        PhoneAlertType.entries.forEach { alert ->
+                            FilterChip(selected = testType == alert, onClick = { testType = alert },
+                                label = { Text(alert.label) })
+                        }
+                    }
+                    Text("When to send", fontWeight = FontWeight.Bold)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(0, 10, 20, 30).forEach { minutes ->
+                            FilterChip(selected = testDelay == minutes, onClick = { testDelay = minutes },
+                                label = { Text(if (minutes == 0) "Now" else "$minutes min") })
+                        }
+                    }
+                    Button(onClick = {
+                        allowed = NotificationManagerCompat.from(context).areNotificationsEnabled()
+                        if (!allowed) {
+                            ask()
+                            testStatus = "Allow PesaTrack notifications in your phone settings first."
+                        } else {
+                            val sent = PhoneNotificationPreview.send(context, testType, testDelay)
+                            testStatus = if (!sent) "Could not send. Check Android notification permissions."
+                                else if (testDelay == 0) "Test sent. Check your phone's notification shade."
+                                else "Test scheduled in about $testDelay minutes. Android may delay it slightly."
+                        }
+                    }, modifier = Modifier.fillMaxWidth()) { Text("Send test alert") }
+                    if (testStatus.isNotBlank()) Text(testStatus)
+                    Text("For top-of-screen banners on Redmi, allow PesaTrack notifications and floating notifications in phone settings. Do Not Disturb can hide banners.",
+                        style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = {
+                        settings.launch(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+                    }) { Text("Open phone notification settings") }
+                }
+            }
         }
         item { ProfilePremiumGroup(listOf(ProfilePremiumItem(
             Icons.Rounded.Schedule, "Reminder timing", "Choose when alerts arrive",
@@ -306,14 +381,6 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
         }
         if (moreOptions) item {
             ProfilePremiumGroup(listOf(
-                ProfilePremiumItem(Icons.Rounded.AccountCircle, "Account review alerts",
-                    "Accounts needing confirmation", ProfileTone.BLUE,
-                    checked = accountReviewOn, onToggle = {
-                        accountReviewOn = it
-                        com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(
-                            context, com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind.ACCOUNT, it)
-                        if (it) ask()
-                    }),
                 ProfilePremiumItem(Icons.Rounded.TipsAndUpdates, "Helpful tips",
                     "Occasional app suggestions", ProfileTone.GREEN,
                     checked = discoveryOn, onToggle = {
