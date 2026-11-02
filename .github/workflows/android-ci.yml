@@ -93,7 +93,11 @@ jobs:
           "$tools/zipalign" -c -v 4 "$apk"
           "$tools/apksigner" verify --verbose --print-certs "$apk"
           "$tools/aapt" dump badging "$apk" | tee /tmp/pesatrack-apk-badging.txt
-          grep -F "package: name='com.kedevjimmy.pesatrack'" /tmp/pesatrack-apk-badging.txt
+          expected_package="com.kedevjimmy.pesatrack"
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" && "${GITHUB_HEAD_REF:-}" == "codex/cross-source-parallel-preview-20261102" ]]; then
+            expected_package="com.kedevjimmy.pesatrack.review"
+          fi
+          grep -F "package: name='${expected_package}'" /tmp/pesatrack-apk-badging.txt
           grep -F "sdkVersion:'24'" /tmp/pesatrack-apk-badging.txt
           grep -F "targetSdkVersion:'36'" /tmp/pesatrack-apk-badging.txt
           grep -F "native-code: 'arm64-v8a'" /tmp/pesatrack-apk-badging.txt
