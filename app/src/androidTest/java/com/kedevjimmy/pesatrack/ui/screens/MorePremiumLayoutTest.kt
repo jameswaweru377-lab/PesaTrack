@@ -34,6 +34,7 @@ class MorePremiumLayoutTest {
                     onImportClick = { destination = "imports" },
                     onPastTransactionsClick = { destination = "activity" },
                     onStatementActivityClick = { destination = "statements" },
+                    onStatementImportClick = { destination = "statement-import" },
                     onDataHealthClick = { destination = "diagnostics" },
                     onSettingsClick = { destination = "settings" },
                     onReportsClick = { destination = "reports" }
@@ -51,6 +52,9 @@ class MorePremiumLayoutTest {
         compose.runOnIdle { assertEquals("accounts", destination) }
         compose.onNodeWithText("Reports").performClick()
         compose.runOnIdle { assertEquals("reports", destination) }
+        compose.onNodeWithText("Imports").performClick()
+        compose.onNodeWithText("Import PDF or CSV statement").performClick()
+        compose.runOnIdle { assertEquals("statement-import", destination) }
     }
 
     @Test
@@ -66,6 +70,7 @@ class MorePremiumLayoutTest {
                     onImportClick = { destination = "imports" },
                     onPastTransactionsClick = { destination = "activity" },
                     onStatementActivityClick = { destination = "statements" },
+                    onStatementImportClick = { destination = "statement-import" },
                     onDataHealthClick = { destination = "diagnostics" },
                     onSettingsClick = { destination = "settings" },
                     onReportsClick = { destination = "reports" }
@@ -88,6 +93,10 @@ class MorePremiumLayoutTest {
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("Past transactions"))
         compose.onNodeWithText("Past transactions").performClick()
         compose.runOnIdle { assertEquals("activity", destination) }
+
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Terms of Service"))
+        compose.onNodeWithText("Terms of Service").performClick()
+        compose.runOnIdle { assertEquals("terms", destination) }
 
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("About PesaTrack"))
         compose.onNodeWithText("About PesaTrack").performClick()
