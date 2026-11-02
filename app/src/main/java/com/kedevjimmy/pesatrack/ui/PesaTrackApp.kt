@@ -49,6 +49,7 @@ import com.kedevjimmy.pesatrack.ui.screens.HomeScreenCache
 import com.kedevjimmy.pesatrack.ui.screens.MoneySetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoreScreen
 import com.kedevjimmy.pesatrack.ui.screens.StatementIntelligenceDashboard
+import com.kedevjimmy.pesatrack.ui.screens.StatementImportSheet
 import com.kedevjimmy.pesatrack.ui.screens.MpesaConnectionScreen
 import com.kedevjimmy.pesatrack.ui.screens.OnboardingScreen
 import com.kedevjimmy.pesatrack.ui.screens.PayCycleActivityScreen
@@ -544,7 +545,7 @@ fun PesaTrackApp(
                     onProfileSectionClick = { section ->
                         // Strict section allowlist: these are real Profile destinations.
                         if (section in setOf(
-                                "notifications", "security", "appearance", "privacy", "support", "about"
+                                "notifications", "security", "appearance", "privacy", "support", "about", "terms"
                             )
                         ) {
                             navController.navigate("profile?section=$section") { launchSingleTop = true }
@@ -557,6 +558,9 @@ fun PesaTrackApp(
                     onStatementActivityClick = {
                         navController.navigate("statement-activity") { launchSingleTop = true }
                     },
+                    onStatementImportClick = {
+                        navController.navigate("statement-import") { launchSingleTop = true }
+                    },
                     onDataHealthClick = {
                         navController.navigate("data-health") { launchSingleTop = true }
                     },
@@ -568,6 +572,16 @@ fun PesaTrackApp(
                     }
                 )
             }
+        }
+
+        // Import opens the existing account/provider picker directly; the
+        // Statements dashboard is a separate archive destination.
+        composable("statement-import") {
+            StatementImportSheet(
+                onDismiss = { navController.popBackStack() },
+                onChanged = {},
+                statementOnly = true
+            )
         }
 
         composable("statement-activity") {
