@@ -163,7 +163,7 @@ class StatementArchiveReceivableSearchTest {
         assertEquals(existing, archive.batches().single())
 
         context.openOrCreateDatabase("pesatrack_statement_activity.db", Context.MODE_PRIVATE, null).use { db ->
-            assertEquals(4, db.version)
+            assertEquals(StatementArchiveDb.VERSION, db.version)
             db.rawQuery("PRAGMA index_list('statement_activity_lines')", null).use { c ->
                 var found = false
                 while (c.moveToNext()) {

@@ -21,7 +21,7 @@ class ConnectedConceptJourneyTest {
     @After fun cleanup(){compose.runOnIdle{};PesaTrackDatabase.resetForTests();context.deleteDatabase("pesatrack.db")}
     @Test fun goalCanBeCreatedEditedAndRemovedWithoutFabricatingMoney() {
         compose.setContent {PesaTrackTheme {SavingGoalsScreen(PaddingValues(),{}, {})}}
-        compose.onNodeWithText("Create Goal").performScrollTo().performClick()
+        compose.onNodeWithText("+ New goal").performScrollTo().performClick()
         compose.onNodeWithText("Goal name").performTextInput("Emergency fund")
         compose.onNodeWithText("Monthly saving target (KES)").performTextInput("5000")
         compose.onNodeWithText("Overall goal target (KES)").performScrollTo().performTextInput("50000")
@@ -69,9 +69,9 @@ class ConnectedConceptJourneyTest {
     }
     @Test fun profileNameIsEditableAndPersisted() {
         compose.setContent {PesaTrackTheme(darkTheme=true) {ProfileScreen(PaddingValues(),{}, {})}}
-        compose.onNodeWithText("Personal details").performScrollTo().performClick()
-        compose.onNodeWithText("Your name").performTextInput("Test user")
-        compose.onNodeWithText("Save details").performClick()
+        compose.onNodeWithText("Personal information").performScrollTo().performClick()
+        compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("Test user")
+        compose.onNodeWithText("Save changes").performScrollTo().performClick()
         compose.waitUntil(5000){context.getSharedPreferences("pesatrack_preferences",0).getString("profile_name","")=="Test user"}
     }
     @Test fun reportsSwitchBetweenPeriodsWithoutAStuckLoadingState() {
