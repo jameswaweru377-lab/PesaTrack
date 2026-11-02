@@ -9,6 +9,9 @@ import com.kedevjimmy.pesatrack.domain.statements.StatementMatchReviewPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementPossibleTransferPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementAccountMentionPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementPossibleCopyPolicy
+import com.kedevjimmy.pesatrack.domain.statements.CrossSourceTotalsPreviewPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementUnifiedOverviewPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementReconciliationPreviewPolicy
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -27,7 +30,9 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
                         val excludedBankSourceCount: Int = 0,
                         val possibleTransfers: List<StatementPossibleTransferPolicy.Suggestion> = emptyList(),
                         val accountMentions: List<StatementAccountMentionPolicy.Hint> = emptyList(),
-                        val possibleCopies: List<StatementPossibleCopyPolicy.Suggestion> = emptyList())
+                        val possibleCopies: List<StatementPossibleCopyPolicy.Suggestion> = emptyList(),
+                        val totalsPreview: CrossSourceTotalsPreviewPolicy.Preview? = null,
+                        val reconciliationPreview: StatementReconciliationPreviewPolicy.Preview? = null)
 
     fun read(year: Int): Snapshot = synchronized(CanonicalStoreLock.monitor) { current(year) }
 
@@ -135,6 +140,20 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
             .map { (id, account) -> StatementAccountMentionPolicy.Account(id, account.identifier, account.type == "MOBILE_WALLET") }
         val mentionedExclusions = shownIds.toSet() + possibleCopies.flatMap { it.rows }.map { it.id }
         val accountMentions = StatementAccountMentionPolicy.find(bankRecords, confirmedAccounts, mentionedExclusions, start, end)
-        return Snapshot(review, candidates, saved, missingConsent, source.excludedBankSourceCount, possibleTransfers, accountMentions, possibleCopies)
+        val statementCash = StatementUnifiedOverviewPolicy.project(year, source.statements.coverage).cashSummary
+        // Explicitly bypass Activity maintenance/reclassification: this screen is read-only.
+        val activitySummary = runCatching {
+            TransactionStore.get(app).activitySnapshotBetween(start, end, performMaintenance = false).summary
+        }.getOrNull()
+        val totalsPreview = CrossSourceTotalsPreviewPolicy.project(
+            activitySummary?.let { CrossSourceTotalsPreviewPolicy.ActivityTotals(it.incomeMinor, it.spentMinor) },
+            statementCash, review.transfers.size + review.sameMovements.size, review.ambiguousCount)
+        val proposed = StatementReconciliationPreviewPolicy.project(review,
+            candidates.mapNotNull { candidate ->
+                saved[candidate.hash]?.let { candidate.rows.map { it.id }.toSet() to
+                    StatementReconciliationPreviewPolicy.Decision.valueOf(it.name) }
+            }.toMap())
+        return Snapshot(review, candidates, saved, missingConsent, source.excludedBankSourceCount,
+            possibleTransfers, accountMentions, possibleCopies, totalsPreview, proposed)
     }
 }

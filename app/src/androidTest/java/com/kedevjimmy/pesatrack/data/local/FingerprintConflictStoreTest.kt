@@ -124,4 +124,31 @@ class FingerprintConflictStoreTest {
         assertEquals(200, FingerprintConflictReviewReader(context).read(2027).size)
         assertEquals(1, count("transactions"))
     }
+
+    @Test fun cursorPagesReachMoreThanTwoHundredConflictsWithoutChangingLedger() {
+        val store = TransactionStore.get(context)
+        store.insertIfNew(observation(45_000L), null, "sms", epoch)
+        val original = store.getByTransactionCode("SYNTHETIC123")!!
+        val db = PesaTrackDatabase.get(context).writableDatabase
+        val stored = FingerprintFacts(original.transactionCode, original.type,
+            original.amountMinor, original.feeMinor, original.occurredAtEpochMs)
+        repeat(211) { index ->
+            assertTrue(FingerprintConflictStore.recordIfConflicting(db, original.id, stored,
+                FingerprintFacts("SYNTHETIC123", original.type, 46_000L + index,
+                    0L, epoch + index), "notification"))
+        }
+        val reader = FingerprintConflictReviewReader(context)
+        val all = mutableListOf<FingerprintConflictReviewItem>()
+        var cursor: Long? = Long.MAX_VALUE
+        while (cursor != null) {
+            val page = reader.readPage(2026, cursor, 50)
+            all.addAll(page.items)
+            cursor = page.nextBeforeId
+        }
+        assertEquals(211, all.size)
+        assertEquals(211, all.map { it.conflictId }.toSet().size)
+        assertEquals(1, count("transactions"))
+        assertEquals(211, count("fingerprint_conflicts"))
+        assertEquals(original, store.getByTransactionCode("SYNTHETIC123"))
+    }
 }
