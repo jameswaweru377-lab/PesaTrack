@@ -105,6 +105,7 @@ fun MoreScreen(
     var photo by remember { mutableStateOf<Bitmap?>(photoStore.load()) }
     var avatar by remember { mutableStateOf(preferences.getString("profile_avatar", "J").orEmpty()) }
     var importOptionsOpen by remember { mutableStateOf(false) }
+    var backupOpen by remember { mutableStateOf(false) }
     DisposableEffect(lifecycleOwner, photoStore, preferences) {
         val listener = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -131,8 +132,9 @@ fun MoreScreen(
             onAccountsClick, onReportsClick) }
         item { MorePreferencesSection(onProfileSectionClick, onSettingsClick) }
         item { MoreSupportSection(onProfileSectionClick, onDataHealthClick,
-            onPastTransactionsClick, onAccountsClick) }
+            onPastTransactionsClick, onAccountsClick, { backupOpen = true }) }
     }
+    if (backupOpen) BackupRestoreSheet(onDismiss = { backupOpen = false })
     if (importOptionsOpen) {
         MoreImportChoiceSheet(
             onDismiss = { importOptionsOpen = false },
@@ -194,7 +196,7 @@ private fun MorePreferencesSection(openProfile: (String) -> Unit, settings: () -
 @Composable
 private fun MoreSupportSection(
     openProfile: (String) -> Unit, diagnostics: () -> Unit,
-    pastTransactions: () -> Unit, funds: () -> Unit
+    pastTransactions: () -> Unit, funds: () -> Unit, backup: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(M.space8)) {
         MoreSectionTitle("Support & tools")
@@ -208,9 +210,7 @@ private fun MoreSupportSection(
             MoreSettingsRow(Icons.Rounded.Wallet, "Funds",
                 "Balances, sources & movement", "green", onClick = funds)
             MoreSettingsRow(Icons.Rounded.FileDownload, "Backup & restore",
-                "Encrypted backup of your financial records", "blue") {
-                openProfile("backup")
-            }
+                "Encrypted backup of your financial records", "blue", onClick = backup)
             MoreSettingsRow(Icons.Rounded.Info, "About PesaTrack",
                 "Version, legal & product info", "purple", last = true) {
                 openProfile("about")
