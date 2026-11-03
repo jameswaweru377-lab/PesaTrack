@@ -134,13 +134,9 @@ internal fun profileFinancialSignals(
         it.direction == MoneyDirection.EXPENSE.name &&
             it.reviewState != ReviewState.NEEDS_REVIEW.name
     }
-    val outflow = CheckedMoney.orNull {
-        maxOf(0L, CheckedMoney.total(
-            activity.summary.spentMinor,
-            activity.summary.feesMinor,
-            CheckedMoney.negate(activity.summary.refundMinor)
-        ))
-    }
+    val outflow = RecordedOutflowPolicy.available(
+        activity.summary.spentMinor, activity.summary.feesMinor
+    )
     val allExpense = CheckedMoney.orNull { reviewedExpenses.checkedMoneySumOf { it.amountMinor } }
     val uncategorizedExpense = CheckedMoney.orNull {
         reviewedExpenses.filter {
