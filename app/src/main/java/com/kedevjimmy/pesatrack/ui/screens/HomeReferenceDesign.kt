@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,12 +28,14 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.ui.components.MainTab
 import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
+import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -61,14 +64,14 @@ internal fun ReferenceHomeHeader(onNotifications: () -> Unit, onProfile: () -> U
     val locale = LocalConfiguration.current.locales[0]
     Row(
         Modifier.fillMaxWidth()
-            .padding(horizontal = 18.dp).height(48.dp),
+            .padding(horizontal = PesaDesignTokens.screenHorizontalPadding).height(48.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         PesaLogoMark(size = 30.dp)
         Spacer(Modifier.width(9.dp))
         Text("PesaTrack", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold,
             letterSpacing = (-0.6).sp, color = Color(0xFF191050), modifier = Modifier.weight(1f))
-        Box(Modifier.size(42.dp).clickable(onClick = onNotifications), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(PesaDesignTokens.minimumTouchTarget).clickable(onClick = onNotifications), contentAlignment = Alignment.Center) {
             Surface(Modifier.size(38.dp), shape = CircleShape, color = Color.White,
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE4E1FF))) {
                 Box(contentAlignment = Alignment.Center) {
@@ -78,12 +81,14 @@ internal fun ReferenceHomeHeader(onNotifications: () -> Unit, onProfile: () -> U
             Box(Modifier.align(Alignment.TopEnd).padding(top = 3.dp, end = 2.dp)
                 .size(7.dp).background(p.purple, CircleShape))
         }
-        Spacer(Modifier.width(11.dp))
-        Surface(onClick = onProfile, modifier = Modifier.size(40.dp), shape = CircleShape,
-            color = Color(0xFFE9E4FF)) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(profileInitial.ifBlank { "J" }.take(1).uppercase(locale),
-                    fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = p.ink)
+        Spacer(Modifier.width(8.dp))
+        Box(Modifier.size(PesaDesignTokens.minimumTouchTarget).clickable(onClick = onProfile), contentAlignment = Alignment.Center) {
+            Surface(modifier = Modifier.size(40.dp), shape = CircleShape,
+                color = Color(0xFFE9E4FF)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(profileInitial.ifBlank { "J" }.take(1).uppercase(locale),
+                        fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = p.ink)
+                }
             }
         }
     }
@@ -94,12 +99,13 @@ internal fun ReferenceHomeBottomBar(currentTab: MainTab, onSelected: (MainTab) -
     val p = HomeReferencePalette
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 27.dp, topEnd = 27.dp),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         color = Color.White,
-        shadowElevation = 8.dp
+        shadowElevation = 2.dp
     ) {
         Row(
-            Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 12.dp, vertical = 4.dp),
+            Modifier.fillMaxWidth().height(PesaDesignTokens.bottomBarHeight)
+                .padding(horizontal = 12.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(1.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -114,22 +120,29 @@ internal fun ReferenceHomeBottomBar(currentTab: MainTab, onSelected: (MainTab) -
             )
             tabs.forEach { (tab, icon, title) ->
                 val active = currentTab == tab
-                val surface = if (active) Modifier.background(
-                    Brush.verticalGradient(listOf(Color(0xFF7625FF), Color(0xFF4300D8))),
-                    RoundedCornerShape(15.dp)
-                ) else Modifier
-                Column(
-                    Modifier.weight(1f).fillMaxHeight().then(surface).clip(RoundedCornerShape(15.dp))
-                        .clickable { onSelected(tab) }
-                        .padding(vertical = 3.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
+                Box(
+                    Modifier.weight(1f).fillMaxHeight().selectable(
+                        selected = active, role = Role.Tab, onClick = { onSelected(tab) }
+                    ),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(icon, title, Modifier.size(22.dp),
-                        tint = if (active) Color.White else Color(0xFF6E7397))
-                    Text(title, fontSize = 11.sp, maxLines = 1,
-                        color = if (active) Color.White else Color(0xFF5F668C),
-                        fontWeight = if (active) FontWeight.Medium else FontWeight.Normal)
+                    val indicator = if (active) Modifier.background(
+                        Brush.verticalGradient(listOf(Color(0xFF7625FF), Color(0xFF4300D8))),
+                        RoundedCornerShape(16.dp)
+                    ) else Modifier
+                    Column(
+                        Modifier.fillMaxWidth().height(PesaDesignTokens.selectedTabHeight)
+                            .then(indicator).clip(RoundedCornerShape(16.dp)),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
+                    ) {
+                        Icon(icon, title, Modifier.size(22.dp),
+                            tint = if (active) Color.White else Color(0xFF6E7397))
+                        Text(title, fontSize = 12.sp, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = if (active) Color.White else Color(0xFF5F668C),
+                            fontWeight = if (active) FontWeight.Medium else FontWeight.Normal)
+                    }
                 }
             }
         }

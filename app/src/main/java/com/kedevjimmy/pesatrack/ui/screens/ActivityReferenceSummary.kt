@@ -36,6 +36,7 @@ import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
+import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -146,7 +147,7 @@ internal fun ActivityReferenceSummary(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
         color = Color.White,
-        shadowElevation = 2.dp,
+        shadowElevation = 1.dp,
         border = BorderStroke(1.dp, Color.White)
     ) {
         Box {
@@ -172,7 +173,9 @@ internal fun ActivityReferenceSummary(
             Column(Modifier.padding(start = 15.dp, end = 14.dp, top = 9.dp, bottom = 10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Row(
-                        modifier = Modifier.weight(1f).clickable(onClick = onMonth),
+                        modifier = Modifier.weight(1f)
+                            .heightIn(min = PesaDesignTokens.minimumTouchTarget)
+                            .clickable(onClick = onMonth),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(monthLabel, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = ink)
@@ -180,12 +183,14 @@ internal fun ActivityReferenceSummary(
                         Icon(Icons.Rounded.KeyboardArrowDown, "Choose month", Modifier.size(22.dp), tint = ink)
                     }
                     Surface(
-                        onClick = onAnalytics, shape = RoundedCornerShape(13.dp),
+                        onClick = onAnalytics,
+                        modifier = Modifier.size(PesaDesignTokens.minimumTouchTarget),
+                        shape = RoundedCornerShape(16.dp),
                         color = Color(0xFFF8F5FF),
                         border = BorderStroke(1.dp, Color(0xFFE1D7FF))
                     ) {
                         Icon(Icons.Rounded.BarChart, "Detailed Activity breakdown",
-                            modifier = Modifier.padding(6.dp).size(20.dp),
+                            modifier = Modifier.padding(14.dp).size(20.dp),
                             tint = HomeReferencePalette.purple)
                     }
                 }

@@ -41,6 +41,7 @@ import com.kedevjimmy.pesatrack.planning.BillSchedules
 import com.kedevjimmy.pesatrack.planning.ScheduledBill
 import com.kedevjimmy.pesatrack.ui.components.ConceptLoadError
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
+import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
@@ -197,7 +198,8 @@ private fun BillMonthSelector(
     val locale = LocalConfiguration.current.locales[0]
     Box {
         Surface(
-            modifier = Modifier.clickable { expanded = true },
+            modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)
+                .clickable { expanded = true },
             shape = RoundedCornerShape(50.dp),
             color = Color(0xFFF4F0FF),
             border = androidx.compose.foundation.BorderStroke(
