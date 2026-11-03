@@ -53,8 +53,7 @@ class StatementEvidenceReadModel(context: Context) {
         accountFilter: String? = null
     ): ActivityEvidenceSnapshot {
         val statements = read(startInclusive, endExclusive, accountFilter, includeBankDescriptions = true)
-        val confirmed = FinancialUnderstandingStore.get(app).confirmedAccountIds() +
-            AccountOwnershipConsentStore(app).confirmedRevisions().keys
+        val confirmed = StatementAccountConsentReader(app).confirmedAccountIds()
         val accounts = EverydayMoneyStore(app).ownedAccounts().filter {
             it.enabled && it.id in confirmed &&
                 (accountFilter == null || it.id == accountFilter) &&
@@ -95,8 +94,7 @@ class StatementEvidenceReadModel(context: Context) {
              includeBankDescriptions: Boolean = false): Snapshot {
         require(startInclusive > 0L && endExclusive > startInclusive)
         require(accountFilter == null || accountFilter.isNotBlank())
-        val confirmed = FinancialUnderstandingStore.get(app).confirmedAccountIds() +
-            AccountOwnershipConsentStore(app).confirmedRevisions().keys
+        val confirmed = StatementAccountConsentReader(app).confirmedAccountIds()
         val accounts = EverydayMoneyStore(app).ownedAccounts().filter {
             it.enabled && it.id in confirmed && (accountFilter == null || it.id == accountFilter) &&
                 it.type in setOf(AccountType.BANK, AccountType.MOBILE_WALLET)

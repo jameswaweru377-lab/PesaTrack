@@ -53,8 +53,7 @@ class StatementBankArchiveStore(context: Context) {
 
     /** A statement must match a confirmed account, not simply a bank-shaped name. */
     private fun requireConfirmedBank(accountId: String, accountIdentity: String) {
-        val confirmed = FinancialUnderstandingStore.get(app).confirmedAccountIds() +
-            AccountOwnershipConsentStore(app).confirmedRevisions().keys
+        val confirmed = StatementAccountConsentReader(app).confirmedAccountIds()
         val account = EverydayMoneyStore(app).ownedAccounts().singleOrNull {
             it.id == accountId && it.type == AccountType.BANK && it.id in confirmed
         } ?: error("Confirm the bank account in Accounts before importing its statement.")
