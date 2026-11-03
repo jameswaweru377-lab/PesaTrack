@@ -29,8 +29,12 @@ object TransferReconciliationPolicy {
     }
     private const val WINDOW = 48L * 60 * 60 * 1000
     private val protectedNarration = Regex(
-        "\\b(loans?|repay(?:ment|ments|paid)?|interest|fees?|charges?|reversal|reversed|refund(?:ed)?|fuliza|m[ -]?shwari|savings|locked|pending|failed|declined|cancelled)\\b",
+        "\\b(loans?|repay(?:ment|ments|paid)?|interest|fees?|charges?|reversal|reversed|refund(?:ed)?|fuliza|m[ -]?shwari|savings|locked|pending|failed|declined|cancelled|clearances?|cleared|settlements?|settled)\\b",
         RegexOption.IGNORE_CASE)
+
+    /** Conservative role guard shared by all statement transfer-review paths. */
+    fun isProtectedNarration(text: String?): Boolean =
+        text != null && (text.length > 4096 || protectedNarration.containsMatchIn(text))
 
     fun reconcile(observations: List<StatementEvidenceCorrelationPolicy.Observation>,
                   ownership: Map<String, StatementMatchDecisionPolicy.Ownership>,
@@ -39,7 +43,7 @@ object TransferReconciliationPolicy {
         require(observations.map { it.id }.distinct().size == observations.size)
         val assessed = observations.map { row ->
             val text = descriptions[row.id]
-            if (text != null && (text.length > 4096 || protectedNarration.containsMatchIn(text)))
+            if (isProtectedNarration(text))
                 row.copy(roleProtected = true) else row
         }
         val valid = assessed.filter(::structurallyValid)

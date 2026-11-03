@@ -160,6 +160,49 @@ class TransferReconciliationStoreTest {
         assertTrue(TransferReconciliationStore(app).read(2026).reconciliation.pairs.isEmpty())
     }
 
+    @Test fun specializedStatementPaymentsCannotBeSuggestedAsOwnTransfersInEitherReview() {
+        archive { it.execSQL("UPDATE statement_legs_v2 SET reference='SYN123456789'") }
+        val originalFinancialEvidence = financialEvidence()
+        val specializedNarrations = listOf(
+            "Fuliza repayment to account 009876543210",
+            "M-Shwari savings deposit to account 009876543210",
+            "Transaction fee to account 009876543210",
+            "Payment refund to account 009876543210",
+            "Reversal to account 009876543210",
+            "Clearance payment to account 009876543210",
+            "Settlement payment to account 009876543210"
+        )
+        for (description in specializedNarrations) {
+            archive { db ->
+                db.execSQL("UPDATE statement_legs_v2 SET description=? WHERE movement_minor<0", arrayOf(description))
+            }
+            val before = financialEvidence()
+            val legacy = StatementMatchDecisionStore(app).read(2026)
+            assertTrue("Legacy review offered transfer for $description",
+                legacy.candidates.none { it.kind == StatementMatchDecisionStore.Kind.TRANSFER })
+            assertTrue("Legacy review offered weak transfer lead for $description",
+                legacy.possibleTransfers.isEmpty())
+            assertTrue("New review offered transfer for $description",
+                TransferReconciliationStore(app).read(2026).reconciliation.pairs.isEmpty())
+            assertEquals("Review must not post or rewrite financial evidence", before, financialEvidence())
+        }
+        assertEquals(originalFinancialEvidence.size, financialEvidence().size)
+    }
+
+    @Test fun userClassifiedStatementCannotBecomeLegacyOwnTransfer() {
+        archive { db ->
+            db.execSQL("UPDATE statement_legs_v2 SET reference='SYN123456789'")
+            db.insertOrThrow("statement_category_labels_v2", null, ContentValues().apply {
+                put("source_id", "a".repeat(64)); put("leg_number", 0); put("category_id", "user-choice")
+            })
+        }
+        val before = financialEvidence()
+        val legacy = StatementMatchDecisionStore(app).read(2026)
+        assertTrue(legacy.candidates.none { it.kind == StatementMatchDecisionStore.Kind.TRANSFER })
+        assertTrue(legacy.possibleTransfers.isEmpty())
+        assertEquals(before, financialEvidence())
+    }
+
     private fun insert(id: String, account: String, identifier: String, movement: Long, description: String, reference: String?) {
         archive { db ->
             db.insertOrThrow("statement_sources_v2", null, ContentValues().apply {
