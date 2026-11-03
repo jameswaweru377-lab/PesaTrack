@@ -162,6 +162,25 @@ class TransferReconciliationPolicyTest {
                 mapOf("d" to "$prefix to M-PESA 0712345678")).pairs.isEmpty())
         }
     }
+    @Test fun feeAndChargebackNarrationCannotMasqueradeAsOwnedTransfer() {
+        val rows = listOf(
+            debit.copy(reference = "ABC123456"),
+            credit.copy(reference = "ABC123456")
+        )
+        for (description in listOf(
+            "Commission charged to M-PESA 0712345678",
+            "Excise duty to M-PESA 0712345678",
+            "Chargeback to M-PESA 0712345678",
+            "Bank levy to M-PESA 0712345678"
+        )) {
+            val result = reconcile(rows, mapOf("d" to description))
+            assertTrue("Must withhold specialized cash evidence: $description", result.pairs.isEmpty())
+            assertTrue(result.unmatchedRoutes.isEmpty())
+        }
+        assertEquals(1, reconcile(rows,
+            mapOf("d" to "Transfer to M-PESA 0712345678")).pairs.size)
+    }
+
     @Test fun longerFormattedIdentifierCannotMatchOwnedPrefix() {
         for (suffix in listOf(" 9012", "/9012", "_9012", " / 9012", ".9012", "-9012")) {
             assertTrue(suffix, reconcile(listOf(debit, credit),
