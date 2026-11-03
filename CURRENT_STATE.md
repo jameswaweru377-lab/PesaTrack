@@ -1,5 +1,13 @@
 # PesaTrack Current State
 
+_Unverified statement repeat safeguard (3 November 2026; CI and device acceptance pending):_
+The read-only Statements coverage engine no longer treats a matching receipt
+from a source without independently verified totals as a proven duplicate.
+It flags the mixed verified/unverified evidence for review and withholds the
+combined source cash figures. Existing documents, references, Activity cash,
+review decisions, category labels and backups are unchanged. No automatic
+statement-ledger posting or emulator/instrumentation acceptance is implied.
+
 _Historical bank statement identity visibility (3 November 2026; CI and device acceptance pending):_
 Individual bank and all-account Statements pages now flag verified saved documents
 when their stored full account identity differs from the current bank account
