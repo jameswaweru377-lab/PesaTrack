@@ -74,10 +74,10 @@ object MoreVisualTokens {
     val space24 = 24.dp
     val space28 = 28.dp
     val iconSmall = 36.dp
-    val iconMedium = 42.dp
+    val iconMedium = 36.dp
     val touchTarget = 48.dp
     val listRowHeight = 58.dp
     val avatarSize = 70.dp
     val heroHeight = 104.dp
-    val workspaceTileHeight = 108.dp
+    val workspaceTileHeight = 96.dp
 }
