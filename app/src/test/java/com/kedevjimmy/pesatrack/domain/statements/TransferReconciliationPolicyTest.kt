@@ -98,6 +98,42 @@ class TransferReconciliationPolicyTest {
         assertTrue(TransferReconciliationPolicy.reconcile(listOf(debit, credit), duplicate,
             mapOf("d" to "Transfer to M-PESA 0712345678"), at - 1000, at + 1000).pairs.isEmpty())
     }
+    @Test fun duplicateFullBankIdentityCannotLookLikeTwoSidesOfATransfer() {
+        val accountsWithDuplicate = accounts + ("another-bank" to
+            StatementMatchDecisionPolicy.Ownership(1, "BANK", "1234 5678 9012", "Other bank entry"))
+        val rows = listOf(
+            row("out", "bank", -500000, "ABC123456"),
+            row("in", "another-bank", 500000, "ABC123456")
+        )
+        val result = TransferReconciliationPolicy.reconcile(rows, accountsWithDuplicate,
+            emptyMap(), at - 1000, at + 1000)
+        assertTrue("Two records for the same full bank account are not an internal transfer", result.pairs.isEmpty())
+        assertEquals(2, result.withheldObservationCount)
+    }
+    @Test fun duplicateWalletAliasesCannotUseSharedReceiptToCreateTransfer() {
+        val accountsWithDuplicate = accounts + ("other-wallet" to
+            StatementMatchDecisionPolicy.Ownership(1, "MOBILE_WALLET", "+254712345678", "Second wallet entry"))
+        val rows = listOf(
+            row("out", "wallet", -500000, "ABC123456"),
+            row("in", "other-wallet", 500000, "ABC123456")
+        )
+        val result = TransferReconciliationPolicy.reconcile(rows, accountsWithDuplicate,
+            emptyMap(), at - 1000, at + 1000)
+        assertTrue("Local and international formats are the same wallet", result.pairs.isEmpty())
+        assertEquals(2, result.withheldObservationCount)
+    }
+    @Test fun sameDigitsAcrossDifferentAccountTypesRemainDistinct() {
+        val differentTypes = mapOf(
+            "bank" to StatementMatchDecisionPolicy.Ownership(1, "BANK", "254712345678", "Bank"),
+            "wallet" to StatementMatchDecisionPolicy.Ownership(1, "MOBILE_WALLET", "+254712345678", "Wallet")
+        )
+        val rows = listOf(
+            row("out", "bank", -500000, "ABC123456"),
+            row("in", "wallet", 500000, "ABC123456")
+        )
+        assertEquals(1, TransferReconciliationPolicy.reconcile(rows, differentTypes,
+            emptyMap(), at - 1000, at + 1000).pairs.size)
+    }
     @Test fun maskedAndPartialNumbersNeverMatch() {
         for (text in listOf("to M-PESA ****0712345678", "to M-PESA 07123456789", "to M-PESA 0712345678.99")) {
             assertTrue(text, reconcile(listOf(debit, credit), mapOf("d" to text)).pairs.isEmpty())
