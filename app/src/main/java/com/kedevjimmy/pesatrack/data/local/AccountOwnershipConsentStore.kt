@@ -32,6 +32,15 @@ class AccountOwnershipConsentStore(context: Context) {
         confirmed(database.readableDatabase)
     }
 
+    /** Explicit B2 rejections must override any older account-recognition hint. */
+    fun rejectedAccountIds(): Set<String> = synchronized(CanonicalStoreLock.monitor) {
+        database.readableDatabase.rawQuery(
+            "SELECT account_id FROM account_ownership_consents WHERE decision='REJECTED'", null
+        ).use { cursor -> buildSet {
+            while (cursor.moveToNext()) add(cursor.getString(0))
+        } }
+    }
+
     internal companion object {
         fun record(db: SQLiteDatabase, accountId: String, owned: Boolean): Long {
             check(db.inTransaction()) { "Ownership consent must be saved atomically." }

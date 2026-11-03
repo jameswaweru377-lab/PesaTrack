@@ -1,5 +1,23 @@
 # PesaTrack Current State
 
+_Explicit statement-account rejection precedence (3 November 2026; CI and device acceptance pending):_
+An explicit B2 "not mine" account decision now overrides any older financial-entity
+ownership hint when Statements admits or reads bank/wallet evidence. Reconfirmation
+restores eligibility. Disabled accounts remain excluded by the existing account
+filter; original bank archives and their separately accessible history are not
+deleted. This changes review/admission eligibility only, not canonical Activity
+transactions, imported source rows, schema, backups or existing user decisions.
+
+_Legacy Statements review account-identity guard (3 November 2026; CI and device acceptance pending):_
+The older Statements–Activity match-review path now applies the same duplicate
+complete-bank-identifier and equivalent-Kenyan-wallet-number safeguard as the
+new transfer workspace. Both strong transfer candidates and weak possible-transfer
+leads are withheld if either owned endpoint is ambiguous or lacks current B2
+ownership consent. Same-movement evidence, uncertainty counts, source archives,
+saved review choices, original Activity, financial totals and backups are not
+modified. No statement-ledger posting or assurance promotion is introduced.
+
+
 _Duplicate owned-account identity safeguard (3 November 2026; PR #605, green CI pending):_
 The non-posting Statements transfer-review engine withholds candidate pairs
 when two explicitly owned account records have the same complete bank number
