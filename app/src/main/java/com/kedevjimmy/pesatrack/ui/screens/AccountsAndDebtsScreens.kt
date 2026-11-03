@@ -380,11 +380,19 @@ private fun AccountsNavigation(selected: Int, onSelected: (Int) -> Unit,
                     val selectedPage = if (selected == 3) 3 else 0
                     Surface(onClick = { onSelected(index) }, modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
-                        color = if (selectedPage == index) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
+                        color = when {
+                            selectedPage == index && index == 3 -> MaterialTheme.colorScheme.primary
+                            selectedPage == index -> MaterialTheme.colorScheme.surface
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        },
                         shadowElevation = if (selectedPage == index) 1.dp else 0.dp) {
                         Text(label, Modifier.padding(vertical = 10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             style = MaterialTheme.typography.labelLarge,
-                            color = if (selectedPage == index) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                            color = when {
+                                selectedPage == index && index == 3 -> MaterialTheme.colorScheme.onPrimary
+                                selectedPage == index -> MaterialTheme.colorScheme.onSurface
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            })
                     }
                 }
             }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -33,10 +34,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.AccountStore
@@ -57,9 +60,9 @@ import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 
 @Composable
 fun AccountDetailsRedesignScreen(
@@ -122,6 +125,10 @@ private fun AccountDetailsContent(
     onAccountClick: (String) -> Unit, onImportStatement: () -> Unit, onRetry: () -> Unit
 ) {
     var filter by remember { mutableStateOf("All") }
+    val listState = rememberLazyListState()
+    val scrollScope = rememberCoroutineScope()
+    val activityIndex = 4 + (if (error != null) 1 else 0) +
+        (if (linked.isEmpty()) 0 else 1 + linked.size)
     val visible = transactions.filter { transaction ->
         when (filter) {
             "Money In" -> transaction.direction == MoneyDirection.INCOME.name
@@ -130,7 +137,7 @@ private fun AccountDetailsContent(
             else -> true
         }
     }.sortedByDescending { it.occurredAtEpochMs }
-    LazyColumn(modifier = Modifier.padding(padding),
+    LazyColumn(state = listState, modifier = Modifier.padding(padding),
         contentPadding = PaddingValues(horizontal = PesaDesignTokens.screenHorizontalPadding,
             vertical = PesaDesignTokens.screenVerticalPadding),
         verticalArrangement = Arrangement.spacedBy(PesaDesignTokens.sectionGap)) {
@@ -143,10 +150,13 @@ private fun AccountDetailsContent(
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = { filter = "All" }, modifier = Modifier.weight(1f)) {
+                Button(onClick = {
+                    filter = "All"
+                    scrollScope.launch { listState.animateScrollToItem(activityIndex) }
+                }, modifier = Modifier.weight(1f)) {
                     Text("View activity")
                 }
-                Column(Modifier.weight(1f)) { AccountBalanceCheckAction() }
+                Column(Modifier.weight(1f)) { AccountBalanceCheckAction(account?.id) }
             }
         }
         item {
@@ -211,6 +221,7 @@ private fun AccountDetailTitle(account: MoneyAccount?, onBack: () -> Unit) {
 
 @Composable
 private fun AccountRecordedBalance(account: MoneyAccount?, balance: PaydayAccountSnapshot?) {
+    val locale = LocalConfiguration.current.locales[0]
     val amount = BalancePresentationPolicy.savingsBalance(balance?.balanceMinor,
         account?.type == AccountType.SAVINGS, balance?.quality == PaydayBalanceQuality.RECONSTRUCTED)
     val quality = when (balance?.quality) {
@@ -229,7 +240,7 @@ private fun AccountRecordedBalance(account: MoneyAccount?, balance: PaydayAccoun
                 style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer)
             Text(quality + (balance?.referenceEpochMs?.let { " · " +
-                SimpleDateFormat("d MMM yyyy, h:mm a", Locale.getDefault()).format(Date(it)) } ?: ""),
+                SimpleDateFormat("d MMM yyyy, h:mm a", locale).format(Date(it)) } ?: ""),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer)
         }
@@ -259,6 +270,7 @@ private fun LinkedSavingsAccount(
 
 @Composable
 private fun AccountActivityRow(transaction: StoredTransaction, onClick: (Long) -> Unit) {
+    val locale = LocalConfiguration.current.locales[0]
     val income = transaction.direction == MoneyDirection.INCOME.name
     val transfer = transaction.direction == MoneyDirection.TRANSFER.name
     Surface(onClick = { onClick(transaction.id) },
@@ -274,7 +286,7 @@ private fun AccountActivityRow(transaction: StoredTransaction, onClick: (Long) -
                 Text(transaction.counterparty?.takeIf { it.isNotBlank() }
                     ?: transaction.category.replace('_', ' ').lowercase().replaceFirstChar { it.uppercase() },
                     style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Text(SimpleDateFormat("d MMM yyyy", Locale.getDefault())
+                Text(SimpleDateFormat("d MMM yyyy", locale)
                     .format(Date(transaction.occurredAtEpochMs)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)

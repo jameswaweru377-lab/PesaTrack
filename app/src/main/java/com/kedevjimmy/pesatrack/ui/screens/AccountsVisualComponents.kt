@@ -1,12 +1,14 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,15 +26,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot
 import com.kedevjimmy.pesatrack.data.local.DebtBalanceQuality
 import com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality
+import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.ui.theme.Amber
@@ -45,11 +54,20 @@ import com.kedevjimmy.pesatrack.ui.theme.RoseSoft
 import com.kedevjimmy.pesatrack.ui.theme.Sky
 import com.kedevjimmy.pesatrack.ui.theme.SkySoft
 import com.kedevjimmy.pesatrack.ui.theme.VioletSoft
+import java.text.SimpleDateFormat
+import java.util.Date
 
 /** All marks are rendered locally; the app never fetches provider imagery. */
 @Composable
 internal fun AccountProviderMark(name: String, modifier: Modifier = Modifier) {
     val lower = name.lowercase()
+    val localLogo = when {
+        "m-pesa" in lower || "mpesa" in lower -> R.drawable.pesatrack_provider_mpesa
+        "equity" in lower -> R.drawable.pesatrack_provider_equity
+        "absa" in lower -> R.drawable.pesatrack_provider_absa
+        "i&m" in lower -> R.drawable.pesatrack_provider_im
+        else -> null
+    }
     val (label, bg, ink) = when {
         "m-pesa" in lower || "mpesa" in lower -> Triple("M-PESA", AquaSoft, AuroraAqua)
         "equity" in lower -> Triple("EQUITY", RoseSoft, Rose)
@@ -65,10 +83,16 @@ internal fun AccountProviderMark(name: String, modifier: Modifier = Modifier) {
     }
     Surface(modifier = modifier.size(46.dp), shape = RoundedCornerShape(15.dp), color = bg) {
         Box(contentAlignment = Alignment.Center) {
-            Text(label, color = ink,
-                style = if (label.length > 3) MaterialTheme.typography.labelSmall
-                    else MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            if (localLogo != null) {
+                Image(painter = painterResource(localLogo), contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize().padding(4.dp))
+            } else {
+                Text(label, color = ink,
+                    style = if (label.length > 3) MaterialTheme.typography.labelSmall
+                        else MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            }
         }
     }
 }
@@ -112,11 +136,13 @@ internal fun DebtDirectionSelector(owedToMe: Boolean, onIowe: () -> Unit, onOwed
                 Surface(onClick = if (isReceivable) onOwedToMe else onIowe,
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     shape = RoundedCornerShape(12.dp),
-                    color = if (owedToMe == isReceivable) MaterialTheme.colorScheme.surface
+                    color = if (owedToMe == isReceivable) MaterialTheme.colorScheme.primaryContainer
                         else MaterialTheme.colorScheme.surfaceVariant,
                     shadowElevation = if (owedToMe == isReceivable) 1.dp else 0.dp) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(label, style = MaterialTheme.typography.labelLarge,
+                            color = if (owedToMe == isReceivable) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = if (owedToMe == isReceivable) FontWeight.Bold else FontWeight.Normal)
                     }
                 }
@@ -221,6 +247,7 @@ internal fun CompactDebtAccountRow(debt: DebtAccountSnapshot) {
 
 @Composable
 internal fun CompactDebtAccountGroup(debts: List<DebtAccountSnapshot>, onConfirmBalance: (() -> Unit)?) {
+    var expandedId by remember { mutableStateOf<String?>(null) }
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(PesaDesignTokens.cardOutlineWidth, MaterialTheme.colorScheme.outlineVariant)) {
@@ -229,7 +256,9 @@ internal fun CompactDebtAccountGroup(debts: List<DebtAccountSnapshot>, onConfirm
                 val unknown = debt.balanceQuality == DebtBalanceQuality.UNKNOWN ||
                     (debt.hasUnresolvedDrawdown && debt.outstandingMinor == 0L &&
                         debt.balanceQuality == DebtBalanceQuality.ESTIMATED)
-                Row(Modifier.fillMaxWidth().heightIn(min = 82.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().heightIn(min = 82.dp)
+                    .clickable { expandedId = if (expandedId == debt.id) null else debt.id },
+                    verticalAlignment = Alignment.CenterVertically) {
                     AccountProviderMark(debt.name)
                     Column(Modifier.weight(1f).padding(start = 12.dp)) {
                         Text(debt.name, style = MaterialTheme.typography.titleSmall,
@@ -242,7 +271,10 @@ internal fun CompactDebtAccountGroup(debts: List<DebtAccountSnapshot>, onConfirm
                     Text(if (unknown) "Unknown" else formatKesAmount(debt.outstandingMinor),
                         style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
                         color = if (unknown) Amber else MaterialTheme.colorScheme.onSurface)
+                    Icon(Icons.Rounded.ChevronRight, contentDescription = "View debt evidence",
+                        modifier = Modifier.padding(start = 4.dp))
                 }
+                if (expandedId == debt.id) DebtEvidenceDetail(debt, unknown)
                 if (index < debts.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
             if (onConfirmBalance != null) {
@@ -251,6 +283,26 @@ internal fun CompactDebtAccountGroup(debts: List<DebtAccountSnapshot>, onConfirm
                     Text("Confirm balance")
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun DebtEvidenceDetail(debt: DebtAccountSnapshot, unknown: Boolean) {
+    val locale = LocalConfiguration.current.locales[0]
+    Column(Modifier.padding(start = 58.dp, bottom = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(if (unknown) "Loan activity recorded; balance evidence is needed."
+            else "Borrowing is tracked separately from income.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        debt.observedAtEpochMs?.let {
+            Text("Balance evidence · ${SimpleDateFormat("d MMM, h:mm a", locale).format(Date(it))}",
+                style = MaterialTheme.typography.labelSmall)
+        }
+        if (debt.lastRepaymentMinor != null && debt.lastRepaymentAtEpochMs != null) {
+            Text("Last repayment · ${formatKesAmount(debt.lastRepaymentMinor)}",
+                style = MaterialTheme.typography.bodySmall)
         }
     }
 }

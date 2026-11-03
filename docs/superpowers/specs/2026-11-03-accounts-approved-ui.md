@@ -33,6 +33,7 @@ and must not be committed, since they show real financial data.
   through OwnedInstitutionActivityRefresher, and failed writes should be
   clearly reported and not presented as saved.
 - Account and receivable detail/history navigation must continue working.
-- A provider tile is a locally bundled name/color mark; official third-party
-  artwork may be bundled only after obtaining and checking the source and
-  license. Do not call third-party logo services from the app.
+- A provider tile uses a locally bundled, source-checked image where available
+  (M-Pesa, Equity, Absa, I&M); other brands have local name/color fallbacks.
+  Sources and reuse information are in `docs/PROVIDER_LOGO_SOURCES.md`.
+  Do not call third-party logo services from the app.

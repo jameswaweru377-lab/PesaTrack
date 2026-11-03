@@ -37,14 +37,14 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 
-@Composable internal fun AccountBalanceCheckAction() {
+@Composable internal fun AccountBalanceCheckAction(preselectedAccountId: String? = null) {
  var open by rememberSaveable {mutableStateOf(false)}
  OutlinedButton(onClick={open=true},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.FactCheck,null);Spacer(Modifier.width(8.dp));Text("Check a balance")}
- if(open)BalanceCheckSheet{open=false}
+ if(open)BalanceCheckSheet(preselectedAccountId){open=false}
 }
-@Composable private fun BalanceCheckSheet(onDismiss:()->Unit) {
+@Composable private fun BalanceCheckSheet(preselectedAccountId: String?, onDismiss:()->Unit) {
  val c=LocalContext.current;val store=remember {EverydayMoneyStore(c)};val scope=rememberCoroutineScope()
- var accounts by remember {mutableStateOf<List<MoneyAccount>>(emptyList())};var accountId by rememberSaveable{mutableStateOf("")}
+ var accounts by remember {mutableStateOf<List<MoneyAccount>>(emptyList())};var accountId by rememberSaveable(preselectedAccountId){mutableStateOf(preselectedAccountId.orEmpty())}
  var recorded by remember {mutableStateOf<Long?>(null)};var recent by remember {mutableStateOf<List<StoredTransaction>>(emptyList())};var loaded by remember {mutableStateOf(false)};var actual by rememberSaveable{mutableStateOf("")};var busy by remember {mutableStateOf(false)};var error by remember {mutableStateOf<String?>(null)}
  LaunchedEffect(Unit){try{accounts=withContext(Dispatchers.IO){store.ownedAccounts()}}catch(e:CancellationException){throw e}catch(e:Exception){error="Could not load accounts."}}
  LaunchedEffect(accountId){loaded=false;actual="";error=null;if(accountId.isNotEmpty()){try {val account=accounts.firstOrNull{it.id==accountId}?:return@LaunchedEffect;val data=withContext(Dispatchers.IO){PaydaySnapshotStore.get(c).currentAccountSnapshot(account).balanceMinor to TransactionStore.get(c).recent(500).filter{it.accountId==accountId||it.linkedAccountId==accountId}.take(8)};recorded=data.first;recent=data.second;loaded=true}catch(e:CancellationException){throw e}catch(e:Exception){error="Could not load this balance."}}}
