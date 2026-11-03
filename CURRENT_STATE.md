@@ -1,5 +1,15 @@
 # PesaTrack Current State
 
+_Historical bank statement identity visibility (3 November 2026; CI and device acceptance pending):_
+Individual bank and all-account Statements pages now flag verified saved documents
+when their stored full account identity differs from the current bank account
+record, and separately flag cases that cannot be checked without a complete
+number. These are **review signals, not accusations of false documents**.
+Historical archive rows and displayed gross money movements remain intact;
+the existing cross-source transfer matching continues to exclude nonmatching
+bank identities. Changing report amounts or assigning historical sources to a
+different account still requires explicit accounting-scope confirmation.
+
 _Explicit statement-account rejection precedence (3 November 2026; CI and device acceptance pending):_
 An explicit B2 "not mine" account decision now overrides any older financial-entity
 ownership hint when Statements admits or reads bank/wallet evidence. Reconfirmation

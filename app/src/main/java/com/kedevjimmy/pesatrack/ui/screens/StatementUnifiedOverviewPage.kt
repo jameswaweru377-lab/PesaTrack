@@ -26,6 +26,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
+import com.kedevjimmy.pesatrack.data.local.StatementBankReportReader
+import com.kedevjimmy.pesatrack.data.local.EverydayMoneyStore
 import com.kedevjimmy.pesatrack.data.local.StatementMatchDecisionStore
 import com.kedevjimmy.pesatrack.domain.statements.SharedAccountingViewPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementOverviewCardsPolicy
@@ -60,6 +62,26 @@ internal fun StatementUnifiedOverviewPage(
     var showGrossDetails by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var accounting by remember(overview.year) { mutableStateOf<SharedAccountingViewPolicy.View?>(null) }
+    var bankIdentityCounts by remember(overview.year, bankAccountIds) {
+        mutableStateOf<Pair<Int, Int>?>(null)
+    }
+    var bankIdentityCheckFailed by remember(overview.year, bankAccountIds) { mutableStateOf(false) }
+    LaunchedEffect(overview.year, bankAccountIds) {
+        bankIdentityCounts = null
+        bankIdentityCheckFailed = false
+        try {
+            bankIdentityCounts = withContext(Dispatchers.IO) {
+                val identities = EverydayMoneyStore(context).ownedAccounts().associate { it.id to it.identifier }
+                val report = StatementBankReportReader(context)
+                val reviews = bankAccountIds.map { id ->
+                    report.identityReviewFor(id, identities[id], overview.year)
+                }
+                reviews.sumOf { it.mismatchedSourceIds.size } to
+                    reviews.sumOf { it.unverifiableSourceIds.size }
+            }
+        } catch (cancelled: CancellationException) { throw cancelled
+        } catch (_: Exception) { bankIdentityCheckFailed = true }
+    }
     LaunchedEffect(overview) {
         accounting = null
         try {
@@ -155,6 +177,30 @@ internal fun StatementUnifiedOverviewPage(
                                     id in bankAccountIds) + limitedBadge)
                             }, onClick = { accountMenu = false; onSelectAccount(id) })
                         }
+                    }
+                }
+            }
+        }
+        if (bankIdentityCounts?.let { it.first + it.second > 0 } == true || bankIdentityCheckFailed) item {
+            StatementUnifiedWhiteCard {
+                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+                    Icon(Icons.Rounded.WarningAmber, null, tint = p.red)
+                    Spacer(Modifier.width(10.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Bank statement identity needs review", color = p.ink,
+                            fontWeight = FontWeight.Bold)
+                        val counts = bankIdentityCounts
+                        Text(when {
+                            bankIdentityCheckFailed -> "Could not check all saved bank document identities."
+                            counts != null && counts.first > 0 -> buildString {
+                                append("${counts.first} saved document(s) differ from the current full bank account number.")
+                                if (counts.second > 0) append(" ${counts.second} more cannot be checked without a full account number.")
+                                append(" This does not prove any document is false.")
+                            }
+                            else -> "${counts?.second ?: 0} saved document(s) cannot be checked without a current full bank account number."
+                        }, color = p.red, style = MaterialTheme.typography.bodySmall)
+                        Text("Historical gross movements may include these documents. They do not confirm current-account transfers.",
+                            color = p.muted, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
