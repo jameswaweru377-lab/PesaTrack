@@ -87,11 +87,9 @@ class MorePremiumLayoutTest {
         compose.onNodeWithText("Advanced troubleshooting").performClick()
         compose.runOnIdle { assertEquals("diagnostics", destination) }
 
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Past transactions"))
-        compose.onNodeWithText("Past transactions").performClick()
-        compose.runOnIdle { assertEquals("activity", destination) }
-
         compose.onNode(hasScrollAction()).performScrollToNode(hasText("About PesaTrack"))
+        compose.onNodeWithText("Past transactions").assertDoesNotExist()
+        compose.onNodeWithText("Funds").assertDoesNotExist()
         compose.onNodeWithText("About PesaTrack").performClick()
         compose.runOnIdle { assertEquals("about", destination) }
     }
