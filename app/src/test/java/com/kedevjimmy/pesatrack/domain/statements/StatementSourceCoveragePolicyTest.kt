@@ -185,4 +185,19 @@ class StatementSourceCoveragePolicyTest {
         assertNull(coverage.safeMoneyInMinor)
         assertNull(coverage.safeMoneyOutMinor)
     }
+
+    @Test fun unverifiedStatementCannotBeCountedAsAProvenRepeat() {
+        val pairs = listOf(
+            listOf(row("a-verified", "file-a"), row("z-unverified", "file-b", totalsVerified = false)),
+            listOf(row("a-unverified", "file-a", totalsVerified = false), row("z-verified", "file-b"))
+        )
+        pairs.forEach { documents ->
+            val coverage = StatementSourceCoveragePolicy.analyze(documents).single()
+            assertEquals(StatementSourceCoveragePolicy.Status.NEEDS_REVIEW, coverage.status)
+            assertEquals(0, coverage.confirmedRepeatCopies)
+            assertEquals(2, coverage.unresolvedCandidateCount)
+            assertNull(coverage.safeMoneyInMinor)
+            assertNull(coverage.safeMoneyOutMinor)
+        }
+    }
 }
