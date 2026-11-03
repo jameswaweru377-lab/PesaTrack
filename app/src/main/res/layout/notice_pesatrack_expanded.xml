@@ -12,7 +12,7 @@
     android:paddingBottom="10dp"
     android:background="@drawable/notice_panel_background">
 
-    <View
+    <TextView
         android:layout_width="3dp"
         android:layout_height="match_parent"
         android:background="@color/notice_purple" />
