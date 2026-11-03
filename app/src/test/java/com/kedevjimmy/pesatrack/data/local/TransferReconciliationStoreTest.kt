@@ -110,6 +110,25 @@ class TransferReconciliationStoreTest {
         assertTrue(TransferReconciliationStore(app).read(2026).reconciliation.pairs.isEmpty())
     }
 
+    @Test fun changedBankIdentifierNeedsReviewButDoesNotEraseHistoricalSourceOrAmounts() {
+        val reader = StatementBankReportReader(app)
+        val beforeMonths = reader.monthsFor(bank)
+        val original = reader.identityReviewFor(bank, "0012 3456-7890", 2026)
+        assertEquals(setOf("a".repeat(64)), original.matchedSourceIds)
+        assertTrue(original.mismatchedSourceIds.isEmpty())
+
+        AccountStore.get(app).updateDetails(bank, "001111222233", null)
+        val changed = reader.identityReviewFor(bank, "001111222233", 2026)
+        assertEquals(setOf("a".repeat(64)), changed.mismatchedSourceIds)
+        assertTrue(changed.unverifiableSourceIds.isEmpty())
+        assertFalse(reader.identityReviewFor(bank, "001111222233", 2025).needsReview)
+        assertEquals(setOf("a".repeat(64)),
+            reader.identityReviewFor(bank, null, 2026).unverifiableSourceIds)
+        assertEquals(beforeMonths, reader.monthsFor(bank))
+        assertEquals(1, StatementBankArchiveStore(app).sourcesFor(bank).size)
+        assertTrue(TransferReconciliationStore(app).read(2026).reconciliation.pairs.isEmpty())
+    }
+
     @Test fun previousYearCopyConfirmationBlocksJanuaryTransferUsingSameLeg() {
         insert("c".repeat(64), bank, "001234567890", -50000, "Transfer to account 009876543210", null)
         val december = java.time.ZonedDateTime.of(2025, 12, 31, 23, 50, 0, 0,

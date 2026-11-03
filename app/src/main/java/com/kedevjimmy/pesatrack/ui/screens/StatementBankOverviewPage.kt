@@ -20,9 +20,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
+import com.kedevjimmy.pesatrack.data.local.StatementBankReportReader
+import com.kedevjimmy.pesatrack.data.local.EverydayMoneyStore
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.StatementEvidenceReadModel
 import com.kedevjimmy.pesatrack.domain.statements.StatementBankHistoryPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementBankIdentityReviewPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementBankAdmission
 import com.kedevjimmy.pesatrack.domain.statements.StatementBankCategoryLabelPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementSourceCoveragePolicy
@@ -73,6 +76,22 @@ internal fun StatementBankOverviewPage(
     val years = remember(months) { months.map { it.key.substringBefore('-').toInt() }.distinct().sortedDescending() }
     var year by remember(accountId, initialYear) {
         mutableStateOf<Int?>(initialYear?.takeIf { it in years } ?: years.firstOrNull())
+    }
+    var identityReview by remember(accountId) {
+        mutableStateOf<StatementBankIdentityReviewPolicy.Review?>(null)
+    }
+    var identityReviewUnavailable by remember(accountId) { mutableStateOf(false) }
+    LaunchedEffect(accountId, year, months) {
+        identityReview = null
+        identityReviewUnavailable = false
+        try {
+            identityReview = withContext(Dispatchers.IO) {
+                val currentIdentifier = EverydayMoneyStore(context).ownedAccounts()
+                    .firstOrNull { it.id == accountId }?.identifier
+                StatementBankReportReader(context).identityReviewFor(accountId, currentIdentifier, year)
+            }
+        } catch (e: CancellationException) { throw e }
+          catch (_: Exception) { identityReviewUnavailable = true }
     }
     var accountMenu by remember { mutableStateOf(false) }
     var chosenMonth by remember(accountId) { mutableStateOf<StatementBankHistoryPolicy.Month?>(null) }
@@ -172,10 +191,28 @@ internal fun StatementBankOverviewPage(
                     years.forEach { y -> FilterChip(selected=year==y,onClick={year=y},label={Text(y.toString())}) }
                 }
             }
+            if (identityReview?.needsReview == true || identityReviewUnavailable) item {
+                StatementInsightCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.WarningAmber, null, tint = p.red)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Bank account identity needs review", fontWeight = FontWeight.Bold, color = p.ink)
+                    }
+                    val review = identityReview
+                    Text(when {
+                        identityReviewUnavailable -> "The saved documents could not be checked against the current account number."
+                        review?.mismatchedSourceIds?.isNotEmpty() == true ->
+                            "${review.mismatchedSourceIds.size} saved document(s) do not match this account's current full number. This does not mean they are false."
+                        else -> "The current full bank account number is unavailable, so saved document identity cannot be checked."
+                    }, color = p.red, style = MaterialTheme.typography.bodySmall)
+                    Text("Historical source totals still include these documents. They cannot confirm current-account transfers until reviewed.",
+                        color = p.muted, style = MaterialTheme.typography.bodySmall)
+                }
+            }
             item { StatementInsightCard {
                 Text("Bank cash flow",style=MaterialTheme.typography.titleLarge,
                     fontWeight=FontWeight.Bold,color=p.ink)
-                Text("Verified movements in this bank account. Transfers, loans and withdrawals are not automatically classified as spending or income.",
+                Text("Verified saved-document movements. Transfers, loans and withdrawals are not automatically classified as spending or income.",
                     style=MaterialTheme.typography.bodySmall,color=p.muted)
                 Text("Each imported month currently shows one selected document; multiple documents are checked for repeated evidence separately.",
                     style=MaterialTheme.typography.bodySmall,color=p.muted)
@@ -216,6 +253,10 @@ internal fun StatementBankOverviewPage(
                         Column(Modifier.weight(1f)) {
                             Text(entry.key,fontWeight=FontWeight.Bold,color=p.ink)
                             Text("${entry.rowCount} verified movements",style=MaterialTheme.typography.bodySmall,color=p.muted)
+                            if (entry.sourceId in (identityReview?.mismatchedSourceIds ?: emptySet()))
+                                Text("Saved document · account number mismatch", style=MaterialTheme.typography.bodySmall,color=p.red)
+                            if (entry.sourceId in (identityReview?.unverifiableSourceIds ?: emptySet()))
+                                Text("Saved document · account identity not verified", style=MaterialTheme.typography.bodySmall,color=p.red)
                             if (entry.sourceId in derivedOpeningSourceIds) Text(
                                 "Opening balance calculated and cross-checked against printed grand totals; not separately printed.",
                                 style=MaterialTheme.typography.bodySmall,color=p.muted)
@@ -258,6 +299,12 @@ internal fun StatementBankOverviewPage(
                 Text("${chosenMonth!!.key} · Source transactions",fontWeight=FontWeight.Bold,color=p.ink)
                 Text("Every row is from your saved document. No inferred merchants, purchases or income.",
                     style=MaterialTheme.typography.bodySmall,color=p.muted)
+                if (chosenMonth!!.sourceId in (identityReview?.mismatchedSourceIds ?: emptySet()))
+                    Text("Identity needs review: this document does not match the account's current full number. It is not proven false.",
+                        style=MaterialTheme.typography.bodySmall,color=p.red)
+                if (chosenMonth!!.sourceId in (identityReview?.unverifiableSourceIds ?: emptySet()))
+                    Text("Identity not verified: add the current full account number before confirming this document belongs to it.",
+                        style=MaterialTheme.typography.bodySmall,color=p.red)
                 if (chosenMonth!!.sourceId in derivedOpeningSourceIds) Text(
                     "Verified Equity format: the opening balance was calculated from the first row and independently checked against the printed totals and closing balance.",
                     style=MaterialTheme.typography.bodySmall,color=p.muted)

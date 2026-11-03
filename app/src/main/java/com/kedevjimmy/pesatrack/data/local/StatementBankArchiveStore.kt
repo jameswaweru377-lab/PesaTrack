@@ -7,6 +7,7 @@ import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.statements.StatementAdmissionResult
 import com.kedevjimmy.pesatrack.domain.statements.StatementDocumentAssurance
 import com.kedevjimmy.pesatrack.domain.statements.StatementBankCategoryLabelPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementBankIdentityReviewPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementTablePage
 import com.kedevjimmy.pesatrack.domain.statements.StatementTableResult
 import com.kedevjimmy.pesatrack.domain.statements.UniversalStatementTableInterpreter
@@ -36,9 +37,8 @@ class StatementBankArchiveStore(context: Context) {
 
     /** Read-only filter: a saved source must still belong to the current full account identity. */
     fun sourceIdsMatchingIdentity(accountId: String, currentIdentifier: String?): Set<String> {
-        val normalized = currentIdentifier.orEmpty().uppercase(java.util.Locale.ROOT)
-            .replace(Regex("[^A-Z0-9]"), "")
-        if (normalized.length < 8 || normalized.any { !it.isDigit() }) return emptySet()
+        val normalized = StatementBankIdentityReviewPolicy.normalizeFullIdentifier(currentIdentifier)
+            ?: return emptySet()
         val identityHash = MessageDigest.getInstance("SHA-256")
             .digest(normalized.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
         val helper = StatementArchiveDb(app)
