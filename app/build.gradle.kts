@@ -201,7 +201,7 @@ dependencies {
     // Exercise reconciliation persistence against isolated Android databases on the host.
     testImplementation("org.robolectric:robolectric:4.16.1")
     // Local JVM HTTP tests need actual JSON behavior instead of Android's null-returning stubs.
-    testImplementation("org.json:json:20260719")
+    testImplementation("org.json:json:20260814")
 
     androidTestImplementation("androidx.test:core-ktx:1.7.0")
     androidTestImplementation("androidx.test.ext:junit-ktx:1.3.0")
