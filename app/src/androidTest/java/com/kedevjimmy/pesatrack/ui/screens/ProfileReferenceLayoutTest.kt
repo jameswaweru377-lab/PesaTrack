@@ -13,7 +13,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/** Layout contract for the approved light Profile reference. */
+/** Layout contract for the simplified private Profile detail screen. */
 @RunWith(AndroidJUnit4::class)
 class ProfileReferenceLayoutTest {
     @get:Rule
@@ -36,74 +36,52 @@ class ProfileReferenceLayoutTest {
     }
 
     @Test
-    fun profileKeepsApprovedDestinationsWithoutFinancialOrSettingsDuplicates() {
+    fun profileShowsPrivateIdentityAndNoDuplicateSettings() {
         showProfile()
 
         listOf(
             "Personal information",
-            "App lock & security",
-            "Notifications",
-            "Appearance",
-            "Help & support",
-            "About PesaTrack",
+            "Pay cycle",
             "Better money habits",
-            "Not enough information yet"
+            "Edit profile",
+            "Only on this device"
         ).forEach { compose.onNodeWithText(it).assertExists() }
-        compose.onNodeWithText("Financial overview").assertDoesNotExist()
-        compose.onNodeWithText("More settings").assertDoesNotExist()
+        listOf("App lock & security", "Notifications", "Appearance", "Help & support",
+            "About PesaTrack", "Past transactions", "Funds")
+            .forEach { compose.onNodeWithText(it).assertDoesNotExist() }
+        compose.onNodeWithContentDescription("Back to More").assertExists()
+        compose.onNodeWithContentDescription("Change cover photo").assertExists()
+        compose.onNodeWithContentDescription("Change profile photo").assertExists()
     }
 
     @Test
-    fun appearanceAndPersonalInformationOpenFromProfile() {
+    fun personalInformationOpensLocalFields() {
         showProfile()
-
-        compose.onNodeWithText("Appearance").performClick()
-        compose.onNodeWithText("Light").assertIsDisplayed()
-        compose.onNodeWithText("Text size").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithContentDescription("Back").performClick()
-
-        compose.onNodeWithText("Personal information").performClick()
+        compose.onNodeWithText("Personal information").performScrollTo().performClick()
         compose.onNodeWithText("Display name").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("Choose photo").assertIsDisplayed()
+        compose.onNodeWithText("City or town (optional)").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("About me (optional)").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Save changes").performScrollTo().assertIsDisplayed()
     }
 
     @Test
-    fun securityAndHelpHaveRealDestinations() {
-        showProfile()
-        compose.onNodeWithText("App lock & security").performScrollTo().performClick()
-        compose.onNodeWithText("App lock & security").assertIsDisplayed()
-        compose.onNodeWithText("Your money stays private").assertIsDisplayed()
-        compose.onNodeWithText("App PIN").assertIsDisplayed()
-        compose.onNodeWithText("Use fingerprint").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Back").performClick()
-        compose.onNodeWithText("Help & support").performScrollTo().performClick()
-        compose.onNodeWithText("Search for help").assertIsDisplayed()
-        compose.onNodeWithText("Advanced troubleshooting").performClick()
-        compose.onNodeWithText("Run safe checks").assertIsDisplayed()
+    fun payCycleShortcutUsesItsDedicatedDestination() {
+        var opened = false
+        compose.setContent {
+            PesaTrackTheme {
+                ProfileScreen(scaffoldPadding = PaddingValues(), onBack = {},
+                    onSettingsClick = {}, onPayCycleClick = { opened = true })
+            }
+        }
+        compose.onNodeWithText("Pay cycle").performScrollTo().performClick()
+        compose.runOnIdle { org.junit.Assert.assertTrue(opened) }
     }
 
     @Test
     fun moneyHabitsHasExplainedEmptyStateAndAction() {
         showProfile()
-        compose.onNodeWithText("Better money habits").performClick()
+        compose.onNodeWithText("Better money habits").performScrollTo().performClick()
         compose.onNodeWithText("Not enough information yet").assertIsDisplayed()
         compose.onNodeWithText("WHAT WE CAN SEE").performScrollTo().assertIsDisplayed()
-    }
-
-    @Test
-    fun aboutAndNotificationsFollowApprovedBoardHierarchy() {
-        showProfile()
-        compose.onNodeWithText("About PesaTrack").performScrollTo().performClick()
-        compose.onNodeWithText("Your money, better days.").assertExists()
-        compose.onNodeWithText("Made for everyday money").assertExists()
-        compose.onNodeWithText("Licenses").performScrollTo().assertExists()
-        compose.onNodeWithContentDescription("Back").performClick()
-
-        compose.onNodeWithText("Notifications").performScrollTo().performClick()
-        compose.onNodeWithText("Reminders that matter").assertExists()
-        compose.onNodeWithText("Needs review").assertExists()
-        compose.onNodeWithText("They owe me").performScrollTo().assertExists()
-        compose.onNodeWithText("Reminder timing").performScrollTo().assertExists()
     }
 }
