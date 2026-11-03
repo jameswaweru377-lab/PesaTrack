@@ -1,5 +1,15 @@
 # PesaTrack Current State
 
+_Legacy Statements review account-identity guard (3 November 2026; CI and device acceptance pending):_
+The older Statements–Activity match-review path now applies the same duplicate
+complete-bank-identifier and equivalent-Kenyan-wallet-number safeguard as the
+new transfer workspace. Both strong transfer candidates and weak possible-transfer
+leads are withheld if either owned endpoint is ambiguous or lacks current B2
+ownership consent. Same-movement evidence, uncertainty counts, source archives,
+saved review choices, original Activity, financial totals and backups are not
+modified. No statement-ledger posting or assurance promotion is introduced.
+
+
 _Duplicate owned-account identity safeguard (3 November 2026; PR #605, green CI pending):_
 The non-posting Statements transfer-review engine withholds candidate pairs
 when two explicitly owned account records have the same complete bank number
