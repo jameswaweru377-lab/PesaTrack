@@ -80,6 +80,7 @@ fun PersonalReceivablesScreen(
     var historyLinks by remember { mutableStateOf<Map<Long,ReceivableActivityLink>>(emptyMap()) }
     var retry by remember { mutableIntStateOf(0) }
     var reviewHistory by remember { mutableStateOf(false) }
+    var showSettledPeople by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(revision.revision, selectedPersonId, retry) {
         val revisionToLoad = revision.revision
@@ -134,11 +135,8 @@ fun PersonalReceivablesScreen(
             if (selected == null) {
                 header?.invoke() ?: DetailPageHeader(
                     title = "Owed to you", subtitle = "Keep track of money lent and repayments you confirm.", onBack = onLiabilities)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedButton(onClick = onLiabilities, modifier = Modifier.weight(1f)) { Text("I owe") }
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = {}, modifier = Modifier.weight(1f), enabled = false) { Text("Owed to me") }
-                }
+                DebtDirectionSelector(owedToMe = true, onIowe = onLiabilities,
+                    onOwedToMe = {})
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { selectedPersonId = null }) {
@@ -188,20 +186,24 @@ fun PersonalReceivablesScreen(
         }
         if (selected == null) {
             if (peopleLoaded) {
-                val active = people.filter { (it.outstandingMinor ?: 0L) > 0L }
-                val total = if (people.any { it.outstandingMinor == null }) null
-                    else runCatching { active.fold(0L) { s, p -> Math.addExact(s, p.outstandingMinor!!) } }.getOrNull()
+                val active = people.filter { it.outstandingMinor == null || it.outstandingMinor > 0L }
+                val settled = people.filter { it.outstandingMinor == 0L }
+                val unknownCount = active.count { it.outstandingMinor == null }
+                val total = runCatching {
+                    active.filter { it.outstandingMinor != null }
+                        .fold(0L) { sum, person -> Math.addExact(sum, person.outstandingMinor!!) }
+                }.getOrNull()
                 item {
                     PesaCard {
                         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             Text(
-                                if (peopleRevision != revision.revision) "Last verified total owed to you"
-                                else "Total owed to you",
+                                if (peopleRevision != revision.revision) "Last verified known amount"
+                                else "Known owed to you",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(total?.let(::receivableMoney) ?: "Balance unavailable",
                                 style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                            Text(active.size.toString() + " people with outstanding balances",
+                            Text("${active.size} outstanding · $unknownCount unknown",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -221,18 +223,19 @@ fun PersonalReceivablesScreen(
                         }
                     }
                 }
-                if (people.isEmpty()) item {
+                if (active.isEmpty()) item {
                     PesaCard {
                         Text(
-                             if (peopleRevision != revision.revision) "No personal loans were recorded at the last successful refresh."
-                             else "No personal loans recorded yet. Record a loan or open a payment in Activity to link it.",
+                             if (peopleRevision != revision.revision) "No outstanding personal loans at last verification."
+                             else "No outstanding personal loans. Record money lent or review Activity to link a payment.",
                             modifier = Modifier.padding(18.dp))
                     }
                 }
-                items(people, key = { it.id }) { person ->
+                items(active, key = { it.id }) { person ->
                     PesaCard(Modifier.fillMaxWidth().clickable { selectedPersonId = person.id }) {
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Person, contentDescription = null)
+                            Icon(Icons.Rounded.Person, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(person.name, fontWeight = FontWeight.SemiBold)
@@ -243,6 +246,22 @@ fun PersonalReceivablesScreen(
                             }
                             Text(person.outstandingMinor?.let(::receivableMoney) ?: "Balance unavailable", fontWeight = FontWeight.Bold)
                             Icon(Icons.Rounded.ChevronRight, contentDescription = null)
+                        }
+                    }
+                }
+                if (settled.isNotEmpty()) {
+                    item { TextButton(onClick = { showSettledPeople = !showSettledPeople }) {
+                        Text(if (showSettledPeople) "Hide settled (${settled.size})"
+                            else "Settled (${settled.size})")
+                    } }
+                    if (showSettledPeople) items(settled, key = { "settled:${it.id}" }) { person ->
+                        PesaCard(Modifier.fillMaxWidth().clickable { selectedPersonId = person.id }) {
+                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Rounded.Person, contentDescription = null)
+                                Text(person.name, Modifier.weight(1f).padding(start = 12.dp))
+                                Text("Settled", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(Icons.Rounded.ChevronRight, contentDescription = null)
+                            }
                         }
                     }
                 }

@@ -31,7 +31,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.kedevjimmy.pesatrack.ui.components.AppScaffold
 import com.kedevjimmy.pesatrack.ui.components.MainTab
-import com.kedevjimmy.pesatrack.ui.screens.AccountDetailsScreen
+import com.kedevjimmy.pesatrack.ui.screens.AccountDetailsRedesignScreen
 import com.kedevjimmy.pesatrack.ui.screens.AccountsScreen
 import com.kedevjimmy.pesatrack.ui.screens.ActivityScreen
 import com.kedevjimmy.pesatrack.ui.screens.ActivityScreenCache
@@ -41,7 +41,7 @@ import com.kedevjimmy.pesatrack.ui.screens.BudgetScreen
 import com.kedevjimmy.pesatrack.ui.screens.DebtsScreen
 import com.kedevjimmy.pesatrack.ui.screens.DataHealthScreen
 import com.kedevjimmy.pesatrack.ui.screens.HistoricalImportScreen
-import com.kedevjimmy.pesatrack.ui.screens.FinancialInstitutionsScreen
+import com.kedevjimmy.pesatrack.ui.screens.FinancialInstitutionsRedesignScreen
 import com.kedevjimmy.pesatrack.ui.screens.IdentityReviewScreen
 import com.kedevjimmy.pesatrack.ui.screens.SalaryScreen
 import com.kedevjimmy.pesatrack.ui.screens.PayrollJournalSheet
@@ -349,10 +349,11 @@ fun PesaTrackApp(
 
         composable("financial-institutions") {
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
-                currentTab = MainTab.ACCOUNTS,
+                currentTab = null,
+                showTopBar = false,
                 onTabSelected = ::navigateToTab
             ) { padding ->
-                FinancialInstitutionsScreen(
+                FinancialInstitutionsRedesignScreen(
                     scaffoldPadding = padding,
                     onBack = {
                         navController.popBackStack()
@@ -691,14 +692,15 @@ fun PesaTrackApp(
                 currentTab = MainTab.ACCOUNTS,
                 onTabSelected = ::navigateToTab
             ) { padding ->
-                AccountDetailsScreen(
+                AccountDetailsRedesignScreen(
                     scaffoldPadding = padding,
                     accountId = accountId,
                     onAccountClick = { childId -> navController.navigate("account-detail/$childId") },
                     onBack = { navController.popBackStack() },
                     onTransactionClick = { id ->
                         navController.navigate("transaction-detail/$id")
-                    }
+                    },
+                    onImportStatement = { navController.navigate("statement-import") }
                 )
             }
         }
