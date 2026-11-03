@@ -16,7 +16,7 @@
 - Five bottom destinations: Home, Activity, Plan, Accounts, More.
 - 16dp normal screen margin; minimum 48dp interactive tap areas.
 - Preserve existing wording, values, approved visual identity and privacy.
-- Avoid Accounts PR #604 files and notification PR #608 files.
+- Preserve the merged Accounts PR #604 files and notification PR #608 files.
 - Do not add dependencies or instrumentation runs.
 
 ## Review Focus
@@ -80,4 +80,4 @@
 - [ ] Record visual-only scope and phone QA limitations.
 - [ ] Run `git diff --check` and the available focused JVM test, lint, and APK checks.
 - [ ] Push scoped branch and create a draft PR; verify exact-head Android CI before requesting merge.
-- [ ] Compare diff against the active Accounts and notification PR file lists.
+- [ ] Compare diff against the merged Accounts and notification changes.

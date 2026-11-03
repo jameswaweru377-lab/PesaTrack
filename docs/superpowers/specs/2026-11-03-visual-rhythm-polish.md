@@ -12,9 +12,9 @@ purple brand and the distinctive financial hero artwork.
 - Keep Home / Activity / Plan / Accounts / More and all existing destinations.
 - Preserve financial text, amounts, accounting, transaction decisions and
   local-first privacy. Do not change release, signing, permissions or data.
-- The draft Accounts refresh PR #604 owns Accounts/Debts/picker/details screens.
-  Do not modify those files in this pass; inherited typography/navigation may
-  be reviewed after its merge.
+- The Accounts refresh has merged through PR #604. Do not modify its
+  Accounts/Debts/picker/details files in this pass; inherited
+  typography/navigation can be reviewed in a later visual QA stage.
 - Leave deliberately illustrated gradient hero surfaces and the approved
   Profile cover height alone.
 - Keep primary actions at least 48dp high and bottom tab tap areas at least

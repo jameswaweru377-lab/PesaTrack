@@ -627,8 +627,8 @@ shared text-weight and neutral-card tokens, a slimmer selected state within
 the approved five-tab bar, more proportionate Plan/More controls, and 48dp
 date/month/analytics tap areas. The purple identity, illustrated hero cards,
 financial labels, account routes, stored values, statement evidence and
-permissions are unchanged. The Accounts five-screen redesign remains owned
-by draft PR #604; this pass does not modify its screen files. A new JVM token
+permissions are unchanged. The Accounts five-screen redesign has merged
+through PR #604; this pass does not modify its screen files. A new JVM token
 contract and the existing five-tab Compose navigation contract describe the
 target dimensions. Local Gradle execution is blocked by the unavailable
 Gradle 9.5 distribution; exact-head Android CI and Redmi font-scale/device
