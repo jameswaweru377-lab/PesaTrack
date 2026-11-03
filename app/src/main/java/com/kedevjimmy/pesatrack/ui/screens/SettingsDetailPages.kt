@@ -44,6 +44,7 @@ import com.kedevjimmy.pesatrack.planning.BackupReminders
 import com.kedevjimmy.pesatrack.planning.PhoneNotificationPreview
 import com.kedevjimmy.pesatrack.salary.SalaryReminders
 import com.kedevjimmy.pesatrack.domain.rules.PhoneAlertType
+import com.kedevjimmy.pesatrack.domain.rules.PhoneAlertPolicy
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
@@ -223,7 +224,7 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
     var moreOptions by rememberSaveable { mutableStateOf(false) }
     var showTests by rememberSaveable { mutableStateOf(false) }
     var testType by remember { mutableStateOf(PhoneAlertType.BILL) }
-    var testDelay by remember { mutableIntStateOf(0) }
+    var testDelay by remember { mutableIntStateOf(PhoneAlertPolicy.defaultPreviewDelayMinutes) }
     var testStatus by remember { mutableStateOf("") }
     var allowed by remember { mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled()) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it }
@@ -303,7 +304,7 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
         )) }
         item { ProfilePremiumGroup(listOf(ProfilePremiumItem(
             Icons.Rounded.NotificationsActive, "Send a test phone alert",
-            "Preview a real Android alert now or in 10, 20 or 30 minutes",
+            "Preview a real Android alert now or in 1, 10, 20 or 30 minutes",
             ProfileTone.GREEN, onClick = { showTests = !showTests }
         ))) }
         if (showTests) item {
@@ -319,7 +320,7 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
                     }
                     Text("When to send", fontWeight = FontWeight.Bold)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(0, 10, 20, 30).forEach { minutes ->
+                        PhoneAlertPolicy.previewDelaysMinutes.sorted().forEach { minutes ->
                             FilterChip(selected = testDelay == minutes, onClick = { testDelay = minutes },
                                 label = { Text(if (minutes == 0) "Now" else "$minutes min") })
                         }
