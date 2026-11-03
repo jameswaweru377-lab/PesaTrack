@@ -1,41 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Rich expansion of the approved mock-up; the OS retains the outer card. -->
+<!-- White self-contained content is intentional: HyperOS can use a dark system
+     notification surface independently of PesaTrack's light-only app theme.
+     Android owns the surrounding app header and expand button. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal">
+    android:orientation="horizontal"
+    android:paddingStart="8dp"
+    android:paddingEnd="8dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp"
+    android:background="@drawable/notice_panel_background">
 
-    <TextView
+    <View
         android:layout_width="3dp"
         android:layout_height="match_parent"
         android:background="@color/notice_purple" />
 
+    <!-- width=0dp + weight=1 prevents the content from overflowing the
+         3dp accent and having the right-side illustration pushed off-screen. -->
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:paddingStart="12dp"
-        android:paddingEnd="9dp"
-        android:paddingTop="9dp"
-        android:paddingBottom="9dp"
+        android:layout_weight="1"
+        android:paddingStart="11dp"
+        android:paddingEnd="4dp"
         android:orientation="vertical">
 
         <TextView
             android:id="@+id/notice_badge"
             android:layout_width="wrap_content"
-            android:layout_height="30dp"
+            android:layout_height="24dp"
             android:background="@drawable/notice_badge_background"
             android:gravity="center"
-            android:paddingStart="12dp"
-            android:paddingEnd="12dp"
+            android:paddingStart="11dp"
+            android:paddingEnd="11dp"
             android:textColor="@color/notice_purple"
-            android:textSize="12sp"
+            android:textSize="11sp"
             android:textStyle="bold"
             android:singleLine="true" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="7dp"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
@@ -50,7 +58,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textColor="@color/notice_text"
-                    android:textSize="18sp"
+                    android:textSize="16sp"
                     android:textStyle="bold"
                     android:maxLines="2"
                     android:ellipsize="end" />
@@ -59,19 +67,21 @@
                     android:id="@+id/notice_description"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
+                    android:layout_marginTop="4dp"
                     android:textColor="@color/notice_secondary"
-                    android:textSize="14sp"
-                    android:maxLines="2"
+                    android:textSize="13sp"
+                    android:maxLines="3"
                     android:ellipsize="end" />
             </LinearLayout>
 
+            <!-- The financial-category illustration belongs at the far right,
+                 not between notification content and the OS header. -->
             <ImageView
                 android:id="@+id/notice_category_icon"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:layout_marginStart="10dp"
-                android:padding="13dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="9dp"
+                android:padding="11dp"
                 android:background="@drawable/notice_icon_background"
                 android:contentDescription="@null" />
         </LinearLayout>
@@ -79,11 +89,14 @@
         <TextView
             android:id="@+id/notice_action"
             android:layout_width="wrap_content"
-            android:layout_height="42dp"
-            android:layout_marginTop="5dp"
-            android:gravity="center_vertical"
+            android:layout_height="36dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/notice_badge_background"
+            android:gravity="center"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
             android:textColor="@color/notice_purple"
-            android:textSize="15sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>
