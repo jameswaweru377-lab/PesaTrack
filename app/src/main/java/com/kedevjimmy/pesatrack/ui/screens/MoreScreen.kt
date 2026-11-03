@@ -148,7 +148,7 @@ fun MoreScreen(
 private fun MorePageHeading() {
     Column(verticalArrangement = Arrangement.spacedBy(M.space1)) {
         Text("More", color = M.ink,
-            fontWeight = FontWeight.ExtraBold, fontSize = 28.sp, lineHeight = 32.sp)
+            fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 32.sp)
         Text("Manage your account, data and app settings.",
             color = M.muted, fontSize = 12.sp, lineHeight = 16.sp)
     }
@@ -232,7 +232,7 @@ private fun MoreImportChoiceSheet(onDismiss: () -> Unit, onSms: () -> Unit,
             start = M.space16, end = M.space16, bottom = M.space28
         ), verticalArrangement = Arrangement.spacedBy(M.space12)) {
             Text("Import money records", fontSize = 20.sp,
-                fontWeight = FontWeight.ExtraBold, color = M.ink)
+                fontWeight = FontWeight.Bold, color = M.ink)
             Text("Choose how to add older records to PesaTrack.",
                 color = M.muted, fontSize = 13.sp)
             MoreSettingsGroup {
@@ -253,7 +253,7 @@ private fun MoreSectionTitle(title: String) {
         color = M.ink,
         fontSize = 17.sp,
         lineHeight = 21.sp,
-        fontWeight = FontWeight.ExtraBold,
+        fontWeight = FontWeight.Bold,
         modifier = Modifier.padding(start = M.space8)
     )
 }
@@ -389,13 +389,13 @@ private fun MoreWorkspaceTile(
         modifier = modifier.heightIn(min = M.workspaceTileHeight).clickable(onClick = onClick),
         color = Color.White,
         shape = RoundedCornerShape(M.space17),
-        shadowElevation = M.space3,
+        shadowElevation = M.space1,
         border = androidx.compose.foundation.BorderStroke(M.space1, M.workspaceBorder)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = M.space4, vertical = M.space10),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = M.space4, vertical = M.space8),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(M.space5)
+            verticalArrangement = Arrangement.spacedBy(M.space4)
         ) {
             Surface(
                 modifier = Modifier.size(M.iconMedium),
@@ -407,10 +407,11 @@ private fun MoreWorkspaceTile(
                         tint = iconTint, modifier = Modifier.size(M.space23))
                 }
             }
-            Text(title, color = M.ink, fontSize = 11.sp,
-                fontWeight = FontWeight.ExtraBold, maxLines = 1)
-            Text(subtitle, color = M.muted, fontSize = 9.sp,
-                lineHeight = 11.sp, maxLines = 2,
+            Text(title, color = M.ink, fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
+            Text(subtitle, color = M.muted, fontSize = 10.sp,
+                lineHeight = 12.sp, maxLines = 2,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
     }
@@ -422,7 +423,7 @@ private fun MoreSettingsGroup(content: @Composable ColumnScope.() -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         color = Color.White,
         shape = RoundedCornerShape(M.space20),
-        shadowElevation = M.space3,
+        shadowElevation = M.space1,
         border = androidx.compose.foundation.BorderStroke(M.space1, M.groupBorder)
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = M.space11), content = content)

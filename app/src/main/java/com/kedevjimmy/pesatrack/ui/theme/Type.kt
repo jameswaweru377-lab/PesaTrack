@@ -18,14 +18,14 @@ val PesaTypography = Typography(
     ),
     displaySmall = TextStyle(
         fontFamily = AppFont,
-        fontWeight = FontWeight.ExtraBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 31.sp,
         lineHeight = 35.sp,
         letterSpacing = (-0.7).sp
     ),
     headlineLarge = TextStyle(
         fontFamily = AppFont,
-        fontWeight = FontWeight.ExtraBold,
+        fontWeight = FontWeight.Bold,
         fontSize = 27.sp,
         lineHeight = 32.sp,
         letterSpacing = (-0.45).sp

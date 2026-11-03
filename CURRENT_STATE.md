@@ -621,6 +621,20 @@ Not yet public-store ready. Remaining release blockers include:
 
 ## Architecture rule for next work
 
+_Visual rhythm polish (3 November 2026; branch verification pending):_
+The current native UI is receiving a bounded visual consistency pass:
+shared text-weight and neutral-card tokens, a slimmer selected state within
+the approved five-tab bar, more proportionate Plan/More controls, and 48dp
+date/month/analytics tap areas. The purple identity, illustrated hero cards,
+financial labels, account routes, stored values, statement evidence and
+permissions are unchanged. The Accounts five-screen redesign has merged
+through PR #604; this pass does not modify its screen files. A new JVM token
+contract and the existing five-tab Compose navigation contract describe the
+target dimensions. Local Gradle execution is blocked by the unavailable
+Gradle 9.5 distribution; exact-head Android CI and Redmi font-scale/device
+visual acceptance remain separate and cannot be claimed by source inspection.
+See `docs/superpowers/specs/2026-11-03-visual-rhythm-polish.md`.
+
 Improve architecture incrementally during approved feature and fix work: extract focused responsibilities only in related code, preserve financial behavior and tests, and avoid whole-app rewrites. Preserve the latest approved five visible bottom tabs Home / Activity / Plan / Accounts / More, with Accounts linked directly to its existing destination; do not revert to the old four-tab arrangement. Keep parser expansion evidence-driven.
 
 ## Owed to me history review
