@@ -203,6 +203,27 @@ class TransferReconciliationStoreTest {
         assertEquals(before, financialEvidence())
     }
 
+    @Test fun feeAndChargebackStatementRowsCannotBecomeLegacyOrNewTransferSuggestions() {
+        archive { it.execSQL("UPDATE statement_legs_v2 SET reference='SYN123456789'") }
+        for (description in listOf(
+            "Commission charged to account 009876543210",
+            "Excise duty to account 009876543210",
+            "Chargeback to account 009876543210",
+            "Bank levy to account 009876543210"
+        )) {
+            archive { it.execSQL("UPDATE statement_legs_v2 SET description=? WHERE movement_minor<0",
+                arrayOf(description)) }
+            val before = financialEvidence()
+            val legacy = StatementMatchDecisionStore(app).read(2026)
+            assertTrue("Legacy transfer match from $description",
+                legacy.candidates.none { it.kind == StatementMatchDecisionStore.Kind.TRANSFER })
+            assertTrue("Legacy weak lead from $description", legacy.possibleTransfers.isEmpty())
+            assertTrue("New transfer match from $description",
+                TransferReconciliationStore(app).read(2026).reconciliation.pairs.isEmpty())
+            assertEquals(before, financialEvidence())
+        }
+    }
+
     private fun insert(id: String, account: String, identifier: String, movement: Long, description: String, reference: String?) {
         archive { db ->
             db.insertOrThrow("statement_sources_v2", null, ContentValues().apply {
