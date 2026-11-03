@@ -43,7 +43,9 @@ object TransferReconciliationPolicy {
                 row.copy(roleProtected = true) else row
         }
         val valid = assessed.filter(::structurallyValid)
-        val owned = ownership.filterValues { it.revision > 0 && it.type in setOf("BANK", "MOBILE_WALLET") && it.name.isNotBlank() }
+        val owned = StatementOwnedAccountUniquenessPolicy.unambiguous(ownership.filterValues {
+            it.revision > 0 && it.type in setOf("BANK", "MOBILE_WALLET") && it.name.isNotBlank()
+        })
         val proof = StatementCrossSourceEventPolicy.reconcile(valid, owned.keys)
         val routes = valid.mapNotNull { row -> descriptions[row.id]?.let { TransferRoutePolicy.find(row, it, owned) } }
             .associateBy { it.observationId }
