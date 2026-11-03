@@ -12,10 +12,13 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
+import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
+import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 
@@ -23,7 +26,6 @@ import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit,
     onBack: () -> Unit, onProfileClick: () -> Unit, onMpesaConnectionClick: () -> Unit,
     onSmartRulesClick: () -> Unit, onHistoricalImportClick: () -> Unit, onAdvancedClick: () -> Unit = {}) {
-    val context = LocalContext.current
     var page by rememberSaveable { mutableStateOf("settings") }
     var accessReturnPage by rememberSaveable { mutableStateOf("settings") }
     var privacyReturnPage by rememberSaveable { mutableStateOf("settings") }
@@ -68,21 +70,13 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
             item {
                 SettingsGroup {
                     SettingsCompactRow(Icons.Rounded.Tune, "Automatic sorting",
-                        "Salary, regular payments and transfers", onSmartRulesClick)
+                        "Salary, regular payments and transfers", tone = "violet", onClick = onSmartRulesClick)
                     SettingsCompactRow(Icons.Rounded.Message, "Money message access",
-                        "Review SMS permissions and allowed sources") {
+                        "Review SMS permissions and allowed sources", tone = "blue") {
                         accessReturnPage = "settings"
                         page = "access"
                     }
                 }
-            }
-            item {
-                Text(
-                    "Profile, notifications, app lock, backup and legal information are now in More.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                )
             }
         }
     }
@@ -98,16 +92,18 @@ private fun SettingsCompactRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
     description: String,
+    tone: String = "violet",
     onClick: () -> Unit
 ) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 64.dp).padding(horizontal = 14.dp, vertical = 8.dp),
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick)
+        .heightIn(min = PesaDesignTokens.minimumTouchTarget)
+        .padding(horizontal = PesaDesignTokens.cardContentPadding, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+        IconBubble(icon, tint = pesaToneContent(tone), background = pesaToneContainer(tone))
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .45f), thickness = .7.dp)
 }

@@ -34,6 +34,7 @@ import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
+import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore
 import com.kedevjimmy.pesatrack.data.local.EntityEnrichmentPreferences
 import com.kedevjimmy.pesatrack.ingestion.NotificationSourceTrustStore
@@ -60,15 +61,18 @@ internal fun EverydayPage(title: String, padding: PaddingValues, onBack: () -> U
     }
 }
 @Composable
-internal fun EverydayRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, description: String, onClick: () -> Unit) {
+internal fun EverydayRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, description: String,
+    tone: String = "violet", onClick: () -> Unit) {
     PesaCard(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        Row(Modifier.padding(16.dp).heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+        Row(Modifier.padding(PesaDesignTokens.cardContentPadding)
+            .heightIn(min = PesaDesignTokens.minimumTouchTarget),
+            verticalAlignment = Alignment.CenterVertically) {
+            IconBubble(icon, tint = pesaToneContent(tone), background = pesaToneContainer(tone))
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Icon(Icons.Rounded.ChevronRight, null)
+            Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -186,20 +190,24 @@ internal fun MoneyAccessPage(padding: PaddingValues, back: () -> Unit, history: 
     }
     if (sources) NotificationSourceApprovalSheet { sources = false; refresh++ }
     EverydayPage("Money message access", padding, back) {
-        item { Text("Read money messages to keep your transactions up to date. This is separate from reminders sent by PesaTrack.") }
-        item { EverydayRow(Icons.Rounded.Message, "Add past transactions", if (sms) "SMS access is on" else "Choose whether to read older SMS", history) }
-        item { EverydayRow(Icons.Rounded.Notifications, "Bank-app updates", if (notifications) "Android notification access is on" else "Allow access in Android settings") {
+        item { Text("Choose the sources PesaTrack can read. Your saved records remain on this phone.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item { EverydayRow(Icons.Rounded.Message, "Add past transactions", if (sms) "SMS access is on" else "Choose whether to read older SMS", tone = "violet", onClick = history) }
+        item { EverydayRow(Icons.Rounded.Notifications, "Bank-app updates", if (notifications) "Android notification access is on" else "Allow access in Android settings", tone = "blue") {
             launcher.launch(smartNotificationAccessIntent(context))
         } }
-        item { EverydayRow(Icons.Rounded.Apps, "Apps to read money updates from", if (approvedApps == 0) "No apps approved · Choose your bank, mobile-money or SMS app" else pluralStringResource(R.plurals.approved_money_apps, approvedApps, approvedApps)) { sources = true } }
+        item { EverydayRow(Icons.Rounded.Apps, "Money app access", if (approvedApps == 0) "Choose bank, wallet or SMS apps" else pluralStringResource(R.plurals.approved_money_apps, approvedApps, approvedApps), tone = "green") { sources = true } }
         item { OutlinedButton(onClick = {
             val smsSaved = SmsAccessConsentStore.setAccepted(context, false)
             val appsSaved = NotificationSourceTrustStore(context).revokeAll()
             refresh++
             error = if (smsSaved && appsSaved) "Message reading is off. Your saved transactions remain." else "Couldn't save every choice. Please try again."
-        }, modifier = Modifier.fillMaxWidth()) { Text("Stop reading money messages") } }
-        item { TextButton(onClick = { launcher.launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName))) }) { Text("Open Android app settings") } }
-        item { error?.let { Text(it) }; TextButton(onClick = { details = !details }) { Text(if (details) "Hide access details" else "More about message access") } }
+        }, modifier = Modifier.fillMaxWidth().heightIn(min = PesaDesignTokens.minimumTouchTarget)) { Text("Stop reading money messages") } }
+        item { TextButton(onClick = { launcher.launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName))) },
+            modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)) { Text("Open Android app settings") } }
+        item { error?.let { Text(it) }; TextButton(onClick = { details = !details },
+            modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)) { Text(if (details) "Hide access details" else "More about message access") } }
         if (details) item { Text("Android access alone does not approve an app: choose each source above. Stopping access keeps your saved transactions. If Android blocks access on a downloaded APK, open App info, then the menu, and choose Allow restricted settings.", style = MaterialTheme.typography.bodyMedium) }
     }
 }
