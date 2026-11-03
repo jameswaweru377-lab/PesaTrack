@@ -145,8 +145,7 @@ private fun readStatement(c:Context,uri:Uri):String {
  suspend fun admitBank(prepared: OfflineBankTableReader.Prepared, providerKey: String, target: String): StagedBankPdf {
   val selectedAccount=accounts.firstOrNull{it.id==target} ?: error("Choose the account first.")
   val confirmed=withContext(Dispatchers.IO){
-   FinancialUnderstandingStore.get(c).confirmedAccountIds()+
-    AccountOwnershipConsentStore(c).confirmedRevisions().keys
+   StatementAccountConsentReader(c).confirmedAccountIds()
   }
   val admission=StatementBankAdmission.verify(
    StatementSourceProfileRegistry.forProvider(providerKey),selectedAccount,
