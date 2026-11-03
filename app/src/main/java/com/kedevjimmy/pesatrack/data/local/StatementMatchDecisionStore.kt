@@ -14,6 +14,7 @@ import com.kedevjimmy.pesatrack.domain.statements.StatementUnifiedOverviewPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementReconciliationPreviewPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementReconciledLegProjectionPolicy
 import com.kedevjimmy.pesatrack.domain.statements.SharedAccountingViewPolicy
+import com.kedevjimmy.pesatrack.domain.statements.StatementLegacyReviewIdentityPolicy
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -102,7 +103,7 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
         val end = calendar.timeInMillis
         val window = StatementMatchReviewPolicy.evidenceWindow(start, end)
         val source = StatementEvidenceReadModel(app).readWithActivityEvidence(window.startInclusive, window.endExclusive)
-        val review = StatementMatchReviewPolicy.project(
+        val projectedReview = StatementMatchReviewPolicy.project(
             source.statements.observations + source.originalActivityMessages, source.eventProof,
             if (includeBoundaryContext) window.startInclusive else start,
             if (includeBoundaryContext) window.endExclusive else end)
@@ -111,7 +112,15 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
             val revision = revisions[account.id] ?: return@mapNotNull null
             account.id to StatementMatchDecisionPolicy.Ownership(revision, account.type.name, account.identifier, account.name)
         }.toMap()
-        var missingConsent = false
+        val projectedPossibilities = StatementPossibleTransferPolicy.suggest(
+            source.eligibleStatementObservations + source.originalActivityMessages, source.eventProof, start, end)
+        val safeReview = StatementLegacyReviewIdentityPolicy.guard(projectedReview, projectedPossibilities, ownership)
+        val review = safeReview.review
+        val possibleTransfers = safeReview.possibleTransfers
+        // Preserve the original consent warning even when an unowned transfer lead is withheld.
+        var missingConsent = projectedReview.transfers.any { transfer ->
+            (transfer.outgoing + transfer.incoming).any { it.accountId !in ownership }
+        }
         fun candidate(kind: Kind, rows: List<StatementEvidenceCorrelationPolicy.Observation>): Candidate? {
             if (rows.any { it.accountId !in ownership }) { missingConsent = true; return null }
             return Candidate(kind, rows, StatementMatchDecisionPolicy.fingerprint(rows, ownership))
@@ -140,8 +149,6 @@ internal class StatementMatchDecisionStore(context: Context, private val afterVa
                 }
             }
         } finally { helper.close() }
-        val possibleTransfers = StatementPossibleTransferPolicy.suggest(
-            source.eligibleStatementObservations + source.originalActivityMessages, source.eventProof, start, end)
         val shownIds = review.transfers.flatMap { it.outgoing + it.incoming }.map { it.id } +
             review.sameMovements.flatten().map { it.id } +
             possibleTransfers.flatMap { listOf(it.outgoing.id, it.incoming.id) } + source.eventProof.ambiguousIds
