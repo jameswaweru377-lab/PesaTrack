@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 
 /** Screen-local tokens matching the approved premium Plan reference. */
 internal object PlanVibrant {
@@ -70,7 +71,7 @@ internal fun planVibrantTone(tone: String): Pair<Color, Color> = when (tone) {
 @Composable
 internal fun VibrantPlanPageTitle(title: String, subtitle: String, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        Text(title, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.ExtraBold,
+        Text(title, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold,
             color = PlanVibrant.ink)
         Text(subtitle, fontSize = 13.sp, lineHeight = 18.sp, color = PlanVibrant.muted)
     }
@@ -84,10 +85,11 @@ internal fun VibrantPlanDateRow(
 ) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Surface(modifier = Modifier.weight(1f).heightIn(min = 44.dp)
+        Surface(modifier = Modifier.weight(1f)
+            .heightIn(min = PesaDesignTokens.minimumTouchTarget)
             .then(if (onCycleClick != null) Modifier.clickable(onClick = onCycleClick) else Modifier),
             shape = RoundedCornerShape(15.dp), color = Color.White,
-            shadowElevation = 3.dp, border = BorderStroke(1.dp, PlanVibrant.outline)) {
+            shadowElevation = 1.dp, border = BorderStroke(1.dp, PlanVibrant.outline)) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -100,10 +102,10 @@ internal fun VibrantPlanDateRow(
                     Modifier.size(19.dp), tint = PlanVibrant.ink)
             }
         }
-        Surface(modifier = Modifier.size(44.dp)
+        Surface(modifier = Modifier.size(PesaDesignTokens.minimumTouchTarget)
             .then(if (onInsightsClick != null) Modifier.clickable(onClick = onInsightsClick) else Modifier),
             shape = RoundedCornerShape(16.dp), color = Color.White,
-            shadowElevation = 3.dp, border = BorderStroke(1.dp, PlanVibrant.outline)) {
+            shadowElevation = 1.dp, border = BorderStroke(1.dp, PlanVibrant.outline)) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(Icons.Rounded.Analytics, contentDescription = "View planning insights",
                     tint = PlanVibrant.violet, modifier = Modifier.size(23.dp))
@@ -116,7 +118,7 @@ internal fun VibrantPlanDateRow(
 internal fun VibrantPlanSurface(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Surface(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(21.dp),
         color = Color.White, border = BorderStroke(1.dp, PlanVibrant.outline),
-        shadowElevation = 3.dp) {
+        shadowElevation = 1.dp) {
         Column(Modifier.fillMaxWidth().padding(13.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
     }
@@ -126,7 +128,7 @@ internal fun VibrantPlanSurface(modifier: Modifier = Modifier, content: @Composa
 internal fun VibrantPlanSectionTitle(title: String, action: String? = null, onAction: (() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(title, Modifier.weight(1f), fontSize = 17.sp,
-            fontWeight = FontWeight.ExtraBold, color = PlanVibrant.ink)
+            fontWeight = FontWeight.Bold, color = PlanVibrant.ink)
         if (action != null && onAction != null) {
             TextButton(onClick = onAction, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)) {
                 Text(action, color = PlanVibrant.violet, fontSize = 12.sp,
@@ -234,7 +236,7 @@ internal fun VibrantPlanHero(
             Spacer(Modifier.height(4.dp))
             Text(
                 available, color = Color.White, fontSize = 30.sp, lineHeight = 35.sp,
-                fontWeight = FontWeight.ExtraBold, maxLines = 1,
+                fontWeight = FontWeight.Bold, maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(.71f)
             )
