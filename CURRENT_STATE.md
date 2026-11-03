@@ -1,5 +1,15 @@
 # PesaTrack Current State
 
+_Duplicate owned-account identity safeguard (3 November 2026; PR #605, green CI pending):_
+The non-posting Statements transfer-review engine withholds candidate pairs
+when two explicitly owned account records have the same complete bank number
+or equivalent Kenyan mobile-wallet numbers. A shared receipt between two
+account IDs alone must never make one physical account look like two.
+Source observations, original transactions, user corrections, financial
+totals, saved review choices, schema and backups remain untouched. This is
+limited to the transfer-review workspace; other cross-source review paths
+still need separate identity parity checks. No emulator or device PASS claimed.
+
 _Recorded refund outflow correction (3 November 2026; CI and device acceptance pending):_
 The Activity ledger's `spentMinor` already subtracts trusted linked refunds.
 Home's current and comparison-month outflow, and Profile financial-health
