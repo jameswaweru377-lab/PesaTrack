@@ -6,6 +6,7 @@ import com.kedevjimmy.pesatrack.domain.statements.StatementActivityObservationPo
 import com.kedevjimmy.pesatrack.domain.statements.StatementCrossSourceEventPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementEvidenceCorrelationPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementSourceCoveragePolicy
+import com.kedevjimmy.pesatrack.domain.statements.TransferReconciliationPolicy
 
 /**
  * Phase 3 read-only statement evidence boundary. It does not query or modify
@@ -67,6 +68,14 @@ class StatementEvidenceReadModel(context: Context) {
         val eligibleStatements = statements.observations.filter {
             it.source != StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT || it.sourceId in matchingSources
         }
+        // Review-only protection: user labels and specialized cash roles must not be
+        // suggested as a second own-account transfer. Source totals stay untouched.
+        val details = TransferStatementEvidenceReader(app).read(eligibleStatements)
+        val reviewStatements = eligibleStatements.map { row ->
+            if (row.id in details.protectedIds ||
+                TransferReconciliationPolicy.isProtectedNarration(details.descriptions[row.id]))
+                row.copy(roleProtected = true) else row
+        }
         val excludedBankSources = statements.observations.filter {
             it.source == StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT && it.sourceId !in matchingSources
         }.map { it.sourceId }.distinct().size
@@ -82,10 +91,10 @@ class StatementEvidenceReadModel(context: Context) {
             statements = statements,
             originalActivityMessages = messages,
             eventProof = StatementCrossSourceEventPolicy.reconcile(
-                eligibleStatements + messages, owned
+                reviewStatements + messages, owned
             ),
             excludedBankSourceCount = excludedBankSources,
-            eligibleStatementObservations = eligibleStatements
+            eligibleStatementObservations = reviewStatements
         )
     }
 
