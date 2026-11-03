@@ -1686,7 +1686,7 @@ fun SmartOnboardingSetupScreen(
 
     BackHandler(enabled = chooseInstitutions) { chooseInstitutions = false }
     if (chooseInstitutions) {
-        FinancialInstitutionsScreen(scaffoldPadding) { chooseInstitutions = false }
+        FinancialInstitutionsRedesignScreen(scaffoldPadding) { chooseInstitutions = false }
         return
     }
     if (stage == SmartSetupStage.SMS_PERMISSION) {

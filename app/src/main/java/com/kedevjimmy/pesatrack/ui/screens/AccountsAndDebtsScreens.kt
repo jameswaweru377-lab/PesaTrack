@@ -23,6 +23,9 @@ import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.FilterList
 import androidx.compose.material.icons.rounded.Savings
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
@@ -120,6 +123,7 @@ fun AccountsScreen(
     onDiscoverReceivables: (() -> Unit)? = null
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
+    var amountsHidden by rememberSaveable { mutableStateOf(false) }
     var accountFilterOpen by rememberSaveable { mutableStateOf(false) }
     if (selectedTab == 3) {
         DebtsScreen(scaffoldPadding, onBack = { selectedTab = 0 },
@@ -190,18 +194,12 @@ fun AccountsScreen(
                 val confirmedAccountIds = traceFinancialRead("accounts.ownership") {
                     understandingStore.confirmedAccountIds()
                 }
-                val groups =
-                    AccountDisplayPolicy.groups(
-                        accounts, includeCash = true
-                    ).filter { group ->
-                        group.accounts.any {
-                            AccountDisplayPolicy
-                                .isConfirmedOwned(
-                                    account = it,
-                                    confirmedAccountIds =
-                                        confirmedAccountIds, includeCash = true
-                                )
+                val groups = AccountDisplayPolicy.groups(accounts, includeCash = true)
+                    .mapNotNull { group ->
+                        val ownedMembers = group.accounts.filter {
+                            AccountDisplayPolicy.isConfirmedOwned(it, confirmedAccountIds, includeCash = true)
                         }
+                        if (ownedMembers.isEmpty()) null else group.copy(accounts = ownedMembers)
                     }
                 val referenceEpochMs =
                     System.currentTimeMillis()
@@ -263,36 +261,39 @@ fun AccountsScreen(
             else -> true
         }
     }
-    val hasMpesa = visible.any { it.group.accounts.any { account -> account.id == AccountStore.DEFAULT_MPESA_ID } }
-    val shown = visible.filterNot { hasMpesa && (it.group.displayName.contains("M-Shwari", true) || it.group.displayName.contains("KCB M-Pesa", true)) }
+    val everyday = visible.filterNot {
+        it.group.type == AccountType.SAVINGS || it.group.displayName.contains("M-Shwari", true)
+    }
+    val savings = visible.filter {
+        it.group.type == AccountType.SAVINGS || it.group.displayName.contains("M-Shwari", true)
+    }
     LazyColumn(modifier = Modifier.padding(scaffoldPadding).background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item { AccountsNavigation(selectedTab, { selectedTab = it }, onBack, onManageInstitutions) }
+        verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        item { AccountsNavigation(selectedTab, { selectedTab = it }, onBack, onManageInstitutions,
+            amountsHidden, { amountsHidden = !amountsHidden }) }
         // An already-visible balance list must not jump down for an
         // intermittent loading banner on every background refresh.
         if (accountsError) item {
             FinancialReadBanner("Accounts", false, true) { accountsRetry++ }
         }
         item {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Text("Accounts",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box {
-                        TextButton(onClick = { accountFilterOpen = true }) {
-                            Icon(Icons.Rounded.FilterList, null, modifier = Modifier.size(18.dp))
-                            Text(when (selectedTab) { 1 -> "Banks"; 2 -> "Mobile"; else -> "Filter" })
-                        }
-                        DropdownMenu(expanded = accountFilterOpen, onDismissRequest = { accountFilterOpen = false }) {
-                            listOf("All", "Banks", "Mobile").forEachIndexed { index, label ->
-                                DropdownMenuItem(text = { Text(label) }, onClick = {
-                                    selectedTab = index
-                                    accountFilterOpen = false
-                                })
-                            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Info, null, modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${accountDisplayLines(visible).count { it.balanceMinor != null }} of ${accountDisplayLines(visible).size} balances available",
+                    modifier = Modifier.padding(start = 8.dp).weight(1f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall)
+                Box {
+                    TextButton(onClick = { accountFilterOpen = true }) { Text("Filter") }
+                    DropdownMenu(expanded = accountFilterOpen,
+                        onDismissRequest = { accountFilterOpen = false }) {
+                        listOf("All", "Banks", "Mobile").forEachIndexed { index, label ->
+                            DropdownMenuItem(text = { Text(label) }, onClick = {
+                                selectedTab = index
+                                accountFilterOpen = false
+                            })
                         }
                     }
                 }
@@ -305,33 +306,40 @@ fun AccountsScreen(
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } }
         }
-        items(shown.size, key = { shown[it].group.key }) { index ->
-            AccountBalanceCard(shown[index], onAccountClick?.let { callback ->
-                { shown[index].group.accounts.firstOrNull()?.id?.let(callback); Unit }
-            })
+        if (everyday.isNotEmpty()) {
+            item { AccountsSectionTitle("Everyday money") }
+            item { AccountSectionGroup(everyday, amountsHidden, onAccountClick) }
         }
-        if (shown.isNotEmpty()) item {
-            Text("Only observed balances appear here. A dash means PesaTrack has no confirmed balance for that account.",
-                modifier = Modifier.padding(horizontal = 4.dp), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (savings.isNotEmpty()) {
+            item { AccountsSectionTitle("Savings") }
+            item { AccountSectionGroup(savings, amountsHidden, onAccountClick) }
         }
         if (selectedTab == 0 && activeDebts.isNotEmpty()) {
             item {
-                Row(Modifier.fillMaxWidth().clickable { selectedTab = 3 }, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Debt overview", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold)
-                    Text("See debts", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.primary)
+                val unknown = activeDebts.count(::hasUnknownDebtBalance)
+                val known = CheckedMoney.orNull {
+                    activeDebts.filterNot(::hasUnknownDebtBalance).checkedMoneySumOf { it.outstandingMinor }
+                }
+                Surface(onClick = { selectedTab = 3 }, shape = RoundedCornerShape(22.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        IconBubble(Icons.Rounded.CreditCard, size = 42.dp,
+                            background = com.kedevjimmy.pesatrack.ui.theme.AmberSoft,
+                            tint = com.kedevjimmy.pesatrack.ui.theme.Amber)
+                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                            Text("Debts overview", fontWeight = FontWeight.SemiBold)
+                            Text("Known ${if (amountsHidden) "••••" else known?.let(::formatKesAmount) ?: "unavailable"} · $unknown unknown",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text("See debts", color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.labelMedium)
+                        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.primary)
+                    }
                 }
             }
-            items(activeDebts.size, key = { "debt:" + activeDebts[it].id }) { index ->
-                DebtAccountCard(activeDebts[index])
-            }
-            item { Text("Borrowing is tracked separately from income. Repayment principal is not treated as a new purchase.",
-                modifier = Modifier.padding(horizontal = 4.dp), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
-        if (onManageInstitutions != null) item { RelationshipReviewCard(onManageInstitutions) }
         if (onDiscoverReceivables != null) item { SmartDiscoveryCard(onDiscoverReceivables) }
         item { AccountBalanceCheckAction() }
         item { TransferOwnershipConsentAction() }
@@ -340,14 +348,21 @@ fun AccountsScreen(
 
 @Composable
 private fun AccountsNavigation(selected: Int, onSelected: (Int) -> Unit,
-    onBack: (() -> Unit)?, onManage: (() -> Unit)?) {
+    onBack: (() -> Unit)?, onManage: (() -> Unit)?,
+    amountsHidden: Boolean = false, onToggleAmounts: (() -> Unit)? = null) {
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (onBack != null) IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
             }
-            Text(if (selected == 3) "Debts" else "Accounts", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium,
+            Text("Accounts", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold)
+            if (onToggleAmounts != null && selected != 3) {
+                IconButton(onClick = onToggleAmounts) {
+                    Icon(if (amountsHidden) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                        contentDescription = if (amountsHidden) "Show balances" else "Hide balances")
+                }
+            }
             if (onManage != null && selected != 3) {
                 Button(onClick = onManage, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)) {
                     Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -356,7 +371,7 @@ private fun AccountsNavigation(selected: Int, onSelected: (Int) -> Unit,
                 }
             }
         }
-        Text(if (selected == 3) "Borrowing and repayment balances." else "Your money sources",
+        Text(if (selected == 3) "Track your accounts and payment balances." else "Your money, all in one place",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 10.dp))
         Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
@@ -365,11 +380,19 @@ private fun AccountsNavigation(selected: Int, onSelected: (Int) -> Unit,
                     val selectedPage = if (selected == 3) 3 else 0
                     Surface(onClick = { onSelected(index) }, modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
-                        color = if (selectedPage == index) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
+                        color = when {
+                            selectedPage == index && index == 3 -> MaterialTheme.colorScheme.primary
+                            selectedPage == index -> MaterialTheme.colorScheme.surface
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        },
                         shadowElevation = if (selectedPage == index) 1.dp else 0.dp) {
                         Text(label, Modifier.padding(vertical = 10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             style = MaterialTheme.typography.labelLarge,
-                            color = if (selectedPage == index) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+                            color = when {
+                                selectedPage == index && index == 3 -> MaterialTheme.colorScheme.onPrimary
+                                selectedPage == index -> MaterialTheme.colorScheme.onSurface
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            })
                     }
                 }
             }
@@ -425,6 +448,7 @@ fun DebtsScreen(
     }
     var settledDebts by remember { mutableStateOf(cached?.settled ?: emptyList()) }
     var showSettled by remember { mutableStateOf(false) }
+    var confirmBalanceOpen by remember { mutableStateOf(false) }
     var activeDebts by remember { mutableStateOf(cached?.active ?: emptyList()) }
     var loadedRevision by remember { mutableStateOf(cached?.revision ?: -1L) }
     var debtsLoaded by remember { mutableStateOf(cached != null) }
@@ -507,12 +531,8 @@ fun DebtsScreen(
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = {}, enabled = false, modifier = Modifier.weight(1f)) { Text("I owe") }
-                OutlinedButton(onClick = { showOwedToMe = true }, modifier = Modifier.weight(1f)) {
-                    Text("Owed to me")
-                }
-            }
+            DebtDirectionSelector(owedToMe = false, onIowe = {},
+                onOwedToMe = { showOwedToMe = true })
         }
         // Only a genuine first load needs a progress indicator. Once cards
         // exist, refreshes stay silent and never shift the top navigation.
@@ -566,18 +586,12 @@ fun DebtsScreen(
                                 .onSurfaceVariant
                     )
                     Text(
-                        if (activeDebts.isNotEmpty() && activeDebts.all { it.needsSettlementConfirmation }) {
-                            "Confirmation pending"
-                        } else if (
-                            activeDebts.isNotEmpty() &&
-                            unknownBalanceCount ==
-                                activeDebts.size
-                        ) {
+                        if (activeDebts.all(::hasUnknownDebtBalance)) {
                             "Balance pending"
+                        } else if (activeDebts.all { it.needsSettlementConfirmation }) {
+                            "Confirmation pending"
                         } else {
-                            formatDetailMoney(
-                                totalDebtMinor
-                            )
+                            formatDetailMoney(totalDebtMinor)
                         },
                         modifier =
                             Modifier.padding(top = 4.dp),
@@ -588,36 +602,8 @@ fun DebtsScreen(
                             FontWeight.Bold
                     )
                     Text(
-                        if (activeDebts.isEmpty()) {
-                            "No outstanding debt is currently recorded."
-                        } else {
-                            buildString {
-                                append(
-                                    activeDebts.size
-                                )
-                                append(
-                                    " active debt account"
-                                )
-                                if (
-                                    activeDebts.size != 1
-                                ) {
-                                    append("s")
-                                }
-                                if (
-                                    unknownBalanceCount > 0
-                                ) {
-                                    append(
-                                        " • "
-                                    )
-                                    append(
-                                        unknownBalanceCount
-                                    )
-                                    append(
-                                        " awaiting an observed balance"
-                                    )
-                                }
-                            }
-                        },
+                        "${activeDebts.size} active debts" +
+                            if (unknownBalanceCount > 0) " · $unknownBalanceCount balance unknown" else "",
                         modifier =
                             Modifier.padding(top = 4.dp),
                         color =
@@ -654,25 +640,26 @@ fun DebtsScreen(
                 }
             }
         } else {
-            items(
-                count = activeDebts.size,
-                key = { index ->
-                    activeDebts[index].id
-                }
-            ) { index ->
-                DebtAccountCard(debt = activeDebts[index])
-            }
+            item { AccountsSectionTitle("Active debts") }
+            item { CompactDebtAccountGroup(activeDebts, onConfirmBalance = {
+                confirmBalanceOpen = true
+            }) }
         }
         if (settledDebts.isNotEmpty()) {
             item { TextButton(onClick = { showSettled = !showSettled }) {
                 Text(if (showSettled) "Hide settled debts" else "Settled debts (${settledDebts.size})")
             } }
             if (showSettled) items(settledDebts.size) { index ->
-                DebtAccountCard(settledDebts[index])
+                CompactDebtAccountRow(settledDebts[index])
             }
         }
         if (onReviewRelationships != null) item { RelationshipReviewCard(onReviewRelationships) }
-
+        item { Text("Balances reflect recorded evidence, not live bank sync.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall) }
+    }
+    if (confirmBalanceOpen) DebtBalanceConfirmationDialog(activeDebts) {
+        confirmBalanceOpen = false
     }
 }
 
