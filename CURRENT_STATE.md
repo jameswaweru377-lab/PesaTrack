@@ -1,5 +1,14 @@
 # PesaTrack Current State
 
+_Lender-disbursement transfer-review safeguard (3 November 2026; CI and device acceptance pending):_
+The read-only Statements reconciliation views now withhold specialized cash-leg
+narrations for overdrafts, disbursed funds, disbursements and write-offs from
+both strong owned-transfer candidates and weak route suggestions, even when
+opposing owned accounts share a reference. An actual transfer without those
+roles still remains eligible. Archive evidence, Activity transactions, fees,
+refund links, financial totals, user corrections and backups remain unchanged.
+This does not authorize statement-to-ledger posting or assurance upgrades.
+
 _Unverified statement repeat safeguard (3 November 2026; CI and device acceptance pending):_
 The read-only Statements coverage engine no longer treats a matching receipt
 from a source without independently verified totals as a proven duplicate.

@@ -224,6 +224,28 @@ class TransferReconciliationStoreTest {
         }
     }
 
+    @Test fun lenderDisbursementAndOverdraftCannotBecomeLegacyOrNewTransferLeads() {
+        archive { it.execSQL("UPDATE statement_legs_v2 SET reference='SYN123456789'") }
+        for (description in listOf(
+            "Funds disbursed to account 009876543210",
+            "Disbursement to account 009876543210",
+            "Overdraft to account 009876543210",
+            "Write-off to account 009876543210"
+        )) {
+            archive { it.execSQL("UPDATE statement_legs_v2 SET description=? WHERE movement_minor<0",
+                arrayOf(description)) }
+            val before = financialEvidence()
+            val legacy = StatementMatchDecisionStore(app).read(2026)
+            assertTrue("Legacy false transfer from $description",
+                legacy.candidates.none { it.kind == StatementMatchDecisionStore.Kind.TRANSFER })
+            assertTrue("Legacy false weak lead from $description", legacy.possibleTransfers.isEmpty())
+            val modern = TransferReconciliationStore(app).read(2026).reconciliation
+            assertTrue("Modern false transfer from $description", modern.pairs.isEmpty())
+            assertTrue("Modern false route from $description", modern.unmatchedRoutes.isEmpty())
+            assertEquals(before, financialEvidence())
+        }
+    }
+
     private fun insert(id: String, account: String, identifier: String, movement: Long, description: String, reference: String?) {
         archive { db ->
             db.insertOrThrow("statement_sources_v2", null, ContentValues().apply {
