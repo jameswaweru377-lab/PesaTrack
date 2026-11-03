@@ -27,7 +27,8 @@ object PhoneAlertPolicy {
     val highVisibilityChannels: List<String> =
         listOf(BILL_CHANNEL, SALARY_CHANNEL, PLAN_CHANNEL, BACKUP_CHANNEL)
 
-    val previewDelaysMinutes: Set<Int> = setOf(0, 10, 20, 30)
+    val previewDelaysMinutes: Set<Int> = setOf(0, 1, 10, 20, 30)
+    const val defaultPreviewDelayMinutes = 1
 
     fun previewType(raw: String?): PhoneAlertType? =
         PhoneAlertType.entries.firstOrNull { it.name == raw }

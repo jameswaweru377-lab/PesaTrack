@@ -34,7 +34,9 @@ class PhoneAlertPolicyTest {
     }
 
     @Test fun testDelaysAreExplicitAndBounded() {
-        assertEquals(setOf(0, 10, 20, 30), PhoneAlertPolicy.previewDelaysMinutes)
+        assertEquals(setOf(0, 1, 10, 20, 30), PhoneAlertPolicy.previewDelaysMinutes)
+        assertEquals(1, PhoneAlertPolicy.defaultPreviewDelayMinutes)
+        assertTrue(PhoneAlertPolicy.defaultPreviewDelayMinutes in PhoneAlertPolicy.previewDelaysMinutes)
         assertNull(PhoneAlertPolicy.previewType("not-a-real-notice"))
         assertEquals(PhoneAlertType.REVIEW, PhoneAlertPolicy.previewType("REVIEW"))
     }
