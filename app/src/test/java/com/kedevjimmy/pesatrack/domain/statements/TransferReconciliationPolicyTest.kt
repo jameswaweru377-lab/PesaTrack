@@ -181,6 +181,23 @@ class TransferReconciliationPolicyTest {
             mapOf("d" to "Transfer to M-PESA 0712345678")).pairs.size)
     }
 
+    @Test fun lenderDisbursementOverdraftAndWriteOffCannotMasqueradeAsOwnedTransfers() {
+        val rows = listOf(
+            debit.copy(reference = "SYN123456789"),
+            credit.copy(reference = "SYN123456789")
+        )
+        for (description in listOf(
+            "Funds disbursed to M-PESA 0712345678",
+            "Disbursement to M-PESA 0712345678",
+            "Overdraft to M-PESA 0712345678",
+            "Write-off to M-PESA 0712345678"
+        )) {
+            val result = reconcile(rows, mapOf("d" to description))
+            assertTrue("Must withhold lender or clearance evidence: $description", result.pairs.isEmpty())
+            assertTrue("Must not suggest an orphan route: $description", result.unmatchedRoutes.isEmpty())
+        }
+    }
+
     @Test fun longerFormattedIdentifierCannotMatchOwnedPrefix() {
         for (suffix in listOf(" 9012", "/9012", "_9012", " / 9012", ".9012", "-9012")) {
             assertTrue(suffix, reconcile(listOf(debit, credit),
