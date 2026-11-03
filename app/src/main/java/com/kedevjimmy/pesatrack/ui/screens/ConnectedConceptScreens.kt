@@ -196,6 +196,8 @@ fun ReportsInsightsScreen(
     var loanShares by remember { mutableStateOf<Map<Long,Long>>(emptyMap()) }
     var categoryReview by remember { mutableStateOf<List<ReportReviewCandidate>>(emptyList()) }
     var showCategoryReview by remember(period) { mutableStateOf(false) }
+    var showCategoryHelp by remember(period) { mutableStateOf(false) }
+    var showAllCategories by remember(period) { mutableStateOf(false) }
     var annualAccounting by remember { mutableStateOf<SharedAccountingViewPolicy.View?>(null) }
     var labels by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var moneyHealth by remember {
@@ -411,7 +413,7 @@ fun ReportsInsightsScreen(
     ) {
         item { ConceptLoadError(loadError) { retryLoad++ } }
         item { ConceptInnerHeader("Reports & insights", onBack) }
-        item { OutlinedButton(onClick=onPaycheckClick,modifier=Modifier.fillMaxWidth()) { Text("Paycheck Analysis · gross, net and contributions") } }
+        item { OutlinedButton(onClick=onPaycheckClick,modifier=Modifier.fillMaxWidth()) { Text("Paycheck analysis") } }
         item {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 listOf("Week", "Month", "Year").forEachIndexed { index, label ->
@@ -575,9 +577,15 @@ fun ReportsInsightsScreen(
             item {
                 PesaCard {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("About your categories", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Other is a broad spending category. Uncategorized means a category has not been assigned. Both are included in these totals; they do not by themselves mean a transaction is wrong.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Review a transaction to choose a more useful category. Changes happen only when you save them, and choosing a category does not change its amount.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Understand your categories", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text("Other and Uncategorized are included in your spending totals.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        TextButton(onClick = { showCategoryHelp = !showCategoryHelp }) {
+                            Text(if (showCategoryHelp) "Hide category explanation" else "What do these categories mean?")
+                        }
+                        if (showCategoryHelp) {
+                            Text("Other is a broad category; Uncategorized means none has been assigned. Neither automatically means a transaction is wrong.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("You can choose a more useful category when reviewing a transaction. Only saving the change updates its category, never its amount.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         if (categoryReview.isNotEmpty()) {
                             TextButton(onClick = { showCategoryReview = !showCategoryReview }) {
                                 Text(if (showCategoryReview) "Hide review examples" else "Review largest Other / Uncategorized expenses")
@@ -680,7 +688,7 @@ fun ReportsInsightsScreen(
                             modifier = Modifier.weight(1f).padding(start = 16.dp),
                             verticalArrangement = Arrangement.spacedBy(7.dp)
                         ) {
-                            spending.forEachIndexed { index, entry ->
+                            spending.take(3).forEachIndexed { index, entry ->
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Surface(
                                         modifier = Modifier.size(9.dp),
@@ -690,7 +698,9 @@ fun ReportsInsightsScreen(
                                     Text(
                                         entry.first,
                                         modifier = Modifier.weight(1f).padding(start = 7.dp),
-                                        style = MaterialTheme.typography.bodySmall
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                     )
                                     Text(
                                         ((entry.second * 100) / total).toString() + "%",
@@ -698,12 +708,19 @@ fun ReportsInsightsScreen(
                                     )
                                 }
                             }
+                            if (spending.size > 3) {
+                                Text(
+                                    "+${spending.size - 3} more categories below",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
             }
             item { ConceptSectionTitle("Where your money went") }
-            items(spending.take(6), key = { it.first }) { (label, amount) ->
+            items(spending.take(if (showAllCategories) spending.size else 3), key = { it.first }) { (label, amount) ->
                 val progress = amount.toFloat() / total.toFloat()
                 PesaCard {
                     Column(Modifier.padding(14.dp)) {
@@ -718,6 +735,16 @@ fun ReportsInsightsScreen(
                             trackColor = MaterialTheme.colorScheme.surfaceVariant
                         )
                         Text("${(progress * 100).toInt()}% of recorded spending", Modifier.padding(top = 5.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            if (spending.size > 3) {
+                item {
+                    TextButton(
+                        onClick = { showAllCategories = !showAllCategories },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    ) {
+                        Text(if (showAllCategories) "Show top 3 categories" else "See all ${spending.size} categories")
                     }
                 }
             }
