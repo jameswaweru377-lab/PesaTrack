@@ -2,8 +2,6 @@ package com.kedevjimmy.pesatrack.planning
 
 import android.app.PendingIntent
 import android.content.Context
-import android.text.SpannableString
-import android.text.style.UnderlineSpan
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -35,10 +33,8 @@ object PhoneNoticeDesign {
     ): NotificationCompat.Builder {
         val compact = content(context, R.layout.notice_pesatrack_compact, badge, title, description, art)
         val expanded = content(context, R.layout.notice_pesatrack_expanded, badge, title, description, art)
-        val linkedAction = SpannableString(action).apply {
-            setSpan(UnderlineSpan(), 0, length, 0)
-        }
-        expanded.setTextViewText(R.id.notice_action, linkedAction)
+        // A single rounded action is easier to see than an underlined link.
+        expanded.setTextViewText(R.id.notice_action, action)
         expanded.setOnClickPendingIntent(R.id.notice_action, open)
         return builder
             .setSmallIcon(R.drawable.ic_pesatrack_notification)
