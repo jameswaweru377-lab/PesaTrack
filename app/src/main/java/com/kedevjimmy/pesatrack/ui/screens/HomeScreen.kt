@@ -1072,13 +1072,9 @@ fun HomeScreen(
                     color = it.color
                 )
             }
-    val totalTrustedSpendingMinor = CheckedMoney.orNull {
-        maxOf(
-            0L,
-            CheckedMoney.total(activitySnapshot.summary.spentMinor, activitySnapshot.summary.feesMinor,
-                CheckedMoney.negate(activitySnapshot.summary.refundMinor))
-        )
-    }
+    val totalTrustedSpendingMinor = RecordedOutflowPolicy.available(
+        activitySnapshot.summary.spentMinor, activitySnapshot.summary.feesMinor
+    )
     val unresolvedDuplicateSecondIds =
         activitySnapshot
             .possibleDuplicates
@@ -1214,19 +1210,13 @@ fun HomeScreen(
         priorAlignedSnapshot else null
     val selectedMoneyIn = chosenActivity?.summary?.incomeMinor
     val selectedSpending = chosenActivity?.summary?.let { summary ->
-        CheckedMoney.orNull {
-            maxOf(0L, CheckedMoney.total(summary.spentMinor,summary.feesMinor,
-                CheckedMoney.negate(summary.refundMinor)))
-        }
+        RecordedOutflowPolicy.available(summary.spentMinor, summary.feesMinor)
     }
     val selectedNetFlow = if(selectedMoneyIn != null && selectedSpending != null)
         CheckedMoney.orNull { CheckedMoney.subtract(selectedMoneyIn,selectedSpending) }
         else null
     val comparablePriorSpending = priorActivity?.summary?.let { summary ->
-        CheckedMoney.orNull {
-            maxOf(0L, CheckedMoney.total(summary.spentMinor,summary.feesMinor,
-                CheckedMoney.negate(summary.refundMinor)))
-        }
+        RecordedOutflowPolicy.available(summary.spentMinor, summary.feesMinor)
     }
     val daysRemaining = if(selectedHomeMonthOffset == 0)
         monthDaysRemaining(selectedCalendar.timeInMillis, System.currentTimeMillis())

@@ -1,5 +1,14 @@
 # PesaTrack Current State
 
+_Recorded refund outflow correction (3 November 2026; CI and device acceptance pending):_
+The Activity ledger's `spentMinor` already subtracts trusted linked refunds.
+Home's current and comparison-month outflow, and Profile financial-health
+outflow, now add recorded fees to that net spending without subtracting the
+same refunds a second time. This preserves the existing source transactions,
+refund links, pay-cycle arithmetic, budgets, statement archives and balances.
+Synthetic JVM regression coverage checks net spending, fees and overflow.
+No emulator, instrumentation, or private phone test is claimed.
+
 _Transfer reconciliation review (3 November 2026; GitHub verification pending):_
 Statements match review opens a transfer workspace using shared references or
 exact directional account routes, with ambiguous and missing-counterpart states.

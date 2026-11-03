@@ -62,6 +62,7 @@ import java.util.Date
 internal fun AccountProviderMark(name: String, modifier: Modifier = Modifier) {
     val lower = name.lowercase()
     val localLogo = when {
+        "kcb" in lower -> null // KCB M-Pesa is not the standalone M-Pesa wallet.
         "m-pesa" in lower || "mpesa" in lower -> R.drawable.pesatrack_provider_mpesa
         "equity" in lower -> R.drawable.pesatrack_provider_equity
         "absa" in lower -> R.drawable.pesatrack_provider_absa
@@ -69,9 +70,9 @@ internal fun AccountProviderMark(name: String, modifier: Modifier = Modifier) {
         else -> null
     }
     val (label, bg, ink) = when {
+        "kcb" in lower -> Triple("KCB", SkySoft, Sky)
         "m-pesa" in lower || "mpesa" in lower -> Triple("M-PESA", AquaSoft, AuroraAqua)
         "equity" in lower -> Triple("EQUITY", RoseSoft, Rose)
-        "kcb" in lower -> Triple("KCB", SkySoft, Sky)
         "co-operative" in lower || "co-op" in lower -> Triple("COOP", AquaSoft, AuroraAqua)
         "absa" in lower -> Triple("absa", RoseSoft, Rose)
         "i&m" in lower -> Triple("I&M", SkySoft, Sky)
@@ -122,7 +123,11 @@ internal fun accountDisplayLines(entries: List<AccountBalancePresentation>): Lis
                     component.balanceMinor, component.quality)
             }
         } else {
-            listOf(AccountDisplayLine(AccountIdentityPresentation.title(group),
+            val title = if (group.displayName.equals("M-Shwari", ignoreCase = true) &&
+                group.accounts.size == 1 && group.accounts.single().name.contains("lock", true)) {
+                group.accounts.single().name
+            } else AccountIdentityPresentation.title(group)
+            listOf(AccountDisplayLine(title,
                 group.accounts.firstOrNull()?.id, group.type, entry.balanceMinor, entry.quality))
         }
     }

@@ -42,4 +42,18 @@ class AccountsDisplayLinesTest {
         assertEquals("equity", lines.single().accountId)
         assertNull(lines.single().balanceMinor)
     }
+
+    @Test
+    fun lockSavingsDoesNotShowAsRegularMshwariWhenItIsTheOnlyOwnedMember() {
+        val group = AccountDisplayPolicy.groups(listOf(
+            MoneyAccount("lock", "M-Shwari Lock Savings", AccountType.SAVINGS)
+        )).single()
+
+        val lines = accountDisplayLines(listOf(
+            AccountBalancePresentation(group, null, null, PaydayBalanceQuality.UNKNOWN, emptyList())
+        ))
+
+        assertEquals("M-Shwari Lock Savings", lines.single().name)
+        assertEquals("lock", lines.single().accountId)
+    }
 }
