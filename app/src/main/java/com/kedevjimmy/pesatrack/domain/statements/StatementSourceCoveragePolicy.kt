@@ -78,7 +78,8 @@ object StatementSourceCoveragePolicy {
         var repeatCopies = 0
 
         val exact = rows.filter {
-            it.ownershipConfirmed && !it.roleProtected && referenceOf(it.reference) != null
+            it.ownershipConfirmed && !it.roleProtected && it.sourceTotalsVerified &&
+                referenceOf(it.reference) != null
         }.groupBy { ExactKey(referenceOf(it.reference)!!, it.occurredAt, it.movementMinor) }
 
         for (row in rows) {
@@ -86,7 +87,8 @@ object StatementSourceCoveragePolicy {
             if (!row.ownershipConfirmed || row.roleProtected || !row.sourceTotalsVerified)
                 problematic.add(row.id)
             val ref = referenceOf(row.reference)
-            val matches = if (ref == null || !row.ownershipConfirmed || row.roleProtected) {
+            val matches = if (ref == null || !row.ownershipConfirmed || row.roleProtected ||
+                !row.sourceTotalsVerified) {
                 listOf(row)
             } else exact.getValue(ExactKey(ref, row.occurredAt, row.movementMinor))
 
