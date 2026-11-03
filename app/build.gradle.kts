@@ -162,6 +162,8 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // The PhoneNoticeDesign Robolectric tests inflate real notification XML.
+        unitTests.isIncludeAndroidResources = true
         execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
 }

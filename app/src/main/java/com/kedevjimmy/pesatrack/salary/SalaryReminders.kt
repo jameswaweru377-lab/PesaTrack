@@ -90,7 +90,9 @@ object SalaryReminders {
                 .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setContentIntent(open).setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setPublicVersion(PhoneNotificationChannels.privatePublicVersion(context, CHANNEL))
-                .addAction(0, "Add salary", open).addAction(0, "Not yet received", defer).build()
+                // "Add salary" is already the primary pill inside the expanded
+                // notification. Only expose the separate defer action to Android.
+                .addAction(0, "Not yet received", defer).build()
             try {
                 NotificationManagerCompat.from(context).notify(910, notification)
             } catch (_: SecurityException) {

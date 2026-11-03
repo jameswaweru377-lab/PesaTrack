@@ -2,10 +2,6 @@ package com.kedevjimmy.pesatrack.planning
 
 import android.app.PendingIntent
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.text.SpannableString
-import android.text.style.UnderlineSpan
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -37,15 +33,14 @@ object PhoneNoticeDesign {
     ): NotificationCompat.Builder {
         val compact = content(context, R.layout.notice_pesatrack_compact, badge, title, description, art)
         val expanded = content(context, R.layout.notice_pesatrack_expanded, badge, title, description, art)
-        val linkedAction = SpannableString(action).apply {
-            setSpan(UnderlineSpan(), 0, length, 0)
-        }
-        expanded.setTextViewText(R.id.notice_action, linkedAction)
+        // A single rounded action is easier to see than an underlined link.
+        expanded.setTextViewText(R.id.notice_action, action)
         expanded.setOnClickPendingIntent(R.id.notice_action, open)
         return builder
             .setSmallIcon(R.drawable.ic_pesatrack_notification)
             .setColor(ContextCompat.getColor(context, R.color.notice_purple))
-            .setLargeIcon(brandIcon(context))
+            // Android already displays our small app icon in the notification header.
+            // A large app icon creates an unwanted duplicate on the right.
             // Accessible fallbacks if the device chooses the standard collapsed template.
             .setContentTitle(title)
             .setContentText("$badge · $description")
@@ -70,12 +65,4 @@ object PhoneNoticeDesign {
         setImageViewResource(R.id.notice_category_icon, art.drawable)
     }
 
-    private fun brandIcon(context: Context): Bitmap? {
-        val drawable = ContextCompat.getDrawable(context, R.drawable.ic_pesatrack_launcher) ?: return null
-        val size = (48 * context.resources.displayMetrics.density).toInt().coerceAtLeast(48)
-        return Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).also { bitmap ->
-            drawable.setBounds(0, 0, size, size)
-            drawable.draw(Canvas(bitmap))
-        }
-    }
 }
