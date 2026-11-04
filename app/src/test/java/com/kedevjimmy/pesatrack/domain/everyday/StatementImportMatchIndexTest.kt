@@ -40,6 +40,9 @@ class StatementImportMatchIndexTest {
         val exact = index(Existing("wallet", 2_500L, "EXPENSE", date + 30_000L, "QAB1234567"))
         assertTrue(exact.hasExactReference("wallet", row))
 
+        assertFalse(index(Existing("wallet", 2_500L, "EXPENSE", date, "QAB1234568"))
+            .hasExactReference("wallet", row))
+
         assertFalse(index(Existing("bank", 2_500L, "EXPENSE", date, row.reference))
             .hasExactReference("wallet", row))
         assertFalse(index(Existing("wallet", 2_500L, "INCOME", date, row.reference))
