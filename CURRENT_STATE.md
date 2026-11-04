@@ -1,5 +1,14 @@
 # PesaTrack Current State
 
+_Terse repayment and written-off statement review protection (4 November 2026; CI/device acceptance pending):_
+The legacy and new read-only Statements matching views withhold "repaid in full"
+and "written off" loan-clearance legs from both owned-transfer pair suggestions
+and route leads even when another account has the same reference and amount.
+Ordinary transfers can still be suggested. Statement documents, original
+movements, review decisions, Activity entries, refund links, loan balances,
+income/expense totals and backups remain unchanged. No ledger posting, N2
+assurance promotion, or device acceptance is implied.
+
 _Lender-disbursement transfer-review safeguard (3 November 2026; CI and device acceptance pending):_
 The read-only Statements reconciliation views now withhold specialized cash-leg
 narrations for overdrafts, disbursed funds, disbursements and write-offs from
