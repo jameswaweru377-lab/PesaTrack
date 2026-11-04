@@ -3228,12 +3228,17 @@ class TransactionStore private constructor(context: Context) {
 
     private fun duplicateResolutionKeys(): Set<String> =
         database.readableDatabase.rawQuery(
-            "SELECT pair_key FROM duplicate_resolutions",
+            "SELECT first_transaction_id, second_transaction_id FROM duplicate_resolutions",
             null
         ).use { cursor ->
             buildSet {
                 while (cursor.moveToNext()) {
-                    add(cursor.getString(0))
+                    val first = cursor.getLong(0)
+                    val second = cursor.getLong(1)
+                    if (first > 0L && second > 0L && first != second) {
+                        // Older Keep Both decisions may have stored the reverse key.
+                        add(duplicatePairKey(first, second))
+                    }
                 }
             }
         }
