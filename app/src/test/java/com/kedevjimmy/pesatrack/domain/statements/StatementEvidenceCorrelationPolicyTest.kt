@@ -121,6 +121,44 @@ class StatementEvidenceCorrelationPolicyTest {
         assertTrue(result.missingReferenceIds.contains("short"))
     }
 
+    @Test fun genericReferenceCannotProveSameMoneyMovementAcrossSmsAndMpesaStatement() {
+        val result = StatementEvidenceCorrelationPolicy.reconcile(listOf(
+            observation("sms", StatementEvidenceCorrelationPolicy.Source.ACTIVITY,
+                reference = "TRANSFER"),
+            observation("mpesa-pdf", StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT,
+                sourceId = "invented-mpesa-file", reference = "transfer")
+        ), owned)
+        assertTrue("A narration-like reference cannot establish a repeated cash leg",
+            result.uniqueLinks.isEmpty())
+        assertEquals(setOf("sms", "mpesa-pdf"), result.missingReferenceIds)
+    }
+
+    @Test fun protectedCompetingBankEvidenceVetoesUniqueSmsAndStatementCashLeg() {
+        val result = StatementEvidenceCorrelationPolicy.reconcile(listOf(
+            observation("sms", StatementEvidenceCorrelationPolicy.Source.ACTIVITY),
+            observation("mpesa-pdf", StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT,
+                sourceId = "invented-mpesa-file"),
+            observation("bank-protected", StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT,
+                account = "equity", sourceId = "invented-bank-file", roleProtected = true)
+        ), owned)
+        assertTrue("A specialized third cash leg must prevent a false unique duplicate",
+            result.uniqueLinks.isEmpty())
+        assertEquals(setOf("sms", "mpesa-pdf", "bank-protected"), result.ambiguousIds)
+    }
+
+    @Test fun unrelatedProtectedFeeDoesNotVetoIndependentSameLegReference() {
+        val result = StatementEvidenceCorrelationPolicy.reconcile(listOf(
+            observation("sms", StatementEvidenceCorrelationPolicy.Source.ACTIVITY),
+            observation("mpesa-pdf", StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT,
+                sourceId = "invented-mpesa-file"),
+            observation("separate-fee", StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT,
+                account = "equity", amount = -50L, sourceId = "invented-bank-file",
+                roleProtected = true)
+        ), owned)
+        assertEquals(1, result.uniqueLinks.size)
+        assertEquals(setOf("sms", "mpesa-pdf"), result.uniqueLinks.single().ids)
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun duplicateObservationIdsAreRejectedBeforeCorrelation() {
         StatementEvidenceCorrelationPolicy.reconcile(listOf(
