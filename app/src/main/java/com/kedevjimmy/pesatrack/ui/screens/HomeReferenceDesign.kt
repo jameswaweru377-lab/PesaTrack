@@ -72,7 +72,7 @@ internal fun ReferenceHomeHeader(
     val locale = LocalConfiguration.current.locales[0]
     Row(
         Modifier.fillMaxWidth()
-            .padding(horizontal = PesaDesignTokens.screenHorizontalPadding).height(60.dp),
+            .padding(horizontal = PesaDesignTokens.screenHorizontalPadding).height(54.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         PesaLogoMark(size = 35.dp)

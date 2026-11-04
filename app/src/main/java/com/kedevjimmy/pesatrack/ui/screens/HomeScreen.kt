@@ -1454,8 +1454,8 @@ fun HomeScreen(
     LazyColumn(
         modifier = Modifier.padding(scaffoldPadding)
             .background(HomeMonochromePalette.canvas),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item(key = "monochrome-overview") {
             MonochromeOverviewHeading(monthName, onMonth = { showHomeMonthPicker = true })
