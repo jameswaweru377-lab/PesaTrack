@@ -198,6 +198,19 @@ class TransferReconciliationPolicyTest {
         }
     }
 
+    @Test fun terseLoanClearanceWordsOnEitherCashLegNeverProveOwnedTransfer() {
+        val rows = listOf(
+            debit.copy(reference = "SYN123456789"),
+            credit.copy(reference = "SYN123456789")
+        )
+        for (id in listOf("d", "c")) for (description in listOf("Repaid in full", "Written off")) {
+            val result = reconcile(rows, mapOf(id to description))
+            assertTrue("Specialized $id narration must not prove a transfer: $description", result.pairs.isEmpty())
+            assertTrue("Protected $id leg must not become a route lead: $description",
+                result.unmatchedRoutes.none { it.row.id == id })
+        }
+    }
+
     @Test fun longerFormattedIdentifierCannotMatchOwnedPrefix() {
         for (suffix in listOf(" 9012", "/9012", "_9012", " / 9012", ".9012", "-9012")) {
             assertTrue(suffix, reconcile(listOf(debit, credit),

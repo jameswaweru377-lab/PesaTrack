@@ -29,7 +29,7 @@ object TransferReconciliationPolicy {
     }
     private const val WINDOW = 48L * 60 * 60 * 1000
     private val protectedNarration = Regex(
-        "\\b(loans?|repay(?:ment|ments|paid)?|interest|fees?|charges?|charged|commissions?|excise[ -]+duty|chargebacks?|levy|levies|overdrafts?|disburs(?:e(?:d|ments?)?|ing)|write[ -]?offs?|reversal|reversed|refund(?:ed)?|fuliza|m[ -]?shwari|savings|locked|pending|failed|declined|cancelled|clearances?|cleared|settlements?|settled)\\b",
+        "\\b(loans?|repay(?:ment|ments|paid)?|repaid|written[ -]+off|interest|fees?|charges?|charged|commissions?|excise[ -]+duty|chargebacks?|levy|levies|overdrafts?|disburs(?:e(?:d|ments?)?|ing)|write[ -]?offs?|reversal|reversed|refund(?:ed)?|fuliza|m[ -]?shwari|savings|locked|pending|failed|declined|cancelled|clearances?|cleared|settlements?|settled)\\b",
         RegexOption.IGNORE_CASE)
 
     /** Conservative role guard shared by all statement transfer-review paths. */
