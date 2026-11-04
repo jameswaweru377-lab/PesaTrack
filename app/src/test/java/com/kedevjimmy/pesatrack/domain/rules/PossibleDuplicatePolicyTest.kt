@@ -203,6 +203,21 @@ class PossibleDuplicatePolicyTest {
         }
     }
 
+    @Test
+    fun timeSortedCardOrderCanDifferFromCanonicalIdOrder() {
+        val newer = sample(id = 92, amount = 30_000L, receivedAt = 1_005_000L,
+            source = "com.messages")
+        val older = sample(id = 91, amount = 30_000L, receivedAt = 1_000_000L,
+            source = "com.bank")
+        // Activity shows newer first; its pair key always sorts numeric IDs.
+        assertTrue(PossibleDuplicatePolicy.canConfirm(
+            "91:92", newer, older, older, newer
+        ))
+        assertTrue(PossibleDuplicatePolicy.canConfirm(
+            "92:91", newer, older, newer, older
+        ))
+    }
+
     private fun sample(
         id: Long,
         amount: Long,
