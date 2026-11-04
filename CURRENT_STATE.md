@@ -1,5 +1,20 @@
 # PesaTrack Current State
 
+_Reports & Insights Design 2 implementation (4 November 2026; CI and device acceptance pending):_
+The approved chart-first light Reports screen is being implemented with a four-way
+Week/Month/6-month/Year selector, locally selected date, trusted-ledger spending
+trend, category progress, previous-period comparison, and drill-down review of
+largest eligible and uncategorized expense entries. Paycheck Analysis retains its
+existing separate route; annual statement reconciliation evidence remains in
+Year. The green wallet illustration is removed from Reports only. A new
+PesaTrack-branded offline PDF export uses the same in-memory Activity summary,
+category projection and trend observations as the screen; it distinguishes
+fees and owned transfers and warns that separately imported source records are
+not silently posted. The PDF is user-saved, not encrypted or a bank statement.
+No changed ledger classifications, database schema, permissions, network flow,
+backup/restore, statement assurance or release signing are intended. JVM CI,
+Android lint/build and Redmi visual/export acceptance are still required.
+
 _Read-only cash-leg duplicate identity hardening (4 November 2026; CI and device acceptance pending):_
 The legacy read-only Statements evidence correlation model no longer treats a
 generic letters-only narration as a unique transaction reference. A protected owned bank or wallet
