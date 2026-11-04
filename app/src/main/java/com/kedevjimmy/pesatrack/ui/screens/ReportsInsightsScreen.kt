@@ -450,7 +450,7 @@ private fun ReportsReviewActions(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ReportsReviewTile("Largest expenses", Icons.Rounded.BarChart,
                 Modifier.weight(1f), onLargest)
-            ReportsReviewTile("Uncategorized", Icons.Rounded.LabelOutline,
+            ReportsReviewTile("Uncategorized", Icons.Rounded.Label,
                 Modifier.weight(1f), onUncategorized, uncategorizedCount)
         }
     }
