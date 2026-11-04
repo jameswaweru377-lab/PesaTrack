@@ -1,7 +1,7 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp" android:height="24dp"
     android:viewportWidth="100" android:viewportHeight="100">
-    <!-- Single-colour P silhouette for the Android status bar and app header. -->
+    <!-- Android status bar requires a single-colour silhouette. -->
     <path android:fillColor="#FFFFFFFF"
-        android:pathData="M14,38 L14,31 C14,19 23,12 35,12 L61,12 C74,12 83,21 83,35 L83,38 Z M14,39 C23,48 32,56 42,64 L42,80 C42,84 40,86 36,86 L21,86 C17,86 14,83 14,79 Z M42,64 C42,51 54,43 83,39 C83,55 72,64 55,64 Z" />
+        android:pathData="M11,12 L60,12 C78,12 89,23 89,40 C89,57 78,68 60,68 L43,68 L43,52 L60,52 C69,52 73,47 73,40 C73,32 69,28 60,28 L29,28 L29,90 L11,90 Z" />
 </vector>

@@ -130,13 +130,8 @@ fun ConceptBrandLockup(
     val foreground = if (light) Color.White else MaterialTheme.colorScheme.onBackground
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         PesaLogoMark(size = 54.dp)
-        Text(
-            "PesaTrack",
-            modifier = Modifier.padding(top = 8.dp),
-            color = foreground,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.ExtraBold
-        )
+        PesaBrandName(modifier = Modifier.padding(top = 8.dp),
+            fontSize = 23.sp, baseColor = foreground)
         if (!subtitle.isNullOrBlank()) {
             Text(
                 subtitle,

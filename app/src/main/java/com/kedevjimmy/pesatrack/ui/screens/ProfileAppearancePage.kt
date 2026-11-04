@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
@@ -84,12 +85,13 @@ internal fun ProfileAppearancePage(padding: PaddingValues, back: () -> Unit) {
                           Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 com.kedevjimmy.pesatrack.ui.components.PesaLogoMark(size = 28.dp)
-                                Text("PesaTrack", Modifier.weight(1f).padding(start = 8.dp),
-                                    color = C.ink, fontWeight = FontWeight.Bold)
+                                com.kedevjimmy.pesatrack.ui.components.PesaBrandName(
+                                    modifier = Modifier.weight(1f).padding(start = 8.dp),
+                                    fontSize = 17.sp, baseColor = Color(0xFF101311))
                                 Icon(Icons.Rounded.Notifications, null, tint = C.ink)
                             }
                             Box(Modifier.fillMaxWidth().height(86.dp).clip(RoundedCornerShape(16.dp))
-                                .background(Brush.horizontalGradient(listOf(C.violetBright, C.violetDeep)))) {
+                                .background(Color(0xFF101310))) {
                                 Row(Modifier.fillMaxWidth().padding(16.dp),
                                     verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White,
