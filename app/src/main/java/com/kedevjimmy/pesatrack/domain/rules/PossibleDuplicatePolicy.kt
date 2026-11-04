@@ -28,6 +28,10 @@ object PossibleDuplicatePolicy {
         first: PossibleDuplicateObservation,
         second: PossibleDuplicateObservation
     ): Boolean {
+        // A reversal changes the financial meaning of the movement; it is not
+        // a weak-evidence duplicate of an ordinary payment.
+        if (first.type.equals("REVERSAL", ignoreCase = true) ||
+            second.type.equals("REVERSAL", ignoreCase = true)) return false
         if (first.id == second.id) return false
         if (first.amountMinor <= 0L || first.amountMinor != second.amountMinor) {
             return false
