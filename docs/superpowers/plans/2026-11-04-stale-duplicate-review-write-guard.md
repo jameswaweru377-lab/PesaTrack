@@ -43,6 +43,6 @@
 - [ ] Verify baseline reversed-ID Keep Both Android integration fixture remains supported.
 - [ ] Extract writer with re-read under lock and SQLite transaction; require complete snapshots for Same Transaction and recheck pure candidate eligibility.
 - [ ] Use exact unordered IDs to detect previous decisions; preserve the original canonical-selection scoring.
-- [ ] Pass card.first/card.second snapshots for both Activity buttons; retain refresh behavior.
+- [ ] Pass card.first/card.second snapshots for both Activity buttons, accepting either display order while mapping snapshots to persisted transaction IDs; retain refresh behavior. Compile synthetic Android tests for historical reversed keys, post-preview fee edits and a third-row reversal (do not execute instrumentation).
 - [ ] Run CI (JVM, lint, APK compile, security) without emulator/instrumentation execution. Review exact PR diff and merge only with exact-head green and latest main incorporated.
 - [ ] Verify main push build and Full/Update rolling APK release; document remaining device acceptance.
