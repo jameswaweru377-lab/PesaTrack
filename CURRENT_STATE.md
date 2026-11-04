@@ -1,5 +1,9 @@
 # PesaTrack Current State
 
+_Stale duplicate-confirmation write guard (4 November 2026; CI/device acceptance pending):_
+Activity's possible-duplicate review now sends the exact displayed transaction snapshots to a dedicated SQLite decision writer. Same Transaction fails closed when either persisted row changed, stopped being a candidate, became a reversal or gained a protected review state. Keep Both remains non-excluding and preserves the legacy reversed-ID transfer-review bridge. Duplicate resolution and any exclusion share one SQLite transaction; the source rows, fees, account balances and financial summary formulas are unchanged. No schema or backup change is introduced. Only synthetic JVM policy and build checks are requested; device persistence and Android instrumentation have not been executed.
+
+
 _Reports & Insights Design 2 implementation (4 November 2026; CI and device acceptance pending):_
 The approved chart-first light Reports screen is being implemented with a four-way
 Week/Month/6-month/Year selector, locally selected date, trusted-ledger spending
