@@ -47,10 +47,12 @@ object PossibleDuplicatePolicy {
         currentSecond: PossibleDuplicateObservation
     ): Boolean {
         val ids = parsePairIds(pairKey) ?: return false
+        val snapshotsMatch =
+            (shownFirst == currentFirst && shownSecond == currentSecond) ||
+                (shownFirst == currentSecond && shownSecond == currentFirst)
         return ids.first == currentFirst.id &&
             ids.second == currentSecond.id &&
-            shownFirst == currentFirst &&
-            shownSecond == currentSecond &&
+            snapshotsMatch &&
             isCandidate(currentFirst, currentSecond)
     }
 
