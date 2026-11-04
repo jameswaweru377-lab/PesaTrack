@@ -159,6 +159,16 @@ class StatementEvidenceCorrelationPolicyTest {
         assertEquals(setOf("sms", "mpesa-pdf"), result.uniqueLinks.single().ids)
     }
 
+    @Test fun isolatedProtectedCashLegIsUnlinkedWithoutFalseAmbiguity() {
+        val result = StatementEvidenceCorrelationPolicy.reconcile(listOf(
+            observation("isolated-fee", StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT,
+                account = "equity", roleProtected = true)
+        ), owned)
+        assertTrue(result.uniqueLinks.isEmpty())
+        assertTrue("No competitor means no ambiguity", result.ambiguousIds.isEmpty())
+        assertEquals(setOf("isolated-fee"), result.unlinkedIds)
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun duplicateObservationIdsAreRejectedBeforeCorrelation() {
         StatementEvidenceCorrelationPolicy.reconcile(listOf(
