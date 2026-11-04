@@ -1,5 +1,15 @@
 # PesaTrack Current State
 
+_Home month context refinement (4 November 2026; CI/device acceptance pending):_
+The redundant "Overview" heading and top-level month chip are removed from
+Home. A compact accessible month selector now sits beside "Monthly activity"
+within the existing white money card, above monthly Money in and Expenses.
+The current confirmed pay-cycle available amount remains current even when a
+historical month is selected. Net recorded flow names its selected month;
+current account balances and upcoming items are not presented as historical.
+Financial calculations, local ledger, stored observations, schema, backup,
+permissions, signing, and five-tab navigation are unchanged.
+
 _Home reference spacing and local provider marks (4 November 2026; device acceptance pending):_
 The approved November Home receives a smaller tappable month chip, more compact
 money card, tighter vertical rhythm, and existing locally bundled colored M-Pesa

@@ -12,6 +12,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -42,32 +45,15 @@ internal object HomeMonochromePalette {
 }
 
 @Composable
-internal fun MonochromeOverviewHeading(month: String, onMonth: () -> Unit) {
-    val p = HomeMonochromePalette
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text("Overview", fontSize = 25.sp, lineHeight = 29.sp,
-            fontWeight = FontWeight.Bold, letterSpacing = (-0.7).sp,
-            color = p.ink, modifier = Modifier.weight(1f))
-        Box(Modifier.heightIn(min = 48.dp).clickable(onClick = onMonth),
-            contentAlignment = Alignment.Center) {
-            Row(Modifier.height(36.dp).clip(CircleShape)
-                .background(Color(0xFFEBEEEB)).padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(month, color = p.ink, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                Icon(Icons.Rounded.KeyboardArrowDown, "Choose month", Modifier.size(18.dp))
-            }
-        }
-    }
-}
-
-@Composable
 internal fun MonochromeAvailableMoney(
     available: String,
     netFlowMinor: Long?,
+    netFlowCaption: String,
     formatMoney: (Long) -> String,
     moneyIn: String,
-    expenses: String
+    expenses: String,
+    month: String,
+    onMonth: () -> Unit
 ) {
     val p = HomeMonochromePalette
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
@@ -83,14 +69,31 @@ internal fun MonochromeAvailableMoney(
                 fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(2.dp))
             if (netFlowMinor != null) {
-                Text("${if (netFlowMinor > 0) "+" else ""}${formatMoney(netFlowMinor)} net recorded flow this month",
+                Text("${if (netFlowMinor > 0) "+" else ""}${formatMoney(netFlowMinor)} $netFlowCaption",
                     color = if (netFlowMinor >= 0) p.green else Color(0xFFAB4239),
                     fontSize = 12.sp, fontWeight = FontWeight.Medium)
             } else {
                 Text("From your confirmed pay cycle and records", color = p.muted,
                     fontSize = 12.sp)
             }
-            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Monthly activity", color = p.muted, fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                Box(Modifier.heightIn(min = 48.dp)
+                    .semantics { contentDescription = "Choose monthly activity month: $month" }
+                    .clickable(role = Role.Button, onClickLabel = "Choose month", onClick = onMonth),
+                    contentAlignment = Alignment.Center) {
+                    Row(Modifier.clip(CircleShape).background(Color(0xFFEBEEEB))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(month, color = p.ink, fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis)
+                        Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.size(18.dp))
+                    }
+                }
+            }
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
                 .background(p.dark).padding(horizontal = 10.dp, vertical = 13.dp),
                 verticalAlignment = Alignment.CenterVertically) {
