@@ -15,6 +15,14 @@ No changed ledger classifications, database schema, permissions, network flow,
 backup/restore, statement assurance or release signing are intended. JVM CI,
 Android lint/build and Redmi visual/export acceptance are still required.
 
+_Possible-duplicate reversal review guard (4 November 2026; CI pending):_
+Weak duplicate-review suggestions now exclude any pair containing a REVERSAL,
+even when two independently sourced observations share an amount and timestamp.
+Ordinary code-less review candidates remain available. This changes only
+review metadata, not the canonical SMS transaction, statement documents,
+reversal/refund relations, income, spending, fees, loan clearance, balances,
+backups or posting. No emulator or instrumentation was executed.
+
 _Read-only cash-leg duplicate identity hardening (4 November 2026; CI and device acceptance pending):_
 The legacy read-only Statements evidence correlation model no longer treats a
 generic letters-only narration as a unique transaction reference. A protected owned bank or wallet

@@ -132,6 +132,22 @@ class PossibleDuplicatePolicyTest {
         )
     }
 
+    @Test
+    fun reversalIsNotAPossibleDuplicateEvenWhenAmountTimeAndSourcesMatch() {
+        val payment = sample(
+            id = 70, amount = 44_000L, receivedAt = 1_000_000L,
+            source = "com.messages", type = "SEND_MONEY"
+        )
+        val reversal = sample(
+            id = 71, amount = 44_000L, receivedAt = 1_003_000L,
+            source = "com.safaricom.mpesa", type = "REVERSAL"
+        )
+        assertFalse(PossibleDuplicatePolicy.isCandidate(payment, reversal))
+        assertFalse(PossibleDuplicatePolicy.isCandidate(reversal, payment))
+        assertFalse(PossibleDuplicatePolicy.isCandidate(reversal,
+            reversal.copy(id = 72, sourcePackage = "com.bank")))
+    }
+
     private fun sample(
         id: Long,
         amount: Long,
@@ -139,7 +155,8 @@ class PossibleDuplicatePolicyTest {
         source: String,
         code: String? = null,
         direction: String = "NEUTRAL",
-        counterparty: String? = null
+        counterparty: String? = null,
+        type: String = "OTHER"
     ) = PossibleDuplicateObservation(
         id = id,
         amountMinor = amount,
@@ -152,6 +169,6 @@ class PossibleDuplicatePolicyTest {
         category = "UNCATEGORIZED",
         counterparty = counterparty,
         evidenceLabel = null,
-        type = "OTHER"
+        type = type
     )
 }
