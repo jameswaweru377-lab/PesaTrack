@@ -391,7 +391,7 @@ private fun ReportsCategoryCard(
                 spending.take(if (expanded) spending.size else 4).forEach { (label, minor) ->
                     val ratio = java.math.BigDecimal.valueOf(minor)
                         .divide(total, 6, java.math.RoundingMode.HALF_UP).toFloat().coerceIn(0f, 1f)
-                    ReportsCategoryBar(label, ratio)
+                    ReportsCategoryBar(label, minor, ratio)
                 }
                 if (spending.size > 4) TextButton(onClick = toggleExpanded,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
@@ -417,12 +417,16 @@ private fun ReportsCategoryCard(
 }
 
 @Composable
-private fun ReportsCategoryBar(label: String, ratio: Float) {
+private fun ReportsCategoryBar(label: String, amountMinor: Long, ratio: Float) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(label, Modifier.weight(1f), maxLines = 2,
                 overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
-            Text("${(ratio * 100).toInt()}%", style = MaterialTheme.typography.labelLarge)
+            Column(horizontalAlignment = Alignment.End) {
+                Text(formatKesAmount(amountMinor), style = MaterialTheme.typography.labelLarge)
+                Text("${(ratio * 100).toInt()}%", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         LinearProgressIndicator(
             progress = { ratio }, modifier = Modifier.fillMaxWidth().height(8.dp),
