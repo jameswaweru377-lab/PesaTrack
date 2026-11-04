@@ -28,8 +28,7 @@ internal class StatementImportMatchIndex private constructor(
     private enum class Side { INCOMING, OUTGOING }
 
     fun hasExactReference(accountId: String, row: StatementRow): Boolean {
-        val reference = row.reference?.trim()?.uppercase(Locale.ROOT)
-            ?.takeIf(String::isNotEmpty) ?: return false
+        val reference = normalizedReference(row.reference) ?: return false
         return byReference[reference].orEmpty().any { existing ->
             exactReferenceLeg(accountId, row, existing)
         }
@@ -59,12 +58,19 @@ internal class StatementImportMatchIndex private constructor(
     }
 
     companion object {
+        private val stableReferencePattern = Regex("[A-Z0-9]{8,48}")
+
+        // Narration labels alone cannot prove an exact duplicate. Keep them
+        // eligible for the existing same-account/day/amount review instead.
+        private fun normalizedReference(value: String?): String? =
+            value?.trim()?.uppercase(Locale.ROOT)
+                ?.takeIf { stableReferencePattern.matches(it) && it.any(Char::isDigit) }
+
         fun from(rows: List<ExistingLeg>, timeZone: TimeZone = TimeZone.getDefault()): StatementImportMatchIndex {
             val codes = HashMap<String, MutableList<ExistingLeg>>()
             val possible = HashSet<MatchKey>(rows.size)
             rows.forEach { row ->
-                row.reference?.trim()?.uppercase(Locale.ROOT)
-                    ?.takeIf(String::isNotEmpty)
+                normalizedReference(row.reference)
                     ?.let { codes.getOrPut(it) { ArrayList() }.add(row) }
                 val side = when (row.direction) {
                     "INCOME" -> Side.INCOMING
