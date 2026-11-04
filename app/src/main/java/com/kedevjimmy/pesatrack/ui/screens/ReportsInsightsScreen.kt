@@ -63,7 +63,7 @@ fun ReportsInsightsScreen(
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            android.util.Log.e("PesaTrackReports", "Could not load reports", failure)
+            android.util.Log.e("PesaTrackReports", "Could not load reports")
             loadError = "Couldn't load the report. Your saved records were not changed."
         }
     }

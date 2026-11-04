@@ -88,7 +88,7 @@ internal class ReportsInsightsReader(private val context: Context) {
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                android.util.Log.w("PesaTrackReports", "Annual accounting evidence unavailable", failure)
+                android.util.Log.w("PesaTrackReports", "Annual accounting evidence unavailable")
                 null
             }
         } else null

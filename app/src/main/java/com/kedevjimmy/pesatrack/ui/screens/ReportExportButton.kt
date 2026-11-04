@@ -50,7 +50,7 @@ internal fun ReportExportButton(content: ReportPdfContent?, csvRows: List<Stored
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                android.util.Log.e("PesaTrackReports", "Could not export local report", failure)
+                android.util.Log.e("PesaTrackReports", "Could not export local report")
                 message = "Couldn't save the PDF. Please choose another location and try again."
             } finally {
                 saving = false
@@ -73,7 +73,7 @@ internal fun ReportExportButton(content: ReportPdfContent?, csvRows: List<Stored
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                android.util.Log.e("PesaTrackReports", "Could not export CSV", failure)
+                android.util.Log.e("PesaTrackReports", "Could not export CSV")
                 message = "Couldn't save the CSV. Please try again."
             } finally {
                 saving = false
