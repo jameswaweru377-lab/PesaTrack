@@ -18,3 +18,16 @@ internal fun reportCategoryReview(rows: List<ReportReviewCandidate>): List<Repor
         .sortedWith(compareByDescending<ReportReviewCandidate> { it.amountMinor }.thenBy { it.id })
         .take(3)
         .toList()
+
+/** Recorded expense legs only. Split allocations require their own review route. */
+internal fun reportLargestExpenses(rows: List<ReportReviewCandidate>): List<ReportReviewCandidate> =
+    rows.asSequence()
+        .filter { it.isExpense && !it.isRefund && !it.hasAllocations && it.amountMinor > 0L }
+        .sortedWith(compareByDescending<ReportReviewCandidate> { it.amountMinor }.thenBy { it.id })
+        .toList()
+
+internal fun reportUncategorizedExpenses(rows: List<ReportReviewCandidate>): List<ReportReviewCandidate> =
+    reportLargestExpenses(rows).filter { it.category == "UNCATEGORIZED" }
+
+internal fun reportBroadCategoryExpenses(rows: List<ReportReviewCandidate>): List<ReportReviewCandidate> =
+    reportLargestExpenses(rows).filter { it.category == "OTHER" || it.category == "UNCATEGORIZED" }
