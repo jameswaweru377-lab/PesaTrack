@@ -39,25 +39,10 @@ internal class DuplicateResolutionWriter(
             val first = loadTransaction(ids.first) ?: return@synchronized false
             val second = loadTransaction(ids.second) ?: return@synchronized false
 
-            // A displayed card must still refer to *exactly* the same saved rows.
-            // This covers fees, account assignment and other fields outside the
-            // weaker candidate-matching policy's observation.
-            if (expectedFirst != null || expectedSecond != null) {
-                if (first != expectedFirst || second != expectedSecond) {
-                    return@synchronized false
-                }
-            }
-            if (sameTransaction) {
-                val shownFirst = expectedFirst ?: return@synchronized false
-                val shownSecond = expectedSecond ?: return@synchronized false
-                if (!PossibleDuplicatePolicy.canConfirm(
-                        pairKey,
-                        shownFirst.toPossibleDuplicateObservation(),
-                        shownSecond.toPossibleDuplicateObservation(),
-                        first.toPossibleDuplicateObservation(),
-                        second.toPossibleDuplicateObservation()
-                    )) return@synchronized false
-            }
+            if (!matchesCurrentReview(
+                    db, pairKey, sameTransaction,
+                    first, second, expectedFirst, expectedSecond
+                )) return@synchronized false
             if (hasExistingDecision(db, ids.first, ids.second)) {
                 return@synchronized false
             }
@@ -97,6 +82,53 @@ internal class DuplicateResolutionWriter(
             finally { LedgerUpdateBus.notifyChanged() }
         }
         applied
+    }
+
+    private fun matchesCurrentReview(
+        db: SQLiteDatabase,
+        pairKey: String,
+        sameTransaction: Boolean,
+        first: StoredTransaction,
+        second: StoredTransaction,
+        shownFirst: StoredTransaction?,
+        shownSecond: StoredTransaction?
+    ): Boolean {
+        // The card is time-sorted; the persisted pair key sorts numeric IDs.
+        // Compare each complete row by identity, not by its displayed position.
+        if (shownFirst != null || shownSecond != null) {
+            val matches = (first == shownFirst && second == shownSecond) ||
+                (first == shownSecond && second == shownFirst)
+            if (!matches) return false
+        }
+        if (!sameTransaction) return true
+
+        val expectedFirst = shownFirst ?: return false
+        val expectedSecond = shownSecond ?: return false
+        if (first.reversalOfCode != null || second.reversalOfCode != null ||
+            hasIncomingReversal(db, first, second)) return false
+        return PossibleDuplicatePolicy.canConfirm(
+            pairKey,
+            expectedFirst.toPossibleDuplicateObservation(),
+            expectedSecond.toPossibleDuplicateObservation(),
+            first.toPossibleDuplicateObservation(),
+            second.toPossibleDuplicateObservation()
+        )
+    }
+
+    /** Reversal evidence can arrive as a third row without editing the card's rows. */
+    private fun hasIncomingReversal(
+        db: SQLiteDatabase,
+        first: StoredTransaction,
+        second: StoredTransaction
+    ): Boolean {
+        val codes = listOfNotNull(first.transactionCode, second.transactionCode)
+            .filter(String::isNotBlank).distinct()
+        if (codes.isEmpty()) return false
+        val marks = List(codes.size) { "?" }.joinToString(",")
+        return db.rawQuery(
+            "SELECT 1 FROM transactions WHERE reversal_of_code IN ($marks) LIMIT 1",
+            codes.toTypedArray()
+        ).use { it.moveToFirst() }
     }
 
     private fun hasExistingDecision(db: SQLiteDatabase, first: Long, second: Long): Boolean =
