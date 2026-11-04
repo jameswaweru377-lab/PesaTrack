@@ -76,7 +76,9 @@ object StatementEvidenceCorrelationPolicy {
         for (group in groups.values) {
             // A specialized cash leg sharing this evidence key invalidates uniqueness.
             if (group.any { it.roleProtected }) {
-                ambiguousGroups.addAll(group.map { it.id })
+                if (group.any { !it.roleProtected }) {
+                    ambiguousGroups.addAll(group.map { it.id })
+                }
                 continue
             }
             if (group.size > MAX_REFERENCE_GROUP) {
