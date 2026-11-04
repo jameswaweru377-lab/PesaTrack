@@ -24,6 +24,36 @@ object PossibleDuplicatePolicy {
     private const val CODELESS_WINDOW_MS = 20_000L
     private const val COMPLEMENTARY_WINDOW_MS = 60_000L
 
+    /**
+     * Preserve both ID orderings for existing Keep Both callers, but never
+     * silently discard malformed tokens or accept self-pairs.
+     */
+    fun parsePairIds(pairKey: String): Pair<Long, Long>? {
+        val parts = pairKey.split(':')
+        if (parts.size != 2) return null
+        val first = parts[0].toLongOrNull() ?: return null
+        val second = parts[1].toLongOrNull() ?: return null
+        if (first <= 0L || second <= 0L || first == second) return null
+        if (pairKey != "$first:$second") return null
+        return first to second
+    }
+
+    /** Validate what the user saw against the currently persisted observations. */
+    fun canConfirm(
+        pairKey: String,
+        shownFirst: PossibleDuplicateObservation,
+        shownSecond: PossibleDuplicateObservation,
+        currentFirst: PossibleDuplicateObservation,
+        currentSecond: PossibleDuplicateObservation
+    ): Boolean {
+        val ids = parsePairIds(pairKey) ?: return false
+        return ids.first == currentFirst.id &&
+            ids.second == currentSecond.id &&
+            shownFirst == currentFirst &&
+            shownSecond == currentSecond &&
+            isCandidate(currentFirst, currentSecond)
+    }
+
     fun isCandidate(
         first: PossibleDuplicateObservation,
         second: PossibleDuplicateObservation
