@@ -43,7 +43,7 @@ object StatementEvidenceCorrelationPolicy {
     private val safeReference = Regex("[A-Z0-9]{8,48}")
 
     private fun normalizedReference(reference: String?): String? =
-        reference?.trim()?.uppercase(Locale.ROOT)?.takeIf(safeReference::matches)
+        reference?.trim()?.uppercase(Locale.ROOT)?.takeIf { safeReference.matches(it) && it.any(Char::isDigit) }
 
     /**
      * Never outputs combined money values. Each edge requires independently
@@ -61,7 +61,7 @@ object StatementEvidenceCorrelationPolicy {
         val missingReference = observations.filter { normalizedReference(it.reference) == null }
             .map { it.id }.toSet()
         val eligible = observations.filter {
-            !it.roleProtected && it.ownershipConfirmed && it.accountId in ownedAccountIds &&
+            it.ownershipConfirmed && it.accountId in ownedAccountIds &&
                 normalizedReference(it.reference) != null
         }
         // Keyed bucketing bounds comparison work: never scan all records pairwise.
@@ -72,10 +72,15 @@ object StatementEvidenceCorrelationPolicy {
         }
         val neighbors = mutableMapOf<String, MutableSet<String>>()
         val edgeKinds = mutableMapOf<Pair<String, String>, LinkKind>()
-        val oversizedGroups = mutableSetOf<String>()
+        val ambiguousGroups = mutableSetOf<String>()
         for (group in groups.values) {
+            // A specialized cash leg sharing this evidence key invalidates uniqueness.
+            if (group.any { it.roleProtected }) {
+                ambiguousGroups.addAll(group.map { it.id })
+                continue
+            }
             if (group.size > MAX_REFERENCE_GROUP) {
-                oversizedGroups.addAll(group.map { it.id })
+                ambiguousGroups.addAll(group.map { it.id })
                 continue
             }
             for (i in group.indices) for (j in (i + 1) until group.size) {
@@ -103,7 +108,7 @@ object StatementEvidenceCorrelationPolicy {
                 Link(ids.first, ids.second, kind) else null
         }.sortedWith(compareBy<Link> { it.firstId }.thenBy { it.secondId })
         val linked = links.flatMap { it.ids }.toSet()
-        val ambiguous = oversizedGroups + neighbors.keys.filter { it !in linked }
+        val ambiguous = ambiguousGroups + neighbors.keys.filter { it !in linked }
         return Result(links, ambiguous, observations.map { it.id }.toSet() - linked,
             missingReference)
     }
