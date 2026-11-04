@@ -40,6 +40,9 @@ class StatementImportMatchIndexTest {
         val exact = index(Existing("wallet", 2_500L, "EXPENSE", date + 30_000L, "QAB1234567"))
         assertTrue(exact.hasExactReference("wallet", row))
 
+        assertFalse(index(Existing("wallet", 2_500L, "EXPENSE", date, "QAB1234568"))
+            .hasExactReference("wallet", row))
+
         assertFalse(index(Existing("bank", 2_500L, "EXPENSE", date, row.reference))
             .hasExactReference("wallet", row))
         assertFalse(index(Existing("wallet", 2_500L, "INCOME", date, row.reference))
@@ -55,6 +58,25 @@ class StatementImportMatchIndexTest {
         val match = index(Existing("wallet", 2_500L, "EXPENSE", date, null))
         assertFalse(match.hasExactReference("wallet", row))
         assertTrue(match.hasPossibleMatch("wallet", row))
+    }
+
+
+    @Test
+    fun genericNarrationReferenceMustNotSilentlyDiscardASeparateMovement() {
+        listOf("TRANSFER", "PAYMENT", "Cash withdrawal / Transfer").forEach { label ->
+            val history = index(Existing("wallet", 2_500L, "EXPENSE", date, label))
+            val incoming = row.copy(reference = label)
+            assertFalse("Generic label $label is not exact identity proof",
+                history.hasExactReference("wallet", incoming))
+            assertTrue("Generic label $label should remain reviewable",
+                history.hasPossibleMatch("wallet", incoming))
+        }
+    }
+
+    @Test
+    fun strongTransactionReferenceKeepsCaseAndWhitespaceNormalization() {
+        val history = index(Existing("wallet", 2_500L, "EXPENSE", date, " qab1234567 "))
+        assertTrue(history.hasExactReference("wallet", row))
     }
 
     @Test
