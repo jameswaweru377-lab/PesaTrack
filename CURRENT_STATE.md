@@ -1,13 +1,13 @@
 # PesaTrack Current State
 
 _Read-only cash-leg duplicate identity hardening (4 November 2026; CI and device acceptance pending):_
-The legacy Statements correlation view no longer treats a generic letters-only
-narration as a unique transaction reference. A protected owned bank or wallet
+The legacy read-only Statements evidence correlation model no longer treats a
+generic letters-only narration as a unique transaction reference. A protected owned bank or wallet
 cash leg with the same reference, currency and absolute amount now makes its
 evidence group ambiguous instead of presenting an apparent SMS/statement duplicate.
 An unrelated fee with a different cash amount does not block independent evidence.
-These are review-only identity signals; original SMS, imported statements, fee
-records, refunds, cleared debts, Activity postings, existing balances, income,
+This is model-level review metadata, not a change to visible match cards or
+transaction posting. Original SMS, imported statements, fee records, refunds, cleared debts, Activity postings, existing balances, income,
 expenses, transfers, corrections, and backups are unchanged. The newer matching
 engine is not modified, and the N2 posting/assurance hold remains in force.
 
