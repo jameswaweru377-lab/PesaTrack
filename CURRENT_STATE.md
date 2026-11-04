@@ -1,7 +1,7 @@
 # PesaTrack Current State
 
 _Stale duplicate-confirmation write guard (4 November 2026; CI/device acceptance pending):_
-Activity's possible-duplicate review now sends the exact displayed transaction snapshots to a dedicated SQLite decision writer. Same Transaction fails closed when either persisted row changed, stopped being a candidate, became a reversal or gained a protected review state. Keep Both remains non-excluding and preserves the legacy reversed-ID transfer-review bridge. Duplicate resolution and any exclusion share one SQLite transaction; the source rows, fees, account balances and financial summary formulas are unchanged. No schema or backup change is introduced. Only synthetic JVM policy and build checks are requested; device persistence and Android instrumentation have not been executed.
+Activity's possible-duplicate review now sends the exact displayed transaction snapshots to a dedicated SQLite decision writer. Same Transaction fails closed when either persisted row changed, stopped being a candidate, gained a protected review state, or acquired a linked reversal as a separate transaction. Time-sorted card rows are compared by ID rather than positional order. Keep Both remains non-excluding; historical reversed-ID decisions are recognized by canonical pair IDs. Duplicate resolution and any exclusion share one SQLite transaction; the source rows, fees, account balances and financial summary formulas are unchanged. No schema or backup change is introduced. Only synthetic JVM policy and build checks are requested; device persistence and Android instrumentation have not been executed.
 
 
 _Reports & Insights Design 2 implementation (4 November 2026; CI and device acceptance pending):_
