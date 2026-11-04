@@ -35,8 +35,13 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.ui.theme.AmberSoft
 import com.kedevjimmy.pesatrack.ui.theme.NightAmberSurface
@@ -69,6 +74,26 @@ fun PesaLogoMark(modifier: Modifier = Modifier, size: Dp = PesaDesignTokens.icon
     }
 }
 
+/** One consistent wordmark for Home, profile and other branded surfaces. */
+@Composable
+fun PesaBrandName(
+    modifier: Modifier = Modifier,
+    fontSize: TextUnit = 21.sp,
+    baseColor: Color = MaterialTheme.colorScheme.onBackground
+) {
+    Text(
+        text = buildAnnotatedString {
+            withStyle(SpanStyle(color = baseColor)) { append("Pesa") }
+            withStyle(SpanStyle(color = Color(0xFF08A967))) { append("Track") }
+        },
+        modifier = modifier,
+        fontSize = fontSize,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = (-0.5).sp,
+        maxLines = 1
+    )
+}
+
 @Composable
 fun BrandWordmark(
     modifier: Modifier = Modifier,
@@ -84,13 +109,7 @@ fun BrandWordmark(
             else PesaDesignTokens.regularWordmarkLogoSize
         )
         Column {
-            Text(
-                "PesaTrack",
-                style = if (compact) MaterialTheme.typography.titleLarge
-                        else MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.ExtraBold
-            )
+            PesaBrandName(fontSize = if (compact) 21.sp else 25.sp)
             if (!compact) {
                 Text(
                     "Your money. A calmer tomorrow.",

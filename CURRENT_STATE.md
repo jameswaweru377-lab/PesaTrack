@@ -1,5 +1,17 @@
 # PesaTrack Current State
 
+_Monochrome Home and shared brand refresh (4 November 2026; device acceptance pending):_
+The Home tab now follows the approved quiet white/black/emerald reference: a
+calendar-month Overview, one available-money card with recorded monthly income
+and expenses, and flat review, owned-account, upcoming, and recent-activity rows.
+All amounts and navigation remain backed by the existing trusted local stores;
+unknown account balances are marked unavailable and net recorded flow is not
+misrepresented as balance growth. The PesaTrack P icon and Pesa/green-Track
+wordmark replace purple branding; the shared five-tab bottom bar is black with
+an emerald active state. No posting, account reconciliation, schema, SMS import,
+backup, security or release-signing logic changed. Android CI and Redmi visual
+acceptance are still required; emulator and instrumentation tests were skipped.
+
 _Reports & Insights Design 2 implementation (4 November 2026; CI and device acceptance pending):_
 The approved chart-first light Reports screen is being implemented with a four-way
 Week/Month/6-month/Year selector, locally selected date, trusted-ledger spending

@@ -16,13 +16,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
+import com.kedevjimmy.pesatrack.data.profile.ProfilePhotoStore
 import com.kedevjimmy.pesatrack.ui.screens.ActivityMoneyActions
 import com.kedevjimmy.pesatrack.ui.screens.ReferenceHomeBottomBar
 import com.kedevjimmy.pesatrack.ui.screens.ReferenceHomeHeader
 import com.kedevjimmy.pesatrack.ui.screens.HomeReferencePalette
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
 
 enum class MainTab(
     val route: String,
@@ -60,6 +61,10 @@ fun AppScaffold(
         context.getSharedPreferences("pesatrack_preferences", android.content.Context.MODE_PRIVATE)
             .getString("profile_name", "J").orEmpty().trim().take(1).ifBlank { "J" }
     }
+    // Reload when returning to Home from another tab after changing the profile photo.
+    val profilePhoto = remember(context, currentTab) {
+        ProfilePhotoStore(context).load()?.asImageBitmap()
+    }
     Scaffold(
         containerColor = if (currentTab == MainTab.HOME || currentTab == MainTab.ACTIVITY || useHomeHeader) HomeReferencePalette.canvas
             else MaterialTheme.colorScheme.background,
@@ -67,21 +72,14 @@ fun AppScaffold(
             if (showTopBar && (currentTab == MainTab.HOME || currentTab == MainTab.ACTIVITY || useHomeHeader)) {
                 Box(
                     modifier = Modifier
-                        .background(
-                            Brush.linearGradient(
-                                listOf(
-                                    Color(0xFFF0EBFF),
-                                    Color(0xFFF4F2FF),
-                                    Color(0xFFE8F3FF)
-                                )
-                            )
-                        )
+                        .background(HomeReferencePalette.canvas)
                         .statusBarsPadding()
                 ) {
                     ReferenceHomeHeader(
                         onNotifications = onNotificationsClick,
                         onProfile = onProfileClick,
-                        profileInitial = profileInitial
+                        profileInitial = profileInitial,
+                        profilePhoto = profilePhoto
                     )
                 }
             } else if (showTopBar && currentTab != null) {
@@ -100,7 +98,7 @@ fun AppScaffold(
             if (currentTab != null) {
                 Surface(
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-                    color = Color.White
+                    color = HomeReferencePalette.canvas
                 ) {
                     ReferenceHomeBottomBar(currentTab, onTabSelected)
                 }

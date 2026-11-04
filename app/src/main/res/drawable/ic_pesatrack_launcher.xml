@@ -2,7 +2,7 @@
     <!-- Launcher-specific surface; PesaTrack's actual brand mark stays transparent. -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#F7F7FF"/>
+            <solid android:color="#F5F6F4"/>
             <corners android:radius="25dp"/>
         </shape>
     </item>

@@ -20,6 +20,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.SpanStyle
@@ -35,6 +37,7 @@ import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.ui.components.MainTab
 import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
+import com.kedevjimmy.pesatrack.ui.components.PesaBrandName
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -47,47 +50,48 @@ import java.util.Locale
  * 2025 amounts must never become fake financial records in the real application.
  */
 internal object HomeReferencePalette {
-    val canvas = Color(0xFFF7F7FF)
-    val ink = Color(0xFF0B103A)
-    val muted = Color(0xFF626B98)
+    val canvas = HomeMonochromePalette.canvas
+    val ink = HomeMonochromePalette.ink
+    val muted = HomeMonochromePalette.muted
     val purple = Color(0xFF5D00EB)
     val violet = Color(0xFF6B18FF)
-    val green = Color(0xFF087E54)
+    val green = HomeMonochromePalette.green
     val red = Color(0xFFDC1551)
     val blue = Color(0xFF003BCD)
-    val line = Color(0xFFE6E8F2)
+    val line = HomeMonochromePalette.line
 }
 
 @Composable
-internal fun ReferenceHomeHeader(onNotifications: () -> Unit, onProfile: () -> Unit, profileInitial: String) {
+internal fun ReferenceHomeHeader(
+    onNotifications: () -> Unit,
+    onProfile: () -> Unit,
+    profileInitial: String,
+    profilePhoto: ImageBitmap? = null
+) {
     val p = HomeReferencePalette
     val locale = LocalConfiguration.current.locales[0]
     Row(
         Modifier.fillMaxWidth()
-            .padding(horizontal = PesaDesignTokens.screenHorizontalPadding).height(48.dp),
+            .padding(horizontal = PesaDesignTokens.screenHorizontalPadding).height(60.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        PesaLogoMark(size = 30.dp)
-        Spacer(Modifier.width(9.dp))
-        Text("PesaTrack", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold,
-            letterSpacing = (-0.6).sp, color = Color(0xFF191050), modifier = Modifier.weight(1f))
+        PesaLogoMark(size = 35.dp)
+        Spacer(Modifier.width(7.dp))
+        PesaBrandName(modifier = Modifier.weight(1f), fontSize = 21.sp, baseColor = p.ink)
         Box(Modifier.size(PesaDesignTokens.minimumTouchTarget).clickable(onClick = onNotifications), contentAlignment = Alignment.Center) {
-            Surface(Modifier.size(38.dp), shape = CircleShape, color = Color.White,
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE4E1FF))) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.NotificationsNone, "Notifications", Modifier.size(23.dp), tint = p.ink)
-                }
-            }
-            Box(Modifier.align(Alignment.TopEnd).padding(top = 3.dp, end = 2.dp)
-                .size(7.dp).background(p.purple, CircleShape))
+            Icon(Icons.Rounded.NotificationsNone, "Notifications", Modifier.size(27.dp), tint = p.ink)
         }
         Spacer(Modifier.width(8.dp))
         Box(Modifier.size(PesaDesignTokens.minimumTouchTarget).clickable(onClick = onProfile), contentAlignment = Alignment.Center) {
-            Surface(modifier = Modifier.size(40.dp), shape = CircleShape,
-                color = Color(0xFFE9E4FF)) {
+            Surface(modifier = Modifier.size(40.dp), shape = CircleShape, color = Color(0xFFE9EFEB)) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(profileInitial.ifBlank { "J" }.take(1).uppercase(locale),
-                        fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = p.ink)
+                    if (profilePhoto != null) {
+                        androidx.compose.foundation.Image(profilePhoto, "Profile photo",
+                            Modifier.fillMaxSize().clip(CircleShape), contentScale = ContentScale.Crop)
+                    } else {
+                        Text(profileInitial.ifBlank { "J" }.take(1).uppercase(locale),
+                            fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = p.ink)
+                    }
                 }
             }
         }
@@ -96,16 +100,14 @@ internal fun ReferenceHomeHeader(onNotifications: () -> Unit, onProfile: () -> U
 
 @Composable
 internal fun ReferenceHomeBottomBar(currentTab: MainTab, onSelected: (MainTab) -> Unit) {
-    val p = HomeReferencePalette
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        color = Color.White,
-        shadowElevation = 2.dp
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
+        shape = RoundedCornerShape(25.dp),
+        color = HomeMonochromePalette.dark
     ) {
         Row(
             Modifier.fillMaxWidth().height(PesaDesignTokens.bottomBarHeight)
-                .padding(horizontal = 12.dp, vertical = 4.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(1.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -126,22 +128,20 @@ internal fun ReferenceHomeBottomBar(currentTab: MainTab, onSelected: (MainTab) -
                     ),
                     contentAlignment = Alignment.Center
                 ) {
-                    val indicator = if (active) Modifier.background(
-                        Brush.verticalGradient(listOf(Color(0xFF7625FF), Color(0xFF4300D8))),
-                        RoundedCornerShape(16.dp)
-                    ) else Modifier
                     Column(
                         Modifier.fillMaxWidth().height(PesaDesignTokens.selectedTabHeight)
-                            .then(indicator).clip(RoundedCornerShape(16.dp)),
+                            .clip(RoundedCornerShape(16.dp)),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)
+                        verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
                     ) {
                         Icon(icon, title, Modifier.size(22.dp),
-                            tint = if (active) Color.White else Color(0xFF6E7397))
-                        Text(title, fontSize = 12.sp, maxLines = 1,
+                            tint = if (active) HomeMonochromePalette.green else Color.White)
+                        Text(title, fontSize = 11.sp, maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            color = if (active) Color.White else Color(0xFF5F668C),
+                            color = Color.White,
                             fontWeight = if (active) FontWeight.Medium else FontWeight.Normal)
+                        Box(Modifier.width(20.dp).height(3.dp).clip(CircleShape)
+                            .background(if (active) HomeMonochromePalette.green else Color.Transparent))
                     }
                 }
             }
