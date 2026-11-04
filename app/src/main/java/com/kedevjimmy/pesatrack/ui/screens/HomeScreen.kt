@@ -1405,6 +1405,12 @@ fun HomeScreen(
     // Illustrative values from the design reference are never persisted.
     val monthName = SimpleDateFormat("MMMM yyyy", homeConfigurationLocale)
         .format(selectedCalendar.time)
+    val homeSummary = homeSummaryScope(
+        confirmedCycle = cycleSnapshot.cycle != null,
+        currentAvailableMinor = planningAvailability?.availableMinor,
+        selectedNetFlowMinor = selectedNetFlow,
+        monthLabel = monthName
+    )
     val pendingSalaryRule = salaryRule
     val upcomingReferenceItems = buildList {
         upcomingBills.sortedBy { it.nextDueEpochMs ?: Long.MAX_VALUE }
@@ -1457,9 +1463,6 @@ fun HomeScreen(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item(key = "monochrome-overview") {
-            MonochromeOverviewHeading(monthName, onMonth = { showHomeMonthPicker = true })
-        }
         if (homeError) item(key = "reference-error") {
             Text("Showing the most recently saved money data.",
                 color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -1467,14 +1470,15 @@ fun HomeScreen(
         }
         item(key = "monochrome-available") {
             MonochromeAvailableMoney(
-                available = if (selectedHomeMonthOffset == 0 && cycleSnapshot.cycle != null)
-                    planningAvailability?.availableMinor?.let(::formatMoney)
-                        ?: "Unavailable"
-                else "Unavailable",
-                netFlowMinor = selectedNetFlow,
+                available = homeSummary.currentAvailableMinor?.let(::formatMoney)
+                    ?: "Unavailable",
+                netFlowMinor = homeSummary.selectedNetFlowMinor,
+                netFlowCaption = homeSummary.netFlowCaption,
                 formatMoney = ::formatMoney,
                 moneyIn = selectedMoneyIn?.let(::formatMoney) ?: "Unavailable",
-                expenses = selectedSpending?.let(::formatMoney) ?: "Unavailable"
+                expenses = selectedSpending?.let(::formatMoney) ?: "Unavailable",
+                month = homeSummary.monthLabel,
+                onMonth = { showHomeMonthPicker = true }
             )
         }
         item(key = "annual-accounting-evidence") {
