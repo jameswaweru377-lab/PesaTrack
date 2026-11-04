@@ -246,6 +246,29 @@ class TransferReconciliationStoreTest {
         }
     }
 
+    @Test fun terseRepaidAndWrittenOffSourceLegsAreWithheldInBothReviewWorkspaces() {
+        archive { it.execSQL("UPDATE statement_legs_v2 SET reference='SYN123456789'") }
+        for (outgoing in listOf(true, false)) for (description in listOf("Repaid in full", "Written off")) {
+            archive { db ->
+                db.execSQL("""UPDATE statement_legs_v2 SET description=
+                    CASE WHEN movement_minor<0 THEN 'Transfer to account 009876543210' ELSE 'Receipt' END""")
+                db.execSQL("UPDATE statement_legs_v2 SET description=? WHERE movement_minor${if (outgoing) "<" else ">"}0",
+                    arrayOf(description))
+            }
+            val before = financialEvidence()
+            val legacy = StatementMatchDecisionStore(app).read(2026)
+            assertTrue("Legacy false transfer: $description ($outgoing)",
+                legacy.candidates.none { it.kind == StatementMatchDecisionStore.Kind.TRANSFER })
+            assertTrue("Legacy false weak lead: $description ($outgoing)", legacy.possibleTransfers.isEmpty())
+            val modern = TransferReconciliationStore(app).read(2026).reconciliation
+            assertTrue("New false transfer: $description ($outgoing)", modern.pairs.isEmpty())
+            val protectedAccount = if (outgoing) bank else destination
+            assertTrue("Protected leg cannot become a route lead: $description ($outgoing)",
+                modern.unmatchedRoutes.none { it.row.accountId == protectedAccount })
+            assertEquals(before, financialEvidence())
+        }
+    }
+
     private fun insert(id: String, account: String, identifier: String, movement: Long, description: String, reference: String?) {
         archive { db ->
             db.insertOrThrow("statement_sources_v2", null, ContentValues().apply {
