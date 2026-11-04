@@ -48,12 +48,14 @@ internal fun MonochromeOverviewHeading(month: String, onMonth: () -> Unit) {
         Text("Overview", fontSize = 25.sp, lineHeight = 29.sp,
             fontWeight = FontWeight.Bold, letterSpacing = (-0.7).sp,
             color = p.ink, modifier = Modifier.weight(1f))
-        Surface(onClick = onMonth, shape = CircleShape, color = Color(0xFFEBEEEB)) {
-            Row(Modifier.heightIn(min = 48.dp).padding(horizontal = 13.dp),
+        Box(Modifier.heightIn(min = 48.dp).clickable(onClick = onMonth),
+            contentAlignment = Alignment.Center) {
+            Row(Modifier.height(36.dp).clip(CircleShape)
+                .background(Color(0xFFEBEEEB)).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(month, color = p.ink, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                Icon(Icons.Rounded.KeyboardArrowDown, "Choose month", Modifier.size(19.dp))
+                Icon(Icons.Rounded.KeyboardArrowDown, "Choose month", Modifier.size(18.dp))
             }
         }
     }
@@ -70,16 +72,16 @@ internal fun MonochromeAvailableMoney(
     val p = HomeMonochromePalette
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
         color = p.surface) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
-            Text("Your available money", color = p.ink, fontSize = 16.sp)
-            Spacer(Modifier.height(6.dp))
-            Text(available, color = p.ink, fontSize = when {
-                available.length > 17 -> 25.sp
-                available.length > 13 -> 29.sp
-                else -> 34.sp
-            }, lineHeight = 40.sp, letterSpacing = (-1.1).sp,
-                fontWeight = FontWeight.Bold)
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 13.dp)) {
+            Text("Your available money", color = p.ink, fontSize = 15.sp)
             Spacer(Modifier.height(4.dp))
+            Text(available, color = p.ink, fontSize = when {
+                available.length > 17 -> 23.sp
+                available.length > 13 -> 25.sp
+                else -> 29.sp
+            }, lineHeight = 34.sp, letterSpacing = (-0.8).sp,
+                fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(2.dp))
             if (netFlowMinor != null) {
                 Text("${if (netFlowMinor > 0) "+" else ""}${formatMoney(netFlowMinor)} net recorded flow this month",
                     color = if (netFlowMinor >= 0) p.green else Color(0xFFAB4239),
@@ -88,9 +90,9 @@ internal fun MonochromeAvailableMoney(
                 Text("From your confirmed pay cycle and records", color = p.muted,
                     fontSize = 12.sp)
             }
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
-                .background(p.dark).padding(horizontal = 12.dp, vertical = 18.dp),
+                .background(p.dark).padding(horizontal = 10.dp, vertical = 13.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 MonochromeMoneyMetric(Icons.Rounded.ArrowUpward, "Money in", moneyIn,
                     Modifier.weight(1f))
@@ -106,9 +108,9 @@ internal fun MonochromeAvailableMoney(
 private fun MonochromeMoneyMetric(icon: ImageVector, label: String, amount: String, modifier: Modifier) {
     Row(modifier.padding(horizontal = 5.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.size(37.dp).background(Color.White, CircleShape),
+        Box(Modifier.size(35.dp).background(Color.White, CircleShape),
             contentAlignment = Alignment.Center) {
-            Icon(icon, null, Modifier.size(22.dp), tint = HomeMonochromePalette.ink)
+            Icon(icon, null, Modifier.size(21.dp), tint = HomeMonochromePalette.ink)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(label, color = Color(0xFFC3C8C3), fontSize = 12.sp)
@@ -125,7 +127,7 @@ private fun MonochromeMoneyMetric(icon: ImageVector, label: String, amount: Stri
 @Composable
 private fun MonochromeSectionTitle(text: String, count: String? = null) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(text, fontSize = 19.sp, fontWeight = FontWeight.Bold,
+        Text(text, fontSize = 18.sp, fontWeight = FontWeight.Bold,
             letterSpacing = (-0.4).sp, color = HomeMonochromePalette.ink,
             modifier = Modifier.weight(1f))
         if (count != null) Text(count, fontSize = 13.sp, color = HomeMonochromePalette.muted)
@@ -143,7 +145,7 @@ private fun MonochromeRowIcon(icon: ImageVector, iconColor: Color = HomeMonochro
 @Composable
 internal fun MonochromeRadar(pending: Int?, onClick: () -> Unit) {
     val count = pending ?: 0
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         MonochromeSectionTitle("On your radar", if (pending == null) "—" else count.toString().padStart(2, '0'))
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClick = onClick),
             verticalAlignment = Alignment.CenterVertically,
@@ -173,9 +175,9 @@ internal fun MonochromeAccounts(
     money: (Long) -> String,
     onClick: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         MonochromeSectionTitle("Your accounts")
-        Row(Modifier.fillMaxWidth().heightIn(min = 68.dp).clickable(onClick = onClick),
+        Row(Modifier.fillMaxWidth().heightIn(min = 58.dp).clickable(onClick = onClick),
             verticalAlignment = Alignment.CenterVertically) {
             if (groups.isEmpty()) {
                 MonochromeRowIcon(Icons.Rounded.AccountBalanceWallet)
@@ -195,15 +197,19 @@ internal fun MonochromeAccounts(
                             }
                         }?.let(money) ?: "Balance unavailable"
                     }
-                    if (index > 0) Box(Modifier.width(1.dp).height(43.dp)
+                    if (index > 0) Box(Modifier.width(1.dp).height(40.dp)
                         .background(HomeMonochromePalette.line))
-                    Row(Modifier.weight(1f).padding(end = 4.dp, start = if (index == 0) 0.dp else 7.dp),
+                    Row(Modifier.weight(1f).padding(end = 3.dp, start = if (index == 0) 0.dp else 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        MonochromeRowIcon(if (group.displayName.contains("M-Pesa", true))
-                            Icons.Rounded.PhoneAndroid else Icons.Rounded.AccountBalance)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        AccountProviderMark(group.displayName, modifier = Modifier.size(40.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(group.displayName, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                            val shortName = when {
+                                group.displayName.contains("Equity", true) -> "Equity"
+                                group.displayName.contains("M-Pesa", true) -> "M-Pesa"
+                                else -> group.displayName
+                            }
+                            Text(shortName, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                                 color = HomeMonochromePalette.ink, maxLines = 1,
                                 overflow = TextOverflow.Ellipsis)
                             Text(displayBalance, fontSize = 11.sp,
@@ -223,7 +229,7 @@ internal fun MonochromeAccounts(
 internal fun MonochromeUpcoming(
     items: List<ReferenceUpcomingEntry>, onBills: () -> Unit, onSalary: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         MonochromeSectionTitle("Coming up")
         if (items.isEmpty()) {
             Text("Nothing scheduled yet", color = HomeMonochromePalette.muted,
@@ -271,7 +277,7 @@ internal fun MonochromeRecent(
 ) {
     val locale = LocalConfiguration.current.locales[0]
     val format = remember(locale) { SimpleDateFormat("d MMM", locale) }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         MonochromeSectionTitle("Latest activity")
         if (rows.isEmpty()) {
             Text("No recorded activity in this period", color = HomeMonochromePalette.muted,

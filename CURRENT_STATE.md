@@ -1,5 +1,13 @@
 # PesaTrack Current State
 
+_Home reference spacing and local provider marks (4 November 2026; device acceptance pending):_
+The approved November Home receives a smaller tappable month chip, more compact
+money card, tighter vertical rhythm, and existing locally bundled colored M-Pesa
+and Equity provider marks. No account balances or financial classifications are
+recomputed by this UI adjustment; unknown balances remain unavailable. All five
+navigation destinations retain the previously merged monochrome bottom bar.
+Android CI is required; emulator/instrumentation runs are not requested.
+
 _Monochrome Home and shared brand refresh (4 November 2026; device acceptance pending):_
 The Home tab now follows the approved quiet white/black/emerald reference: a
 calendar-month Overview, one available-money card with recorded monthly income
