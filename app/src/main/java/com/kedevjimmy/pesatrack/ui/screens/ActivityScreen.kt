@@ -1255,7 +1255,11 @@ fun ActivityScreen(
                                             pairKey =
                                                 group.key,
                                             sameTransaction =
-                                                true
+                                                true,
+                                            expectedFirst =
+                                                group.first,
+                                            expectedSecond =
+                                                group.second
                                         )
                                     }
                                     refresh()
@@ -1270,7 +1274,11 @@ fun ActivityScreen(
                                             pairKey =
                                                 group.key,
                                             sameTransaction =
-                                                false
+                                                false,
+                                            expectedFirst =
+                                                group.first,
+                                            expectedSecond =
+                                                group.second
                                         )
                                     }
                                     refresh()
