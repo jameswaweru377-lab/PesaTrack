@@ -4009,7 +4009,10 @@ private fun ActivityDateHeader(
 ) {
     val p = HomeMonochromePalette
     val dayName = dayLabel(dayEpochMs)
-    val shortDate = SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(dayEpochMs))
+    val shortDate = SimpleDateFormat(
+        "d MMM",
+        androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+    ).format(Date(dayEpochMs))
     val heading = if (dayName == "Today" || dayName == "Yesterday")
         "$dayName · $shortDate" else dayName
     val netLabel = when {
