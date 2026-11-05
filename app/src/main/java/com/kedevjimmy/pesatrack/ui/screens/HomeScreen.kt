@@ -1401,32 +1401,16 @@ fun HomeScreen(
     )
 
 
-    // The reference screenshot defines the public Home presentation. Use the
-    // current ledger values rather than installing its illustrative April 2025
-    // balances into a live personal-finance app.
+    // Keep the approved monochrome layout connected to the actual ledger.
+    // Illustrative values from the design reference are never persisted.
     val monthName = SimpleDateFormat("MMMM yyyy", homeConfigurationLocale)
         .format(selectedCalendar.time)
-    val priorMonthName = Calendar.getInstance().apply {
-        timeInMillis = selectedCalendar.timeInMillis
-        add(Calendar.MONTH, -1)
-    }.let { SimpleDateFormat("MMM", homeConfigurationLocale).format(it.time) }
-    val monthLastDay = selectedCalendar.getActualMaximum(Calendar.DAY_OF_MONTH)
-    val monthRange = "1 – $monthLastDay " +
-        SimpleDateFormat("MMM yyyy", homeConfigurationLocale).format(selectedCalendar.time)
-    val incomingDelta = if (priorActivity != null && selectedMoneyIn != null)
-        periodPercentChange(selectedMoneyIn, priorActivity.summary.incomeMinor) else null
-    val outgoingDelta = if (comparablePriorSpending != null && selectedSpending != null)
-        periodPercentChange(selectedSpending, comparablePriorSpending) else null
-    fun comparisonLabel(delta: Int?): String = if (delta == null) "vs $priorMonthName —"
-        else "vs $priorMonthName " + (if (delta > 0) "+" else "") + "$delta%"
-    val budgetLeft = if (monthlyBudgetTotalMinor != null && monthlyBudgetSpentMinor != null)
-        CheckedMoney.orNull {
-            CheckedMoney.subtract(monthlyBudgetTotalMinor, monthlyBudgetSpentMinor)
-        }?.coerceAtLeast(0L) else null
-    val progressLeft = if (monthlyBudgetTotalMinor != null &&
-        monthlyBudgetTotalMinor > 0 && budgetLeft != null)
-        (budgetLeft.toDouble() / monthlyBudgetTotalMinor.toDouble()).toFloat().coerceIn(0f, 1f)
-    else null
+    val homeSummary = homeSummaryScope(
+        confirmedCycle = cycleSnapshot.cycle != null,
+        currentAvailableMinor = planningAvailability?.availableMinor,
+        selectedNetFlowMinor = selectedNetFlow,
+        monthLabel = monthName
+    )
     val pendingSalaryRule = salaryRule
     val upcomingReferenceItems = buildList {
         upcomingBills.sortedBy { it.nextDueEpochMs ?: Long.MAX_VALUE }
@@ -1475,62 +1459,53 @@ fun HomeScreen(
     }.sortedWith(compareBy<ReferenceUpcomingEntry> { !it.isSalary })
     LazyColumn(
         modifier = Modifier.padding(scaffoldPadding)
-            .background(HomeReferencePalette.canvas),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp)
+            .background(HomeMonochromePalette.canvas),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        item(key = "reference-greeting") {
-            ReferenceHomeGreeting(
-                preferences.getString("profile_name", "").orEmpty()
-                    .trim().split(Regex("\\s+")).firstOrNull().orEmpty()
-            )
-        }
         if (homeError) item(key = "reference-error") {
             Text("Showing the most recently saved money data.",
                 color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = { refresh() }) { Text("Retry") }
         }
-        item(key = "reference-hero") {
-            ReferenceHomeHero(
-                amount = if (selectedHomeMonthOffset == 0 && cycleSnapshot.cycle != null)
-                    planningAvailability?.availableMinor?.let(::formatMoney)
-                        ?: "Unavailable"
-                else "Unavailable",
-                month = monthName,
-                onMonth = { showHomeMonthPicker = true },
-                onPlan = onPlanClick,
-                onAccounts = onAccountsClick
+        item(key = "monochrome-available") {
+            MonochromeAvailableMoney(
+                available = homeSummary.currentAvailableMinor?.let(::formatMoney)
+                    ?: "Unavailable",
+                netFlowMinor = homeSummary.selectedNetFlowMinor,
+                netFlowCaption = homeSummary.netFlowCaption,
+                formatMoney = ::formatMoney,
+                moneyIn = selectedMoneyIn?.let(::formatMoney) ?: "Unavailable",
+                expenses = selectedSpending?.let(::formatMoney) ?: "Unavailable",
+                month = homeSummary.monthLabel,
+                onMonth = { showHomeMonthPicker = true }
             )
         }
         item(key = "annual-accounting-evidence") {
             SharedAccountingEvidenceNotice(selectedCalendar.get(Calendar.YEAR),
                 ledgerUpdateState.revision, onReportsClick)
         }
-        item(key = "reference-this-month") {
-            ReferenceHomeMonth(
-                range = monthRange,
-                income = selectedMoneyIn?.let(::formatMoney) ?: "Unavailable",
-                spending = selectedSpending?.let(::formatMoney) ?: "Unavailable",
-                budgetLeft = budgetLeft?.let(::formatMoney) ?: "Not set",
-                budgetTotal = monthlyBudgetTotalMinor?.let { "of " + formatMoney(it) } ?: "No budget set",
-                incomeVsPrior = comparisonLabel(incomingDelta),
-                spendingVsPrior = comparisonLabel(outgoingDelta),
-                budgetProgress = progressLeft,
-                onMonth = { showHomeMonthPicker = true }
-            )
-        }
-        item(key = "reference-attention") {
+        item(key = "monochrome-radar") {
             val uncategorized = chosenActivity?.trustedTransactions?.count {
                 it.reviewState != ReviewState.EXCLUDED.name &&
+                    it.reviewState != ReviewState.NEEDS_REVIEW.name &&
                     categoryStore.canonicalId(it.category) in setOf("UNCATEGORIZED", "OTHER")
-            } ?: 0
-            ReferenceHomeAttention(uncategorized, onAttentionClick)
+            }
+            MonochromeRadar(
+                pending = if (uncategorized == null) null
+                    else uncategorized + (chosenActivity?.summary?.needsReviewCount ?: 0),
+                onClick = onAttentionClick
+            )
         }
-        item(key = "reference-upcoming") {
-            ReferenceHomeUpcoming(upcomingReferenceItems, onBillsClick, onSalaryClick)
+        item(key = "monochrome-accounts") {
+            MonochromeAccounts(visibleAccountGroups, accountBalanceSnapshots,
+                ::formatMoney, onAccountsClick)
         }
-        item(key = "reference-recent-activity") {
-            ReferenceHomeRecent(
+        item(key = "monochrome-upcoming") {
+            MonochromeUpcoming(upcomingReferenceItems, onBillsClick, onSalaryClick)
+        }
+        item(key = "monochrome-recent-activity") {
+            MonochromeRecent(
                 rows = monthTransactions,
                 money = { formatMoney(it) },
                 onOpen = onTransactionClick,

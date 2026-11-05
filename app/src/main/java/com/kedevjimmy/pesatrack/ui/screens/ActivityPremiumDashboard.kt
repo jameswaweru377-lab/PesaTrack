@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
 import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
+import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import java.util.Calendar
 
 internal fun monthDaysRemaining(selected: Long, now: Long): Int? {
@@ -357,10 +358,9 @@ private fun MetricColumn(
     }
 }
 @Composable
-internal fun ActivityCompactFilters(selected: String, count: Int, onSelect: (String) -> Unit) {
+internal fun ActivityCompactFilters(selected: String, onSelect: (String) -> Unit) {
     val tabs = listOf("All", "Money In", "Money Out", "Transfers", "Needs Review")
-    val violet = androidx.compose.ui.graphics.Color(0xFF5800F7)
-    val deepPurple = androidx.compose.ui.graphics.Color(0xFF3210CB)
+    val palette = HomeMonochromePalette
     val rowState = rememberLazyListState()
     LaunchedEffect(selected) {
         val index = tabs.indexOf(selected)
@@ -378,65 +378,28 @@ internal fun ActivityCompactFilters(selected: String, count: Int, onSelect: (Str
     LazyRow(
         state = rowState,
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        contentPadding = PaddingValues(start = 10.dp, top = 2.dp, end = 36.dp, bottom = 2.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(end = 12.dp, bottom = 4.dp)
     ) {
         items(tabs.size) { index ->
             val tab = tabs[index]
             val active = selected == tab
-            val symbol = when (tab) {
-                "Money In" -> Icons.Rounded.ArrowUpward
-                "Money Out" -> Icons.Rounded.ArrowDownward
-                "Transfers" -> Icons.Rounded.SyncAlt
-                "Needs Review" -> Icons.Rounded.PriorityHigh
-                else -> null
-            }
-            val accent = when (tab) {
-                "Money In" -> androidx.compose.ui.graphics.Color(0xFF0DBA7F)
-                "Money Out" -> androidx.compose.ui.graphics.Color(0xFFFF2775)
-                "Needs Review" -> androidx.compose.ui.graphics.Color(0xFFFF7512)
-                else -> violet
-            }
             Surface(
                 onClick = { onSelect(tab) },
-                shape = RoundedCornerShape(17.dp),
-                color = if (active) violet else androidx.compose.ui.graphics.Color.White.copy(alpha = .85f),
-                shadowElevation = if (active) 3.dp else 0.dp,
-                border = if (active) null else BorderStroke(1.dp, androidx.compose.ui.graphics.Color.White)
+                modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget),
+                shape = RoundedCornerShape(PesaDesignTokens.iconRadius),
+                color = if (active) palette.dark else palette.surface,
+                border = if (active) null else BorderStroke(1.dp, palette.line)
             ) {
                 Row(
-                    modifier = Modifier
-                        .then(if (active) Modifier.background(
-                            androidx.compose.ui.graphics.Brush.verticalGradient(listOf(violet, deepPurple))
-                        ) else Modifier)
-                        .heightIn(min = 44.dp)
-                        .padding(horizontal = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (symbol != null) {
-                        Surface(
-                            modifier = Modifier.size(23.dp),
-                            shape = CircleShape,
-                            color = if (active) androidx.compose.ui.graphics.Color.White.copy(alpha = .17f)
-                                else accent.copy(alpha = .12f)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    symbol, contentDescription = null,
-                                    modifier = Modifier.size(17.dp),
-                                    tint = if (active) androidx.compose.ui.graphics.Color.White else accent
-                                )
-                            }
-                        }
-                    }
                     Text(
                         tab,
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.labelLarge,
                         fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                        color = if (active) androidx.compose.ui.graphics.Color.White
-                            else androidx.compose.ui.graphics.Color(0xFF0C104B),
-                        maxLines = 1
+                        color = if (active) palette.surface else palette.ink
                     )
                 }
             }
