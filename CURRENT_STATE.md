@@ -1,5 +1,22 @@
 # PesaTrack Current State
 
+_Activity Design 3 implementation (5 November 2026; CI and Redmi acceptance pending):_
+The Activity tab now uses the approved black/white/emerald visual language:
+search and advanced filters first, a soft-green month selector and four
+evidence-backed tiles (Income, Expenses, Transfers, Invested), a separate
+review queue callout, boxy category filters, and flat dated transaction rows
+with right-aligned daily recorded net. The redundant large Activity heading
+and purple page accents are removed. Daily net uses complete trusted cash rows,
+not the visible or searched subset; owned transfers are neutral. Confirmed
+investment purchases have their own read-only card, subtracted from the
+Activity card's displayed consumption expenses without changing canonical
+ledger spending, source classifications or the Statements/Home projections.
+Unrepresentable daily or investment figures are withheld, not saturated.
+Separately journalled debt fees are not attributed to an individual day.
+No schema, permissions, import, reconciliation, saved user decisions,
+backup, navigation destinations, or release signing changed. Android CI
+and physical Redmi visual acceptance are required; instrumentation is skipped.
+
 _Home month context refinement (4 November 2026; CI/device acceptance pending):_
 The redundant "Overview" heading and top-level month chip are removed from
 Home. A compact accessible month selector now sits beside "Monthly activity"

@@ -292,30 +292,29 @@ internal fun ActivityReferenceSummary(
 @Composable
 internal fun ActivityReferenceAttention(
     count: Int,
-    transfer: Boolean,
     onClick: () -> Unit
 ) {
+    val p = HomeMonochromePalette
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp), color = Color(0xFFFFF4E9)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 11.dp),
+        shape = RoundedCornerShape(PesaDesignTokens.cardRadius), color = p.softGreen) {
+        Row(Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Surface(shape = RoundedCornerShape(13.dp), color = Color(0xFFFFE5CC)) {
-                Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                    Icon(Icons.AutoMirrored.Rounded.ReceiptLong, null, Modifier.size(22.dp),
-                        tint = Color(0xFFFF7100))
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Surface(shape = CircleShape, color = p.green.copy(alpha = .14f)) {
+                Box(Modifier.size(PesaDesignTokens.iconBubble), contentAlignment = Alignment.Center) {
+                    Text(count.toString(), style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold, color = p.green)
                 }
             }
             Column(Modifier.weight(1f)) {
-                Text(if (transfer) "Transfers between your accounts"
-                    else if (count > 0) "Needs attention" else "Nothing needs attention",
-                    fontSize = 15.sp, fontWeight = FontWeight.Bold, color = HomeReferencePalette.ink)
-                Text(if (transfer) "These are internal transfers and not counted as income or expenses."
-                    else "$count review items across all periods",
-                    fontSize = 12.sp, lineHeight = 16.sp,
-                    color = HomeReferencePalette.muted, maxLines = 2)
+                Text(if (count > 0) "$count need review" else "You're all caught up",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold, color = p.ink)
+                Text(if (count > 0) "Check transactions that need your attention"
+                    else "Nothing currently needs review",
+                    style = MaterialTheme.typography.bodySmall, color = p.muted)
             }
-            Icon(Icons.Rounded.ChevronRight, "Open details", tint = HomeReferencePalette.muted)
+            Icon(Icons.Rounded.ChevronRight, "Open review", tint = p.ink)
         }
     }
 }
