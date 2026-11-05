@@ -74,6 +74,64 @@ class OwnedTransferReviewStoreTest {
         assertEquals(1L, scalar("SELECT COUNT(*) FROM transactions WHERE direction='EXPENSE'"))
         assertEquals(0L, scalar("SELECT COUNT(*) FROM owned_transfer_review_decisions"))
     }
+    @Test fun timeSortedActivityPairConfirmsByIdWithoutDiscardingAnUnchangedCard() {
+        val db = PesaTrackDatabase.get(context).writableDatabase
+        db.execSQL("UPDATE transactions SET source_kind='sms',transaction_code=NULL WHERE id=102")
+        val transactions = TransactionStore.get(context)
+        val group = transactions.activityReviewOverview(performMaintenance = false)
+            .possibleDuplicates.single { it.key == "101:102" }
+        assertEquals(102L, group.first.id)
+        assertEquals(101L, group.second.id)
+        assertTrue(transactions.resolvePossibleDuplicate(
+            group.key, true, expectedFirst = group.first, expectedSecond = group.second
+        ))
+        assertEquals(1L, scalar("SELECT COUNT(*) FROM duplicate_resolutions"))
+        assertEquals(1L, scalar("SELECT COUNT(*) FROM transactions WHERE review_state='EXCLUDED'"))
+    }
+    @Test fun changedFeeOnDisplayedDuplicatePairCannotExcludeAnyRow() {
+        val db = PesaTrackDatabase.get(context).writableDatabase
+        db.execSQL("UPDATE transactions SET source_kind='sms',transaction_code=NULL WHERE id=102")
+        val transactions = TransactionStore.get(context)
+        val group = transactions.activityReviewOverview(performMaintenance = false)
+            .possibleDuplicates.single { it.key == "101:102" }
+        db.execSQL("UPDATE transactions SET fee_minor=200 WHERE id=101")
+        assertFalse(transactions.resolvePossibleDuplicate(
+            group.key, true, expectedFirst = group.first, expectedSecond = group.second
+        ))
+        assertEquals(0L, scalar("SELECT COUNT(*) FROM duplicate_resolutions"))
+        assertEquals(0L, scalar("SELECT COUNT(*) FROM transactions WHERE review_state='EXCLUDED'"))
+    }
+    @Test fun reversalArrivingAfterCardBlocksDuplicateExclusion() {
+        val db = PesaTrackDatabase.get(context).writableDatabase
+        db.execSQL("UPDATE transactions SET source_kind='sms',transaction_code=NULL WHERE id=102")
+        val transactions = TransactionStore.get(context)
+        val group = transactions.activityReviewOverview(performMaintenance = false)
+            .possibleDuplicates.single { it.key == "101:102" }
+        seed(103, bankId, "EXPENSE", 0)
+        db.execSQL("UPDATE transactions SET type='REVERSAL',reversal_of_code='BANKCODE101' WHERE id=103")
+        assertFalse(transactions.resolvePossibleDuplicate(
+            group.key, true, expectedFirst = group.first, expectedSecond = group.second
+        ))
+        assertEquals(0L, scalar("SELECT COUNT(*) FROM duplicate_resolutions"))
+        assertEquals(0L, scalar("SELECT COUNT(*) FROM transactions WHERE review_state='EXCLUDED'"))
+    }
+    @Test fun historicalReverseKeyKeepBothDecisionHidesCanonicalReviewCard() {
+        val db = PesaTrackDatabase.get(context).writableDatabase
+        db.execSQL("UPDATE transactions SET source_kind='sms',transaction_code=NULL WHERE id=102")
+        db.insertOrThrow("duplicate_resolutions", null, ContentValues().apply {
+            put("pair_key", "102:101")
+            put("first_transaction_id", 102L)
+            put("second_transaction_id", 101L)
+            put("decision", "KEEP_BOTH")
+            put("created_at_epoch_ms", epoch)
+            put("updated_at_epoch_ms", epoch)
+        })
+        val transactions = TransactionStore.get(context)
+        assertTrue(transactions.activityReviewOverview(performMaintenance = false)
+            .possibleDuplicates.none { it.key == "101:102" })
+        assertFalse(transactions.resolvePossibleDuplicate("101:102", false))
+    }
+
     @Test fun confirmedPairRejectsIndividualEditsAcrossStoresAndDeletion() {
         consent(); store.decide(store.pendingCandidates().single(), TransferPairDecision.CONFIRMED)
         val transactions = TransactionStore.get(context)

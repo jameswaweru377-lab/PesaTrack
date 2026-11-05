@@ -3092,86 +3092,19 @@ class TransactionStore private constructor(context: Context) {
         check(db.update("transactions", destinationValues, "id=?", arrayOf(candidate.destination.id.toString())) == 1)
     }
 
+    /**
+     * The writer re-reads both rows and atomically persists the user's decision.
+     * Callers with a displayed card supply its immutable row snapshots.
+     */
     fun resolvePossibleDuplicate(
         pairKey: String,
-        sameTransaction: Boolean
-    ): Boolean {
-        synchronized(CanonicalStoreLock.monitor) {
-        val ids = pairKey.split(":").mapNotNull(String::toLongOrNull)
-        if (ids.size != 2) return false
-        val transferReview = OwnedTransferReviewStore(appContext)
-        if (ids.any(transferReview::isConfirmedPair)) return false
-
-        val first = getById(ids[0]) ?: return false
-        val second = getById(ids[1]) ?: return false
-        val now = System.currentTimeMillis()
-
-        if (sameTransaction) {
-            val canonical = chooseDuplicateCanonical(first, second)
-            val duplicate = if (canonical.id == first.id) second else first
-            val values = ContentValues().apply {
-                put("review_state", ReviewState.EXCLUDED.name)
-                putNull("cycle_candidate_reason")
-            }
-            database.writableDatabase.update(
-                "transactions",
-                values,
-                "id = ?",
-                arrayOf(duplicate.id.toString())
-            )
-        }
-
-        val resolution = ContentValues().apply {
-            put("pair_key", pairKey)
-            put("first_transaction_id", first.id)
-            put("second_transaction_id", second.id)
-            put(
-                "decision",
-                if (sameTransaction) {
-                    DUPLICATE_DECISION_SAME
-                } else {
-                    DUPLICATE_DECISION_KEEP_BOTH
-                }
-            )
-            put("created_at_epoch_ms", now)
-            put("updated_at_epoch_ms", now)
-        }
-        database.writableDatabase.insertWithOnConflict(
-            "duplicate_resolutions",
-            null,
-            resolution,
-            android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE
+        sameTransaction: Boolean,
+        expectedFirst: StoredTransaction? = null,
+        expectedSecond: StoredTransaction? = null
+    ): Boolean =
+        DuplicateResolutionWriter(appContext, database, ::getById).resolve(
+            pairKey, sameTransaction, expectedFirst, expectedSecond
         )
-
-        PayCycleStore.get(appContext).rebuild()
-        LedgerUpdateBus.notifyChanged()
-        return true
-    }
-    }
-
-    private fun chooseDuplicateCanonical(
-        first: StoredTransaction,
-        second: StoredTransaction
-    ): StoredTransaction {
-        fun score(item: StoredTransaction): Int {
-            var value = 0
-            if (!item.transactionCode.isNullOrBlank()) value += 8
-            if (!item.counterparty.isNullOrBlank()) value += 4
-            if (!item.counterpartyPhone.isNullOrBlank()) value += 3
-            if (!item.evidenceLabel.isNullOrBlank()) value += 2
-            if (item.type != MpesaTransactionType.OTHER.name) value += 2
-            if (item.direction != MoneyDirection.NEUTRAL.name) value += 1
-            return value
-        }
-
-        val firstScore = score(first)
-        val secondScore = score(second)
-        return when {
-            firstScore > secondScore -> first
-            secondScore > firstScore -> second
-            else -> if (first.id <= second.id) first else second
-        }
-    }
 
     private fun buildPossibleDuplicateGroups(
         transactions: List<StoredTransaction>
@@ -3295,12 +3228,17 @@ class TransactionStore private constructor(context: Context) {
 
     private fun duplicateResolutionKeys(): Set<String> =
         database.readableDatabase.rawQuery(
-            "SELECT pair_key FROM duplicate_resolutions",
+            "SELECT first_transaction_id, second_transaction_id FROM duplicate_resolutions",
             null
         ).use { cursor ->
             buildSet {
                 while (cursor.moveToNext()) {
-                    add(cursor.getString(0))
+                    val first = cursor.getLong(0)
+                    val second = cursor.getLong(1)
+                    if (first > 0L && second > 0L && first != second) {
+                        // Older Keep Both decisions may have stored the reverse key.
+                        add(duplicatePairKey(first, second))
+                    }
                 }
             }
         }
@@ -4257,8 +4195,6 @@ class TransactionStore private constructor(context: Context) {
             "INVESTMENT_BUY"
         const val RELATION_INVESTMENT_SELL =
             "INVESTMENT_SELL"
-        private const val DUPLICATE_DECISION_SAME = "SAME_TRANSACTION"
-        private const val DUPLICATE_DECISION_KEEP_BOTH = "KEEP_BOTH"
         private const val REVIEW_ENRICHMENT_RECENT_LIMIT =
             500
 
@@ -4359,23 +4295,6 @@ private fun StoredTransaction.toMirrorObservation(
                 accountId,
                 linkedAccountId
             ).toSet()
-    )
-
-private fun StoredTransaction.toPossibleDuplicateObservation():
-    PossibleDuplicateObservation =
-    PossibleDuplicateObservation(
-        id = id,
-        amountMinor = amountMinor,
-        receivedAtEpochMs = receivedAtEpochMs,
-        transactionCode = transactionCode,
-        sourcePackage = sourcePackage,
-        sourceKind = sourceKind,
-        direction = direction,
-        reviewState = reviewState,
-        category = category,
-        counterparty = counterparty,
-        evidenceLabel = evidenceLabel,
-        type = type
     )
 
 private fun StoredTransaction.toParsedTransaction(): ParsedMpesaTransaction =
