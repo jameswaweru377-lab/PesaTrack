@@ -1,5 +1,21 @@
 # PesaTrack Current State
 
+_Plan Calendar Journey design implementation (6 November 2026; Android CI and physical-device acceptance pending):_
+The Plan overview now uses the selected calendar-first white/emerald layout:
+current-month selector, month/pay-cycle progress toggle, seven-day upcoming-bill
+ribbon, confirmed current pay-cycle availability and starting/committed/saved
+figures, budget and goal progress, Bills destination, and upcoming due rows.
+A connected Plan Details view displays the same source-derived figures, bill
+dates and the original full cash-flow breakdown. Unknown progress is labelled
+unavailable, and the month selector opens existing historical Reports rather
+than pretending a historical Plan snapshot exists. The calendar selects a day
+for display only and does not recalculate finance data. Existing forecasting,
+recurring-payment confirmation and funding-gap review remain reachable below
+the overview. No ledger, account ownership, bill scheduling, storage, imports,
+permissions, backups, network flows or signing changes. Android CI and Redmi
+font-scale/layout and navigation checks are pending; emulator and instrumentation
+tests are intentionally skipped.
+
 _Stale duplicate-confirmation write guard (4 November 2026; CI/device acceptance pending):_
 Activity's possible-duplicate review now sends the exact displayed transaction snapshots to a dedicated SQLite decision writer. Same Transaction fails closed when either persisted row changed, stopped being a candidate, gained a protected review state, or acquired a linked reversal as a separate transaction. Time-sorted card rows are compared by ID rather than positional order. Keep Both remains non-excluding; historical reversed-ID decisions are recognized by canonical pair IDs. Duplicate resolution and any exclusion share one SQLite transaction; the source rows, fees, account balances and financial summary formulas are unchanged. No schema or backup change is introduced. Only synthetic JVM policy and build checks are requested; device persistence and Android instrumentation have not been executed.
 
