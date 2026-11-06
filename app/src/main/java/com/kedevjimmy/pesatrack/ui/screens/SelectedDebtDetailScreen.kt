@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot
@@ -37,6 +38,7 @@ internal fun SelectedDebtDetailScreen(
     onBack: () -> Unit, onConfirmBalance: () -> Unit
 ) {
     val revision by LedgerUpdateBus.state.collectAsState()
+    val locale = LocalConfiguration.current.locales[0]
     var history by remember(debt.id) { mutableStateOf<List<DebtEventRecord>>(emptyList()) }
     var loaded by remember(debt.id) { mutableStateOf(false) }
     var error by remember(debt.id) { mutableStateOf(false) }
@@ -128,7 +130,7 @@ internal fun SelectedDebtDetailScreen(
                         DebtEventType.FEE -> "Service fee recorded"
                         DebtEventType.ADJUSTMENT -> "Balance adjustment"
                     }, fontWeight = FontWeight.SemiBold)
-                    Text(SimpleDateFormat("d MMM yyyy", Locale.getDefault())
+                    Text(SimpleDateFormat("d MMM yyyy", locale)
                         .format(Date(event.occurredAtEpochMs)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
