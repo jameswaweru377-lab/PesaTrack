@@ -19,6 +19,7 @@ import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material.icons.rounded.SouthWest
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -42,6 +43,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
@@ -150,11 +152,11 @@ private fun AccountDetailsContent(
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Button(onClick = {
+                OutlinedButton(onClick = {
                     filter = "All"
                     scrollScope.launch { listState.animateScrollToItem(activityIndex) }
-                }, modifier = Modifier.weight(1f)) {
-                    Text("View activity")
+                }, modifier = Modifier.weight(1f), border = BorderStroke(1.dp, AccountBlack)) {
+                    Text("View activity", color = AccountBlack)
                 }
                 Column(Modifier.weight(1f)) { AccountBalanceCheckAction(account?.id) }
             }
@@ -176,7 +178,7 @@ private fun AccountDetailsContent(
                 LinkedSavingsAccount(child, snapshot, onAccountClick)
             }
         }
-        item { AccountsSectionTitle("Activity") }
+        item { AccountsSectionTitle("Recent activity") }
         item {
             androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(4) { index ->
@@ -210,7 +212,7 @@ private fun AccountDetailTitle(account: MoneyAccount?, onBack: () -> Unit) {
         }
         AccountProviderMark(account?.name ?: "Account")
         Column(Modifier.weight(1f).padding(start = 10.dp)) {
-            Text(account?.name ?: "Account details", style = MaterialTheme.typography.titleLarge,
+            Text(account?.name ?: "Account details", style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold)
             Text(account?.identifier?.takeLast(4)?.let { "•••• $it" } ?: "Your financial account",
                 style = MaterialTheme.typography.bodySmall,
@@ -231,18 +233,21 @@ private fun AccountRecordedBalance(account: MoneyAccount?, balance: PaydayAccoun
         else -> "No balance evidence yet"
     }
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        color = MaterialTheme.colorScheme.primaryContainer,
+        color = AccountMint,
         border = BorderStroke(PesaDesignTokens.cardOutlineWidth, MaterialTheme.colorScheme.outlineVariant)) {
-        Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            AccountProviderMark(account?.name ?: "Account")
             Text("Recorded balance", style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer)
+                color = AccountBlack)
             Text(amount?.let(::formatKesAmount) ?: "Balance unavailable",
                 style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer)
+                color = AccountBlack)
             Text(quality + (balance?.referenceEpochMs?.let { " · " +
                 SimpleDateFormat("d MMM yyyy, h:mm a", locale).format(Date(it)) } ?: ""),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer)
+                color = AccountBlack)
+            Text("Not live synced", style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

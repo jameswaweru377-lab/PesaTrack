@@ -144,7 +144,7 @@ fun PersonalReceivablesScreen(
                     }
                     Column {
                         Text(selected.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                        Text("Loans and shared bills", style = MaterialTheme.typography.bodySmall,
+                        Text("Money lent · Personal loan", style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -193,25 +193,10 @@ fun PersonalReceivablesScreen(
                     active.filter { it.outstandingMinor != null }
                         .fold(0L) { sum, person -> Math.addExact(sum, person.outstandingMinor!!) }
                 }.getOrNull()
-                item {
-                    PesaCard {
-                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text(
-                                if (peopleRevision != revision.revision) "Last verified known amount"
-                                else "Known owed to you",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(total?.let(::receivableMoney) ?: "Balance unavailable",
-                                style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                            Text("${active.size} outstanding · $unknownCount unknown",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                }
+                item { SelectedReceivablesSummary(active, total, unknownCount) }
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { createKind = PersonalReceivableStore.LENT },
+                        OutlinedButton(onClick = { createKind = PersonalReceivableStore.LENT },
                             modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
                             Icon(Icons.Rounded.Add, contentDescription = null)
                             Spacer(Modifier.width(6.dp))
@@ -232,22 +217,7 @@ fun PersonalReceivablesScreen(
                     }
                 }
                 items(active, key = { it.id }) { person ->
-                    PesaCard(Modifier.fillMaxWidth().clickable { selectedPersonId = person.id }) {
-                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Person, contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(person.name, fontWeight = FontWeight.SemiBold)
-                                Text(if (person.outstandingMinor == null) "Review loan and repayment history"
-                                     else if (person.outstandingMinor == 0L) "Settled" else "Outstanding",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Text(person.outstandingMinor?.let(::receivableMoney) ?: "Balance unavailable", fontWeight = FontWeight.Bold)
-                            Icon(Icons.Rounded.ChevronRight, contentDescription = null)
-                        }
-                    }
+                    SelectedReceivablePersonRow(person) { selectedPersonId = person.id }
                 }
                 if (settled.isNotEmpty()) {
                     item { TextButton(onClick = { showSettledPeople = !showSettledPeople }) {
@@ -267,22 +237,10 @@ fun PersonalReceivablesScreen(
                 }
             }
         } else if (peopleLoaded && loadedPersonId == selectedPersonId) {
-            item {
-                PesaCard {
-                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Outstanding balance", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(selected.outstandingMinor?.let(::receivableMoney) ?: "Balance unavailable",
-                            style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                        Text(if (selected.outstandingMinor == null)
-                            "Source evidence changed. Review the history and remove incorrect repayment records. No balance is assumed."
-                            else "Only confirmed loan and repayment records are included.",
-                            style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
+            item { SelectedPersonalLoanHero(selected, history) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { createKind = PersonalReceivableStore.LENT },
+                    OutlinedButton(onClick = { createKind = PersonalReceivableStore.LENT },
                         modifier = Modifier.weight(1f)) { Text("Add loan") }
                     OutlinedButton(onClick = { createKind = PersonalReceivableStore.REPAID },
                         enabled = (selected.outstandingMinor ?: 0L) > 0L,
@@ -300,7 +258,7 @@ fun PersonalReceivablesScreen(
                 Text("Money lent: " + (lent?.let(::receivableMoney) ?: "Unavailable"))
                 Text("Repaid: " + (repaid?.let(::receivableMoney) ?: "Unavailable"))
             }
-            item { Text("History", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+            item { Text("Loan history", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
             items(history, key = { it.id }) { event ->
                 PesaCard {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {

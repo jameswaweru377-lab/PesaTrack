@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.PayCycleStore
@@ -110,6 +111,7 @@ fun MoneySetupScreen(
     var error by remember { mutableStateOf<String?>(null) }
 
     var showAddAccount by remember { mutableStateOf(false) }
+    var choosingAccountProvider by remember { mutableStateOf(true) }
     var newAccountName by remember { mutableStateOf("") }
     var newAccountType by remember { mutableStateOf(AccountType.BANK) }
     var editingAccountId by remember { mutableStateOf<String?>(null) }
@@ -406,7 +408,26 @@ fun MoneySetupScreen(
                         }
                     }
 
-                    if (showAddAccount) {
+                    if (showAddAccount && choosingAccountProvider) {
+                        SelectedAccountPicker(onSelect = { provider, kind ->
+                            newAccountName = provider
+                            newAccountType = kind
+                            choosingAccountProvider = false
+                        }, onOther = {
+                            newAccountName = ""
+                            newAccountType = AccountType.BANK
+                            choosingAccountProvider = false
+                        })
+                        TextButton(onClick = { showAddAccount = false }) {
+                            Text("Cancel", color = AccountBlack)
+                        }
+                    } else if (showAddAccount) {
+                        Text(if (newAccountType == AccountType.MOBILE_WALLET) "Set up ${newAccountName.ifBlank { "mobile wallet" }}"
+                            else "Set up your account", style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold)
+                        Text("Only what you need to recognise your money",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (newAccountName.isNotBlank()) AccountProviderMark(newAccountName)
                         OutlinedTextField(
                             value = newAccountName,
                             onValueChange = { newAccountName = it },
@@ -424,12 +445,11 @@ fun MoneySetupScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(
                                 onClick = {
-                                    showAddAccount = false
-                                    newAccountName = ""
+                                    choosingAccountProvider = true
                                 },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("Cancel")
+                                Text("Back")
                             }
                             Button(
                                 onClick = {
@@ -438,6 +458,7 @@ fun MoneySetupScreen(
                                             .createOwnedAccount(newAccountName, newAccountType)
                                     }.onSuccess { created ->
                                         showAddAccount = false
+                                        choosingAccountProvider = true
                                         newAccountName = ""
                                         reload()
                                         beginAccountEdit(created)
@@ -452,12 +473,16 @@ fun MoneySetupScreen(
                         }
                     } else {
                         OutlinedButton(
-                            onClick = { showAddAccount = true },
+                            onClick = {
+                                showAddAccount = true
+                                choosingAccountProvider = true
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Icon(Icons.Rounded.Add, contentDescription = null)
-                            Text("Add bank or wallet", modifier = Modifier.padding(start = 8.dp))
+                            Text("Choose bank or wallet", modifier = Modifier.padding(start = 8.dp),
+                                color = AccountBlack)
                         }
                     }
                 }
