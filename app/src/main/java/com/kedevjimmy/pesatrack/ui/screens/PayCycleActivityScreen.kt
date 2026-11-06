@@ -60,6 +60,7 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
     var selectedStartId by rememberSaveable { mutableStateOf<Long?>(null) }
     var snapshot by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
     var previous by remember { mutableStateOf<ActivityLedgerSnapshot?>(null) }
+    var planningSnapshot by remember { mutableStateOf<PayCycleSnapshot?>(null) }
     var categoryLabels by remember { mutableStateOf(emptyMap<String, String>()) }
     var error by remember { mutableStateOf<String?>(null) }
     var retry by remember { mutableIntStateOf(0) }
@@ -96,10 +97,12 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                     },
                     CategoryStore.get(context).all().associate {
                         it.id to it.label
-                    }
+                    },
+                    PayCycleStore.get(context).snapshot(now)
                 )
             }
             cycles = data.cycles; snapshot = data.snapshot; previous = data.previous; categoryLabels = data.labels
+            planningSnapshot = data.planning
             accountTypes = loadedAccountTypes
         } catch (cancelled: CancellationException) { throw cancelled
         } catch (exception: Exception) {
@@ -109,6 +112,9 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
     }
     val selected = cycles.firstOrNull { it.startTransactionId == selectedStartId } ?: cycles.firstOrNull()
     val index = cycles.indexOf(selected)
+    val currentPlanning = planningSnapshot?.takeIf {
+        it.cycle?.startTransactionId == selected?.startTransactionId
+    }
     LazyColumn(Modifier.fillMaxSize().padding(scaffoldPadding), contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
@@ -117,7 +123,13 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back to Plan")
                 }
                 Column(Modifier.weight(1f)) {
-                    VibrantPlanPageTitle("Pay cycle", "Track your salary cycle and plan ahead.")
+                    Text("Pay cycle", style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold, color = HomeMonochromePalette.ink)
+                    if (selected != null) Text(
+                        salaryDisplayDate(selected.startEpochMs) + " – " +
+                            (selected.endEpochMs?.let(::salaryDisplayDate) ?: "Now"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = HomeMonochromePalette.muted)
                 }
                 IconButton(onClick = { showHelp = true }) { Icon(Icons.Rounded.Info, "How pay cycles work") }
             }
@@ -131,22 +143,8 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
             }
         }
         if (selected != null && !loading && error == null) {
-            item {
-                Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (cycles.size > 1) IconButton(enabled = index + 1 < cycles.size, onClick = {
-                            selectedStartId = cycles[index + 1].startTransactionId; filter = "All"
-                        }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Previous cycle") }
-                        Column(Modifier.weight(1f).padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(salaryDisplayDate(selected.startEpochMs) + " → " + (selected.endEpochMs?.let(::salaryDisplayDate) ?: "Now"), style = MaterialTheme.typography.labelLarge)
-                            Text(if (selected.endEpochMs == null) "Current pay cycle" else "Completed pay cycle", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        if (cycles.size > 1) IconButton(enabled = index > 0, onClick = {
-                            selectedStartId = cycles[index - 1].startTransactionId; filter = "All"
-                        }) { Icon(Icons.AutoMirrored.Rounded.ArrowForward, "Next cycle") }
-                    }
-                }
-            }
+            item { SelectedPayCycleTimeline(selected,
+                currentPlanning?.estimatedDaysRemaining) }
             snapshot?.let { ledger ->
                 item {
                     val transfers = ledger.trustedTransactions.filter {
@@ -160,17 +158,30 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                             CheckedMoney.negate(savedMinor), CheckedMoney.negate(investedMinor), CheckedMoney.negate(debtMinor)) }
 
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        VibrantCycleHero(
-                            salary = salaryMoney(selected.openingIncomeMinor),
-                            spent = salaryMoney(ledger.summary.spentMinor),
-                            saved = savedMinor?.let(::salaryMoney) ?: "Unavailable",
-                            surplus = surplus?.let(::salaryMoney) ?: "Unavailable",
-                            salaryMinor = selected.openingIncomeMinor,
-                            spentMinor = ledger.summary.spentMinor,
-                            savedMinor = savedMinor,
-                            cycleActive = selected.endEpochMs == null,
-                            onSalaryClick = onSalaryClick
+                        val setAside = currentPlanning?.let {
+                            CheckedMoney.orNull { CheckedMoney.total(it.savingsMinor,
+                                it.remainingCommitmentsMinor, it.userProtectedMinor) }
+                        } ?: savedMinor
+                        SelectedPayCycleSnapshot(
+                            income = salaryMoney(ledger.summary.incomeMinor),
+                            expenses = salaryMoney(ledger.summary.spentMinor),
+                            setAside = setAside?.let(::salaryMoney) ?: "Unavailable",
+                            available = currentPlanning?.availableToLiveMinor?.let(::salaryMoney),
+                            footnote = if (currentPlanning != null)
+                                "Planning amount after fees, commitments and recorded adjustments; not an account balance."
+                            else "Historical cycle: no verified available-to-plan snapshot."
                         )
+                        Row(Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                enabled = index + 1 < cycles.size,
+                                onClick = {
+                                    selectedStartId = cycles[index + 1].startTransactionId
+                                    filter = "All"
+                                }, modifier = Modifier.weight(1f)) { Text("Previous cycles") }
+                            OutlinedButton(onClick = onSalaryClick,
+                                modifier = Modifier.weight(1f)) { Text("Edit payday") }
+                        }
                         if (ledger.summary.needsReviewCount > 0) {
                             Text("${ledger.summary.needsReviewCount} pending reviews are excluded from totals",
                                 style = MaterialTheme.typography.bodySmall,
@@ -281,7 +292,8 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
 }
 
 private data class CyclePageData(val cycles: List<PayCycle>, val snapshot: ActivityLedgerSnapshot?,
-    val previous: ActivityLedgerSnapshot?, val labels: Map<String, String>)
+    val previous: ActivityLedgerSnapshot?, val labels: Map<String, String>,
+    val planning: PayCycleSnapshot)
 
 @Composable
 private fun CycleMetric(label: String, minor: Long, modifier: Modifier) {

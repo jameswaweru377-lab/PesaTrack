@@ -1,5 +1,21 @@
 # PesaTrack Current State
 
+_Selected Plan subpage designs (6 November 2026; Android CI and device acceptance pending):_
+The four selected white/emerald reference layouts are now applied to Plan's
+Budgets (circular spending/remaining summary, category filter and limit actions),
+Savings Goals (featured goal milestones and other saved-goal progress), Bills
+(two-week local calendar, outstanding due rows and reminders) and Pay Cycle
+(salary-date timeline and ledger/planning snapshot). The visual summaries reuse
+their original local stores, editing sheets, rule actions and trusted Activity
+financial evidence. Missing full savings-goal targets do not display fictional
+overall progress; payday estimates and unavailable historical planning amounts
+are explicitly qualified. Existing approved Plan overview and five-tab shell
+remain unchanged. No transaction posting, reconciliation, import, schema,
+backup, permission, network or signing behavior changes. A focused pure JVM
+policy test covers budget percentages, milestones and calendar dates; emulator
+and instrumentation testing are intentionally skipped. GitHub Android CI and
+physical Redmi visual acceptance are still required.
+
 _Statement source identity safeguard (6 November 2026; CI and phone acceptance pending):_
 Read-only statement coverage now requires a digit-bearing, structurally stable
 transaction reference before two independently verified document observations

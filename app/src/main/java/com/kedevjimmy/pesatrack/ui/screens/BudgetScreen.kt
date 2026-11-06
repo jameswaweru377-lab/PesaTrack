@@ -108,6 +108,7 @@ fun BudgetScreen(
     var customCategoryName by remember { mutableStateOf("") }
     var categoryExpanded by remember { mutableStateOf(false) }
     var showBudgetSheet by remember { mutableStateOf(false) }
+    var budgetFilter by remember { mutableStateOf("All") }
     var pendingBudgetRemoval by remember { mutableStateOf<MonthlyBudget?>(null) }
     var removeError by remember { mutableStateOf<String?>(null) }
 
@@ -375,7 +376,7 @@ pendingBudgetRemoval?.let { candidate ->
         modifier = Modifier
             .padding(scaffoldPadding)
             .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 14.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
@@ -386,18 +387,14 @@ pendingBudgetRemoval?.let { candidate ->
                 Column(Modifier.weight(1f)) {
                     Text("Budgets", style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.ExtraBold)
-                    Text(
-                        "Plan your spending and stay on track.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         }
 
         item {
             Surface(shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surface,
+                color = HomeMonochromePalette.surface,
+                border = androidx.compose.foundation.BorderStroke(1.dp, HomeMonochromePalette.line),
                 modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
                     verticalAlignment = Alignment.CenterVertically) {
@@ -405,7 +402,7 @@ pendingBudgetRemoval?.let { candidate ->
                         .format(java.util.Date()), modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold)
-                    Text("Current month",
+                    Text("Current month only",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -415,38 +412,17 @@ pendingBudgetRemoval?.let { candidate ->
         item {
             val limit = budgets.sumOf { it.limitMinor.coerceAtLeast(0L) }
             val used = budgets.sumOf { (trackedByCategory[it.categoryId] ?: 0L).coerceAtLeast(0L) }
-            val remaining = (limit - used).coerceAtLeast(0L)
-            val fraction = if (limit > 0L) (used.toFloat() / limit.toFloat()).coerceIn(0f,1f) else 0f
-            VibrantPlanSurface {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(13.dp)) {
-                    VibrantRing(fraction, valueLabel = "${(fraction * 100).toInt()}%",
-                        subtitle = "limit used")
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("Spending limit", color = PlanVibrant.muted,
-                            style = MaterialTheme.typography.labelSmall)
-                        Text(formatBudgetMoney(limit), fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleMedium)
-                        Text("Spent  " + formatBudgetMoney(used),
-                            color = PlanVibrant.pink, style = MaterialTheme.typography.bodySmall)
-                        Text("Remaining  " + formatBudgetMoney(remaining),
-                            color = PlanVibrant.mint, style = MaterialTheme.typography.bodySmall)
-                        if (used > limit && limit > 0L) {
-                            Text("Over limit by " + formatBudgetMoney(used - limit),
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
-            }
+            SelectedBudgetRing(limit, used, ::formatBudgetMoney)
         }
 
         item {
             Text(
-                "Category budgets",
-                style = MaterialTheme.typography.titleLarge
+                "Where your budget goes",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
             )
         }
+        item { SelectedBudgetFilters(budgetFilter) { budgetFilter = it } }
 
         if (loading || loadError != null) {
             item {
@@ -473,36 +449,52 @@ pendingBudgetRemoval?.let { candidate ->
                 }
             }
         } else {
+            val visibleBudgets = budgets.filter { budget ->
+                val spent = trackedByCategory[budget.categoryId] ?: 0L
+                when (budgetFilter) {
+                    "On track" -> spent <= budget.limitMinor
+                    "Over" -> spent > budget.limitMinor
+                    else -> true
+                }
+            }
+            if (visibleBudgets.isEmpty()) item {
+                Text("No budgets in this filter.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             items(
-                count = budgets.size,
-                key = { index -> budgets[index].categoryId }
+                count = visibleBudgets.size,
+                key = { index -> visibleBudgets[index].categoryId }
             ) { index ->
-                ExistingBudgetRow(
-                    budget = budgets[index],
-                    categoryLabel =
+                val budget = visibleBudgets[index]
+                SelectedBudgetCategoryRow(
+                    label =
                         categoryStore.labelFor(
-                            budgets[index].categoryId
+                            budget.categoryId
                         ),
                     spentMinor =
                         trackedByCategory[
-                            budgets[index].categoryId
+                            budget.categoryId
                         ] ?: 0L,
+                    limitMinor = budget.limitMinor,
+                    icon = categoryIcon(budget.categoryId),
+                    money = ::formatBudgetMoney,
                     onEdit = {
                         categoryStore.find(
-                            budgets[index].categoryId
+                            budget.categoryId
                         )?.let(::selectCategory)
                     },
                     onDelete = {
                         if (!saving) {
                             removeError = null
-                            pendingBudgetRemoval = budgets[index]
+                            pendingBudgetRemoval = budget
                         }
-                    }
+                    },
+                    timingContent = { BudgetTimingAction(budget) }
                 )
             }
         }
         item {
-            VibrantActionButton("+ Add budget", onClick = {
+            VibrantActionButton("+ New budget", onClick = {
                 categoryExpanded = !categoryExpanded
             })
         }

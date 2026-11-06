@@ -39,6 +39,7 @@ import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.planning.VoicePlanKind
 import com.kedevjimmy.pesatrack.ui.components.*
+import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
@@ -728,17 +729,11 @@ fun SavingGoalsScreen(
         )
     }
 
-    val activeGoals = models.filter { it.progress < 1f }
     val totalSaved = models.sumOf { it.savedMinor }
-    val totalTarget = models.sumOf { it.targetMinor }
-    val averageProgress = if (activeGoals.isEmpty()) {
-        if (models.isEmpty()) 0 else 100
-    } else {
-        (activeGoals.map { it.progress }.average() * 100).roundToInt()
-    }
-    val filtered = models.filter {
-        selectedGroup == GoalGroup.ALL || it.group == selectedGroup
-    }
+    val featured = models.firstOrNull {
+        it.title.contains("emergency", ignoreCase = true)
+    } ?: models.firstOrNull()
+    val otherGoals = models.filter { it.rule.id != featured?.rule?.id }
 
     if (goalEditor) {
         SavingGoalEditor(editingGoal) {
@@ -784,67 +779,59 @@ fun SavingGoalsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item { ConceptLoadError(loadError) { retryLoad++ } }
-        item { GoalPageHeader(onBack) }
         item {
-            GoalHero(
-                totalSavedMinor = totalSaved,
-                currentMonthMinor = loaded.currentMonthSavings.values.sum(),
-                previousMonthMinor = loaded.previousMonthSavings.values.sum(),
-                averageProgress = averageProgress,
-                totalTargetMinor = totalTarget
-            )
-        }
-        item { VibrantPlanSectionTitle("Your goals") }
-        item {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(end = 6.dp)
-            ) {
-                items(GoalGroup.entries) { group ->
-                    GoalFilterChip(
-                        group,
-                        group == selectedGroup
-                    ) { selectedGroup = group }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back to Plan")
+                }
+                Text("Your savings goals", modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold, color = HomeMonochromePalette.ink)
+                OutlinedButton(onClick = { editingGoal = null; goalEditor = true },
+                    modifier = Modifier.heightIn(min = 48.dp)) {
+                    Icon(Icons.Rounded.Add, contentDescription = null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("New goal")
                 }
             }
         }
-        items(filtered, key = { it.rule.id }) { model ->
-            GoalReferenceCard(
-                model = model,
-                locale = locale,
-                onClick = { selectedGoal = model }
-            )
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                VibrantActionButton(
-                    "+ New goal",
-                    onClick = {
-                        editingGoal = null
-                        goalEditor = true
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-                OutlinedButton(
-                    onClick = { voiceAdd = true },
-                    modifier = Modifier.weight(1f).heightIn(min = 50.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD8CBFF)),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color(0xFFEDE6FF),
-                        contentColor = PlanVibrant.violet
-                    ),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 11.dp)
-                ) {
-                    Icon(Icons.Rounded.Mic, contentDescription = null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Add by voice", fontWeight = FontWeight.SemiBold)
+        if (featured == null && loadError == null) item {
+            Surface(color = HomeMonochromePalette.softGreen,
+                shape = RoundedCornerShape(PesaDesignTokens.cardRadius)) {
+                Column(Modifier.fillMaxWidth().padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("No savings goals yet", fontWeight = FontWeight.Bold)
+                    Text("Create a goal to track real savings progress.")
+                    TextButton(onClick = { goalEditor = true }) { Text("Create a goal") }
                 }
             }
         }
+        if (featured != null) item {
+            SelectedFeaturedGoal(featured.title, featured.savedMinor, featured.targetMinor,
+                featured.hasTotalTarget, ::goalMoney) { selectedGoal = featured }
+        }
+        if (otherGoals.isNotEmpty()) item {
+            Text("Other goals", style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold)
+        }
+        items(otherGoals, key = { it.rule.id }) { model ->
+            SelectedOtherGoal(model.title, model.savedMinor, model.targetMinor,
+                model.hasTotalTarget,
+                ::goalMoney) { selectedGoal = model }
+            HorizontalDivider(color = HomeMonochromePalette.line)
+        }
+        if (featured != null) item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("All goals · ${goalMoney(totalSaved)} saved",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium)
+                TextButton(onClick = onPlanClick) { Text("Manage goals") }
+            }
+        }
+        item { TextButton(onClick = { voiceAdd = true }) {
+            Icon(Icons.Rounded.Mic, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Add goal by voice")
+        } }
     }
 }
