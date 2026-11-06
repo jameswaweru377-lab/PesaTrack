@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
 import java.math.BigInteger
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -23,7 +24,7 @@ internal fun selectedGoalNextMilestone(targetMinor: Long, savedMinor: Long): Lon
     val quarter = BigInteger.valueOf(4L)
     for (step in 1L..4L) {
         val milestone = target.multiply(BigInteger.valueOf(step))
-            .add(BigInteger.valueOf(3L)).divide(quarter).longValueExact()
+            .add(BigInteger.valueOf(3L)).divide(quarter).let(CheckedMoney::exact)
         if (milestone > savedMinor) return milestone
     }
     return null

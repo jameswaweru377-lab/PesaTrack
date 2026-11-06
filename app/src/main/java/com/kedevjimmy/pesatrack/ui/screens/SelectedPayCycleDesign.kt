@@ -17,18 +17,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.PayCycle
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 
 /** Selected Pay Cycle B. Estimates are explicitly labelled, never invented dates. */
 @Composable
 internal fun SelectedPayCycleTimeline(cycle: PayCycle, estimatedDays: Int?) {
     val p = HomeMonochromePalette
+    val locale = LocalConfiguration.current.locales[0]
     val active = cycle.endEpochMs == null
     val headline = when {
         !active -> "Completed pay cycle"
@@ -56,11 +57,11 @@ internal fun SelectedPayCycleTimeline(cycle: PayCycle, estimatedDays: Int?) {
                 }
             }
             SelectedTimelineStop("Salary received",
-                SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(cycle.startEpochMs)),
+                SimpleDateFormat("d MMM yyyy", locale).format(Date(cycle.startEpochMs)),
                 completed = true, current = false)
             SelectedTimelineStop(if (active) "Today" else "Cycle ended",
-                if (active) SimpleDateFormat("EEE, d MMM", Locale.getDefault())
-                    .format(Date()) else SimpleDateFormat("d MMM yyyy", Locale.getDefault())
+                if (active) SimpleDateFormat("EEE, d MMM", locale)
+                    .format(Date()) else SimpleDateFormat("d MMM yyyy", locale)
                     .format(Date(requireNotNull(cycle.endEpochMs))),
                 completed = !active, current = active)
             if (active) SelectedTimelineStop("Next payday",
