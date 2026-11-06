@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
 import com.kedevjimmy.pesatrack.planning.ScheduledBill
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import java.text.SimpleDateFormat
@@ -81,13 +82,16 @@ internal fun SelectedBillsCalendar(
 @Composable
 internal fun SelectedBillsSummary(bills: List<ScheduledBill>, money: (Long) -> String) {
     val pending = bills.filter { it.remainingMinor > 0L }
+    val outstandingTotal = CheckedMoney.orNull {
+        CheckedMoney.sum(pending.asSequence().map { it.remainingMinor })
+    }
     Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
         color = HomeMonochromePalette.softGreen) {
         Row(Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Icon(Icons.Rounded.CalendarMonth, null, tint = HomeMonochromePalette.green)
-            Text("${pending.size} upcoming · ${money(pending.sumOf { it.remainingMinor })}",
+            Text("${pending.size} upcoming · ${outstandingTotal?.let(money) ?: "Total unavailable"}",
                 fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
         }
     }
