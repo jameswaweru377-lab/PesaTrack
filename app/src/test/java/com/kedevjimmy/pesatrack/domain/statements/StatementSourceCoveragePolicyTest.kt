@@ -50,6 +50,39 @@ class StatementSourceCoveragePolicyTest {
         assertEquals(5_000L, coverage.safeMoneyInMinor)
     }
 
+    @Test fun narrationOnlyReferenceCannotSilentlySuppressCrossDocumentMoney() {
+        listOf("TRANSFER", "WITHDRAWAL", " transfer ").forEachIndexed { index, narration ->
+            val coverage = StatementSourceCoveragePolicy.analyze(listOf(
+                row("first-$index", "bank-pdf-a", account = "equity",
+                    reference = narration,
+                    source = StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT),
+                row("second-$index", "bank-pdf-b", account = "equity",
+                    reference = narration,
+                    source = StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT)
+            )).single()
+
+            assertEquals(narration, StatementSourceCoveragePolicy.Status.NEEDS_REVIEW,
+                coverage.status)
+            assertEquals(narration, 0, coverage.confirmedRepeatCopies)
+            assertEquals(narration, 2, coverage.remainingObservedLegCount)
+            assertEquals(narration, 2, coverage.unresolvedCandidateCount)
+            assertNull(narration, coverage.safeMoneyOutMinor)
+            assertNull(narration, coverage.safeMoneyInMinor)
+        }
+    }
+
+    @Test fun oneDocumentWithNarrationStillHasItsOwnObservedCashMovement() {
+        val coverage = StatementSourceCoveragePolicy.analyze(listOf(
+            row("first", "bank-pdf-a", account = "equity", reference = "TRANSFER",
+                source = StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT)
+        )).single()
+
+        assertEquals(StatementSourceCoveragePolicy.Status.SINGLE_SOURCE, coverage.status)
+        assertEquals(0, coverage.confirmedRepeatCopies)
+        assertEquals(1_000L, coverage.safeMoneyOutMinor)
+        assertEquals(0L, coverage.safeMoneyInMinor)
+    }
+
     @Test fun bankDocumentsWithoutReferencesCannotSilentlyDeduplicate() {
         val coverage = StatementSourceCoveragePolicy.analyze(listOf(
             row("first", "equity-a", account = "equity", reference = null,

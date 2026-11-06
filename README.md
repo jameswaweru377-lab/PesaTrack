@@ -27,6 +27,8 @@ Bank PDF identification runs locally, asks for bank confirmation when a supporte
 
 **Accuracy comes first:** when a transaction, balance, or document cannot be verified confidently, PesaTrack asks for review or shows the limitation instead of inventing a number.
 
+When two statement PDFs contain matching amounts but only a generic narration (such as `TRANSFER`), PesaTrack preserves both records and holds the combined source-only subtotal for review. A narration label is not a verified duplicate receipt code.
+
 ## What you can do
 
 | | Feature | What it helps with |

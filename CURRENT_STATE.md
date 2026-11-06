@@ -16,6 +16,17 @@ policy test covers budget percentages, milestones and calendar dates; emulator
 and instrumentation testing are intentionally skipped. GitHub Android CI and
 physical Redmi visual acceptance are still required.
 
+_Statement source identity safeguard (6 November 2026; CI and phone acceptance pending):_
+Read-only statement coverage now requires a digit-bearing, structurally stable
+transaction reference before two independently verified document observations
+may be called the same receipt. Generic bank narrations such as TRANSFER and
+WITHDRAWAL are not proof: both observed cash rows remain available, combined
+multi-document subtotals are withheld as Needs Review, and confirmed-repeat
+counts remain zero for those cases. A single source still shows its own
+verified cash movements. Nothing changes in Activity, archival persistence,
+account balances, user corrections, fee/refund logic, schema, backup, permissions
+or release signing. N2 source-to-ledger admission remains on hold.
+
 _Plan Calendar Journey design implementation (6 November 2026; Android CI and physical-device acceptance pending):_
 The Plan overview now uses the selected calendar-first white/emerald layout:
 current-month selector, month/pay-cycle progress toggle, seven-day upcoming-bill

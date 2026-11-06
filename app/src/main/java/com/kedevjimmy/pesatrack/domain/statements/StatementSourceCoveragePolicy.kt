@@ -41,8 +41,9 @@ object StatementSourceCoveragePolicy {
     private const val NEAR_TIME_MS = 5L * 60 * 1_000
     private val stableReference = Regex("[A-Z0-9]{8,48}")
 
+    // Narrative labels are not receipt identities; follow the existing match policies.
     private fun referenceOf(value: String?): String? = value?.trim()
-        ?.uppercase(Locale.ROOT)?.takeIf { stableReference.matches(it) }
+        ?.uppercase(Locale.ROOT)?.takeIf { stableReference.matches(it) && it.any(Char::isDigit) }
 
     /**
      * The caller must supply only statement archive observations, never Activity.
