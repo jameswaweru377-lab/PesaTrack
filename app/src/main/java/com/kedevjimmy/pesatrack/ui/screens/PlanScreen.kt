@@ -496,7 +496,6 @@ fun PlanScreen(
 }
 
 @Composable
-@Composable
 private fun RecurringSuggestionCard(
     candidate:
         RecurringPatternCandidate,
@@ -780,6 +779,9 @@ private fun formatSignedPlanMoney(minor: Long): String =
     } else {
         "+ " + formatPlanMoney(minor)
     }
+
+private fun formatPlanDate(epochMs: Long): String =
+    SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(epochMs))
 
 private fun emptyPlanSnapshot(): PayCycleSnapshot =
     PayCycleSnapshot(
