@@ -1,41 +1,18 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.BarChart
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.Bolt
-import androidx.compose.material.icons.rounded.ReceiptLong
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.foundation.layout.Box
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Paid
 import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material.icons.rounded.TrackChanges
-import androidx.compose.material.icons.rounded.WarningAmber
-import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,13 +25,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
-import com.kedevjimmy.pesatrack.data.local.CommitmentProgress
 import com.kedevjimmy.pesatrack.data.local.FinancialProgress
 import com.kedevjimmy.pesatrack.data.local.FinancialProgressRepository
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
@@ -70,10 +44,8 @@ import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternConfidence
 import com.kedevjimmy.pesatrack.domain.rules.PlanningAvailabilityPolicy
 import com.kedevjimmy.pesatrack.planning.BillSchedules
 import com.kedevjimmy.pesatrack.planning.ScheduledBill
-import com.kedevjimmy.pesatrack.ui.components.ConceptEmeraldHero
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.FundingGapCard
-import com.kedevjimmy.pesatrack.ui.components.LandscapeBackdrop
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
 import com.kedevjimmy.pesatrack.ui.components.SmallStatusPill
@@ -83,7 +55,7 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.max
+import java.util.TimeZone
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
@@ -172,7 +144,6 @@ fun PlanScreen(
         mutableStateOf(initialData?.billProgress)
     }
     var progressPeriod by remember { mutableStateOf("month") }
-    var progressPeriodMenuOpen by remember { mutableStateOf(false) }
     var showPlanDetails by remember {
         mutableStateOf(false)
     }
@@ -282,10 +253,80 @@ fun PlanScreen(
                     .availableToLiveMinor
             )
 
+    BackHandler(enabled = showPlanDetails) { showPlanDetails = false }
+    val journeyBillRows = upcomingBills.sortedWith(compareBy<ScheduledBill> {
+        it.nextDueEpochMs ?: Long.MAX_VALUE
+    }.thenBy { it.rule.displayLabel ?: it.rule.name }).map { bill ->
+        PlanJourneyBill(
+            label = planBillFriendlyName(bill.rule.displayLabel ?: bill.rule.name),
+            dueLabel = planBillDueLabel(bill.nextDueEpochMs),
+            amount = formatPlanMoney(bill.remainingMinor),
+            dueEpochMs = bill.nextDueEpochMs
+        )
+    }
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+    val now = System.currentTimeMillis()
+    val week = planCalendarJourneyWeek(
+        todayEpochMs = now,
+        dueEpochMs = journeyBillRows.mapNotNull(PlanJourneyBill::dueEpochMs),
+        locale = locale,
+        timeZone = TimeZone.getDefault()
+    )
+    val budgetRows = financialProgress?.budgets.orEmpty()
+    val goalRows = financialProgress?.goals.orEmpty()
+    val monthBudgetSpent = budgetRows.sumOf { it.saved }
+    val monthBudgetLimit = budgetRows.sumOf { it.target }
+    val monthGoalSaved = goalRows.sumOf { it.saved }
+    val monthGoalTarget = goalRows.sumOf { it.target }
+    val payCycleBase = runCatching {
+        Math.addExact(snapshot.startingFundsMinor, snapshot.additionalIncomeMinor)
+    }.getOrNull()?.coerceAtLeast(0L)
+    val isCycle = progressPeriod == "cycle"
+    val budgetSpent = if (isCycle) snapshot.spentMinor else monthBudgetSpent
+    val budgetLimit = if (isCycle) payCycleBase else monthBudgetLimit
+    val goalSaved = if (isCycle) snapshot.savingsMinor else monthGoalSaved
+    val goalLimit = if (isCycle) payCycleBase else monthGoalTarget
+    val budgetAvailable = (isCycle && snapshot.cycle != null && budgetLimit != null) ||
+        (!isCycle && financialProgress != null && budgetRows.isNotEmpty())
+    val goalAvailable = (isCycle && snapshot.cycle != null && goalLimit != null) ||
+        (!isCycle && financialProgress != null && goalRows.isNotEmpty())
+    val journey = PlanJourneyView(
+        month = SimpleDateFormat("MMMM yyyy", locale).format(Date(now)),
+        period = formatPlanPeriod(snapshot),
+        hasCycle = snapshot.cycle != null,
+        available = formatPlanMoney(planningAvailability.availableMinor),
+        starting = formatPlanMoney(snapshot.startingFundsMinor),
+        committed = formatPlanMoney(snapshot.remainingCommitmentsMinor),
+        saved = formatPlanMoney(snapshot.savingsMinor),
+        received = formatPlanMoney(snapshot.additionalIncomeMinor),
+        spent = formatPlanMoney(snapshot.spentMinor),
+        fees = formatPlanMoney(snapshot.feesMinor),
+        safeToday = snapshot.safeTodayMinor?.let(::formatPlanMoney),
+        billsPaidPercent = billProgress?.let {
+            planProgressPercent(it.paidMinor, it.expectedMinor)
+        },
+        budgetUsed = if (budgetAvailable) formatPlanMoney(budgetSpent) else null,
+        budgetLimit = if (budgetAvailable && budgetLimit != null)
+            formatPlanMoney(budgetLimit) else null,
+        budgetPercent = if (budgetAvailable && budgetLimit != null)
+            planProgressPercent(budgetSpent, budgetLimit) else null,
+        goalSaved = if (goalAvailable) formatPlanMoney(goalSaved) else null,
+        goalTarget = if (goalAvailable && goalLimit != null)
+            formatPlanMoney(goalLimit) else null,
+        goalPercent = if (goalAvailable && goalLimit != null)
+            planProgressPercent(goalSaved, goalLimit) else null,
+        displayedShares = if (snapshot.cycle != null) planJourneyDisplayedShares(
+            snapshot.remainingCommitmentsMinor, snapshot.savingsMinor,
+            planningAvailability.availableMinor
+        ) else null,
+        bills = journeyBillRows,
+        week = week
+    )
+
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(MaterialTheme.colorScheme.background),
+            .background(HomeMonochromePalette.canvas),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -295,164 +336,34 @@ fun PlanScreen(
                 TextButton(onClick = { localRefresh += 1 }) { Text("Retry") }
             }
         }
-        item {
-            VibrantPlanPageTitle("Plan", "Make every shilling count.")
-        }
-        item {
-            VibrantPlanDateRow(
-                period = formatPlanPeriod(snapshot),
-                onCycleClick = onPayCycleClick,
-                onInsightsClick = onInsightsClick ?: onPayCycleClick
-            )
-        }
-        item {
-            if (snapshot.cycle == null) {
-                VibrantPlanSurface {
-                    Text("Start your financial plan", style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold)
-                    Text("Confirm a salary you've received to calculate a reliable plan.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (onSalaryClick != null) VibrantActionButton("Add confirmed salary", onSalaryClick)
-                }
-            } else {
-                VibrantPlanHero(
-                    period = formatPlanPeriod(snapshot),
-                    available = formatPlanMoney(planningAvailability.availableMinor),
-                    safeToday = snapshot.safeTodayMinor?.let(::formatPlanMoney),
-                    safeTodayPositive = (snapshot.safeTodayMinor ?: 0L) > 0L,
-                    onCycleClick = onPayCycleClick
+        if (showPlanDetails) {
+            item(key = "calendar-journey-details") {
+                PlanJourneyDetails(
+                    data = journey,
+                    onBack = { showPlanDetails = false },
+                    onOtherMonths = { onInsightsClick?.invoke() },
+                    onBills = { onBillsClick?.invoke() },
+                    onPayCycle = { onPayCycleClick?.invoke() }
+                )
+            }
+        } else {
+            item(key = "calendar-journey-overview") {
+                PlanJourneyOverview(
+                    data = journey,
+                    selectedPeriod = if (isCycle) "Pay cycle" else "Month",
+                    onPeriod = { progressPeriod = if (it == "Pay cycle") "cycle" else "month" },
+                    onOtherMonths = { onInsightsClick?.invoke() },
+                    onBudget = { onBudgetClick?.invoke() },
+                    onGoals = { onGoalsClick?.invoke() },
+                    onBills = { onBillsClick?.invoke() },
+                    onDetails = { showPlanDetails = true },
+                    onSalary = { onSalaryClick?.invoke() }
                 )
             }
         }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                VibrantPlanSectionTitle("Your plan")
-                val budgetItems = financialProgress?.budgets.orEmpty()
-                val goalItems = financialProgress?.goals.orEmpty()
-                val budgetCount = if (financialProgress == null) monthlyBudgets.size else budgetItems.size
-                val goalCount = if (financialProgress == null) savingsGoals.size else goalItems.size
-                val onTrackBudgets = budgetItems.count { it.target > 0L && it.saved <= it.target }
-                val totalSaved = goalItems.sumOf { it.saved }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VibrantDestinationTile(Icons.Rounded.BarChart, "Budgets",
-                        if (budgetCount == 0) "Set your first budget"
-                        else if (financialProgress != null) "$onTrackBudgets of $budgetCount on track"
-                        else "$budgetCount active budgets", "pink",
-                        onBudgetClick, Modifier.weight(1f))
-                    VibrantDestinationTile(Icons.Rounded.TrackChanges, "Goals",
-                        if (goalCount == 0) "Set your first goal"
-                        else if (financialProgress != null) "${formatPlanMoney(totalSaved)} saved"
-                        else "$goalCount savings goals", "mint",
-                        onGoalsClick, Modifier.weight(1f))
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VibrantDestinationTile(Icons.Rounded.CalendarMonth, "Pay cycle",
-                        when {
-                            snapshot.cycle == null -> "Awaiting salary"
-                            snapshot.estimatedDaysRemaining != null ->
-                                "${snapshot.estimatedDaysRemaining!!.coerceAtLeast(0)} days remaining"
-                            else -> "Review your cycle"
-                        }, "blue", onPayCycleClick, Modifier.weight(1f))
-                    VibrantDestinationTile(Icons.Rounded.ReceiptLong, "Bills",
-                        if (upcomingBills.isEmpty()) "No bills due"
-                        else "${upcomingBills.size} upcoming", "orange",
-                        onBillsClick, Modifier.weight(1f))
-                }
-            }
-        }
-        item {
-            // The default month reads actual recorded financial progress. An
-            // explicit period switch uses the existing pay-cycle snapshot.
-            val budgetItems = financialProgress?.budgets.orEmpty()
-            val goalItems = financialProgress?.goals.orEmpty()
-            val budgetSpent = budgetItems.sumOf { it.saved }
-            val budgetLimit = budgetItems.sumOf { it.target }
-            val goalSaved = goalItems.sumOf { it.saved }
-            val goalTarget = goalItems.sumOf { it.target }
-            val monthlyBudgetPercent = planProgressPercent(budgetSpent, budgetLimit)
-            val monthlyGoalPercent = planProgressPercent(goalSaved, goalTarget)
-            val monthlyBillsPercent = billProgress?.let {
-                planProgressPercent(it.paidMinor, it.expectedMinor)
-            }
-            val payCycleBase = (snapshot.startingFundsMinor + snapshot.additionalIncomeMinor)
-                .coerceAtLeast(0L)
-            val isCycle = progressPeriod == "cycle"
-            val progressBudget = if (isCycle)
-                snapshot.cycle?.let { planProgressPercent(snapshot.spentMinor, payCycleBase) }
-            else monthlyBudgetPercent
-            val progressGoal = if (isCycle)
-                snapshot.cycle?.let { planProgressPercent(snapshot.savingsMinor, payCycleBase) }
-            else monthlyGoalPercent
-            // BillSchedules provides explicit bill-payment evidence. The pay-cycle
-            // snapshot contains other commitments (including savings), so never
-            // treat total commitment progress as bill-payment progress.
-            val progressBills = monthlyBillsPercent
-            Box {
-                VibrantPlanProgressCard(
-                    periodLabel = if (isCycle) "Pay cycle" else "This month",
-                    onPeriodClick = { progressPeriodMenuOpen = true },
-                    budgetPercent = progressBudget,
-                    goalPercent = progressGoal,
-                    billsPercent = progressBills,
-                    budgetLabel = if (isCycle) "Cycle spent" else "Budgets",
-                    goalLabel = if (isCycle) "Cycle saved" else "Goals",
-                    billsLabel = if (isCycle) "Bills (month)" else "Bills",
-                    ringLabel = when {
-                        progressBudget == null -> "No data"
-                        isCycle -> "Cycle spent"
-                        budgetItems.any { it.target > 0L && it.saved > it.target } ->
-                            "Over budget"
-                        else -> "Budget used"
-                    }
-                )
-                DropdownMenu(
-                    expanded = progressPeriodMenuOpen,
-                    onDismissRequest = { progressPeriodMenuOpen = false }
-                ) {
-                    DropdownMenuItem(text = { Text("This month") }, onClick = {
-                        progressPeriod = "month"
-                        progressPeriodMenuOpen = false
-                    })
-                    DropdownMenuItem(text = { Text("Pay cycle") }, onClick = {
-                        progressPeriod = "cycle"
-                        progressPeriodMenuOpen = false
-                    })
-                }
-            }
-        }
-        item {
-            VibrantPlanSurface {
-                VibrantPlanSectionTitle("Coming up next", "See all", onBillsClick)
-                val nearest = upcomingBills.sortedWith(compareBy<ScheduledBill> {
-                    it.nextDueEpochMs ?: Long.MAX_VALUE
-                }.thenBy { it.rule.displayLabel ?: it.rule.name }).take(2)
-                if (nearest.isEmpty()) {
-                    Text("No upcoming bills. You're all clear for now.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    nearest.forEachIndexed { index, bill ->
-                        val originalLabel = bill.rule.displayLabel ?: bill.rule.name
-                        val label = planBillFriendlyName(originalLabel)
-                        val electricity = originalLabel.contains("power", ignoreCase = true) ||
-                            label.contains("electric", ignoreCase = true) ||
-                            label.contains("kplc", ignoreCase = true)
-                        VibrantPlanListRow(
-                            if (electricity) Icons.Rounded.Bolt else Icons.Rounded.ReceiptLong,
-                            if (electricity) "violet" else "orange",
-                            label, planBillDueLabel(bill.nextDueEpochMs),
-                            formatPlanMoney(bill.remainingMinor), onBillsClick
-                        )
-                        if (index < nearest.lastIndex) {
-                            androidx.compose.material3.HorizontalDivider(color = PlanVibrant.outline)
-                        }
-                    }
-                }
-            }
-        }
-        // Keep the existing detailed calculation and all its safeguards, but
-        // don't put it between the hero and the approved four planning tiles.
+        if (!showPlanDetails) {
+        // Preserve the existing forecasting, recurring-bill confirmation and
+        // funding-gap review flows below the new Plan overview.
         item {
             // This card also provides the forecast/payday confirmation flow
             // for people who have not yet recorded a confirmed salary cycle.
@@ -556,13 +467,12 @@ fun PlanScreen(
             }
         }
 
-        if (snapshot.cycle != null) {
+        } else if (snapshot.cycle != null) {
             item {
-                // The approved breakdown uses the existing pay-cycle ledger and
-                // policy-computed availability without recomputing any finances.
+                // Keep the complete ledger-derived breakdown under Plan Details.
                 VibrantPlanMoneyBreakdown(
-                    expanded = showPlanDetails,
-                    onToggle = { showPlanDetails = !showPlanDetails },
+                    expanded = true,
+                    onToggle = {},
                     startingFunds = formatSignedPlanMoney(snapshot.startingFundsMinor),
                     received = formatSignedPlanMoney(snapshot.additionalIncomeMinor),
                     cashPaid = formatSignedPlanMoney(-snapshot.spentMinor),
@@ -586,120 +496,6 @@ fun PlanScreen(
 }
 
 @Composable
-private fun PlanDestinationRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    subtitle: String,
-    tone: String,
-    onClick: (() -> Unit)?
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconBubble(
-            icon,
-            size = 40.dp,
-            background = pesaToneContainer(tone),
-            tint = pesaToneContent(tone)
-        )
-        Column(Modifier.weight(1f).padding(start = 11.dp, end = 8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            Text(
-                subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
-        }
-        if (onClick != null) {
-            Icon(
-                Icons.Rounded.ChevronRight,
-                contentDescription = "Open $title",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun PlanHero(
-    snapshot: PayCycleSnapshot,
-    planningAvailability:
-        com.kedevjimmy.pesatrack.domain.rules.PlanningAvailability
-) {
-    if (snapshot.cycle == null) {
-        ConceptEmeraldHero(
-            title = "Monthly plan",
-            amount = "Waiting for salary",
-            subtitle = "Your plan starts from a real salary receipt, not an expected payday.",
-            artwork = false
-        )
-    } else {
-        val usedMinor =
-            snapshot.spentMinor +
-                snapshot.feesMinor +
-                snapshot.savingsMinor
-        val starting = maxOf(
-            1L,
-            snapshot.startingFundsMinor +
-                snapshot.additionalIncomeMinor
-        )
-        val progress =
-            (usedMinor.toFloat() / starting.toFloat())
-                .coerceIn(0f, 1f)
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            ConceptEmeraldHero(
-                title = "Monthly plan",
-                amount = formatPlanMoney(planningAvailability.availableMinor),
-                subtitle = "Available after commitments",
-                eyebrow = formatPlanDate(snapshot.cycle.startEpochMs) + " → next salary",
-                footer =
-                    (progress * 100).toInt().toString() +
-                        "% of starting funds allocated, spent or saved",
-                artwork = false
-            )
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surface
-            ) {
-                Column(Modifier.padding(14.dp)) {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Safe today",
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            snapshot.safeTodayMinor?.let(::formatPlanMoney)
-                                ?: "Learning",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 10.dp)
-                            .height(8.dp),
-                        color = MaterialTheme.colorScheme.primary,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                }
-            }
-        }
-    }
-}
-
 @Composable
 private fun RecurringSuggestionCard(
     candidate:
@@ -872,61 +668,6 @@ private fun RecurringSuggestionCard(
     }
 }
 
-@Composable
-private fun PlanCommitment(item: CommitmentProgress) {
-    val progress = if (item.plannedMinor <= 0L) {
-        0f
-    } else {
-        (item.paidMinor.toFloat() / item.plannedMinor.toFloat()).coerceIn(0f, 1f)
-    }
-
-    PesaCard {
-        Column(Modifier.padding(15.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconBubble(
-                    if (item.remainingMinor == 0L) Icons.Rounded.CheckCircle else Icons.Rounded.Shield,
-                    size = 42.dp,
-                    background = pesaToneContainer(
-                        if (item.remainingMinor == 0L) "green" else "amber"
-                    ),
-                    tint = pesaToneContent(
-                        if (item.remainingMinor == 0L) "green" else "amber"
-                    )
-                )
-                Column(
-                    Modifier
-                        .weight(1f)
-                        .padding(start = 11.dp)
-                ) {
-                    Text(item.name, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        if (item.remainingMinor == 0L) {
-                            "Paid"
-                        } else {
-                            formatPlanMoney(item.remainingMinor) + " still reserved"
-                        },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Text(
-                    formatPlanMoney(item.plannedMinor),
-                    style = MaterialTheme.typography.titleSmall
-                )
-            }
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 11.dp)
-                    .height(8.dp),
-                strokeCap = StrokeCap.Round,
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        }
-    }
-}
-
 private fun planProgressPercent(saved: Long, target: Long): Int? =
     if (target <= 0L) null else
         (saved.coerceAtLeast(0L).toDouble() * 100.0 / target.toDouble())
@@ -1039,10 +780,6 @@ private fun formatSignedPlanMoney(minor: Long): String =
     } else {
         "+ " + formatPlanMoney(minor)
     }
-
-private fun formatPlanDate(epochMs: Long): String =
-    SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(epochMs))
-
 
 private fun emptyPlanSnapshot(): PayCycleSnapshot =
     PayCycleSnapshot(
