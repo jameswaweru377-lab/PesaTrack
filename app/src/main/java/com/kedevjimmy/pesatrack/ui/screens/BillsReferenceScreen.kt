@@ -201,10 +201,10 @@ private fun BillMonthSelector(
             modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)
                 .clickable { expanded = true },
             shape = RoundedCornerShape(50.dp),
-            color = Color(0xFFF4F0FF),
+            color = HomeMonochromePalette.surface,
             border = androidx.compose.foundation.BorderStroke(
                 1.dp,
-                Color(0xFFE5DFF9)
+                HomeMonochromePalette.line
             )
         ) {
             Row(
@@ -212,12 +212,8 @@ private fun BillMonthSelector(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    if (monthOffset == 0) {
-                        "This Month"
-                    } else {
-                        SimpleDateFormat("MMM yyyy", locale)
-                            .format(billMonth(monthOffset).time)
-                    },
+                    SimpleDateFormat("MMMM yyyy", locale)
+                        .format(billMonth(monthOffset).time),
                     style = MaterialTheme.typography.labelMedium,
                     color = PlanVibrant.ink
                 )
@@ -225,7 +221,7 @@ private fun BillMonthSelector(
                     Icons.Rounded.KeyboardArrowDown,
                     contentDescription = null,
                     modifier = Modifier.padding(start = 3.dp).size(17.dp),
-                    tint = PlanVibrant.violet
+                    tint = HomeMonochromePalette.green
                 )
             }
         }
@@ -755,6 +751,8 @@ fun BillsRemindersScreen(
                 bills.sortedBy { it.rule.displayLabel ?: it.rule.name }
         }
     }
+    val upcomingBills = sortedBills.filter { it.remainingMinor > 0L }
+    val settledBills = sortedBills.filter { it.remainingMinor <= 0L }
 
     if (voiceAdd) {
         VoicePlanningAssistantSheet(
@@ -797,7 +795,35 @@ fun BillsRemindersScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item { ConceptLoadError(loadError) { retryLoad++ } }
-        item { BillsPageHeader(onBack) }
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back to Plan")
+                }
+                Text("Bills calendar", modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold, color = HomeMonochromePalette.ink)
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.weight(1f)) {
+                    BillMonthSelector(monthOffset) { monthOffset = it }
+                }
+                OutlinedButton(onClick = { editingBill = null; billEditor = true },
+                    modifier = Modifier.heightIn(min = 48.dp)) {
+                    Icon(Icons.Rounded.Add, null)
+                    Spacer(Modifier.width(4.dp))
+                    Text("Add bill")
+                }
+            }
+        }
+        item {
+            SelectedBillsCalendar(billMonth(monthOffset).timeInMillis,
+                bills, locale) { showCalendar = true }
+        }
+        item { SelectedBillsSummary(bills, ::billMoney) }
         if (incompleteBills.isNotEmpty()) item {
             PesaCard {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -825,47 +851,12 @@ fun BillsRemindersScreen(
         }
 
         item {
-            BillsHero(
-                bills = bills,
-                monthOffset = monthOffset,
-                onMonthSelected = { monthOffset = it }
-            )
-        }
-        item {
-            BillWeekStrip(
-                bills = bills,
-                monthOffset = monthOffset,
-                onOpenCalendar = { showCalendar = true }
-            )
-        }
-        item { SuggestedBillsPanel() }
-        item {
-            OutlinedButton(
-                onClick = {
-                    voiceAdd = true
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp)
-            ) {
-                Icon(
-                    Icons.Rounded.Mic,
-                    contentDescription = null
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "Add bill by voice",
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-
-        item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Upcoming bills (" + bills.size + ")",
+                    "Upcoming on your calendar",
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
@@ -901,17 +892,18 @@ fun BillsRemindersScreen(
             }
         }
 
-        if (sortedBills.isEmpty()) {
+        if (upcomingBills.isEmpty()) {
             item {
                 PesaCard {
                     Column(Modifier.padding(18.dp)) {
                         Text(
-                            "No bills yet",
+                            if (bills.isEmpty()) "No bills yet" else "No upcoming bills",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "Add a bill to start tracking due dates and reminders.",
+                            if (bills.isEmpty()) "Add a bill to start tracking due dates and reminders."
+                            else "There are no outstanding payments for this month.",
                             modifier = Modifier.padding(top = 4.dp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -930,28 +922,33 @@ fun BillsRemindersScreen(
                 }
             }
         } else {
-            items(sortedBills, key = { it.rule.id }) { bill ->
-                BillReferenceRow(
-                    bill = bill,
-                    locale = locale,
-                    onClick = {
-                        editingBill = bill.rule
-                        billEditor = true
-                    }
-                )
+            items(upcomingBills, key = { it.rule.id }) { bill ->
+                SelectedBillsUpcomingRow(bill, locale, ::billMoney) {
+                    editingBill = bill.rule
+                    billEditor = true
+                }
             }
         }
-
-        item {
-            VibrantActionButton("+ Add bill", onClick = {
-                editingBill = null
-                billEditor = true
-            })
+        if (settledBills.isNotEmpty()) {
+            item { Text("Paid and completed", style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold) }
+            items(settledBills, key = { "settled-${it.rule.id}" }) { bill ->
+                BillReferenceRow(bill, locale) {
+                    editingBill = bill.rule
+                    billEditor = true
+                }
+            }
         }
         if (bills.isNotEmpty()) {
             item {
                 BillReminderCard(schedules)
             }
         }
+        item { SuggestedBillsPanel() }
+        item { TextButton(onClick = { voiceAdd = true }) {
+            Icon(Icons.Rounded.Mic, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Add bill by voice")
+        } }
     }
 }

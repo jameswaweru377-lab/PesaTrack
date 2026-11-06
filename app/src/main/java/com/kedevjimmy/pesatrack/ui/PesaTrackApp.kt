@@ -380,6 +380,7 @@ fun PesaTrackApp(
         composable("budgets") {
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.PLAN,
+                useHomeHeader = true,
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 BudgetScreen(
@@ -522,6 +523,7 @@ fun PesaTrackApp(
                 onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
                 onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
                 currentTab = MainTab.PLAN,
+                useHomeHeader = true,
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 PayCycleActivityScreen(
@@ -655,6 +657,7 @@ fun PesaTrackApp(
         composable("bills") {
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.PLAN,
+                useHomeHeader = true,
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 BillsRemindersScreen(
@@ -668,6 +671,7 @@ fun PesaTrackApp(
         composable("saving-goals") {
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.PLAN,
+                useHomeHeader = true,
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 SavingGoalsScreen(
