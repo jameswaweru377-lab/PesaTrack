@@ -38,6 +38,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot
 import com.kedevjimmy.pesatrack.data.local.DebtBalanceQuality
 import com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality
@@ -135,19 +136,19 @@ internal fun accountDisplayLines(entries: List<AccountBalancePresentation>): Lis
 @Composable
 internal fun DebtDirectionSelector(owedToMe: Boolean, onIowe: () -> Unit, onOwedToMe: () -> Unit) {
     Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = MaterialTheme.colorScheme.surfaceVariant) {
+        color = AccountCream) {
         Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             listOf(false to "I owe", true to "Owed to me").forEach { (isReceivable, label) ->
                 Surface(onClick = if (isReceivable) onOwedToMe else onIowe,
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     shape = RoundedCornerShape(12.dp),
-                    color = if (owedToMe == isReceivable) MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.surfaceVariant,
+                    color = if (owedToMe == isReceivable) AccountBlack
+                        else AccountCream,
                     shadowElevation = if (owedToMe == isReceivable) 1.dp else 0.dp) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(label, style = MaterialTheme.typography.labelLarge,
-                            color = if (owedToMe == isReceivable) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (owedToMe == isReceivable) Color.White
+                                else AccountBlack,
                             fontWeight = if (owedToMe == isReceivable) FontWeight.Bold else FontWeight.Normal)
                     }
                 }

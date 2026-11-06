@@ -80,6 +80,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.Color
 
 internal data class AccountComponentPresentation(
     val label: String,
@@ -277,6 +278,7 @@ fun AccountsScreen(
         if (accountsError) item {
             FinancialReadBanner("Accounts", false, true) { accountsRetry++ }
         }
+        item { SelectedAccountsCompass(accountDisplayLines(visible), amountsHidden) }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Info, null, modifier = Modifier.size(18.dp),
@@ -306,13 +308,12 @@ fun AccountsScreen(
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } }
         }
-        if (everyday.isNotEmpty()) {
-            item { AccountsSectionTitle("Everyday money") }
-            item { AccountSectionGroup(everyday, amountsHidden, onAccountClick) }
+        if (everyday.isNotEmpty()) item {
+            SelectedAccountTiles(accountDisplayLines(everyday), amountsHidden, onAccountClick)
         }
         if (savings.isNotEmpty()) {
             item { AccountsSectionTitle("Savings") }
-            item { AccountSectionGroup(savings, amountsHidden, onAccountClick) }
+            item { SelectedAccountTiles(accountDisplayLines(savings), amountsHidden, onAccountClick) }
         }
         if (selectedTab == 0 && activeDebts.isNotEmpty()) {
             item {
@@ -320,24 +321,7 @@ fun AccountsScreen(
                 val known = CheckedMoney.orNull {
                     activeDebts.filterNot(::hasUnknownDebtBalance).checkedMoneySumOf { it.outstandingMinor }
                 }
-                Surface(onClick = { selectedTab = 3 }, shape = RoundedCornerShape(22.dp),
-                    color = MaterialTheme.colorScheme.surface,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                    Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        IconBubble(Icons.Rounded.CreditCard, size = 42.dp,
-                            background = com.kedevjimmy.pesatrack.ui.theme.AmberSoft,
-                            tint = com.kedevjimmy.pesatrack.ui.theme.Amber)
-                        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                            Text("Debts overview", fontWeight = FontWeight.SemiBold)
-                            Text("Known ${if (amountsHidden) "••••" else known?.let(::formatKesAmount) ?: "unavailable"} · $unknown unknown",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall)
-                        }
-                        Text("See debts", color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.labelMedium)
-                        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.primary)
-                    }
-                }
+                SelectedAccountDebtsLink { selectedTab = 3 }
             }
         }
         if (onDiscoverReceivables != null) item { SmartDiscoveryCard(onDiscoverReceivables) }
@@ -355,7 +339,7 @@ private fun AccountsNavigation(selected: Int, onSelected: (Int) -> Unit,
             if (onBack != null) IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
             }
-            Text("Accounts", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium,
+            Text(if (selected == 3) "My debts" else "My accounts", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold)
             if (onToggleAmounts != null && selected != 3) {
                 IconButton(onClick = onToggleAmounts) {
@@ -364,14 +348,15 @@ private fun AccountsNavigation(selected: Int, onSelected: (Int) -> Unit,
                 }
             }
             if (onManage != null && selected != 3) {
-                Button(onClick = onManage, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)) {
+                OutlinedButton(onClick = onManage, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AccountBlack)) {
                     Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Add account")
+                    Text("Add", color = AccountBlack)
                 }
             }
         }
-        Text(if (selected == 3) "Track your accounts and payment balances." else "Your money, all in one place",
+        Text(if (selected == 3) "Your recorded borrowing and repayments" else "Your money, all in one place",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 10.dp))
         Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
@@ -381,7 +366,7 @@ private fun AccountsNavigation(selected: Int, onSelected: (Int) -> Unit,
                     Surface(onClick = { onSelected(index) }, modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                         color = when {
-                            selectedPage == index && index == 3 -> MaterialTheme.colorScheme.primary
+                            selectedPage == index && index == 3 -> AccountBlack
                             selectedPage == index -> MaterialTheme.colorScheme.surface
                             else -> MaterialTheme.colorScheme.surfaceVariant
                         },
@@ -389,7 +374,7 @@ private fun AccountsNavigation(selected: Int, onSelected: (Int) -> Unit,
                         Text(label, Modifier.padding(vertical = 10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             style = MaterialTheme.typography.labelLarge,
                             color = when {
-                                selectedPage == index && index == 3 -> MaterialTheme.colorScheme.onPrimary
+                                selectedPage == index && index == 3 -> Color.White
                                 selectedPage == index -> MaterialTheme.colorScheme.onSurface
                                 else -> MaterialTheme.colorScheme.onSurfaceVariant
                             })
@@ -448,6 +433,7 @@ fun DebtsScreen(
     }
     var settledDebts by remember { mutableStateOf(cached?.settled ?: emptyList()) }
     var showSettled by remember { mutableStateOf(false) }
+    var detailDebtId by rememberSaveable { mutableStateOf<String?>(null) }
     var confirmBalanceOpen by remember { mutableStateOf(false) }
     var activeDebts by remember { mutableStateOf(cached?.active ?: emptyList()) }
     var loadedRevision by remember { mutableStateOf(cached?.revision ?: -1L) }
@@ -510,6 +496,15 @@ fun DebtsScreen(
             }
     }
 
+    activeDebts.plus(settledDebts).firstOrNull { it.id == detailDebtId }?.let { selectedDebt ->
+        SelectedDebtDetailScreen(scaffoldPadding, selectedDebt, debtStore,
+            onBack = { detailDebtId = null }, onConfirmBalance = { confirmBalanceOpen = true })
+        if (confirmBalanceOpen) DebtBalanceConfirmationDialog(activeDebts) {
+            confirmBalanceOpen = false
+        }
+        return
+    }
+
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
@@ -565,53 +560,8 @@ fun DebtsScreen(
             }
         }
         if (activeDebts.isNotEmpty()) item {
-            PesaCard {
-                Column(
-                    modifier =
-                        Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        if (loadedRevision != revision) {
-                            "Last verified outstanding"
-                        } else if (totalDebtMinor == null) {
-                            "Balance unavailable"
-                        } else {
-                            "Known outstanding"
-                        },
-                        style =
-                            MaterialTheme.typography
-                                .labelLarge,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
-                    Text(
-                        if (activeDebts.all(::hasUnknownDebtBalance)) {
-                            "Balance pending"
-                        } else if (activeDebts.all { it.needsSettlementConfirmation }) {
-                            "Confirmation pending"
-                        } else {
-                            formatDetailMoney(totalDebtMinor)
-                        },
-                        modifier =
-                            Modifier.padding(top = 4.dp),
-                        style =
-                            MaterialTheme.typography
-                                .headlineMedium,
-                        fontWeight =
-                            FontWeight.Bold
-                    )
-                    Text(
-                        "${activeDebts.size} active debts" +
-                            if (unknownBalanceCount > 0) " · $unknownBalanceCount balance unknown" else "",
-                        modifier =
-                            Modifier.padding(top = 4.dp),
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
-                }
-            }
+            SelectedDebtsHero(activeDebts, totalDebtMinor, unknownBalanceCount,
+                isCurrent = loadedRevision == revision)
         }
 
         if (debtsLoaded && activeDebts.isEmpty()) {
@@ -640,10 +590,7 @@ fun DebtsScreen(
                 }
             }
         } else {
-            item { AccountsSectionTitle("Active debts") }
-            item { CompactDebtAccountGroup(activeDebts, onConfirmBalance = {
-                confirmBalanceOpen = true
-            }) }
+            item { SelectedDebtLenders(activeDebts) { detailDebtId = it.id } }
         }
         if (settledDebts.isNotEmpty()) {
             item { TextButton(onClick = { showSettled = !showSettled }) {
@@ -963,7 +910,7 @@ private fun DebtAccountCard(debt: DebtAccountSnapshot) {
     }
 }
 
-private fun hasUnknownDebtBalance(
+internal fun hasUnknownDebtBalance(
     debt: DebtAccountSnapshot
 ): Boolean =
     debt.balanceQuality == DebtBalanceQuality.UNKNOWN ||
