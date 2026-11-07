@@ -3,6 +3,10 @@ name: Security - Signed APK MobSF (Manual)
 on:
   workflow_dispatch:
     inputs:
+      include_finding_titles:
+        description: "Show sanitized rule titles in the public job summary (no code, paths or descriptions)."
+        type: boolean
+        default: false
       include_detailed_report:
         description: "Upload raw findings? WARNING: artifacts of this public repo may be downloaded by others."
         type: boolean
@@ -16,6 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
+      - name: Checkout safe local report formatter
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
       - name: Download the existing signed rolling APK
         env:
           GH_TOKEN: ${{ github.token }}
@@ -78,16 +85,11 @@ jobs:
             (.appsec.high | type == "array") and
             (.appsec.warning | type == "array") and
             (.appsec.hotspot | type == "array")' "$report" >/dev/null
-          {
-            echo '### MobSF static scan — aggregated indicators'
-            jq -r '
-              "- Security score: \(.appsec.security_score)/100",
-              "- High findings: \(.appsec.high | length)",
-              "- Warnings: \(.appsec.warning | length)",
-              "- Hotspots: \(.appsec.hotspot | length)"
-            ' "$report"
-            echo 'Scanner findings are unverified. Detailed JSON is withheld unless explicitly requested.'
-          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ '${{ inputs.include_finding_titles }}' == 'true' ]]; then
+            bash tools/mobsf-safe-summary.sh --titles < "$report" >> "$GITHUB_STEP_SUMMARY"
+          else
+            bash tools/mobsf-safe-summary.sh < "$report" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Retain security report briefly for manual review
         if: ${{ success() && inputs.include_detailed_report }}
