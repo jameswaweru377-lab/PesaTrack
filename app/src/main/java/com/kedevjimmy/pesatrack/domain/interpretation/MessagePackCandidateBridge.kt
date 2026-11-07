@@ -221,7 +221,12 @@ object MessagePackCandidateBridge {
                 liabilitySpan =
                     liabilitySpan,
                 completion =
-                    if (outstandingMinor == 0L) {
+                    if (outstandingMinor == 0L ||
+                        (match.productIdentity == "NCBA_MSHWARI_LOAN" &&
+                            Regex(
+                                """\byour\s+loan\s+is\s+repaid\s+in\s+full\b""",
+                                RegexOption.IGNORE_CASE
+                            ).containsMatchIn(message.body))) {
                         DebtCompletion.FULL
                     } else {
                         DebtCompletion.UNKNOWN

@@ -40,5 +40,44 @@
       "OUTSTANDING": "74.50",
       "FEE": "0.00"
     }
+  },
+  {
+    "id": "mshwari_full_repaid_savings_a",
+    "title": "MPESA",
+    "body": "TSTV14F001 Confirmed. Loan of Ksh108.00 repaid from your M-PESA account on 16/10/26 at 7:30 AM. M-PESA balance is Ksh3,763.22. Your loan is repaid in full, and the overpayment has been moved to your Savings Account. New M-Shwari balance is Ksh25.02. Transaction cost Kshs 0.00",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV14F001",
+      "AMOUNT": "108.00",
+      "SOURCE": "M-PESA",
+      "DATE": "16/10/26 at 7:30 AM",
+      "FEE": "0.00"
+    },
+    "templateId": "ke.mshwari.loan.full-repayment-overpayment"
+  },
+  {
+    "id": "mshwari_full_repaid_savings_b",
+    "title": "MPESA",
+    "body": "TSTV14F002 Confirmed. Loan of Ksh450.50 repaid from your M-PESA account on 15/10/26 at 8:05 PM. M-PESA balance is Ksh4,200.00. Your loan is repaid in full. Overpayment has been moved to your Savings Account. New M-Shwari balance is Ksh14.80. Transaction cost Kshs 0.00",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV14F002",
+      "AMOUNT": "450.50",
+      "SOURCE": "M-PESA",
+      "DATE": "15/10/26 at 8:05 PM",
+      "FEE": "0.00"
+    },
+    "templateId": "ke.mshwari.loan.full-repayment-overpayment"
+  },
+  {
+    "id": "mshwari_full_repaid_savings_c",
+    "title": "MPESA",
+    "body": "TSTV14F003 Confirmed. Loan of Ksh999.00 repaid from your M-PESA account on 14/10/26 at 9:15 AM. Your loan is repaid in full, and the overpayment has been moved to your Savings Account. New M-Shwari balance is Ksh5.00. Transaction cost Kshs 0.00",
+    "expectedFields": {
+      "TRANSACTION_CODE": "TSTV14F003",
+      "AMOUNT": "999.00",
+      "SOURCE": "M-PESA",
+      "DATE": "14/10/26 at 9:15 AM",
+      "FEE": "0.00"
+    },
+    "templateId": "ke.mshwari.loan.full-repayment-overpayment"
   }
 ]
