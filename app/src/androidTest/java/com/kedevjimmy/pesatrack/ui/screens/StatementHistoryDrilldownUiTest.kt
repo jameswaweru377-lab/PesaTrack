@@ -2,6 +2,8 @@ package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.domain.everyday.*
@@ -43,7 +45,8 @@ class StatementHistoryDrilldownUiTest {
         compose.setContent { PesaTrackTheme {
             StatementCoveragePage(2025, listOf(month), { opened = it }, {}, {})
         } }
-        compose.onNodeWithText("Not imported", substring = true).assertExists()
+        // March is imported: the other eleven months remain explicitly missing.
+        compose.onAllNodesWithText("Not imported", substring = true).assertCountEquals(11)
         compose.onNodeWithText("Mar").performClick()
         assertEquals("2025-03", opened)
     }

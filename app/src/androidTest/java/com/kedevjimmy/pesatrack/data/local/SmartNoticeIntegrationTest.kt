@@ -79,7 +79,11 @@ class SmartNoticeIntegrationTest {
         val notice = read().single { it.candidate.kind == SmartNoticeKind.ACCOUNT }
         assertEquals(account.entityKey,notice.entityKey)
         assertTrue(financial.pendingEntities().any { it.entityKey == account.entityKey })
-        assertEquals(notice,SmartNoticeCoordinator.resolve(context,notice.candidate.key,notice.candidate.revision))
+        // Re-resolution may update a clock-based evidence timestamp while preserving identity.
+        val resolved = SmartNoticeCoordinator.resolve(context,notice.candidate.key,notice.candidate.revision)
+        assertEquals(notice.candidate.key,resolved?.candidate?.key)
+        assertEquals(notice.candidate.revision,resolved?.candidate?.revision)
+        assertEquals(notice.entityKey,resolved?.entityKey)
         financial.confirmEntityOwned(account.entityKey)
         assertNull(SmartNoticeCoordinator.resolve(context,notice.candidate.key,notice.candidate.revision))
     }

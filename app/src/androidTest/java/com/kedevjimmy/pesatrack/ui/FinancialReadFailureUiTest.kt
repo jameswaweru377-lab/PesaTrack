@@ -41,21 +41,23 @@ class FinancialReadFailureUiTest {
         assertThrows(SQLiteException::class.java) { activityStore.activityMonths() }
         compose.setContent { PesaTrackTheme { ActivityScreen(PaddingValues()) } }
         try {
-            waitFor("Activity could not load")
+            waitFor("Activity could not load. Your saved data is unchanged.")
         } catch (failure: androidx.compose.ui.test.ComposeTimeoutException) {
             android.util.Log.e("FinancialReadFailureUiTest", compose.onRoot(useUnmergedTree = true).printToString())
             throw failure
         }
         compose.onNodeWithText("Money in").assertDoesNotExist()
-        compose.onNodeWithTag("activity-summary-toggle").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Detailed Activity breakdown").assertDoesNotExist()
         PesaTrackDatabase.get(context).writableDatabase.execSQL(recreate)
         activityStore.activityMonths()
         compose.onNodeWithText("Try again").performClick()
         compose.waitUntil(15_000) {
-            compose.onAllNodesWithTag("activity-summary-toggle").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithContentDescription("Detailed Activity breakdown")
+                .fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("Activity could not load").assertDoesNotExist()
-        compose.onNodeWithTag("activity-summary-toggle").performClick()
+        compose.onNodeWithText("Activity could not load. Your saved data is unchanged.")
+            .assertDoesNotExist()
+        compose.onNodeWithContentDescription("Detailed Activity breakdown").performClick()
         waitFor("Money in")
     }
 

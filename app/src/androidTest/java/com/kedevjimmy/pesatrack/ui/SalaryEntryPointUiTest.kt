@@ -8,7 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.data.local.PesaTrackDatabase
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
-import com.kedevjimmy.pesatrack.ui.screens.ActivityScreen
+import com.kedevjimmy.pesatrack.ui.screens.PayCycleActivityScreen
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import org.junit.*
 import org.junit.Assert.*
@@ -30,16 +30,15 @@ class SalaryEntryPointUiTest {
         compose.onNodeWithText("Add salary").performClick()
         assertTrue(opened)
     }
-    @Test fun payCycleViewHasExplicitEmptyStateAndCalendarSwitch() {
-        compose.setContent { PesaTrackTheme { ActivityScreen(PaddingValues()) } }
-        compose.waitUntil(10000) {
-            compose.onAllNodesWithText("Pay cycle").fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithText("Pay cycle").assertIsDisplayed()
-        compose.onNodeWithText("Pay cycle").performClick()
+    @Test fun payCycleViewHasExplicitEmptyStateAndBackToPlan() {
+        var returnedToPlan = false
+        compose.setContent { PesaTrackTheme {
+            PayCycleActivityScreen(PaddingValues(),
+                onCalendar = { returnedToPlan = true }, onSalaryClick = {}, onTransactionClick = {})
+        } }
         compose.waitUntil(10000) { compose.onAllNodesWithText("Add salary").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("This pay cycle").assertIsDisplayed()
-        compose.onNodeWithText("Calendar month").performClick()
-        compose.onNodeWithText("This pay cycle").assertDoesNotExist()
+        compose.onNodeWithText("Pay cycle").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Back to Plan").performClick()
+        compose.runOnIdle { assertTrue(returnedToPlan) }
     }
 }

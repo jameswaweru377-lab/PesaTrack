@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.SemanticsMatcher
@@ -89,7 +90,7 @@ class ActivityLiveRefreshTest {
     }
 
     @Test
-    fun monthlyTotalsStartCompactAndCanBeExpandedWithoutHidingLedger() {
+    fun monthlyBreakdownOpensOnlyOnRequestWithoutHidingLedger() {
         val now = System.currentTimeMillis()
         insertExpense("RCCOMPACT01", "Very long synthetic merchant display name for activity", now)
         val cache = ActivityScreenCache()
@@ -106,13 +107,17 @@ class ActivityLiveRefreshTest {
         }
         val list = SemanticsMatcher.keyIsDefined(SemanticsActions.ScrollToIndex) and
             SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)
-        compose.onNode(list).performScrollToNode(hasTestTag("activity-summary-toggle"))
+        compose.onNode(list).performScrollToNode(
+            hasContentDescription("Detailed Activity breakdown")
+        )
         compose.onNodeWithTag("activity-summary-details").assertDoesNotExist()
-        compose.onNodeWithTag("activity-summary-toggle").performClick()
+        compose.onNode(hasContentDescription("Detailed Activity breakdown")).performClick()
         compose.onNode(list).performScrollToNode(hasTestTag("activity-summary-details"))
         compose.onNodeWithTag("activity-summary-details").assertExists()
-        compose.onNode(list).performScrollToNode(hasTestTag("activity-summary-toggle"))
-        compose.onNodeWithTag("activity-summary-toggle").performClick()
+        compose.onNode(list).performScrollToNode(
+            hasContentDescription("Detailed Activity breakdown")
+        )
+        compose.onNode(hasContentDescription("Detailed Activity breakdown")).performClick()
         compose.onNodeWithTag("activity-summary-details").assertDoesNotExist()
         compose.onNode(list).performScrollToNode(
             hasText("Very long synthetic merchant display name", substring = true)

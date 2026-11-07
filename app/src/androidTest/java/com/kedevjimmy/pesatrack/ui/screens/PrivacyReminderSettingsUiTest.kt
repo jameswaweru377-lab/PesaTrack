@@ -54,7 +54,7 @@ class PrivacyReminderSettingsUiTest {
                 MaterialTheme { RemindersPage(PaddingValues(), {}) }
             }
         }
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Before a bill is due"))
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("Remind me before a bill"))
         compose.onNodeWithText("1 day").assertIsNotEnabled()
         compose.onNodeWithText("3 days").assertIsNotEnabled().assertIsSelected()
         compose.onNodeWithText("7 days").assertIsNotEnabled()
@@ -68,10 +68,12 @@ class PrivacyReminderSettingsUiTest {
 
     @Test fun privacyDisclosesSharingBeforeOptInAndExpandsDetails() {
         compose.setContent { MaterialTheme { PrivacyPage(PaddingValues(), {}, {}, {}) } }
-        compose.onNodeWithText("Optional. A cleaned business name may be sent to look it up. Full messages, amounts, balances, transaction codes and phone or account numbers are not sent.").assertIsDisplayed()
+        compose.onNodeWithText("Optional. Sends only a cleaned business name, never your messages or amounts.")
+            .performScrollTo().assertIsDisplayed()
         compose.onNode(isToggleable()).assertIsOff()
         compose.onNodeWithText("Voice entry").assertDoesNotExist()
-        compose.onNodeWithText("More privacy details").performScrollTo().performClick()
-        compose.onNodeWithText("Voice entry").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("How my data is handled").performScrollTo().performClick()
+        compose.onNodeWithText("Voice entry uses your phone's speech service", substring = true)
+            .performScrollTo().assertIsDisplayed()
     }
 }

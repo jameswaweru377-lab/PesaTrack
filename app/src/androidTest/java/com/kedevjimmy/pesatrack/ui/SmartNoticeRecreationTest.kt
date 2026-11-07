@@ -21,10 +21,10 @@ class SmartNoticeRecreationTest {
         context.getSharedPreferences("review_attention_reminders",Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences("pesatrack_preferences",Context.MODE_PRIVATE).edit().putBoolean("setup_complete",true).commit()
         PesaTrackDatabase.resetForTests(); context.deleteDatabase("pesatrack.db")
-        AppLockManager(context).setPin("1234")
+        AppLockManager(context).setPin("123456")
     }
     @After fun cleanup() {
-        AppLockManager(context).disable("1234")
+        AppLockManager(context).disable("123456")
         PesaTrackDatabase.resetForTests(); context.deleteDatabase("pesatrack.db")
     }
     @Test fun pendingDiscoveryRequestSurvivesRecreationBeforeUnlock() {
@@ -35,7 +35,7 @@ class SmartNoticeRecreationTest {
             compose.waitUntil(10_000) { compose.onAllNodesWithText("PIN").fetchSemanticsNodes().isNotEmpty() }
             scenario.recreate()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("PIN").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("PIN").performTextInput("1234")
+            compose.onNodeWithText("PIN").performTextInput("123456")
             compose.onNodeWithText("Unlock").performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Record money lent").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Record money lent").assertIsDisplayed()

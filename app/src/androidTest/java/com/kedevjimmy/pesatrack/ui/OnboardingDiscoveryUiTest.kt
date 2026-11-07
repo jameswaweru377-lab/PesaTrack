@@ -71,7 +71,7 @@ class OnboardingDiscoveryUiTest {
             }
         }
         compose.onNodeWithTag("onboarding-institution-search").performTextInput("Equity")
-        compose.onNodeWithText("Equity Bank").assertExists()
+        compose.onNodeWithText("Equity Bank Kenya").assertExists()
     }
 
     @Test fun optionalSalaryRemainsUnconfirmedUntilRadioChoiceAndContinue() {
