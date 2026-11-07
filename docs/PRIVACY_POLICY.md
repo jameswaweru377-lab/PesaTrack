@@ -45,6 +45,13 @@ Online merchant/entity lookup is off by default.
 
 If you turn it on, PesaTrack may send a sanitized business descriptor to the configured enrichment service to improve merchant naming or branding. Before sending, the app applies a privacy filter intended to reject likely phone numbers, transaction codes, email addresses, long numeric references and likely personal names.
 
+An ordinary business suffix (such as “Shop” or “Ltd”) does not by itself prove
+that a descriptor is public. The filter conservatively withholds some labels
+starting with common person-like names, even if a legitimate merchant uses
+one. This heuristic cannot identify every personal name or guarantee that
+every permitted descriptor is a public organization. Leave online lookup off
+if you do not want any merchant descriptor sent to the service.
+
 PesaTrack does not intentionally send full SMS bodies, transaction amounts, balances, account numbers, phone numbers or transaction/reference codes to this service.
 
 The client also supplies a random install-scoped identifier used only to partition rate limits. It is not an account login or device identifier.

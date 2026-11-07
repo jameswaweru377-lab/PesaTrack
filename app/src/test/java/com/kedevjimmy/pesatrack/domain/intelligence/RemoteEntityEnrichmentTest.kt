@@ -18,7 +18,7 @@ class RemoteEntityEnrichmentTest {
             ?.use { it.readText() }
             ?: error("Shared descriptor privacy corpus missing")
         val examples = JsonParser.parseString(fixture).asJsonArray
-        assertTrue("Expected a meaningful privacy corpus", examples.size() >= 12)
+        assertTrue("Expected at least 60 privacy examples", examples.size() >= 60)
         for (row in examples) {
             val example = row.asJsonObject
             val input = example.get("input").asString
