@@ -167,6 +167,57 @@ class MessagePackDebtBridgeTest {
     }
 
     @Test
+    fun mpesaFullMshwariRepaymentWithSavingsOverpaymentClosesDebtWithoutInventedCredit() {
+        val body = "QAZ1234567 Confirmed. Loan of Ksh123.45 repaid from your M-PESA " +
+            "account on 16/10/26 at 7:30 AM. M-PESA balance is Ksh9,876.54." +
+            "Your loan is repaid in full, and the overpayment has been moved to your " +
+            "Savings Account. New M-Shwari balance is Ksh42.37. " +
+            "Transaction cost Kshs 0.00"
+        val interpretation = FinancialMessageInterpreter.interpret("MPESA", body)
+        val event = interpretation.events.single() as DebtRepaymentEventFact
+        assertEquals(12_345L, event.amountMinor)
+        assertEquals("NCBA_MSHWARI_LOAN", event.liability.providerKey)
+        assertEquals("SAFARICOM_MPESA", event.fundingAccount?.providerKey)
+        assertEquals(DebtCompletion.FULL, event.completion)
+        assertEquals(0L, event.outstandingAfterMinor)
+        assertNull(event.availableCreditAfterMinor)
+        assertEquals("QAZ1234567", interpretation.transactionCode)
+        assertEquals("16/10/26 at 7:30 AM", interpretation.occurredAtText)
+        assertTrue(interpretation.parseProvenance.templateId ==
+            "ke.mshwari.loan.full-repayment-overpayment")
+        assertTrue(interpretation.balances.any {
+            it.account.providerKey == "NCBA_MSHWARI_SAVINGS" &&
+                it.balanceMinor == 4_237L
+        })
+        assertTrue(interpretation.balances.any {
+            it.account.providerKey == "SAFARICOM_MPESA" &&
+                it.balanceMinor == 987_654L
+        })
+        // The KES 25.02 is a post-event savings balance, NOT a
+        // proven overpayment amount or a second credit/transfer.
+        val draft = interpretation.toCanonicalDraft()
+        assertEquals(1, draft.records.count {
+            it is DebtMovementDraft
+        })
+        assertEquals(0, draft.records.count {
+            it is MoneyMovementDraft
+        })
+    }
+
+    @Test
+    fun similarTextWithoutExplicitFullLoanSettlementCannotCloseLiability() {
+        val body = "QAZ1234568 Confirmed. Loan of Ksh123.45 repaid from your M-PESA " +
+            "account on 16/10/26 at 7:30 AM. M-PESA balance is Ksh9,876.54. " +
+            "Your loan has been partially repaid, and overpayment has been moved " +
+            "to your Savings Account. New M-Shwari balance is Ksh42.37."
+        val interpretation = FinancialMessageInterpreter.interpret("MPESA", body)
+        assertTrue(interpretation.events.none {
+            it is DebtRepaymentEventFact &&
+                it.completion == DebtCompletion.FULL
+        })
+    }
+
+    @Test
     fun okashDrawdownKeepsDestinationUnknownWhenMessageDoesNotSay() {
         val interpretation =
             FinancialMessageInterpreter

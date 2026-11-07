@@ -19,6 +19,7 @@ import com.kedevjimmy.pesatrack.domain.rules.DebtProceedsEventCandidate
 import com.kedevjimmy.pesatrack.domain.rules.DebtProceedsRepaymentLinkPolicy
 import com.kedevjimmy.pesatrack.domain.rules.DebtRepaymentBalancePolicy
 import com.kedevjimmy.pesatrack.domain.rules.DebtRepaymentChainPolicy
+import com.kedevjimmy.pesatrack.domain.rules.DebtReceiptCorrelationPolicy
 import com.kedevjimmy.pesatrack.domain.rules.LiabilityPaymentCandidate
 import com.kedevjimmy.pesatrack.domain.rules.LiabilityPaymentLinkPolicy
 import com.kedevjimmy.pesatrack.domain.rules.LiabilityPaymentMatch
@@ -373,6 +374,23 @@ class DebtStore private constructor(context: Context) {
             eventId = insert.id
         )
 
+        // A prior SMS import can leave the *same* payment as "Other" in
+        // Activity. Link only a unique original M-Pesa receipt with equal
+        // amount, wallet and time before reclassifying that existing row.
+        // No second cash movement is created.
+        if (linkedTransactionIdOverride == null &&
+            fundingAccountId != null && transactionCode != null) {
+            linkRepaymentByExactReceipt(
+                eventId = insert.id,
+                debtName = identity.name,
+                transactionCode = transactionCode,
+                amountMinor = event.amountMinor,
+                fundingAccountId = fundingAccountId,
+                occurredAtEpochMs = occurredAtEpochMs,
+                walletBalanceAfterMinor = event.walletBalanceAfterMinor
+            )
+        }
+
         if (fundingAccountId != null) {
             if (linkedTransactionIdOverride == null) {
                 reconcileRepaymentEvent(insert.id)
@@ -388,6 +406,83 @@ class DebtStore private constructor(context: Context) {
             linkedTransactionId = linked
         )
     }
+    }
+
+    private fun linkRepaymentByExactReceipt(
+        eventId: Long,
+        debtName: String,
+        transactionCode: String,
+        amountMinor: Long,
+        fundingAccountId: String,
+        occurredAtEpochMs: Long,
+        walletBalanceAfterMinor: Long?
+    ) {
+        if (!DebtReceiptCorrelationPolicy.validCode(transactionCode) ||
+            linkedTransactionId(eventId) != null) return
+
+        val matches = database.readableDatabase.rawQuery(
+            """
+            SELECT id, transaction_code, account_id, amount_minor,
+                   occurred_at_epoch_ms, direction, category, review_state,
+                   rule_id, relation_type, reversal_of_code, balance_minor
+            FROM transactions
+            WHERE UPPER(transaction_code) = ?
+            """.trimIndent(),
+            arrayOf(transactionCode.trim().uppercase(java.util.Locale.ROOT))
+        ).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(DebtReceiptCorrelationPolicy.Candidate(
+                        transactionId = cursor.getLong(0),
+                        transactionCode = cursor.getString(1),
+                        accountId = if (cursor.isNull(2)) null else cursor.getString(2),
+                        amountMinor = cursor.getLong(3),
+                        occurredAtEpochMs = cursor.getLong(4),
+                        direction = cursor.getString(5),
+                        category = cursor.getString(6),
+                        reviewState = cursor.getString(7),
+                        ruleId = if (cursor.isNull(8)) null else cursor.getString(8),
+                        relationType = if (cursor.isNull(9)) null else cursor.getString(9),
+                        reversalCode = if (cursor.isNull(10)) null else cursor.getString(10),
+                        balanceAfterMinor = if (cursor.isNull(11)) null else cursor.getLong(11)
+                    ))
+                }
+            }
+        }
+        val matching = DebtReceiptCorrelationPolicy.choose(
+            receipt = transactionCode,
+            accountId = fundingAccountId,
+            amountMinor = amountMinor,
+            occurredAtEpochMs = occurredAtEpochMs,
+            walletBalanceAfterMinor = walletBalanceAfterMinor,
+            candidates = matches
+        ) ?: return
+
+        val alreadyClaimed = database.readableDatabase.rawQuery(
+            "SELECT 1 FROM debt_events WHERE linked_transaction_id = ? " +
+                "AND id != ? LIMIT 1",
+            arrayOf(matching.transactionId.toString(), eventId.toString())
+        ).use { it.moveToFirst() }
+        if (alreadyClaimed) return
+
+        // Reuse the application's existing debt repayment classification
+        // (pay-cycle totals and ledger update notifications included).
+        val changed = TransactionStore.get(appContext).markDebtRepayment(
+            transactionId = matching.transactionId,
+            debtEventId = eventId,
+            debtName = debtName,
+            userConfirmed = false
+        )
+        if (!changed) return
+        val values = ContentValues().apply {
+            put("linked_transaction_id", matching.transactionId)
+            put("funding_link_confidence", RepaymentChainConfidence.HIGH.name)
+            put("funding_link_reason", "Unique same-receipt wallet debit; amount, account and time corroborated.")
+        }
+        database.writableDatabase.update(
+            "debt_events", values, "id = ? AND linked_transaction_id IS NULL",
+            arrayOf(eventId.toString())
+        )
     }
 
     fun liabilityPaymentMatches(

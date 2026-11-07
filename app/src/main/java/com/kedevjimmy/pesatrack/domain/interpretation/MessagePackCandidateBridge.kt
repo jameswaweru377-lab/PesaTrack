@@ -33,10 +33,16 @@ object MessagePackCandidateBridge {
                 candidates
             }
 
+        val withObservedBalances =
+            enrichVerifiedAccountBalances(
+                candidates = guardedCandidates,
+                match = match,
+                message = message
+            )
+
         val repaymentEnriched =
             enrichDebtRepayment(
-                candidates =
-                    guardedCandidates,
+                candidates = withObservedBalances,
                 match = match,
                 message = message
             )
@@ -130,6 +136,48 @@ object MessagePackCandidateBridge {
         )
     }
 
+    /**
+     * Savings 'balance is' is a snapshot, not the amount of an overpayment.
+     * The full-repayment M-Shwari text never specifies the savings deposit;
+     * do not create a transfer or credit from the ending balance.
+     */
+    private fun enrichVerifiedAccountBalances(
+        candidates: FinancialMessageCandidates,
+        match: MessagePackMatch,
+        message: NormalizedFinancialMessage
+    ): FinancialMessageCandidates {
+        if (match.templateId != "ke.mshwari.loan.full-repayment-overpayment")
+            return candidates
+        var current = candidates
+        listOf(
+            "SAVINGS_BALANCE" to "M-Shwari",
+            "WALLET_BALANCE" to "M-PESA"
+        ).forEach { (fieldName, accountName) ->
+            val field = match.fields.firstOrNull {
+                it.field.equals(fieldName, ignoreCase = true)
+            } ?: return@forEach
+            val amount = amountToMinor(field.value) ?: return@forEach
+            val resolved = FinancialProviderRegistry.resolveAccount(accountName)
+            val exists = current.balances.any { observed ->
+                FinancialProviderRegistry.resolveAccount(observed.rawAccountLabel).entityKey ==
+                    resolved.entityKey && observed.amountMinor == amount
+            }
+            if (!exists) {
+                val span = spanForValue(message.body, field.value) ?: return@forEach
+                current = current.copy(
+                    balances = current.balances + BalanceCandidate(
+                        rawAccountLabel = accountName,
+                        accountSpan = spanForValue(message.body, accountName),
+                        amountMinor = amount,
+                        amountSpan = span,
+                        ruleId = "message_pack." + match.templateId + ".observed_balance"
+                    )
+                )
+            }
+        }
+        return current
+    }
+
     private fun enrichDebtRepayment(
         candidates: FinancialMessageCandidates,
         match: MessagePackMatch,
@@ -175,6 +223,13 @@ object MessagePackCandidateBridge {
             outstandingField
                 ?.value
                 ?.let(::amountToMinor)
+        val explicitlyFull =
+            match.fieldValue("COMPLETION")?.equals(
+                "loan is repaid in full",
+                ignoreCase = true
+            ) == true
+        val observedOutstanding =
+            outstandingMinor ?: if (explicitlyFull) 0L else null
         val outstandingSpan =
             outstandingField
                 ?.value
@@ -183,7 +238,9 @@ object MessagePackCandidateBridge {
                         body = message.body,
                         value = it
                     )
-                }
+                } ?: if (explicitlyFull) {
+                    spanForValue(message.body, "loan is repaid in full")
+                } else null
 
         val sourceField =
             match.fields.firstOrNull {
@@ -221,13 +278,13 @@ object MessagePackCandidateBridge {
                 liabilitySpan =
                     liabilitySpan,
                 completion =
-                    if (outstandingMinor == 0L) {
+                    if (observedOutstanding == 0L) {
                         DebtCompletion.FULL
                     } else {
                         DebtCompletion.UNKNOWN
                     },
                 outstandingAfterMinor =
-                    outstandingMinor,
+                    observedOutstanding,
                 outstandingSpan =
                     outstandingSpan,
                 availableCreditAfterMinor =
