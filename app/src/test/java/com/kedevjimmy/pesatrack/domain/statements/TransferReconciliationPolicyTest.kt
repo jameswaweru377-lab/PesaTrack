@@ -93,6 +93,27 @@ class TransferReconciliationPolicyTest {
         assertNotEquals(first.fingerprint, TransferReconciliationPolicy.reconcile(rows, changed, descriptions,
             at - 1000, at + 1000).pairs.single().fingerprint)
     }
+    @Test fun incompleteOwnedAccountIdentifierCannotProveSharedReceiptTransfer() {
+        val rows = listOf(
+            debit.copy(reference = "ABC123456"),
+            credit.copy(reference = "ABC123456")
+        )
+        for (invalid in listOf<String?>(null, "", "****9012", "1234")) {
+            val incomplete = accounts + ("bank" to accounts.getValue("bank").copy(identifier = invalid))
+            val result = TransferReconciliationPolicy.reconcile(
+                rows, incomplete, emptyMap(), at - 1000, at + 1000
+            )
+            assertTrue("Bank identity $invalid must withhold pair", result.pairs.isEmpty())
+            assertEquals("Only the invalid bank evidence must be withheld", 1, result.withheldObservationCount)
+        }
+        val incompleteWallet = accounts + ("wallet" to accounts.getValue("wallet").copy(identifier = "0712****78"))
+        val walletResult = TransferReconciliationPolicy.reconcile(
+            rows, incompleteWallet, emptyMap(), at - 1000, at + 1000
+        )
+        assertTrue(walletResult.pairs.isEmpty())
+        assertEquals(1, walletResult.withheldObservationCount)
+    }
+
     @Test fun duplicateConfiguredIdentifierCannotEstablishRoute() {
         val duplicate = accounts + ("another" to accounts.getValue("wallet"))
         assertTrue(TransferReconciliationPolicy.reconcile(listOf(debit, credit), duplicate,

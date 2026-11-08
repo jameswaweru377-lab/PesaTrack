@@ -13,6 +13,17 @@ navigation destinations and backup behaviour stay unchanged. Android CI and
 physical Redmi display/navigation checks are required; instrumentation is
 intentionally skipped.
 
+_Complete owned-identity transfer-review guard (8 November 2026; CI and device acceptance pending):_
+Only owned bank and wallet accounts with complete, normalized, unambiguous
+full identifiers may establish review-only transfer pairs or possible-transfer
+suggestions. Null, blank, masked, malformed and partial account identifiers
+are withheld, even when two sources share a receipt reference; valid distinct
+full identifiers continue to work. Statement archives, repeated-import
+idempotence, original cash evidence, Home/Activity totals, decisions, schema,
+permissions and backups are unchanged. Nothing is auto-posted; N2 remains
+on hold. Synthetic unit regression tests and Android CI are required, with
+physical Redmi acceptance separate. No emulator or instrumentation runs.
+
 _Selected Plan subpage designs (6 November 2026; Android CI and device acceptance pending):_
 The four selected white/emerald reference layouts are now applied to Plan's
 Budgets (circular spending/remaining summary, category filter and limit actions),
