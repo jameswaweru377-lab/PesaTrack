@@ -125,4 +125,19 @@ class StatementOriginalMessageEvidenceReaderTest {
         assertFalse(original().roleProtected)
         assertTrue(canCorroborateCashLeg())
     }
+
+    @Test fun laterReversalByReceiptCodeProtectsOriginalUntilReversalIsRemoved() {
+        transaction()
+        assertTrue(canCorroborateCashLeg())
+        val reversal = transaction(source = "manual_entry")
+        val db = PesaTrackDatabase.get(app).writableDatabase
+        db.update("transactions", ContentValues().apply {
+            put("reversal_of_code", "SYN1234561")
+        }, "id=?", arrayOf(reversal.toString()))
+        assertTrue(original().roleProtected)
+        assertFalse(canCorroborateCashLeg())
+        db.delete("transactions", "id=?", arrayOf(reversal.toString()))
+        assertFalse(original().roleProtected)
+        assertTrue(canCorroborateCashLeg())
+    }
 }
