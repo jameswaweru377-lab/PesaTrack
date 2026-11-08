@@ -100,6 +100,7 @@ internal fun ReferenceHomeHeader(
 
 @Composable
 internal fun ReferenceHomeBottomBar(currentTab: MainTab, onSelected: (MainTab) -> Unit) {
+    val activeTint = if (currentTab == MainTab.MORE) Color.White else HomeMonochromePalette.green
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
         shape = RoundedCornerShape(25.dp),
@@ -135,13 +136,13 @@ internal fun ReferenceHomeBottomBar(currentTab: MainTab, onSelected: (MainTab) -
                         verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
                     ) {
                         Icon(icon, title, Modifier.size(22.dp),
-                            tint = if (active) HomeMonochromePalette.green else Color.White)
+                            tint = if (active) activeTint else Color.White)
                         Text(title, fontSize = 11.sp, maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             color = Color.White,
                             fontWeight = if (active) FontWeight.Medium else FontWeight.Normal)
                         Box(Modifier.width(20.dp).height(3.dp).clip(CircleShape)
-                            .background(if (active) HomeMonochromePalette.green else Color.Transparent))
+                            .background(if (active) activeTint else Color.Transparent))
                     }
                 }
             }

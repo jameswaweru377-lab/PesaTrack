@@ -1,5 +1,18 @@
 # PesaTrack Current State
 
+_More and Settings monochrome palette (8 November 2026; Android CI and Redmi acceptance pending):_
+The approved More layout now uses a solid black profile card with white text,
+black icons on near-white tiles, neutral borders and white grouped preferences.
+Its existing Profile, Notifications, App Lock & Security, Appearance, Privacy,
+general Settings, Help/Troubleshooting, Backup and diagnostics destinations
+inherit black-and-white Material controls and matching Profile colour tokens.
+The selected More bottom-tab indicator is white; other tabs retain their
+approved indicator styling. This is a colour-only change: all stored
+preferences, reminders, permission flows, account evidence, ledger values,
+navigation destinations and backup behaviour stay unchanged. Android CI and
+physical Redmi display/navigation checks are required; instrumentation is
+intentionally skipped.
+
 _Complete owned-identity transfer-review guard (8 November 2026; CI and device acceptance pending):_
 Only owned bank and wallet accounts with complete, normalized, unambiguous
 full identifiers may establish review-only transfer pairs or possible-transfer

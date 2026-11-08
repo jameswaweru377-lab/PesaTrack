@@ -62,6 +62,7 @@ import com.kedevjimmy.pesatrack.ui.screens.SettingsScreen
 import com.kedevjimmy.pesatrack.ui.screens.SmartOnboardingSetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.TransactionDetailScreen
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
+import com.kedevjimmy.pesatrack.ui.theme.MoreMonochromeTheme
 
 @Composable
 fun PesaTrackApp(
@@ -551,7 +552,7 @@ fun PesaTrackApp(
                     navController.navigate("statement-activity") { launchSingleTop = true }
                 }
             ) { padding ->
-                MoreScreen(
+                MoreMonochromeTheme { MoreScreen(
                     scaffoldPadding = padding,
                     onAccountsClick = { navigateToTab(MainTab.ACCOUNTS) },
                     onProfileClick = {
@@ -585,7 +586,7 @@ fun PesaTrackApp(
                     onReportsClick = {
                         navController.navigate("reports") { launchSingleTop = true }
                     }
-                )
+                ) }
             }
         }
 
@@ -757,7 +758,7 @@ fun PesaTrackApp(
                 onTabSelected = ::navigateToTab,
                 showTopBar = false
             ) { padding ->
-                ProfileScreen(
+                MoreMonochromeTheme { ProfileScreen(
                     scaffoldPadding = padding,
                     onBack = { navController.popBackStack() },
                     onSettingsClick = { navController.navigate("settings") },
@@ -770,7 +771,7 @@ fun PesaTrackApp(
                     onPayCycleClick = { navController.navigate("pay-cycle") },
                     onActivityClick = { navigateToTab(MainTab.ACTIVITY) },
                     initialPage = initialSection
-                )
+                ) }
             }
         }
 
@@ -781,12 +782,14 @@ fun PesaTrackApp(
                 currentTab = MainTab.MORE,
                 onTabSelected = ::navigateToTab
             ) { padding ->
+                MoreMonochromeTheme {
                 PrivacyPage(
                     padding, back = { navController.popBackStack() },
                     access = { navController.navigate("settings") },
                     manageStatements = { navController.navigate("historical-import") }
                 )
                 BackupRestoreSheet(onDismiss = { navController.popBackStack() })
+                }
             }
         }
 
@@ -795,7 +798,7 @@ fun PesaTrackApp(
                 currentTab = MainTab.MORE,
                 onTabSelected = ::navigateToTab
             ) { padding ->
-                DataHealthScreen(
+                MoreMonochromeTheme { DataHealthScreen(
                     scaffoldPadding = padding,
                     onBack = {
                         navController.popBackStack()
@@ -805,7 +808,7 @@ fun PesaTrackApp(
                             "identity-review"
                         )
                     }
-                )
+                ) }
             }
         }
 
@@ -814,12 +817,12 @@ fun PesaTrackApp(
                 currentTab = MainTab.MORE,
                 onTabSelected = ::navigateToTab
             ) { padding ->
-                IdentityReviewScreen(
+                MoreMonochromeTheme { IdentityReviewScreen(
                     scaffoldPadding = padding,
                     onBack = {
                         navController.popBackStack()
                     }
-                )
+                ) }
             }
         }
 
@@ -828,7 +831,7 @@ fun PesaTrackApp(
                 currentTab = null,
                 onTabSelected = ::navigateToTab
             ) { padding ->
-                SettingsScreen(
+                MoreMonochromeTheme { SettingsScreen(
                     scaffoldPadding = padding,
                     themeMode = themeMode,
                     onThemeModeChange = onThemeModeChange,
@@ -838,7 +841,7 @@ fun PesaTrackApp(
                     onSmartRulesClick = { navController.navigate("smart-rules") },
                     onHistoricalImportClick = { navController.navigate("historical-import") },
                     onAdvancedClick = { navController.navigate("data-health") }
-                )
+                ) }
             }
         }
 
@@ -847,12 +850,12 @@ fun PesaTrackApp(
                 currentTab = null,
                 onTabSelected = ::navigateToTab
             ) { padding ->
-                MoneySetupScreen(
+                MoreMonochromeTheme { MoneySetupScreen(
                     scaffoldPadding = padding,
                     initialSetup = false,
                     onDone = { navController.popBackStack() },
                     onBack = { navController.popBackStack() }
-                )
+                ) }
             }
         }
 
@@ -861,10 +864,10 @@ fun PesaTrackApp(
                 currentTab = null,
                 onTabSelected = ::navigateToTab
             ) { padding ->
-                MpesaConnectionScreen(
+                MoreMonochromeTheme { MpesaConnectionScreen(
                     scaffoldPadding = padding,
                     onBack = { navController.popBackStack() }
-                )
+                ) }
             }
         }
 

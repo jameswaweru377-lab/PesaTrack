@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,8 +33,6 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.core.app.NotificationManagerCompat
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
-import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
-import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore
 import com.kedevjimmy.pesatrack.data.local.EntityEnrichmentPreferences
@@ -52,7 +51,7 @@ import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
 
 @Composable
 internal fun EverydayPage(title: String, padding: PaddingValues, onBack: () -> Unit, content: LazyListScope.() -> Unit) {
-    LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(horizontal = com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens.screenHorizontalPadding, vertical = com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens.screenVerticalPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxSize().background(C.canvas).padding(padding), contentPadding = PaddingValues(horizontal = com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens.screenHorizontalPadding, vertical = com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens.screenVerticalPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back") }
             Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -67,7 +66,7 @@ internal fun EverydayRow(icon: androidx.compose.ui.graphics.vector.ImageVector, 
         Row(Modifier.padding(PesaDesignTokens.cardContentPadding)
             .heightIn(min = PesaDesignTokens.minimumTouchTarget),
             verticalAlignment = Alignment.CenterVertically) {
-            IconBubble(icon, tint = pesaToneContent(tone), background = pesaToneContainer(tone))
+            IconBubble(icon, tint = C.ink, background = C.lilac)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -90,13 +89,13 @@ internal fun ChoiceSwitch(title: String, description: String, checked: Boolean, 
             enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = Color(0xFF7027E8),
-                checkedBorderColor = Color(0xFF7027E8),
-                uncheckedThumbColor = Color(0xFF604C8B),
-                uncheckedTrackColor = Color(0xFFE5DDF5),
-                uncheckedBorderColor = Color(0xFF8774A7),
-                disabledUncheckedTrackColor = Color(0xFFE5E1EB),
-                disabledUncheckedThumbColor = Color(0xFF8D849B)
+                checkedTrackColor = C.ink,
+                checkedBorderColor = C.ink,
+                uncheckedThumbColor = C.muted,
+                uncheckedTrackColor = C.lilac,
+                uncheckedBorderColor = C.outline,
+                disabledUncheckedTrackColor = C.lilac,
+                disabledUncheckedThumbColor = C.muted
             )
         )
     } }

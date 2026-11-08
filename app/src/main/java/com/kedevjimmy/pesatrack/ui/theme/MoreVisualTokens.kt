@@ -9,45 +9,46 @@ import androidx.compose.ui.unit.dp
  * Numeric values are confined to theme tokens; screens consume the tokens only.
  */
 object MoreVisualTokens {
-    val ink = Color(0xFF12123E)
-    val muted = Color(0xFF5B638E)
-    val purple = Color(0xFF6212F5)
-    val lavender = Color(0xFFEEE7FF)
-    val blue = Color(0xFF106DFA)
-    val mint = Color(0xFF00A96A)
-    val orange = Color(0xFFFF7438)
+    // The More workspace uses a neutral palette; other app tabs retain their colours.
+    val ink = Color.Black
+    val muted = Color(0xFF626262)
+    val purple = Color.Black
+    val lavender = Color(0xFFF4F4F4)
+    val blue = Color.Black
+    val mint = Color.Black
+    val orange = Color.Black
 
-    val canvasTop = Color(0xFFF7F6FF)
-    val canvasMiddle = Color(0xFFF7F8FF)
-    val canvasBottom = Color(0xFFF0F3FF)
-    val iconStatement = Color(0xFF6F19E9)
-    val iconPurpleSoft = Color(0xFFEEE5FF)
-    val iconBlueSoft = Color(0xFFE6EEFF)
-    val iconMintSoft = Color(0xFFDBFAEE)
+    val canvasTop = Color.White
+    val canvasMiddle = Color.White
+    val canvasBottom = Color.White
+    val iconStatement = Color.Black
+    val iconPurpleSoft = Color(0xFFF2F2F2)
+    val iconBlueSoft = Color(0xFFF2F2F2)
+    val iconMintSoft = Color(0xFFF2F2F2)
 
-    val heroBase = Color(0xFF5A0DF5)
-    val heroBright = Color(0xFF801DFF)
-    val heroDeep = Color(0xFF4204CB)
-    val heroBlue = Color(0xFF0956E8)
-    val wavePurple = Color(0xFF7C43FF)
-    val wavePink = Color(0xFFC34AFF)
-    val waveCyan = Color(0xFF5CE2FF)
-    val avatarBackground = Color(0xFFDCD2FF)
-    val avatarInk = Color(0xFF3709BD)
-    val actionInk = Color(0xFF4810C8)
-    val workspaceBorder = Color(0xFFF1EDFF)
-    val groupBorder = Color(0xFFF0EEFC)
-    val greenSoft = Color(0xFFDFF9EC)
-    val green = Color(0xFF08A573)
-    val orangeSoft = Color(0xFFFFEADF)
-    val orangeBright = Color(0xFFFF6E2C)
-    val blueSoft = Color(0xFFE3EFFF)
-    val blueBright = Color(0xFF087BF8)
-    val purpleSoft = Color(0xFFEDE5FF)
-    val purpleBright = Color(0xFF6725EB)
-    val arrowInk = Color(0xFF555E92)
-    val rowDivider = Color(0xFFE4E5F2)
-    val crownGold = Color(0xFFFFD34B)
+    val heroBase = Color.Black
+    val heroBright = Color.Black
+    val heroDeep = Color.Black
+    val heroBlue = Color.Black
+    val wavePurple = Color.Black
+    val wavePink = Color.Black
+    val waveCyan = Color.Black
+    val avatarBackground = Color.White
+    val avatarInk = Color.Black
+    val actionInk = Color.Black
+    val workspaceBorder = Color(0xFFD8D8D8)
+    val groupBorder = Color(0xFFD8D8D8)
+    val greenSoft = Color(0xFFF2F2F2)
+    val green = Color.Black
+    val orangeSoft = Color(0xFFF2F2F2)
+    val orangeBright = Color.Black
+    val blueSoft = Color(0xFFF2F2F2)
+    val blueBright = Color.Black
+    val purpleSoft = Color(0xFFF2F2F2)
+    val purpleBright = Color.Black
+    val arrowInk = Color.Black
+    val rowDivider = Color(0xFFE0E0E0)
+    val crownGold = Color.Black
 
     val dividerStroke = .7.dp
     val space1 = 1.dp

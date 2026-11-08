@@ -58,7 +58,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -265,34 +264,8 @@ private fun MoreProfileHero(name: String, avatar: String, photo: Bitmap?, onClic
         Box(Modifier.fillMaxSize().background(Brush.linearGradient(
             listOf(M.heroBright, M.heroDeep, M.heroBlue)
         ))) {
-            MoreHeroWaves(Modifier.matchParentSize())
             MoreHeroContent(name, avatar, photo, onClick)
         }
-    }
-}
-
-@Composable
-private fun MoreHeroWaves(modifier: Modifier = Modifier) {
-    Canvas(modifier) {
-        val width = size.width
-        val height = size.height
-        val wave = Path().apply {
-            moveTo(width * .46f, height)
-            cubicTo(width * .77f, height * .70f, width * .78f, height * 1.11f,
-                width, height * .54f)
-            lineTo(width, height)
-            close()
-        }
-        drawPath(wave, Brush.horizontalGradient(listOf(
-            M.wavePurple.copy(alpha = .50f), M.wavePink.copy(alpha = .76f)
-        )))
-        val highlight = Path().apply {
-            moveTo(width * .47f, height)
-            cubicTo(width * .73f, height * .62f, width * .83f, height * .97f,
-                width, height * .48f)
-        }
-        drawPath(highlight, M.waveCyan.copy(alpha = .68f),
-            style = Stroke(width = M.waveStroke.toPx()))
     }
 }
 
@@ -342,7 +315,7 @@ private fun MoreHeroAvatar(name: String, avatar: String, photo: Bitmap?) {
 
 @Composable
 private fun MorePremiumBadge() {
-    Surface(color = Color.White.copy(alpha = .10f), shape = RoundedCornerShape(M.space20),
+    Surface(color = Color.White, shape = RoundedCornerShape(M.space20),
         border = androidx.compose.foundation.BorderStroke(
             M.space1, Color.White.copy(alpha = .72f)
         )) {
@@ -350,7 +323,7 @@ private fun MorePremiumBadge() {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(M.space3)) {
             MoreCrownGlyph()
-            Text("Premium", color = Color.White, fontSize = 9.sp,
+            Text("Premium", color = M.ink, fontSize = 9.sp,
                 fontWeight = FontWeight.Bold)
         }
     }
