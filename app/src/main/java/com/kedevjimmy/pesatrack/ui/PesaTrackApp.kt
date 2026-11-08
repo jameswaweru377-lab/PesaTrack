@@ -398,6 +398,8 @@ fun PesaTrackApp(
         composable(MainTab.ACTIVITY.route) {
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.ACTIVITY,
+                useBrownHome = true,
+                onNotificationsClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
                 onTabSelected = ::navigateToTab,
                 onStatementsClick = { navController.navigate("statement-activity") { launchSingleTop = true } }
             ) { padding ->
@@ -430,6 +432,8 @@ fun PesaTrackApp(
         composable("activity-attention") {
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.ACTIVITY,
+                useBrownHome = true,
+                onNotificationsClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
                 onTabSelected = ::navigateToTab,
                 onStatementsClick = { navController.navigate("statement-activity") { launchSingleTop = true } }
             ) { padding ->
