@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -279,37 +280,34 @@ internal fun RedesignDetailAccordion(
     supporting: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val dark = com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme()
-    val surface = if (dark) MaterialTheme.colorScheme.surface else Color.White
-    val ink = if (dark) MaterialTheme.colorScheme.onSurface else Color(0xFF0B103A)
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
-        color = surface, border = BorderStroke(1.dp,
-            if (dark) MaterialTheme.colorScheme.outlineVariant else Color(0xFFF0EFF8))) {
+    val p = BrownHomePalette
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+        color = p.white, border = BorderStroke(1.dp, p.outline.copy(alpha = .55f))) {
         Column(Modifier.padding(horizontal = 13.dp, vertical = 9.dp),
             verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(Modifier.fillMaxWidth().clickable(onClick = onToggle).heightIn(min = 43.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Surface(Modifier.size(35.dp), shape = RoundedCornerShape(11.dp),
-                    color = Color(0xFFEDE3FF)) {
+                    color = p.cream) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(icon, null, Modifier.size(19.dp), tint = Color(0xFF7540EC))
+                        Icon(icon, null, Modifier.size(19.dp), tint = p.coffee)
                     }
                 }
                 Column(Modifier.weight(1f)) {
-                    Text(title, fontWeight = FontWeight.Bold, color = ink, fontSize = 16.sp)
+                    Text(title, fontWeight = FontWeight.Bold, color = p.ink, fontSize = 16.sp)
                     if (!expanded && !supporting.isNullOrBlank()) {
                         Text(supporting, fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = p.muted,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                     if (expanded) "Collapse " + title else "Expand " + title,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    tint = p.coffee)
             }
             if (expanded) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=.30f))
+                HorizontalDivider(color = p.outline.copy(alpha = .5f))
                 content()
             }
         }
@@ -333,31 +331,23 @@ internal fun TransactionOriginalMessage(
 }
 
 @Composable
-private fun CategoryOption(
-    label: String,
-    subtitle: String,
-    icon: ImageVector,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+private fun BrownSpecialClassification(
+    label: String, icon: ImageVector, modifier: Modifier,
+    enabled: Boolean, onClick: () -> Unit
 ) {
-    Surface(modifier.clickable(onClick = onClick),
-        color = if (selected) Color(0xFF10434C) else MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(15.dp),
-        border = BorderStroke(if (selected) 2.dp else 1.dp,
-            if (selected) teal else MaterialTheme.colorScheme.outlineVariant.copy(alpha=.38f))) {
-        Row(Modifier.fillMaxWidth().padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            Icon(icon, null, Modifier.size(23.dp), tint = if (selected) teal else lilac)
-            Column(Modifier.weight(1f)) {
-                Text(label, style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold, maxLines = 2)
-                if (subtitle.isNotBlank()) Text(subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 2, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (selected) Icon(Icons.Rounded.CheckCircle, "Selected", Modifier.size(18.dp), tint=teal)
+    val p = BrownHomePalette
+    Surface(modifier.clickable(enabled = enabled, onClick = onClick),
+        color = p.cream, shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, p.outline)) {
+        Column(Modifier.fillMaxWidth().heightIn(min = 68.dp)
+            .padding(horizontal = 3.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Icon(icon, null, Modifier.size(24.dp),
+                tint = if (enabled) p.coffee else p.muted)
+            Text(label, fontFamily = FontFamily.Serif, fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp, color = if (enabled) p.coffee else p.muted,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -369,9 +359,8 @@ private fun CategoryOption(
 private data class CategoryIconVisual(val icon: ImageVector, val tint: Color, val backing: Color)
 
 private fun categoryIconVisual(label: String): CategoryIconVisual {
-    val v = Color(0xFF5C17E9); val green = Color(0xFF08784E)
-    val pink = Color(0xFFEF1761); val blue = Color(0xFF1459EA)
-    val orange = Color(0xFFE87115)
+    val v = BrownHomePalette.coffee; val green = v
+    val pink = v; val blue = v; val orange = v
     return when {
         label.contains("phone", true) || label.contains("airtime", true) ||
             label.contains("data", true) || label.contains("internet", true) ->
@@ -414,38 +403,35 @@ private fun CategoryReferenceTile(
     onSelect: () -> Unit
 ) {
     val v = categoryIconVisual(category.label)
-    val ink = Color(0xFF0B103A)
+    val p = BrownHomePalette
     Surface(
         modifier = modifier.clickable(onClick = onSelect),
-        color = if (selected) Color(0xFFF6F0FF) else Color.White,
-        shape = RoundedCornerShape(18.dp),
+        color = if (selected) p.cream else p.white,
+        shape = RoundedCornerShape(12.dp),
         border = BorderStroke(if (selected) 1.5.dp else .7.dp,
-            if (selected) Color(0xFF6620FA) else Color(0xFFE9E8F1))
+            if (selected) p.coffee else p.outline)
     ) {
         Box {
             Column(
                 Modifier.fillMaxWidth().padding(
                     horizontal = if (compact) 5.dp else 7.dp,
-                    vertical = if (compact) 10.dp else 13.dp
+                    vertical = if (compact) 7.dp else 11.dp
                 ), horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
-                Surface(Modifier.size(if (compact) 40.dp else 43.dp),
-                    color = v.backing, shape = CircleShape) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(v.icon, null, Modifier.size(if (compact) 23.dp else 25.dp),
-                            tint = v.tint)
-                    }
-                }
-                Text(category.label, fontSize = if (compact) 11.sp else 12.sp,
-                    color = if (selected) Color(0xFF5D00EB) else ink,
+                Icon(v.icon, null, Modifier.size(if (compact) 25.dp else 27.dp),
+                    tint = p.coffee)
+                Text(category.label, fontSize = if (compact) 12.sp else 13.sp,
+                    color = if (selected) p.coffee else p.ink,
+                    fontFamily = FontFamily.Serif,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    maxLines = 2, lineHeight = 14.sp, overflow = TextOverflow.Ellipsis)
+                    maxLines = 2, minLines = 1, lineHeight = 14.sp,
+                    overflow = TextOverflow.Ellipsis)
             }
             if (selected) {
                 Surface(Modifier.align(Alignment.TopEnd).padding(5.dp).size(19.dp),
-                    color = Color(0xFF5D00EB), shape = CircleShape) {
+                    color = p.coffee, shape = CircleShape) {
                     Icon(Icons.Rounded.Check, "Selected", Modifier.padding(3.dp), tint = Color.White)
                 }
             }
@@ -467,14 +453,15 @@ private fun CategoryTreatmentAction(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
-    val ink = if (destructive) Color(0xFFBF3451) else Color(0xFF302278)
-    val background = if (destructive) Color(0xFFFFF5F7) else Color.White
+    val p = BrownHomePalette
+    val ink = if (destructive) MaterialTheme.colorScheme.error else p.coffee
+    val background = if (destructive) p.cream else p.white
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         color = background,
         border = BorderStroke(1.dp,
-            if (destructive) Color(0xFFF3D6DD) else Color(0xFFE7E1F4))
+            p.outline)
     ) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 53.dp)
@@ -491,7 +478,7 @@ private fun CategoryTreatmentAction(
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(title, color = ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 Text(description, fontSize = 11.sp, lineHeight = 14.sp,
-                    color = Color(0xFF626B98))
+                    color = p.muted)
             }
             Icon(Icons.Rounded.ChevronRight, null, Modifier.size(18.dp), tint = ink)
         }
@@ -521,17 +508,15 @@ internal fun TransactionCategoryChooser(
     var addingCategory by remember(item.id) { mutableStateOf(false) }
     var newCategoryName by remember(item.id) { mutableStateOf("") }
     var customError by remember(item.id) { mutableStateOf<String?>(null) }
-    val purple = Color(0xFF6100E8)
-    val ink = Color(0xFF0B103A)
-    val muted = Color(0xFF626B98)
+    val palette = BrownHomePalette
+    val ink = palette.ink
+    val muted = palette.muted
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val current = categories.firstOrNull { it.id == initialCategoryId }
-    val suggested = (listOfNotNull(current) + categories.filter { c ->
-        listOf("Phone", "Food", "Utilities", "Groceries", "Housing").any {
-            c.label.contains(it, ignoreCase = true)
-        }
-    }).distinctBy { it.id }.take(6)
     val matching = categories.filter { query.isBlank() || it.label.contains(query, ignoreCase = true) }
+    val canDebtLink = allowSpecial && canMakePersonalDebtLink(item)
+    val canOwnTransfer = allowCorrections && item.relationType == null &&
+        item.direction != MoneyDirection.TRANSFER.name &&
+        item.reviewState != ReviewState.EXCLUDED.name
     if (addingCategory) {
         AlertDialog(
             onDismissRequest = { addingCategory = false },
@@ -566,27 +551,21 @@ internal fun TransactionCategoryChooser(
         onDismissRequest = onDismiss,
         sheetState = sheet,
         shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
-        containerColor = Color(0xFFFCFBFF),
-        scrimColor = Color(0xB50A1030),
+        containerColor = palette.canvas,
+        scrimColor = ink.copy(alpha = .65f),
         dragHandle = {
             Surface(Modifier.padding(top = 9.dp, bottom = 11.dp).size(58.dp, 5.dp),
-                color = Color(0xFFA7A6B7), shape = CircleShape) {}
+                color = palette.outline, shape = CircleShape) {}
         }
     ) {
         Column(Modifier.fillMaxWidth().fillMaxHeight(.91f),
             verticalArrangement = Arrangement.spacedBy(0.dp)) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(Modifier.size(54.dp), color = Color(0xFFECE4FF),
-                    shape = RoundedCornerShape(19.dp)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.ReceiptLong, null, Modifier.size(27.dp), tint = purple)
-                    }
-                }
+                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Column(Modifier.weight(1f)) {
-                    Text("Choose a category", fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold, color = ink)
+                    Text("Choose a category", fontSize = 25.sp,
+                        fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = ink)
                     Text("How should PesaTrack treat this payment?",
                         fontSize = 13.sp, color = muted, maxLines = 2)
                 }
@@ -595,10 +574,10 @@ internal fun TransactionCategoryChooser(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            Surface(Modifier.fillMaxWidth().padding(horizontal = 19.dp),
-                color = Color.White, shape = RoundedCornerShape(50),
-                border = BorderStroke(1.dp, Color(0xFFE9E7F3))) {
-                Row(Modifier.heightIn(min = 52.dp).padding(horizontal = 14.dp),
+            Surface(Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                color = palette.white, shape = RoundedCornerShape(13.dp),
+                border = BorderStroke(1.dp, palette.outline)) {
+                Row(Modifier.heightIn(min = 48.dp).padding(horizontal = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(11.dp)) {
                     Icon(Icons.Rounded.Search, null, Modifier.size(23.dp), tint = muted)
@@ -618,45 +597,52 @@ internal fun TransactionCategoryChooser(
                 }
             }
             LazyColumn(Modifier.weight(1f).testTag("category-selection-list"),
-                contentPadding = PaddingValues(start = 19.dp, end = 19.dp, top = 14.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(11.dp)) {
-                if (query.isBlank() && suggested.isNotEmpty()) {
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 13.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                if (query.isBlank() && (allowSpecial || allowCorrections)) {
                     item {
-                        Text("Suggested for you", fontWeight = FontWeight.Bold,
-                            color = ink, fontSize = 16.sp)
-                    }
-                    item {
-                        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            suggested.forEach { c ->
-                                CategoryReferenceTile(
-                                    category = c, selected = selectedId == c.id,
-                                    modifier = Modifier.width(115.dp),
-                                    onSelect = { selectedId = c.id }
-                                )
-                            }
+                        Column {
+                            Text("Other ways to classify", color = ink,
+                                fontFamily = FontFamily.Serif, fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold)
+                            Text("Not regular spending categories", color = palette.coffee,
+                                fontSize = 12.sp)
                         }
                     }
-                    item { HorizontalDivider(color = Color(0xFFEAE8F4)) }
+                    item {
+                        Row(Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            BrownSpecialClassification("Money lent", Icons.Rounded.VolunteerActivism,
+                                Modifier.weight(1f), enabled = canDebtLink && !busy,
+                                onClick = onMoneyLent)
+                            BrownSpecialClassification("Shared bill", Icons.Rounded.Groups,
+                                Modifier.weight(1f), enabled = canDebtLink && !busy,
+                                onClick = onSharedBill)
+                            BrownSpecialClassification("Own transfer", Icons.Rounded.SwapHoriz,
+                                Modifier.weight(1f), enabled = canOwnTransfer && !busy,
+                                onClick = { onCorrection(TransactionCorrectionAction.MARK_OWN_TRANSFER) })
+                        }
+                    }
                 }
                 item {
-                    Text("All categories", fontWeight = FontWeight.Bold,
-                        color = ink, fontSize = 16.sp)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Categories", modifier = Modifier.weight(1f),
+                            fontFamily = FontFamily.Serif,
+                            fontWeight = FontWeight.Bold, color = ink, fontSize = 19.sp)
+                        Text("Scroll for more  ⌄", color = palette.coffee, fontSize = 12.sp)
+                    }
                 }
                 item {
-                    BoxWithConstraints {
-                        val cols = if (maxWidth >= 650.dp) 5 else if (maxWidth >= 425.dp) 4 else 3
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            matching.chunked(cols).forEach { row ->
-                                Row(Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                                    row.forEach { c ->
-                                        CategoryReferenceTile(c, selectedId == c.id,
-                                            Modifier.weight(1f), compact = true,
-                                            onSelect = { selectedId = c.id })
-                                    }
-                                    repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        matching.chunked(3).forEach { row ->
+                            Row(Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                row.forEach { c ->
+                                    CategoryReferenceTile(c, selectedId == c.id,
+                                        Modifier.weight(1f), compact = true,
+                                        onSelect = { selectedId = c.id })
                                 }
+                                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                             }
                         }
                     }
@@ -671,37 +657,16 @@ internal fun TransactionCategoryChooser(
                         Text("Add category")
                     }
                 }
-                // These are alternative ledger treatments, not regular spending
-                // categories. Keep them visually apart from selectable tiles.
-                if (query.isBlank() && allowSpecial && canMakePersonalDebtLink(item)) {
-                    item {
-                        Text("Other ways to classify", color = ink, fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold)
-                    }
-                    item {
-                        CategoryTreatmentAction(
-                            "Money lent", "Record money someone owes you",
-                            Icons.Rounded.VolunteerActivism, enabled = !busy,
-                            onClick = onMoneyLent)
-                    }
-                    item {
-                        CategoryTreatmentAction(
-                            "Shared bill", "Record your share and money others owe",
-                            Icons.Rounded.Groups, enabled = !busy,
-                            onClick = onSharedBill)
-                    }
-                }
+                // Special classifications stay above the category grid so users
+                // can discover them without scrolling. These are not categories.
                 if (query.isBlank() && allowCorrections) {
                     val acceptIdentity = item.counterparty.isNullOrBlank() &&
                         !item.evidenceLabel.isNullOrBlank()
                     val refundLink = item.relationType == TransactionStore.RELATION_REFUND
-                    val canOwnTransfer = item.relationType == null &&
-                        item.direction != MoneyDirection.TRANSFER.name &&
-                        item.reviewState != ReviewState.EXCLUDED.name
                     val canExclude = item.reviewState != ReviewState.EXCLUDED.name
-                    if (acceptIdentity || refundLink || canOwnTransfer || canExclude) {
+                    if (acceptIdentity || refundLink || canExclude) {
                         item {
-                            HorizontalDivider(color = Color(0xFFEAE8F4))
+                            HorizontalDivider(color = palette.outline)
                             Spacer(Modifier.height(7.dp))
                             Text("Transaction treatment", color = ink, fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold)
@@ -721,13 +686,6 @@ internal fun TransactionCategoryChooser(
                             Icons.Rounded.LinkOff, enabled = !busy,
                             onClick = { onCorrection(TransactionCorrectionAction.REMOVE_REFUND_LINK) })
                     }
-                    if (canOwnTransfer) item {
-                        CategoryTreatmentAction(
-                            "Mark as own-account transfer",
-                            "Only for movements between accounts you own",
-                            Icons.Rounded.SwapHoriz, enabled = !busy,
-                            onClick = { onCorrection(TransactionCorrectionAction.MARK_OWN_TRANSFER) })
-                    }
                     if (canExclude) item {
                         CategoryTreatmentAction(
                             "Exclude from tracked activity",
@@ -737,26 +695,29 @@ internal fun TransactionCategoryChooser(
                     }
                 }
             }
-            Surface(color = Color(0xFFFCFBFF), shadowElevation = 4.dp) {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 19.dp, vertical = 9.dp),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Surface(color = palette.canvas, shadowElevation = 4.dp) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     Row(Modifier.fillMaxWidth().clickable { onlyThis = !onlyThis }
-                        .heightIn(min = 36.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = onlyThis, onCheckedChange = { onlyThis = it })
+                        .heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = onlyThis, onCheckedChange = { onlyThis = it },
+                            colors = CheckboxDefaults.colors(checkedColor = palette.coffee))
                         Column {
-                            Text("Only this transaction", fontSize = 12.sp, color = ink)
-                            Text("Otherwise PesaTrack may learn from similar payments",
-                                fontSize = 10.sp, color = muted)
+                            Text("Only this transaction", fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold, color = ink)
+                            Text("Otherwise remember for similar payments.",
+                                fontSize = 11.sp, color = muted)
                         }
                     }
                     Button(onClick = { onSave(selectedId, !onlyThis) },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
                         enabled = !busy && categories.any { it.id == selectedId },
-                        shape = RoundedCornerShape(18.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = purple, contentColor = Color.White)
+                            containerColor = palette.coffee, contentColor = Color.White)
                     ) {
-                        Text("Save Category", fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text("Save category", fontFamily = FontFamily.Serif,
+                            fontSize = 17.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
