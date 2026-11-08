@@ -82,15 +82,18 @@ internal fun BrownHomeHero(available: String, onAccounts: () -> Unit) {
                     color = p.white, fontSize = 11.sp, lineHeight = 16.sp,
                     maxLines = 2)
                 Spacer(Modifier.height(4.dp))
-                Row(Modifier.heightIn(min = 48.dp).clip(CircleShape)
-                    .background(p.coffee).clickable {
+                Box(Modifier.heightIn(min = 48.dp).clickable {
                         if (page == 0) scope.launch { pager.animateScrollToPage(1) }
                         else onAccounts()
-                    }.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(if (page == 0) "VIEW MY MONEY" else "YOUR ACCOUNTS",
-                        color = p.white, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    Icon(Icons.Rounded.ArrowForward, null, Modifier.size(18.dp), tint = p.white)
+                    }, contentAlignment = Alignment.CenterStart) {
+                    Row(Modifier.height(40.dp).clip(CircleShape)
+                        .background(p.coffee).padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(if (page == 0) "VIEW MY MONEY" else "YOUR ACCOUNTS",
+                            color = p.white, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Rounded.ArrowForward, null, Modifier.size(18.dp), tint = p.white)
+                    }
                 }
             }
         }
@@ -197,11 +200,6 @@ internal fun BrownHomeAccounts(
                 }
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            Icon(Icons.Rounded.Info, null, Modifier.size(15.dp), tint = p.muted)
-            Text("Recorded balances · Not live synced", color = p.muted, fontSize = 11.sp)
-        }
     }
 }
 
@@ -274,7 +272,7 @@ internal fun BrownHomeMonthlySnapshot(
     month: String, spending: String, onReports: () -> Unit, onMonth: () -> Unit
 ) {
     val p = BrownHomePalette
-    Box(Modifier.fillMaxWidth().height(132.dp).clip(RoundedCornerShape(20.dp))) {
+    Box(Modifier.fillMaxWidth().height(124.dp).clip(RoundedCornerShape(20.dp))) {
         Image(painterResource(R.drawable.home_brown_monthly_coins), null,
             Modifier.matchParentSize(), contentScale = ContentScale.Crop)
         Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
@@ -288,19 +286,25 @@ internal fun BrownHomeMonthlySnapshot(
                 fontWeight = FontWeight.SemiBold, maxLines = 1)
             Text("$spending recorded", color = p.ink, fontSize = 12.sp,
                 fontWeight = FontWeight.Medium)
-            Row(Modifier.heightIn(min = 48.dp).clip(CircleShape).background(p.coffee)
-                .clickable(onClick = onReports).padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("VIEW REPORT", color = p.white, fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold)
-                Icon(Icons.Rounded.ArrowForward, null, Modifier.size(17.dp), tint = p.white)
+            Box(Modifier.heightIn(min = 48.dp).clickable(onClick = onReports),
+                contentAlignment = Alignment.CenterStart) {
+                Row(Modifier.height(40.dp).clip(CircleShape).background(p.coffee)
+                    .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("VIEW REPORT", color = p.white, fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold)
+                    Icon(Icons.Rounded.ArrowForward, null, Modifier.size(17.dp), tint = p.white)
+                }
             }
         }
-        Text(month.take(3).uppercase(), Modifier.align(Alignment.TopEnd)
-            .padding(8.dp).heightIn(min = 48.dp).clip(CircleShape)
-            .background(p.coffee).clickable(onClick = onMonth).padding(8.dp),
-            fontSize = 12.sp, fontWeight = FontWeight.Bold, color = p.white)
+        Box(Modifier.align(Alignment.TopEnd).padding(4.dp).size(48.dp)
+            .clickable(onClick = onMonth), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(40.dp).clip(CircleShape).background(p.coffee),
+                contentAlignment = Alignment.Center) {
+                Text(month.take(3).uppercase(), fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold, color = p.white)
+            }
+        }
     }
 }
 
