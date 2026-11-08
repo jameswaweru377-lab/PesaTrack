@@ -202,6 +202,32 @@ class TransferReconciliationPolicyTest {
             mapOf("d" to "Transfer to M-PESA 0712345678")).pairs.size)
     }
 
+    @Test fun pluralRefundAndReimbursementNarrationsCannotMasqueradeAsOwnedTransfers() {
+        val rows = listOf(
+            debit.copy(reference = "SYN123456789"),
+            credit.copy(reference = "SYN123456789")
+        )
+        for (description in listOf(
+            "Refunds to M-PESA 0712345678",
+            "Refunding to M-PESA 0712345678",
+            "Reversals to M-PESA 0712345678",
+            "Reversing to M-PESA 0712345678",
+            "Reimbursement to M-PESA 0712345678",
+            "Reimbursed to M-PESA 0712345678",
+            "Repaying to M-PESA 0712345678"
+        )) {
+            for (id in listOf("d", "c")) {
+                val result = reconcile(rows, mapOf(id to description))
+                assertTrue("Specialized narration must not prove a transfer: $description ($id)",
+                    result.pairs.isEmpty())
+                assertTrue("Specialized narration must not suggest a route: $description ($id)",
+                    result.unmatchedRoutes.none { it.row.id == id })
+            }
+        }
+        assertEquals(1, reconcile(rows,
+            mapOf("d" to "Transfer to M-PESA 0712345678")).pairs.size)
+    }
+
     @Test fun lenderDisbursementOverdraftAndWriteOffCannotMasqueradeAsOwnedTransfers() {
         val rows = listOf(
             debit.copy(reference = "SYN123456789"),
