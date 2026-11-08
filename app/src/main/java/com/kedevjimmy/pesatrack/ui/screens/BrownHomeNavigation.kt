@@ -1,11 +1,9 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -15,8 +13,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -38,19 +34,17 @@ internal object BrownHomePalette {
 @Composable
 internal fun BrownHomeHeader(
     onMenu: () -> Unit,
-    onNotifications: () -> Unit,
-    onProfile: () -> Unit,
-    profileInitial: String,
-    profilePhoto: ImageBitmap?
+    onNotifications: () -> Unit
 ) {
     val p = BrownHomePalette
-    Row(Modifier.fillMaxWidth().height(76.dp).background(p.canvas)
-        .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(48.dp).clickable(onClickLabel = "Open More", onClick = onMenu),
+    Box(Modifier.fillMaxWidth().height(76.dp).background(p.canvas)
+        .padding(horizontal = 12.dp)) {
+        Box(Modifier.align(Alignment.CenterStart).size(48.dp)
+            .clickable(onClickLabel = "Open More", onClick = onMenu),
             contentAlignment = Alignment.Center) {
             Icon(Icons.Rounded.Menu, "More menu", Modifier.size(28.dp), tint = p.ink)
         }
-        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
+        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(0.dp)) {
             Text("P", color = p.coffee, fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Black, fontSize = 26.sp, lineHeight = 26.sp)
@@ -59,23 +53,10 @@ internal fun BrownHomeHeader(
             Text("YOUR MONEY, YOUR PLANS", color = p.coffee, fontWeight = FontWeight.Bold,
                 letterSpacing = 1.2.sp, fontSize = 8.sp, lineHeight = 12.sp)
         }
-        Box(Modifier.size(48.dp).clickable(onClickLabel = "Notifications", onClick = onNotifications),
+        Box(Modifier.align(Alignment.CenterEnd).size(48.dp)
+            .clickable(onClickLabel = "Notifications", onClick = onNotifications),
             contentAlignment = Alignment.Center) {
             Icon(Icons.Rounded.NotificationsNone, "Notifications", Modifier.size(26.dp), tint = p.ink)
-        }
-        Box(Modifier.size(48.dp).clickable(onClickLabel = "Your profile", onClick = onProfile),
-            contentAlignment = Alignment.Center) {
-            Surface(Modifier.size(36.dp), shape = CircleShape, color = Color(0xFFEEDAC7)) {
-                Box(contentAlignment = Alignment.Center) {
-                    if (profilePhoto != null) {
-                        Image(profilePhoto, "Profile photo", Modifier.fillMaxSize().clip(CircleShape),
-                            contentScale = ContentScale.Crop)
-                    } else {
-                        Text(profileInitial.uppercase(), color = p.ink,
-                            fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
         }
     }
 }
@@ -95,16 +76,8 @@ internal fun BrownHomeBottomBar(
                 Modifier.weight(1f)) { onSelected(MainTab.HOME) }
             BrownNavTab(MainTab.ACTIVITY, currentTab, "Activity", Icons.Rounded.FormatListBulleted,
                 Modifier.weight(1f)) { onSelected(MainTab.ACTIVITY) }
-            Box(Modifier.weight(1.1f).fillMaxHeight().selectable(currentTab == MainTab.PLAN,
-                role = Role.Tab, onClick = { onSelected(MainTab.PLAN) }),
-                contentAlignment = Alignment.Center) {
-                Column(Modifier.size(64.dp).clip(CircleShape).background(p.coffee),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center) {
-                    Icon(Icons.Rounded.CalendarMonth, "Plan", Modifier.size(26.dp), tint = p.white)
-                    Text("Plan", fontSize = 11.sp, color = p.white)
-                }
-            }
+            BrownNavTab(MainTab.PLAN, currentTab, "Plan", Icons.Rounded.CalendarMonth,
+                Modifier.weight(1f)) { onSelected(MainTab.PLAN) }
             BrownNavTab(MainTab.ACCOUNTS, currentTab, "Accounts", Icons.Rounded.AccountBalanceWallet,
                 Modifier.weight(1f)) { onSelected(MainTab.ACCOUNTS) }
             BrownNavTab(MainTab.MORE, currentTab, "Profile", Icons.Rounded.PersonOutline,

@@ -84,10 +84,7 @@ fun AppScaffold(
                     if (useBrownHome) {
                         BrownHomeHeader(
                             onMenu = { onTabSelected(MainTab.MORE) },
-                            onNotifications = onNotificationsClick,
-                            onProfile = onProfileClick,
-                            profileInitial = profileInitial,
-                            profilePhoto = profilePhoto
+                            onNotifications = onNotificationsClick
                         )
                     } else {
                         ReferenceHomeHeader(
