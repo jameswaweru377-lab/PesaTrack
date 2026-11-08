@@ -1,5 +1,12 @@
 # PesaTrack Current State
 
+_Home-only heritage P mark (8 November 2026; Android CI and phone acceptance pending):_
+The centered brown Home header uses the previously approved purple P silhouette
+with its exact three vector paths recolored to warm brown tones on a light cream
+plate. Its centered PesaTrack name and "YOUR MONEY, YOUR PLANS" motto remain
+separate accessible text. The shared logo, launcher, notifications, other tabs,
+navigation, financial records and calculations are unchanged.
+
 _More and Settings monochrome palette (8 November 2026; Android CI and Redmi acceptance pending):_
 The approved More layout now uses a solid black profile card with white text,
 black icons on near-white tiles, neutral borders and white grouped preferences.

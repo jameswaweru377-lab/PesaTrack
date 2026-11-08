@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,11 +14,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.ui.components.MainTab
 
 /** A self-contained Home treatment: other approved tab designs remain unchanged. */
@@ -46,8 +49,11 @@ internal fun BrownHomeHeader(
         }
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(0.dp)) {
-            Text("P", color = p.coffee, fontFamily = FontFamily.Serif,
-                fontWeight = FontWeight.Black, fontSize = 26.sp, lineHeight = 26.sp)
+            Box(Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(p.cream),
+                contentAlignment = Alignment.Center) {
+                Image(painter = painterResource(R.drawable.ic_pesatrack_home_mark),
+                    contentDescription = null, modifier = Modifier.size(36.dp))
+            }
             Text("PesaTrack", color = p.ink, fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold, fontSize = 21.sp, lineHeight = 23.sp)
             Text("YOUR MONEY, YOUR PLANS", color = p.coffee, fontWeight = FontWeight.Bold,
