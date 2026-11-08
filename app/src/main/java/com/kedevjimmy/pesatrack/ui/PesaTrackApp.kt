@@ -251,6 +251,7 @@ fun PesaTrackApp(
                 onNotificationsClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
                 onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
                 currentTab = MainTab.HOME,
+                useBrownHome = true,
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 HomeScreen(
@@ -292,6 +293,9 @@ fun PesaTrackApp(
                     },
                     onGoalsClick = {
                         navController.navigate("saving-goals")
+                    },
+                    onBudgetClick = {
+                        navController.navigate("budgets")
                     },
                     onReportsClick = {
                         navController.navigate("reports")
