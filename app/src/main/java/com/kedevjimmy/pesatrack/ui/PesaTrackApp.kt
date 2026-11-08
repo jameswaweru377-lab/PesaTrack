@@ -850,12 +850,12 @@ fun PesaTrackApp(
                 currentTab = null,
                 onTabSelected = ::navigateToTab
             ) { padding ->
-                MoneySetupScreen(
+                MoreMonochromeTheme { MoneySetupScreen(
                     scaffoldPadding = padding,
                     initialSetup = false,
                     onDone = { navController.popBackStack() },
                     onBack = { navController.popBackStack() }
-                )
+                ) }
             }
         }
 
@@ -864,10 +864,10 @@ fun PesaTrackApp(
                 currentTab = null,
                 onTabSelected = ::navigateToTab
             ) { padding ->
-                MpesaConnectionScreen(
+                MoreMonochromeTheme { MpesaConnectionScreen(
                     scaffoldPadding = padding,
                     onBack = { navController.popBackStack() }
-                )
+                ) }
             }
         }
 
