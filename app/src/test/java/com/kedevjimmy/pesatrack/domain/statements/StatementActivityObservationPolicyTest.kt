@@ -83,6 +83,32 @@ class StatementActivityObservationPolicyTest {
         assertFalse(result.single { it.id == "activity:8" }.roleProtected)
     }
 
+    @Test fun manuallyReviewedAndUnresolvedActivityRowsCannotBeMatchedAgainByLegacyStatements() {
+        val results = StatementActivityObservationPolicy.project(listOf(
+            row(id = 11, state = "USER_CLASSIFIED"),
+            row(id = 12, state = "NEEDS_REVIEW"),
+            row(id = 13, state = "AUTO_CLASSIFIED")
+        ), owned)
+        assertEquals(3, results.size)
+        assertTrue(results.first { it.id == "activity:11" }.roleProtected)
+        assertTrue(results.first { it.id == "activity:12" }.roleProtected)
+        assertFalse(results.first { it.id == "activity:13" }.roleProtected)
+
+        for (activity in results.take(2)) {
+            val statement = activity.copy(
+                id = "statement:${activity.id}",
+                source = StatementEvidenceCorrelationPolicy.Source.MPESA_STATEMENT,
+                sourceId = "verified-statement",
+                sourceTotalsVerified = true,
+                roleProtected = false
+            )
+            val proof = StatementCrossSourceEventPolicy.reconcile(listOf(activity, statement), owned)
+            val legacy = StatementMatchReviewPolicy.project(listOf(activity, statement), proof)
+            assertTrue("User-reviewed Activity cash cannot be a confirmed copy", legacy.sameMovements.isEmpty())
+            assertTrue("User-reviewed Activity cash cannot be a transfer", legacy.transfers.isEmpty())
+        }
+    }
+
     @Test fun absentReferenceRemainsEvidenceButCannotCreateExactLink() {
         val projected = StatementActivityObservationPolicy.project(listOf(row(reference = null)), owned)
         assertEquals(1, projected.size)
