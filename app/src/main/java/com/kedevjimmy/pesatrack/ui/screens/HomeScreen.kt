@@ -242,6 +242,7 @@ fun HomeScreen(
     onSalaryClick: () -> Unit = {},
     onBillsClick: () -> Unit = {},
     onGoalsClick: () -> Unit = {},
+    onBudgetClick: () -> Unit = {},
     onReportsClick: () -> Unit = {},
     stateCache: HomeScreenCache? = null
 ) {
@@ -1401,8 +1402,8 @@ fun HomeScreen(
     )
 
 
-    // Keep the approved monochrome layout connected to the actual ledger.
-    // Illustrative values from the design reference are never persisted.
+    // Coffee-reference Home presentation. Every figure comes from actual records;
+    // the attractive KES amounts in the reference artwork are never hardcoded.
     val monthName = SimpleDateFormat("MMMM yyyy", homeConfigurationLocale)
         .format(selectedCalendar.time)
     val homeSummary = homeSummaryScope(
@@ -1459,8 +1460,8 @@ fun HomeScreen(
     }.sortedWith(compareBy<ReferenceUpcomingEntry> { !it.isSalary })
     LazyColumn(
         modifier = Modifier.padding(scaffoldPadding)
-            .background(HomeMonochromePalette.canvas),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 14.dp),
+            .background(BrownHomePalette.canvas),
+        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         if (homeError) item(key = "reference-error") {
@@ -1468,49 +1469,48 @@ fun HomeScreen(
                 color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = { refresh() }) { Text("Retry") }
         }
-        item(key = "monochrome-available") {
-            MonochromeAvailableMoney(
-                available = homeSummary.currentAvailableMinor?.let(::formatMoney)
-                    ?: "Unavailable",
-                netFlowMinor = homeSummary.selectedNetFlowMinor,
-                netFlowCaption = homeSummary.netFlowCaption,
-                formatMoney = ::formatMoney,
-                moneyIn = selectedMoneyIn?.let(::formatMoney) ?: "Unavailable",
-                expenses = selectedSpending?.let(::formatMoney) ?: "Unavailable",
-                month = homeSummary.monthLabel,
-                onMonth = { showHomeMonthPicker = true }
+        item(key = "brown-money-hero") {
+            BrownHomeHero(
+                homeSummary.currentAvailableMinor?.let(::formatMoney) ?: "Unavailable",
+                onAccountsClick
             )
         }
-        item(key = "annual-accounting-evidence") {
-            SharedAccountingEvidenceNotice(selectedCalendar.get(Calendar.YEAR),
-                ledgerUpdateState.revision, onReportsClick)
+        item(key = "brown-shortcuts") {
+            BrownHomeShortcuts(onActivityClick, onAccountsClick, onBudgetClick,
+                onGoalsClick, onDebtsClick, onReportsClick)
         }
-        item(key = "monochrome-radar") {
+        item(key = "brown-accounts") {
+            BrownHomeAccounts(visibleAccountGroups, accountBalanceSnapshots,
+                ::formatMoney, onAccountsClick)
+        }
+        item(key = "brown-upcoming") {
+            BrownHomeUpcoming(upcomingReferenceItems, onPlanClick,
+                onBillsClick, onSalaryClick)
+        }
+        item(key = "brown-monthly-snapshot") {
+            BrownHomeMonthlySnapshot(homeSummary.monthLabel,
+                selectedSpending?.let(::formatMoney) ?: "Unavailable",
+                onReportsClick, onMonth = { showHomeMonthPicker = true })
+        }
+        item(key = "brown-recent") {
+            BrownHomeRecent(monthTransactions, ::formatMoney,
+                onTransactionClick, onActivityClick)
+        }
+        item(key = "brown-review") {
             val uncategorized = chosenActivity?.trustedTransactions?.count {
                 it.reviewState != ReviewState.EXCLUDED.name &&
                     it.reviewState != ReviewState.NEEDS_REVIEW.name &&
                     categoryStore.canonicalId(it.category) in setOf("UNCATEGORIZED", "OTHER")
             }
-            MonochromeRadar(
+            BrownHomeReviewStatus(
                 pending = if (uncategorized == null) null
                     else uncategorized + (chosenActivity?.summary?.needsReviewCount ?: 0),
-                onClick = onAttentionClick
+                onReview = onAttentionClick
             )
         }
-        item(key = "monochrome-accounts") {
-            MonochromeAccounts(visibleAccountGroups, accountBalanceSnapshots,
-                ::formatMoney, onAccountsClick)
-        }
-        item(key = "monochrome-upcoming") {
-            MonochromeUpcoming(upcomingReferenceItems, onBillsClick, onSalaryClick)
-        }
-        item(key = "monochrome-recent-activity") {
-            MonochromeRecent(
-                rows = monthTransactions,
-                money = { formatMoney(it) },
-                onOpen = onTransactionClick,
-                onSeeAll = onActivityClick
-            )
+        item(key = "annual-accounting-evidence") {
+            SharedAccountingEvidenceNotice(selectedCalendar.get(Calendar.YEAR),
+                ledgerUpdateState.revision, onReportsClick)
         }
     }
 }

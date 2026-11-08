@@ -20,6 +20,9 @@ import com.kedevjimmy.pesatrack.data.profile.ProfilePhotoStore
 import com.kedevjimmy.pesatrack.ui.screens.ActivityMoneyActions
 import com.kedevjimmy.pesatrack.ui.screens.ReferenceHomeBottomBar
 import com.kedevjimmy.pesatrack.ui.screens.ReferenceHomeHeader
+import com.kedevjimmy.pesatrack.ui.screens.BrownHomeHeader
+import com.kedevjimmy.pesatrack.ui.screens.BrownHomeBottomBar
+import com.kedevjimmy.pesatrack.ui.screens.BrownHomePalette
 import com.kedevjimmy.pesatrack.ui.screens.HomeReferencePalette
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
@@ -53,6 +56,7 @@ fun AppScaffold(
     onNotificationsClick: () -> Unit = {},
     showTopBar: Boolean = true,
     useHomeHeader: Boolean = false,
+    useBrownHome: Boolean = false,
     content: @Composable (PaddingValues) -> Unit
 ) {
     var toolsOpen by remember { mutableStateOf(false) }
@@ -66,21 +70,33 @@ fun AppScaffold(
         ProfilePhotoStore(context).load()?.asImageBitmap()
     }
     Scaffold(
-        containerColor = if (currentTab == MainTab.HOME || currentTab == MainTab.ACTIVITY || useHomeHeader) HomeReferencePalette.canvas
+        containerColor = if (useBrownHome) BrownHomePalette.canvas
+            else if (currentTab == MainTab.ACTIVITY || useHomeHeader) HomeReferencePalette.canvas
             else MaterialTheme.colorScheme.background,
         topBar = {
             if (showTopBar && (currentTab == MainTab.HOME || currentTab == MainTab.ACTIVITY || useHomeHeader)) {
                 Box(
                     modifier = Modifier
-                        .background(HomeReferencePalette.canvas)
+                        .background(if (useBrownHome) BrownHomePalette.canvas
+                            else HomeReferencePalette.canvas)
                         .statusBarsPadding()
                 ) {
-                    ReferenceHomeHeader(
-                        onNotifications = onNotificationsClick,
-                        onProfile = onProfileClick,
-                        profileInitial = profileInitial,
-                        profilePhoto = profilePhoto
-                    )
+                    if (useBrownHome) {
+                        BrownHomeHeader(
+                            onMenu = { onTabSelected(MainTab.MORE) },
+                            onNotifications = onNotificationsClick,
+                            onProfile = onProfileClick,
+                            profileInitial = profileInitial,
+                            profilePhoto = profilePhoto
+                        )
+                    } else {
+                        ReferenceHomeHeader(
+                            onNotifications = onNotificationsClick,
+                            onProfile = onProfileClick,
+                            profileInitial = profileInitial,
+                            profilePhoto = profilePhoto
+                        )
+                    }
                 }
             } else if (showTopBar && currentTab != null) {
                 Surface(
@@ -98,9 +114,14 @@ fun AppScaffold(
             if (currentTab != null) {
                 Surface(
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-                    color = HomeReferencePalette.canvas
+                    color = if (useBrownHome) BrownHomePalette.canvas
+                        else HomeReferencePalette.canvas
                 ) {
-                    ReferenceHomeBottomBar(currentTab, onTabSelected)
+                    if (useBrownHome) {
+                        BrownHomeBottomBar(currentTab, onTabSelected, onProfileClick)
+                    } else {
+                        ReferenceHomeBottomBar(currentTab, onTabSelected)
+                    }
                 }
             }
         },
