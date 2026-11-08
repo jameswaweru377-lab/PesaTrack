@@ -31,7 +31,16 @@ internal class StatementOriginalMessageEvidenceReader(context: Context) {
             db.rawQuery(
                 """SELECT id,account_id,source_kind,type,direction,amount_minor,
                       occurred_at_epoch_ms,transaction_code,review_state,category,
-                      linked_account_id,relation_type,related_transaction_id,reversal_of_code
+                      linked_account_id,relation_type,related_transaction_id,reversal_of_code,
+                      fee_minor,fuliza_financed_minor,fuliza_access_fee_minor,fuliza_event_code,
+                      (EXISTS(SELECT 1 FROM debt_events d WHERE d.linked_transaction_id=transactions.id)
+                       OR EXISTS(SELECT 1 FROM investment_events i WHERE i.linked_transaction_id=transactions.id)
+                       OR EXISTS(SELECT 1 FROM personal_receivable_events p WHERE p.linked_transaction_id=transactions.id)
+                       OR EXISTS(SELECT 1 FROM transaction_allocations a WHERE a.transaction_id=transactions.id)
+                       OR EXISTS(SELECT 1 FROM payday_snapshots p WHERE p.salary_transaction_id=transactions.id)
+                       OR EXISTS(SELECT 1 FROM transactions r WHERE r.related_transaction_id=transactions.id OR
+                           (transactions.transaction_code IS NOT NULL AND
+                            r.reversal_of_code=transactions.transaction_code))) AS linked_cash_role
                    FROM transactions
                    WHERE account_id IN ($marks)
                      AND occurred_at_epoch_ms >= ? AND occurred_at_epoch_ms < ?
@@ -55,7 +64,9 @@ internal class StatementOriginalMessageEvidenceReader(context: Context) {
                             reviewState = cursor.getString(8).orEmpty(),
                             category = cursor.getString(9).orEmpty(),
                             structurallyLinked = !cursor.isNull(10) || !cursor.isNull(11) ||
-                                !cursor.isNull(12),
+                                !cursor.isNull(12) || cursor.getLong(14) != 0L ||
+                                cursor.getLong(15) != 0L || cursor.getLong(16) != 0L ||
+                                !cursor.isNull(17) || cursor.getInt(18) != 0,
                             reversalOfCode = cursor.getString(13)
                         ))
                         require(size <= maximumRows) {
