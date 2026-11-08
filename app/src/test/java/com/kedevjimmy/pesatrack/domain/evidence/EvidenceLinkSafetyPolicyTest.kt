@@ -12,6 +12,14 @@ class EvidenceLinkSafetyPolicyTest {
         assertTrue(EvidenceLinkSafetyPolicy.canLink(statement,receipt,"REFERENCE"))
         assertTrue(EvidenceLinkSafetyPolicy.canLink(statement,receipt.copy(transactionReference=" synthetic01 "),"REFERENCE"))
     }
+    @Test fun genericNarrationAndWeakCodesCannotCorroborateOneCashMovement() {
+        for (weak in listOf("TRANSFER", "WITHDRAWAL", "ABC1234", "TRANSACTION 2026")) {
+            assertFalse("Weak reference $weak must not link separate cash evidence",
+                EvidenceLinkSafetyPolicy.canLink(
+                    statement.copy(transactionReference = weak),
+                    receipt.copy(transactionReference = weak), "REFERENCE"))
+        }
+    }
     @Test fun amountDayAloneCannotMergeSeparateDeposits() {
         assertFalse(EvidenceLinkSafetyPolicy.canLink(statement.copy(transactionReference=null),
             receipt.copy(transactionReference=null),"REFERENCE"))
