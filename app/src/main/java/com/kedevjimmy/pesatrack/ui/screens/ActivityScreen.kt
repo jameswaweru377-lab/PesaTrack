@@ -894,7 +894,7 @@ fun ActivityScreen(
     Column(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(HomeMonochromePalette.canvas)
+            .background(BrownHomePalette.canvas)
     ) {
         LazyColumn(
             state = activityListState,
@@ -931,100 +931,46 @@ fun ActivityScreen(
                 Text("Showing your last successfully loaded activity.")
                 TextButton(onClick = { refresh() }) { Text("Try again") }
             }
-            item(key = "premium-search") {
-                val colors = MaterialTheme.colorScheme
-                Row(Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                    verticalAlignment=Alignment.CenterVertically,
-                    horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-                    Surface(
-                        modifier = Modifier.weight(1f).heightIn(min = 52.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color.White,
-                        border = BorderStroke(1.dp, Color.White)
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                Icons.Rounded.Search,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = colors.onSurfaceVariant
-                            )
-                            BasicTextField(
-                                value = searchQuery,
-                                onValueChange = { searchQuery = it },
-                                modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                    color = colors.onSurface
-                                ),
-                                cursorBrush = SolidColor(colors.primary),
-                                decorationBox = { innerTextField ->
-                                    Box(contentAlignment = Alignment.CenterStart) {
-                                        if (searchQuery.isEmpty()) {
-                                            Text(
-                                                "Search transactions",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = colors.onSurfaceVariant
-                                            )
-                                        }
-                                        innerTextField()
-                                    }
-                                }
-                            )
-                        }
-                    }
-                    Surface(
-                        onClick = { showExtraFilters = !showExtraFilters },
-                        modifier = Modifier.size(50.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color.White,
-                        border = BorderStroke(1.dp, HomeMonochromePalette.line)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.Tune, "Advanced filters",
-                                modifier = Modifier.size(23.dp), tint = HomeMonochromePalette.ink)
-                        }
-                    }
+            item(key = "activity-brown-heading") {
+                BrownActivityHeading(periodLabel) {
+                    payCycleMode = false
+                    showMonthPicker = true
                 }
             }
             item(key = "activity-period-overview") {
-                Box(Modifier.padding(bottom = 10.dp)) {
-                    ActivityDesign3SummaryCard(
-                        snapshot = displaySnapshot ?: snapshot,
-                        monthLabel = periodLabel,
-                        onMonth = { payCycleMode = false; showMonthPicker = true }
-                    )
+                Box(Modifier.padding(bottom = 8.dp)) {
+                    BrownActivityMonthlyHero(displaySnapshot ?: snapshot, payCycleMode)
                 }
             }
             item(key = "activity-attention-card") {
-                Box(Modifier.padding(bottom = 10.dp)) {
-                    ActivityReferenceAttention(
+                Box(Modifier.padding(bottom = 8.dp)) {
+                    BrownActivityReview(
                         count = needsAttentionCount,
-                        onClick = {
+                        onReview = {
                             selectedGlobalQueue = "Attention"
                             selectedFilter = "Needs Review"
                         }
                     )
                 }
             }
-            item(key = "premium-filters") {
+            item(key = "premium-search") {
                 Box(Modifier.padding(bottom = 8.dp)) {
-                    ActivityCompactFilters(selectedFilter) {
+                    BrownActivitySearch(
+                        query = searchQuery,
+                        onQuery = { searchQuery = it },
+                        onFilters = { showExtraFilters = !showExtraFilters }
+                    )
+                }
+            }
+            item(key = "premium-filters") {
+                Box(Modifier.padding(bottom = 4.dp)) {
+                    BrownActivitySegmentedFilters(selectedFilter) {
                         if (selectedFilter != it) {
                             selectedFilter = it
                             selectedGlobalQueue = if (it == "Needs Review") "Attention" else null
                         }
                     }
                 }
-            }
-            if (onStatementsClick != null) item(key = "annual-accounting-evidence") {
-                val year = Calendar.getInstance().apply { timeInMillis = selectedMonthEpochMs }
-                    .get(Calendar.YEAR)
-                SharedAccountingEvidenceNotice(year, ledgerUpdateState.revision, onStatementsClick)
             }
             if (showExtraFilters) item(key = "activity-tools") {
                 ActivityToolsDisclosure(
@@ -1544,6 +1490,13 @@ fun ActivityScreen(
                             )
                         }
                     } else {
+                        item(key = "activity-brown-recent-heading") {
+                            BrownActivityRecentHeading {
+                                searchQuery = ""
+                                selectedFilter = "All"
+                                selectedGlobalQueue = null
+                            }
+                        }
                         groupedFiltered.forEach {
                                 (dayEpochMs, transactions) ->
                             item(
@@ -1553,7 +1506,7 @@ fun ActivityScreen(
                                     "-" +
                                     dayEpochMs
                             ) {
-                                ActivityDateHeader(
+                                BrownActivityDateHeader(
                                     dayEpochMs = dayEpochMs,
                                     netMinor = dailyNetByDay[dayEpochMs]
                                 )
@@ -1572,31 +1525,13 @@ fun ActivityScreen(
                                     }
                                 }
                             ) { index, transaction ->
-                                ActivityRow(
+                                BrownActivityRow(
                                     item = transaction,
                                     position = activityGroupPosition(index, transactions.size),
                                     debtLink = receivableLinks[transaction.id],
                                     accountName =
                                         transaction
                                             .accountId
-                                            ?.takeIf {
-                                                it in
-                                                    confirmedAccountIds ||
-                                                    it ==
-                                                        AccountStore
-                                                            .DEFAULT_MPESA_ID ||
-                                                    it ==
-                                                        AccountStore
-                                                            .DEFAULT_CASH_ID
-                                            }
-                                            ?.let {
-                                                accountsById[
-                                                    it
-                                                ]?.name
-                                            },
-                                    linkedAccountName =
-                                        transaction
-                                            .linkedAccountId
                                             ?.takeIf {
                                                 it in
                                                     confirmedAccountIds ||
@@ -1627,6 +1562,11 @@ fun ActivityScreen(
                         }
                     }
                 }
+            }
+            if (onStatementsClick != null) item(key = "annual-accounting-evidence") {
+                val year = Calendar.getInstance().apply { timeInMillis = selectedMonthEpochMs }
+                    .get(Calendar.YEAR)
+                SharedAccountingEvidenceNotice(year, ledgerUpdateState.revision, onStatementsClick)
             }
             item(key = "own-account-review-more") {
                 OwnedTransferReviewSection()
@@ -4006,45 +3946,6 @@ private fun ReviewGroupRow(
     }
 }
 
-/**
- * Read-only daily spending, not a balance. Uses all filtered records for the
- * day, even when only the first page of rows has been materialized.
- */
-@Composable
-private fun ActivityDateHeader(
-    dayEpochMs: Long,
-    netMinor: Long?
-) {
-    val p = HomeMonochromePalette
-    val dayName = dayLabel(dayEpochMs)
-    val shortDate = SimpleDateFormat(
-        "d MMM",
-        androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
-    ).format(Date(dayEpochMs))
-    val heading = if (dayName == "Today" || dayName == "Yesterday")
-        "$dayName · $shortDate" else dayName
-    val netLabel = when {
-        netMinor == null -> "Net unavailable"
-        netMinor > 0 -> "Net +${activityKesLabel(netMinor)}"
-        netMinor < 0 -> CheckedMoney.orNull { CheckedMoney.negate(netMinor) }
-            ?.let { "Net -${activityKesLabel(it)}" } ?: "Net unavailable"
-        else -> "Net KES 0"
-    }
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(heading, modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-            color = p.ink)
-        Text(netLabel, style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = if (netMinor != null && netMinor > 0) p.green else p.muted,
-            maxLines = 2)
-    }
-}
-
 @Composable
 private fun ActivityLoadingMoreRows() {
     val base = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .16f)
@@ -4108,153 +4009,5 @@ internal fun activityGroupPosition(index: Int, count: Int): ActivityGroupPositio
         index == 0 -> ActivityGroupPosition.FIRST
         index == count - 1 -> ActivityGroupPosition.LAST
         else -> ActivityGroupPosition.MIDDLE
-    }
-}
-
-@Composable
-private fun ActivityRow(
-    item: StoredTransaction,
-    position: ActivityGroupPosition = ActivityGroupPosition.ONLY,
-    debtLink: ReceivableActivityLink? = null,
-    accountName: String?,
-    linkedAccountName: String?,
-    onClick: () -> Unit
-) {
-    val context = LocalContext.current
-    val categoryStore = remember { CategoryStore.get(context) }
-    val categoryId = categoryStore.canonicalId(item.category)
-    val categoryName = categoryStore.labelFor(categoryId)
-    val needsReview = item.reviewState == ReviewState.NEEDS_REVIEW.name
-    val refund = item.relationType == TransactionStore.RELATION_REFUND
-    val direction = runCatching { MoneyDirection.valueOf(item.direction) }
-        .getOrDefault(MoneyDirection.NEUTRAL)
-    val pillColor = HomeMonochromePalette.green
-    val amountColor = when {
-        refund || direction == MoneyDirection.INCOME ||
-            item.type == MpesaTransactionType.REVERSAL.name -> HomeMonochromePalette.green
-        direction == MoneyDirection.EXPENSE -> HomeMonochromePalette.ink
-        direction == MoneyDirection.TRANSFER -> HomeMonochromePalette.ink
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    val name = financialActivityDisplayName(
-        item = item,
-        rawDisplayName = item.evidenceLabel?.takeIf {
-            item.evidenceSource?.startsWith("entity_intelligence:") == true
-        } ?: item.counterparty ?: humanize(item.type),
-        accountName = accountName
-    )
-    Surface(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        color = Color.Transparent
-    ) {
-        Column {
-            Row(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)
-                    .padding(horizontal = 4.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Box {
-                    ActivityReferenceMerchantIcon(categoryId = categoryId, direction = direction)
-                    if (needsReview) {
-                        Surface(
-                            modifier = Modifier.align(Alignment.BottomEnd).size(8.dp),
-                            shape = CircleShape,
-                            color = pillColor,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.surface)
-                        ) {}
-                    }
-                }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        name,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = HomeMonochromePalette.ink,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Text(
-                            when {
-                                needsReview -> "Needs Review"
-                                refund -> "Refund"
-                                debtLink?.active == true && debtLink.kind == "LENT" -> "Money lent"
-                                debtLink?.active == true && debtLink.kind == "REPAID" -> "Repayment"
-                                direction == MoneyDirection.TRANSFER -> "Transfer"
-                                else -> categoryName
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = HomeMonochromePalette.muted,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        )
-                        Text("•", style = MaterialTheme.typography.labelSmall,
-                            color = HomeMonochromePalette.muted)
-                        Text(
-                            SimpleDateFormat("h:mm a", androidx.compose.ui.platform.LocalConfiguration.current.locales[0])
-                                .format(Date(item.occurredAtEpochMs)),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = HomeMonochromePalette.muted,
-                            maxLines = 1
-                        )
-                    }
-                }
-                Text(
-                    amountLabel(item, direction).replace("+ KES", "+KES").replace("- KES", "-KES"),
-                    color = amountColor,
-                    fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    modifier = Modifier.widthIn(max = 138.dp)
-                )
-            }
-            if (position == ActivityGroupPosition.FIRST ||
-                position == ActivityGroupPosition.MIDDLE) {
-                HorizontalDivider(
-                    modifier = Modifier.padding(start = 54.dp),
-                    thickness = .5.dp,
-                    color = HomeMonochromePalette.line
-                )
-            }
-        }
-    }
-}
-
-
-@Composable
-private fun ActivityReferenceMerchantIcon(
-    categoryId: String,
-    direction: MoneyDirection
-) {
-    val icon = when {
-        direction == MoneyDirection.TRANSFER -> Icons.Rounded.SyncAlt
-        direction == MoneyDirection.INCOME -> Icons.Rounded.Work
-        categoryId.contains("GROCER", true) || categoryId.contains("SHOP", true) ->
-            Icons.Rounded.ShoppingCart
-        categoryId.contains("RENT", true) || categoryId.contains("HOUS", true) ->
-            Icons.Rounded.Home
-        categoryId.contains("EAT", true) || categoryId.contains("FOOD", true) ->
-            Icons.Rounded.Restaurant
-        categoryId.contains("ELECT", true) -> Icons.Rounded.Bolt
-        categoryId.contains("INTERNET", true) -> Icons.Rounded.Wifi
-        categoryId.contains("PHONE", true) -> Icons.Rounded.PhoneAndroid
-        else -> Icons.AutoMirrored.Rounded.HelpOutline
-    }
-    Surface(
-        modifier = Modifier.size(PesaDesignTokens.iconBubble),
-        shape = RoundedCornerShape(PesaDesignTokens.iconRadius),
-        color = HomeMonochromePalette.softGreen
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null,
-                modifier = Modifier.size(22.dp), tint = HomeMonochromePalette.ink)
-        }
     }
 }

@@ -1,5 +1,18 @@
 # PesaTrack Current State
 
+_Activity brown-ledger redesign (8 November 2026; CI and Redmi acceptance pending):_
+The approved Activity treatment now shares Home's centered brown PesaTrack
+header and five-tab square-selection navigation. A compact coin-and-receipt
+period card shows the existing read-only Expenses, Money in, Transfers and
+Invested totals without changing transactions. The review banner, search,
+advanced tools, month picker, and segmented All / Money In / Money Out /
+Transfers / Review filters remain connected to their existing actions.
+Daily net and rows reuse the trusted local ledger, presented in compact inset
+white groups. No changes to posting, accounting classification, imports,
+permissions, storage, backups or signing. The reference screenshot's sample
+amounts are not production data. Android CI and real-phone layout review remain
+required.
+
 _Home-only heritage P mark (8 November 2026; Android CI and phone acceptance pending):_
 The centered brown Home header uses the previously approved purple P silhouette
 with its exact three vector paths recolored to warm brown tones on a light cream
