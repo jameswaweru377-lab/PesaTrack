@@ -69,11 +69,10 @@ internal fun TransactionDetailSummary(item: StoredTransaction, icon: ImageVector
 internal fun TransactionDetailFacts(
     item: StoredTransaction,
     accountLabel: String,
-    note: String,
     onAccount: (() -> Unit)?,
-    onNote: () -> Unit,
     onCategory: () -> Unit = {}
 ) {
+    val p = BrownHomePalette
     val direction = runCatching { MoneyDirection.valueOf(item.direction) }
         .getOrDefault(MoneyDirection.NEUTRAL)
     val incomingAdjustment = transactionDetailIsIncoming(item.type, item.relationType)
@@ -86,7 +85,6 @@ internal fun TransactionDetailFacts(
     val payee = transactionFactsPayee(item.counterparty)
     val categoryLabel = CategoryStore.get(LocalContext.current).labelFor(item.category)
     val reference = item.transactionCode?.trim()?.takeIf { it.isNotBlank() }
-    val recordedNote = note.trim()
     Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 5.dp)
                 .testTag("transaction-facts-approved"),
@@ -96,7 +94,7 @@ internal fun TransactionDetailFacts(
                 "Here are the key details about this transaction.",
                 modifier = Modifier.padding(start = 4.dp, bottom = 10.dp),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = p.muted
             )
             TransactionFactVisualRow(
                 icon = Icons.Rounded.AccountBalance,
@@ -222,16 +220,6 @@ internal fun TransactionDetailFacts(
                 help = "Recorded account or import source.",
                 value = transactionFactsChannel(accountLabel, item.sourceKind)
             )
-            TransactionFactSeparator()
-            TransactionFactVisualRow(
-                icon = Icons.Rounded.StickyNote2,
-                title = "Note",
-                help = if (recordedNote.isNotEmpty()) "Edit your saved note."
-                    else "Add your own note (optional).",
-                value = if (recordedNote.isEmpty()) "Add note" else "View note",
-                onClick = onNote,
-                valueTone = TransactionFactValueTone.ACCENT
-            )
         }
 }
 
@@ -242,7 +230,7 @@ private fun TransactionFactSeparator() {
     HorizontalDivider(
         modifier = Modifier.padding(start = 47.dp, end = 2.dp),
         thickness = .5.dp,
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .46f)
+        color = BrownHomePalette.outline.copy(alpha = .55f)
     )
 }
 
@@ -257,14 +245,8 @@ private fun TransactionFactVisualRow(
     showCopy: Boolean = false,
     valueTone: TransactionFactValueTone = TransactionFactValueTone.NORMAL
 ) {
-    val tint = when {
-        valueTone == TransactionFactValueTone.EMPHASIS || title == "Type" -> Color(0xFFE61965)
-        title == "Category" -> Color(0xFF008D73)
-        title == "Date" || title == "Account" -> Color(0xFF5D00EB)
-        title == "Time" || title == "Merchant / Payee" -> Color(0xFF276BEA)
-        title == "Source" -> Color(0xFFE87115)
-        else -> MaterialTheme.colorScheme.primary
-    }
+    val p = BrownHomePalette
+    val tint = p.coffee
     Row(
         modifier = Modifier.fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
@@ -275,7 +257,7 @@ private fun TransactionFactVisualRow(
     ) {
         Surface(
             modifier = Modifier.size(39.dp),
-            color = tint.copy(alpha = .13f),
+            color = p.cream,
             shape = RoundedCornerShape(12.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -284,11 +266,11 @@ private fun TransactionFactVisualRow(
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                title, fontWeight = FontWeight.Medium,
+                title, fontWeight = FontWeight.Medium, color = p.ink,
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                help, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                help, color = p.muted,
                 fontSize = 11.sp, lineHeight = 14.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
@@ -296,8 +278,7 @@ private fun TransactionFactVisualRow(
         }
         Text(
             value, modifier = Modifier.weight(.78f),
-            color = if (valueTone == TransactionFactValueTone.NORMAL)
-                MaterialTheme.colorScheme.onSurface else tint,
+            color = if (valueTone == TransactionFactValueTone.NORMAL) p.ink else tint,
             style = MaterialTheme.typography.bodySmall,
             fontWeight = if (valueTone == TransactionFactValueTone.EMPHASIS)
                 FontWeight.Bold else FontWeight.Medium,
@@ -310,13 +291,13 @@ private fun TransactionFactVisualRow(
                 Icons.Rounded.ContentCopy,
                 contentDescription = "Copy transaction reference",
                 modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = p.coffee
             )
         } else if (showChevron) {
             Icon(
                 Icons.Rounded.ChevronRight, contentDescription = "Open account",
                 modifier = Modifier.size(17.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = p.coffee
             )
         }
     }
