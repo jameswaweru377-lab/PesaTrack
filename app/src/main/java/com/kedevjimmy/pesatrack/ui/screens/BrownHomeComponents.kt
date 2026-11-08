@@ -143,11 +143,11 @@ internal fun BrownHomeShortcuts(
 @Composable
 internal fun BrownHomeSectionTitle(title: String, action: String, onAction: () -> Unit) {
     val p = BrownHomePalette
-    Row(Modifier.fillMaxWidth().heightIn(min = 36.dp),
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Text(title, Modifier.weight(1f), color = p.ink, fontSize = 20.sp,
             fontWeight = FontWeight.Bold, letterSpacing = (-.5).sp)
-        Row(Modifier.heightIn(min = 36.dp).clickable(onClick = onAction),
+        Row(Modifier.heightIn(min = 48.dp).clickable(onClick = onAction),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(action, color = p.coffee, fontSize = 12.sp)
@@ -199,7 +199,7 @@ internal fun BrownHomeAccounts(
         }
         Row(verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            Icon(Icons.Rounded.InfoOutline, null, Modifier.size(15.dp), tint = p.muted)
+            Icon(Icons.Rounded.Info, null, Modifier.size(15.dp), tint = p.muted)
             Text("Recorded balances · Not live synced", color = p.muted, fontSize = 11.sp)
         }
     }
@@ -250,7 +250,7 @@ internal fun BrownHomeUpcoming(
                     }
                     items.take(2).forEachIndexed { index, item ->
                         if (index > 0) HorizontalDivider(color = p.outline.copy(alpha = .65f))
-                        Row(Modifier.fillMaxWidth().heightIn(min = 42.dp)
+                        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
                             .clickable(onClick = if (item.isSalary) onSalary else onBills),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(7.dp)) {

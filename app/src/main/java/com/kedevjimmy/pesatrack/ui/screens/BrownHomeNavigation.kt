@@ -59,11 +59,11 @@ internal fun BrownHomeHeader(
             Text("YOUR MONEY, YOUR PLANS", color = p.coffee, fontWeight = FontWeight.Bold,
                 letterSpacing = 1.2.sp, fontSize = 8.sp, lineHeight = 12.sp)
         }
-        Box(Modifier.size(44.dp).clickable(onClickLabel = "Notifications", onClick = onNotifications),
+        Box(Modifier.size(48.dp).clickable(onClickLabel = "Notifications", onClick = onNotifications),
             contentAlignment = Alignment.Center) {
             Icon(Icons.Rounded.NotificationsNone, "Notifications", Modifier.size(26.dp), tint = p.ink)
         }
-        Box(Modifier.size(44.dp).clickable(onClickLabel = "Your profile", onClick = onProfile),
+        Box(Modifier.size(48.dp).clickable(onClickLabel = "Your profile", onClick = onProfile),
             contentAlignment = Alignment.Center) {
             Surface(Modifier.size(36.dp), shape = CircleShape, color = Color(0xFFEEDAC7)) {
                 Box(contentAlignment = Alignment.Center) {
