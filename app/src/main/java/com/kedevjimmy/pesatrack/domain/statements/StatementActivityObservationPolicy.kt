@@ -70,7 +70,7 @@ object StatementActivityObservationPolicy {
                 movementMinor = if (sign < 0) -row.amountMinor else row.amountMinor,
                 reference = row.reference,
                 ownershipConfirmed = true,
-                roleProtected = row.reviewState == "EXCLUDED" ||
+                roleProtected = row.reviewState in setOf("EXCLUDED", "USER_CLASSIFIED", "NEEDS_REVIEW") ||
                     row.category in protectedCategories || row.structurallyLinked ||
                     row.reversalOfCode != null
             )
