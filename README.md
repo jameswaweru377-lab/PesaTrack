@@ -29,6 +29,8 @@ Bank PDF identification runs locally, asks for bank confirmation when a supporte
 
 When two statement PDFs contain matching amounts but only a generic narration (such as `TRANSFER`), PesaTrack preserves both records and holds the combined source-only subtotal for review. A narration label is not a verified duplicate receipt code.
 
+Reconciliation relies on confirmed account identities and cash-movement evidence, not a fixed Equity/M-Pesa pairing. If a bank account's full identifier changes, older documents remain in its history but stop serving as proof of a current account movement. Bank PDF **format support is separate**: verified bank-PDF admission remains limited to the supported Equity layout, while other banks' PDFs need their own validation before admission.
+
 ## What you can do
 
 | | Feature | What it helps with |

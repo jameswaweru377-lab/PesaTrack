@@ -129,6 +129,35 @@ class TransferReconciliationStoreTest {
         assertTrue(TransferReconciliationStore(app).read(2026).reconciliation.pairs.isEmpty())
     }
 
+    @Test fun historicalBankIdentityChangeCannotRemainCrossSourceProof() {
+        archive { it.execSQL("UPDATE statement_legs_v2 SET reference='SYN123456789'") }
+        val reader = StatementEvidenceReadModel(app)
+        val original = reader.read(at - 1_000L, at + 1_000L)
+        assertEquals(2, original.observations.size)
+        assertEquals(1, original.correlation.uniqueLinks.size)
+        assertTrue(original.observations.all { it.ownershipConfirmed })
+
+        AccountStore.get(app).updateDetails(bank, "001111222233", null)
+        val changed = reader.read(at - 1_000L, at + 1_000L)
+        assertEquals("Historical source must remain visible", original.observations.size,
+            changed.observations.size)
+        assertEquals("Source-only coverage must not change", original.coverage, changed.coverage)
+        assertTrue("Stale account identity must not prove a cash link",
+            changed.correlation.uniqueLinks.isEmpty())
+        assertFalse(changed.observations.single { it.accountId == bank }.ownershipConfirmed)
+        assertTrue(changed.observations.single { it.accountId == destination }.ownershipConfirmed)
+        val review = reader.readWithActivityEvidence(at - 1_000L, at + 1_000L)
+        assertEquals(1, review.excludedBankSourceCount)
+        assertEquals(1, review.eligibleStatementObservations.size)
+        assertTrue(review.eventProof.transferCandidates.isEmpty())
+
+        AccountStore.get(app).updateDetails(bank, "0012 3456-7890", null)
+        val restored = reader.read(at - 1_000L, at + 1_000L)
+        assertEquals(1, restored.correlation.uniqueLinks.size)
+        assertEquals(original.coverage, restored.coverage)
+        assertEquals(0, reader.readWithActivityEvidence(at - 1_000L, at + 1_000L).excludedBankSourceCount)
+    }
+
     @Test fun previousYearCopyConfirmationBlocksJanuaryTransferUsingSameLeg() {
         insert("c".repeat(64), bank, "001234567890", -50000, "Transfer to account 009876543210", null)
         val december = java.time.ZonedDateTime.of(2025, 12, 31, 23, 50, 0, 0,

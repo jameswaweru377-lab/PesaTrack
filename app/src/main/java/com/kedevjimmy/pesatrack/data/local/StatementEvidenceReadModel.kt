@@ -61,10 +61,11 @@ class StatementEvidenceReadModel(context: Context) {
                 it.type in setOf(AccountType.BANK, AccountType.MOBILE_WALLET)
         }
         val owned = accounts.map { it.id }.toSet()
-        val bankArchive = StatementBankArchiveStore(app)
-        val matchingSources = accounts.filter { it.type == AccountType.BANK }.flatMap { account ->
-            bankArchive.sourceIdsMatchingIdentity(account.id, account.identifier)
-        }.toSet()
+        // Use the identity decision from the same read snapshot; a later account
+        // edit must not create two contradictory sets of eligible source rows.
+        val matchingSources = statements.observations.filter {
+            it.source == StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT && it.ownershipConfirmed
+        }.map { it.sourceId }.toSet()
         val eligibleStatements = statements.observations.filter {
             it.source != StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT || it.sourceId in matchingSources
         }
@@ -156,8 +157,19 @@ class StatementEvidenceReadModel(context: Context) {
             compareBy<StatementEvidenceCorrelationPolicy.Observation> { it.occurredAt }
                 .thenBy { it.id }
         )
-        return Snapshot(ordered,
-            StatementEvidenceCorrelationPolicy.reconcile(ordered, confirmed),
+        // Historical statements remain accessible, including their source-only
+        // coverage, after a user changes the configured full bank account number.
+        // Such an old statement must no longer corroborate a *current* cash leg.
+        val eligibleBankSources = accounts.filter { it.type == AccountType.BANK }
+            .flatMap { account -> archive.sourceIdsMatchingIdentity(account.id, account.identifier) }
+            .toSet()
+        val currentIdentityEvidence = ordered.map { row ->
+            if (row.source == StatementEvidenceCorrelationPolicy.Source.BANK_STATEMENT &&
+                row.sourceId !in eligibleBankSources) row.copy(ownershipConfirmed = false)
+            else row
+        }
+        return Snapshot(currentIdentityEvidence,
+            StatementEvidenceCorrelationPolicy.reconcile(currentIdentityEvidence, confirmed),
             StatementSourceCoveragePolicy.analyze(ordered),
             ordered.map { it.accountId }.toSet(), ordered.map { it.sourceId }.toSet(), PrivateBankDescriptions(bankDescriptions))
     }

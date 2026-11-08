@@ -1,5 +1,16 @@
 # PesaTrack Current State
 
+_Provider-neutral bank statement identity proof (8 November 2026; CI and phone acceptance pending):_
+Historical verified bank documents remain in read-only source coverage and
+per-account statement history when a confirmed account's full identifier
+changes. The shared cross-source correlation snapshot now marks those older
+documents ineligible to prove a current owned-account movement. The Statements
+transfer review reuses that same identity decision instead of a second check.
+This applies to account identities, not specific bank names; it adds no bank
+PDF formats and changes no source totals, Home/Activity accounting, consent,
+archive rows, schema, backups or UI. N2 #537 remains on hold, and physical
+Redmi acceptance is outstanding.
+
 _Coin-backed Transaction Details refinement (8 November 2026; CI and Redmi acceptance pending):_
 The selected warm cream Transaction Details page uses a local decorative
 Kenyan-coin/receipt image only behind the payment summary. Its values, recorded
