@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <!-- Home-only brown recolor of the approved purple P from PR #453. -->
+    <path
+        android:fillColor="#68351D"
+        android:pathData="M14,38 L14,31 C14,19 23,12 35,12 L61,12 C74,12 83,21 83,35 L83,38 Z" />
+    <path
+        android:fillColor="#92502D"
+        android:pathData="M14,39 C23,48 32,56 42,64 L42,80 C42,84 40,86 36,86 L21,86 C17,86 14,83 14,79 Z" />
+    <path
+        android:fillColor="#A86F4B"
+        android:pathData="M42,64 C42,51 54,43 83,39 C83,55 72,64 55,64 Z" />
+</vector>
