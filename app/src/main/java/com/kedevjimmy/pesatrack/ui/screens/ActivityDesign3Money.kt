@@ -15,6 +15,11 @@ internal data class ActivityDesign3Totals(
     val investedMinor: Long?
 )
 
+/** A broker transfer or investment label alone is not a confirmed purchase. */
+internal fun isActivityConfirmedInvestmentBuy(item: StoredTransaction): Boolean =
+    item.direction == MoneyDirection.EXPENSE.name &&
+        item.relationType == TransactionStore.RELATION_INVESTMENT_BUY
+
 /**
  * Investment purchases and ordinary account moves are distinct cards; a
  * transfer to a broker is not proof that a security was purchased.
@@ -24,10 +29,7 @@ internal fun activityDesign3Totals(snapshot: ActivityLedgerSnapshot): ActivityDe
     val invested = CheckedMoney.orNull {
         // The confirmed investment-buy action is stored as EXPENSE in the
         // canonical ledger. This card reclassifies its presentation only.
-        trusted.filter {
-            it.direction == MoneyDirection.EXPENSE.name &&
-                it.relationType == TransactionStore.RELATION_INVESTMENT_BUY
-        }.checkedMoneySumOf { it.amountMinor }
+        trusted.filter(::isActivityConfirmedInvestmentBuy).checkedMoneySumOf { it.amountMinor }
     }
     val transfers = CheckedMoney.orNull {
         trusted.filter {

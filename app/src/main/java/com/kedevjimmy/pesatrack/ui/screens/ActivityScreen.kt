@@ -824,6 +824,7 @@ fun ActivityScreen(
                         item.direction == MoneyDirection.TRANSFER.name
                 "Money Out" ->
                     item.direction == MoneyDirection.EXPENSE.name
+                "Invested" -> isActivityConfirmedInvestmentBuy(item)
                 "Money In" ->
                     item.direction == MoneyDirection.INCOME.name
                 "Transfers" ->
@@ -999,11 +1000,6 @@ fun ActivityScreen(
                 selectedFilter == "Needs Review" &&
                 selectedGlobalQueue == "Attention"
             ) {
-                if (needsAttentionCount == 0) {
-                    item {
-                        EmptyGlobalReviewState()
-                    }
-                }
 
                 if (
                     reviewableFinancialEntities

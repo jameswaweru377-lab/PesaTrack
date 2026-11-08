@@ -728,7 +728,9 @@ fun PesaTrackApp(
                 ?: return@composable
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.ACTIVITY,
-                onTabSelected = ::navigateToTab
+                onTabSelected = ::navigateToTab,
+                showTopBar = false,
+                useBrownHome = true
             ) { padding ->
                 TransactionDetailScreen(
                     scaffoldPadding = padding,
