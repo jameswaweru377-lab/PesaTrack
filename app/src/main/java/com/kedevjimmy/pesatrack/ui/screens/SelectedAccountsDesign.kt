@@ -3,6 +3,9 @@ package com.kedevjimmy.pesatrack.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -14,16 +17,21 @@ import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Savings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot
 import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
 import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
+import kotlinx.coroutines.launch
 
 /** The selected Accounts concept uses black controls, with mint only as a quiet background. */
 internal val AccountBlack = Color(0xFF151716)
@@ -38,55 +46,111 @@ internal fun SelectedAccountsCompass(
     val available = accounts.filter { it.balanceMinor != null }
     val total = CheckedMoney.orNull { available.checkedMoneySumOf { requireNotNull(it.balanceMinor) } }
     val complete = available.size == accounts.size && total != null
-    val positive = available.filter { (it.balanceMinor ?: 0) > 0 }
-    val positiveTotal = CheckedMoney.orNull { positive.checkedMoneySumOf { requireNotNull(it.balanceMinor) } }
-    Surface(shape = RoundedCornerShape(26.dp), color = AccountCream) {
-        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Balance Compass", style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold, color = AccountBlack)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(70.dp).background(AccountMint, RoundedCornerShape(19.dp)),
-                    contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.AccountBalanceWallet, null, tint = AccountBlack, modifier = Modifier.size(35.dp))
-                }
-                Spacer(Modifier.width(14.dp))
-                Column {
-                    Text(if (complete) "Money across accounts" else "Known recorded balances",
-                        style = MaterialTheme.typography.bodyMedium)
-                    Text(if (hidden) "••••••" else total?.let(::formatKesAmount) ?: "Unavailable",
-                        style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
-                        color = AccountBlack)
-                }
+    val cards = listOf<AccountDisplayLine?>(null) + accounts
+    val pager = rememberPagerState(pageCount = { cards.size })
+    val scope = rememberCoroutineScope()
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.padding(horizontal = 4.dp)) {
+            Text(if (complete) "Total across accounts" else "Known recorded balances",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (hidden) "••••••" else total?.let(::formatKesAmount) ?: "Unavailable",
+                style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold,
+                color = Color(0xFF431A10))
+        }
+        HorizontalPager(state = pager, contentPadding = PaddingValues(end = 44.dp),
+            pageSpacing = 12.dp) { page ->
+            val line = cards[page]
+            HeritageAccountCard(
+                title = line?.name ?: "All Accounts",
+                amount = if (hidden) "••••••" else (line?.balanceMinor ?: if (page == 0) total else null)
+                    ?.let(::formatKesAmount) ?: "Balance unavailable",
+                subtitle = if (page == 0) "YOUR MONEY AT A GLANCE" else
+                    when (line?.quality) {
+                        com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality.OBSERVED -> "OBSERVED BALANCE"
+                        com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality.USER_ENTERED -> "ENTERED BY YOU"
+                        com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality.RECONSTRUCTED -> "RECONSTRUCTED BALANCE"
+                        else -> "BALANCE NOT CONFIRMED"
+                    },
+                names = if (page == 0) accounts.take(3).map { it.name } else listOfNotNull(line?.name),
+                index = page
+            )
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { scope.launch { pager.animateScrollToPage((pager.currentPage - 1).coerceAtLeast(0)) } },
+                enabled = pager.currentPage > 0) { Text("‹", style = MaterialTheme.typography.headlineSmall) }
+            cards.indices.forEach { index ->
+                Box(Modifier.padding(horizontal = 4.dp).size(if (index == pager.currentPage) 9.dp else 7.dp)
+                    .background(if (index == pager.currentPage) Color(0xFF7B3216) else Color(0xFFD2B6A4),
+                        RoundedCornerShape(50)))
             }
-            if (positiveTotal != null && positiveTotal > 0L) {
-                Row(Modifier.fillMaxWidth().height(17.dp).background(AccountMint, RoundedCornerShape(50)),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    val colors = listOf(AccountBlack, Color(0xFF7D8980), Color(0xFFC0D8C2))
-                    positive.forEachIndexed { index, account ->
-                        val amount = (account.balanceMinor ?: 0L).coerceAtLeast(0L)
-                        // Weight is visual-only. Financial calculations remain in checked integer minor units.
-                        if (amount > 0) Box(Modifier.weight(amount.toFloat() / positiveTotal.toFloat())
-                            .fillMaxHeight().background(colors[index % colors.size]))
+            TextButton(onClick = { scope.launch { pager.animateScrollToPage((pager.currentPage + 1).coerceAtMost(cards.lastIndex)) } },
+                enabled = pager.currentPage < cards.lastIndex) { Text("›", style = MaterialTheme.typography.headlineSmall) }
+        }
+        Text("Swipe to explore · Recorded balances, not live bank balances",
+            modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        if (!complete) Text("${accounts.size - available.size} balance(s) unavailable; missing values are excluded.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Illustrated, layered cards use no downloaded bank artwork or fictitious financial data. */
+@Composable
+private fun HeritageAccountCard(title: String, amount: String, subtitle: String,
+    names: List<String>, index: Int) {
+    val dark = index % 3 == 1
+    val ink = if (dark) Color.White else Color(0xFF54240F)
+    val top = if (dark) Color(0xFF9B4B25) else Color(0xFFFFF1DC)
+    val bottom = if (dark) Color(0xFF54220F) else Color(0xFFDFA66E)
+    Surface(modifier = Modifier.fillMaxWidth().height(240.dp),
+        shape = RoundedCornerShape(28.dp), shadowElevation = 9.dp,
+        color = top) {
+        Box(Modifier.background(Brush.linearGradient(listOf(top, bottom)))) {
+            Canvas(Modifier.fillMaxSize()) {
+                val w = size.width
+                val h = size.height
+                drawCircle(color = if (dark) Color(0x22FFFFFF) else Color(0x55FFFFFF),
+                    radius = w * .35f, center = Offset(w * .84f, h * .35f))
+                val hill = Path().apply {
+                    moveTo(0f, h * .83f)
+                    cubicTo(w * .26f, h * .61f, w * .52f, h * .94f, w, h * .65f)
+                    lineTo(w, h)
+                    lineTo(0f, h)
+                    close()
+                }
+                drawPath(hill, Color(0x663F210F), style = Fill)
+                val foreground = Path().apply {
+                    moveTo(0f, h * .91f)
+                    cubicTo(w * .27f, h * .77f, w * .58f, h * 1.03f, w, h * .84f)
+                    lineTo(w, h)
+                    lineTo(0f, h)
+                    close()
+                }
+                drawPath(foreground, Color(0xAA4C220E))
+            }
+            Column(Modifier.fillMaxSize().padding(22.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(subtitle, color = ink.copy(alpha = .78f),
+                    style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                Text(title, color = ink, style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(amount, color = ink, style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.ExtraBold, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.weight(1f))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    names.forEach { name ->
+                        Box(Modifier.size(36.dp).background(Color(0xDFFFFFF2), RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center) {
+                            AccountProviderMark(name, Modifier.size(30.dp))
+                        }
                     }
                 }
             }
-            accounts.take(5).forEachIndexed { index, line ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(10.dp).background(
-                        listOf(AccountBlack, Color.Gray, Color(0xFFB4D7B9))[index % 3],
-                        RoundedCornerShape(3.dp)))
-                    Text(line.name, Modifier.weight(1f).padding(start = 9.dp),
-                        style = MaterialTheme.typography.bodyMedium, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis)
-                    Text(if (hidden) "••••" else line.balanceMinor?.let(::formatKesAmount) ?: "Unknown",
-                        style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                }
-            }
-            if (!complete) Text("${accounts.size - available.size} balance(s) unavailable; no estimates added to the total.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelSmall)
-            Text("Balances are saved or reconstructed on this phone, not live bank balances.",
-                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

@@ -308,6 +308,7 @@ fun AccountsScreen(
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } }
         }
+        if (everyday.isNotEmpty()) item { AccountsSectionTitle("Your accounts") }
         if (everyday.isNotEmpty()) item {
             SelectedAccountTiles(accountDisplayLines(everyday), amountsHidden, onAccountClick)
         }
@@ -339,8 +340,9 @@ private fun AccountsNavigation(selected: Int, onSelected: (Int) -> Unit,
             if (onBack != null) IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
             }
-            Text(if (selected == 3) "My debts" else "My accounts", Modifier.weight(1f), style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold)
+            if (selected == 3) Text("My debts", Modifier.weight(1f),
+                style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            else Spacer(Modifier.weight(1f))
             if (onToggleAmounts != null && selected != 3) {
                 IconButton(onClick = onToggleAmounts) {
                     Icon(if (amountsHidden) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
@@ -356,7 +358,7 @@ private fun AccountsNavigation(selected: Int, onSelected: (Int) -> Unit,
                 }
             }
         }
-        Text(if (selected == 3) "Your recorded borrowing and repayments" else "Your money, all in one place",
+        if (selected == 3) Text("Your recorded borrowing and repayments",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 10.dp))
         Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
