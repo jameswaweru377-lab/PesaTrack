@@ -8,6 +8,11 @@ import java.util.Locale
 
 internal data class TransactionDetailAmounts(val feesMinor: Long?, val outflowMinor: Long?)
 
+/** Read-only funding breakdown for the existing transaction; never creates new ledger legs. */
+internal fun transactionDetailFulizaPortions(amountMinor: Long, financedMinor: Long): Pair<Long, Long>? =
+    if (amountMinor < 0 || financedMinor <= 0 || financedMinor > amountMinor) null
+    else (amountMinor - financedMinor) to financedMinor
+
 internal fun transactionDetailIsIncoming(type: String, relationType: String?): Boolean =
     type in setOf("RECEIVED", "DEPOSIT", "REVERSAL") ||
         relationType in setOf("REFUND", "INVESTMENT_SELL")

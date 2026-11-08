@@ -49,7 +49,8 @@ internal val brownActivityFilters = listOf(
     BrownActivityFilter("Money In", "Money In"),
     BrownActivityFilter("Money Out", "Money Out"),
     BrownActivityFilter("Transfers", "Transfers"),
-    BrownActivityFilter("Review", "Needs Review")
+    BrownActivityFilter("Review", "Needs Review"),
+    BrownActivityFilter("Invested", "Invested")
 )
 
 internal fun brownActivityFilterKey(label: String): String? =
@@ -137,19 +138,14 @@ internal fun BrownActivityReview(count: Int, onReview: () -> Unit) {
     val p = BrownHomePalette
     Surface(onClick = onReview, modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(PesaDesignTokens.innerRadius), color = p.cream) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)
-            .padding(horizontal = 12.dp, vertical = 4.dp),
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            .padding(horizontal = 12.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Icon(Icons.Rounded.CheckCircleOutline, null, Modifier.size(27.dp), tint = p.coffee)
-            Column(Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text(if (count == 0) "All reviewed" else "$count need review",
-                    color = p.ink, fontFamily = FontFamily.Serif,
-                    fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                Text(if (count == 0) "Nothing needs review" else "Check your transactions",
-                    color = p.muted, fontSize = 11.sp)
-            }
+            Text(if (count == 0) "All reviewed" else "$count need review",
+                modifier = Modifier.weight(1f), color = p.ink,
+                fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 15.sp)
             Icon(Icons.Rounded.ChevronRight, "Open review", tint = p.coffee)
         }
     }

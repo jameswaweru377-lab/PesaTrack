@@ -5,6 +5,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class TransactionDetailAmountsTest {
+    @Test fun fulizaSplitKeepsPaymentAmountAndRejectsImpossibleShares() {
+        assertEquals(30_00L to 60_00L, transactionDetailFulizaPortions(90_00L, 60_00L))
+        assertEquals(0L to 90_00L, transactionDetailFulizaPortions(90_00L, 90_00L))
+        assertNull(transactionDetailFulizaPortions(90_00L, 100_00L))
+        assertNull(transactionDetailFulizaPortions(-1L, 1L))
+    }
+
     @Test fun incomingTransfersAndInvestmentSalesAreNotOutflows() {
         for ((type, relation) in listOf("RECEIVED" to null, "DEPOSIT" to null, "OTHER" to "INVESTMENT_SELL", "REVERSAL" to null, "RECEIVED" to "REFUND")) {
             assertNull(transactionDetailAmounts(200000, 0, 0, MoneyDirection.TRANSFER,

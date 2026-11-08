@@ -1,5 +1,21 @@
 # PesaTrack Current State
 
+_Brown Transaction Details and Choose Category design (8 November 2026; CI and phone acceptance pending):_
+The approved warm-brown Transaction Details page now uses an inset payment
+summary with source/account, date, amount, a status chip, actions, and a
+read-only M-Pesa/Fuliza funding breakdown inside the same card rather than a
+second funding card. Its visible information rows, message/evidence disclosure,
+receipt action and expandable detailed facts retain existing callbacks. The
+Choose Category sheet has a compact searchable three-column grid, with Money
+lent, Shared bill and Own transfer at the top as distinct confirmed accounting
+actions, and keeps one-transaction vs remembered classification, custom
+categories and remaining correction options. Activity has one short review
+banner without a duplicate empty-state card, plus an Invested filter restricted
+to confirmed investment purchases. All accounting mutations still go through
+existing stores and confirmation flows; no balance, source, permissions,
+schema or backup changes. Unit and Android CI verification plus physical Redmi
+layout/interaction acceptance remain separate.
+
 _Activity-to-Statements review-consent parity (8 November 2026; CI and phone acceptance pending):_
 Original SMS/notification Activity cash evidence explicitly classified by the user
 or still marked Needs Review remains visible in Statements evidence, but cannot

@@ -9,6 +9,19 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ActivityDesign3MoneyTest {
+    @Test fun investedFilterShowsOnlyConfirmedInvestmentPurchases() {
+        val boughtShares = row(1, "EXPENSE", 2_500_00,
+            category = "INVESTMENT", relation = TransactionStore.RELATION_INVESTMENT_BUY)
+        val ordinaryExpense = row(2, "EXPENSE", 400_00, category = "INVESTMENT")
+        val accountTransfer = row(3, "TRANSFER", 2_500_00, category = "INVESTMENT")
+        val soldShares = row(4, "TRANSFER", 1_000_00,
+            relation = TransactionStore.RELATION_INVESTMENT_SELL)
+
+        assertEquals(listOf(boughtShares), listOf(
+            boughtShares, ordinaryExpense, accountTransfer, soldShares
+        ).filter(::isActivityConfirmedInvestmentBuy))
+    }
+
     @Test fun fourCardsKeepInvestmentPurchasesSeparateFromOtherTransfers() {
         val ownedMove = row(1, "TRANSFER", 8_000_00)
         val purchasedShares = row(2, "EXPENSE", 2_500_00,

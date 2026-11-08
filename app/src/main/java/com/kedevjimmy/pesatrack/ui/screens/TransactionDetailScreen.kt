@@ -770,18 +770,15 @@ fun TransactionDetailScreen(
             ?: categoryStore.labelFor(categoryStore.canonicalId(it.category))
     } ?: "Needs review"
 
-    val detailBackground = if (com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme())
-        Brush.verticalGradient(listOf(MaterialTheme.colorScheme.background,
-            MaterialTheme.colorScheme.background))
-    else Brush.linearGradient(listOf(
-        Color(0xFFF3F0FF), Color(0xFFF7F7FF), Color(0xFFEDF6FF)
+    val detailBackground = Brush.verticalGradient(listOf(
+        BrownHomePalette.canvas, BrownHomePalette.canvas
     ))
     LazyColumn(
         modifier = Modifier.testTag("transaction-details-list")
             .padding(scaffoldPadding)
             .background(detailBackground),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         if (current == null) {
             item {
@@ -792,7 +789,7 @@ fun TransactionDetailScreen(
             return@LazyColumn
         }
         item(key = "transaction-header") {
-            TransactionRedesignHeader(
+            BrownTransactionHeader(
                 item = current,
                 category = categoryLabel,
                 account = accountLabel,
@@ -801,46 +798,13 @@ fun TransactionDetailScreen(
                 onAddNote = { showAnnotationDialog = true }
             )
         }
-        if (current.fulizaFinancedMinor > 0L) {
-            item { FulizaFundingCard(current) }
-        }
         if (current.relationType == TransactionStore.RELATION_REFUND) {
             item { RefundLinkCard(current, linkedRefundOriginal) }
         }
-        if (!confirmedTransfer && current.direction == MoneyDirection.EXPENSE.name &&
-            current.relationType == null &&
-            current.reviewState != ReviewState.EXCLUDED.name &&
-            receivableLinks[current.id] == null) {
-            item(key = "category-decision") {
-                TransactionDecisionCard(
-                    suggested = categoryStore.labelFor(categoryStore.canonicalId(current.category)),
-                    isBusy = learningBusy,
-                    onKeep = {
-                        val id = categoryStore.canonicalId(current.category)
-                        if (id in setOf(TransactionCategory.OTHER.name,
-                                TransactionCategory.UNCATEGORIZED.name)) showCategoryPicker = true
-                        else applyCategory(id)
-                    },
-                    onChoose = { showCategoryPicker = true }
-                )
-            }
-        }
-        item(key = "transaction-facts") {
-            RedesignDetailAccordion(
-                title = "Transaction facts",
-                icon = Icons.AutoMirrored.Rounded.ReceiptLong,
-                expanded = factsExpanded,
-                onToggle = { factsExpanded = !factsExpanded }
-            ) {
-                TransactionDetailFacts(
-                    item = current,
-                    accountLabel = accountLabel,
-                    note = annotation.note,
-                    onAccount = current.accountId?.let { id -> { onAccountClick(id) } },
-                    onNote = { showAnnotationDialog = true },
-                    onCategory = { showCategoryPicker = true }
-                )
-            }
+        item(key = "transaction-information") {
+            BrownTransactionInformation(current, categoryLabel, accountLabel,
+                onCategory = { showCategoryPicker = true },
+                onAccount = current.accountId?.let { id -> { onAccountClick(id) } })
         }
         item(key = "transaction-original-message") {
             RedesignDetailAccordion(
@@ -899,6 +863,25 @@ fun TransactionDetailScreen(
                 onClick = { showMerchantHistory = true }
             )
         }
+        item(key = "transaction-add-receipt") {
+            BrownAddReceipt(onClick = { showAnnotationDialog = true },
+                hasReceipt = annotation.receiptUri != null)
+        }
+        item(key = "transaction-facts") {
+            RedesignDetailAccordion(
+                title = "More transaction facts",
+                icon = Icons.AutoMirrored.Rounded.ReceiptLong,
+                expanded = factsExpanded,
+                onToggle = { factsExpanded = !factsExpanded }
+            ) {
+                TransactionDetailFacts(
+                    item = current, accountLabel = accountLabel, note = annotation.note,
+                    onAccount = current.accountId?.let { id -> { onAccountClick(id) } },
+                    onNote = { showAnnotationDialog = true },
+                    onCategory = { showCategoryPicker = true }
+                )
+            }
+        }
 if (current.reviewState == ReviewState.USER_CLASSIFIED.name &&
                 current.direction == MoneyDirection.EXPENSE.name &&
                 current.ruleId == null && current.relationType == null &&
@@ -910,13 +893,13 @@ if (current.reviewState == ReviewState.USER_CLASSIFIED.name &&
                     Surface(
                         modifier = Modifier.fillMaxWidth()
                             .testTag("remember-category-action"),
-                        color = Color(0xFF5D00EB),
+                        color = BrownHomePalette.coffee,
                         shape = RoundedCornerShape(20.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth()
                                 .background(Brush.horizontalGradient(listOf(
-                                    Color(0xFF7042FA), Color(0xFF5B00DE)
+                                    BrownHomePalette.coffee, BrownHomePalette.coffee
                                 )))
                                 .clickable(enabled = !learningBusy, onClick = {
                         val original = current
