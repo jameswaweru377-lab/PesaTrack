@@ -1,5 +1,16 @@
 # PesaTrack Current State
 
+_Refund, fee and loan-linked Activity evidence protection (8 November 2026; CI and Redmi acceptance pending):_
+Original SMS/notification Activity cash evidence retains its stored amount and
+reference, but cannot be used as ordinary same-leg or transfer-review proof
+when its local ledger records fees, Fuliza financing/access fees, a linked
+debt or loan event, investment/receivable/allocation/payday role, or an inbound
+refund/reversal relationship. Removing a synthetic link restores the ordinary
+evidence path. This is a bounded read-only Statements evidence safeguard:
+existing classifications, saved review decisions, financial totals, source
+messages, balances, database schema, backups and UI are unchanged. N2's
+statement-to-ledger hold remains; physical Redmi verification is separate.
+
 _Activity-to-Statements review-consent parity (8 November 2026; CI and phone acceptance pending):_
 Original SMS/notification Activity cash evidence explicitly classified by the user
 or still marked Needs Review remains visible in Statements evidence, but cannot
