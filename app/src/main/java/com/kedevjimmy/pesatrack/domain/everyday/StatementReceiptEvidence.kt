@@ -44,9 +44,11 @@ object StatementReceiptEvidence {
         val activity = candidates.single()
         if (!statement.reference.equals(activity.code, ignoreCase = true) ||
             activity.direction != "EXPENSE" || activity.excluded ||
+            activity.reviewState == "NEEDS_REVIEW" || activity.occurredAtEpochMs <= 0L ||
             activity.structurallyLinked || activity.amountMinor != statement.withdrawnMinor)
             return null
-        if (activity.accountId != null && activity.accountId != statementAccountId)
+        if (statementAccountId.isBlank() || activity.accountId.isNullOrBlank() ||
+            activity.accountId != statementAccountId)
             return null
         val delta = kotlin.math.abs(statement.occurredAt - activity.occurredAtEpochMs)
         if (delta > 24L * 60L * 60L * 1000L) return null

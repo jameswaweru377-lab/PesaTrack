@@ -97,4 +97,18 @@ class StatementReceiptEvidenceTest {
             wrongPhone,"wallet-a",listOf(activity())))
     }
 
+    @Test fun unknownAccountCannotInheritRememberedCategory() {
+        assertNull(StatementReceiptEvidence.corroborated(
+            line, "wallet-a", listOf(activity(account = null))))
+        assertNull(StatementReceiptEvidence.categoryFor(
+            line, "wallet-a", mapOf(line.reference to listOf(activity(account = null))), memories))
+    }
+
+    @Test fun reviewPendingOrInvalidActivityTimestampCannotProveReceipt() {
+        assertNull(StatementReceiptEvidence.corroborated(
+            line, "wallet-a", listOf(activity().copy(reviewState = "NEEDS_REVIEW"))))
+        assertNull(StatementReceiptEvidence.corroborated(
+            line, "wallet-a", listOf(activity(time = Long.MIN_VALUE))))
+    }
+
 }

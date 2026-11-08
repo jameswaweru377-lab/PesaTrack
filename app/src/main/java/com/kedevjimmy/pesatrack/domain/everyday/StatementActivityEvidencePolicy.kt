@@ -16,7 +16,9 @@ object StatementActivityEvidencePolicy {
         val a = candidates.single()
         if (!line.reference.equals(a.code, ignoreCase = true) ||
             !line.reference.matches(Regex("[A-Z0-9]{10}")) ||
-            a.accountId != account || a.structurallyLinked ||
+            account.isBlank() || a.accountId.isNullOrBlank() || a.accountId != account ||
+            a.reviewState == "NEEDS_REVIEW" || a.occurredAtEpochMs <= 0L ||
+            a.structurallyLinked ||
             kotlin.math.abs(line.occurredAt - a.occurredAtEpochMs) > 86_400_000L) return null
         val amountValid = when (a.direction) {
             "EXPENSE" ->

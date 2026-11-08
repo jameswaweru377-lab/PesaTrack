@@ -1,5 +1,19 @@
 # PesaTrack Current State
 
+_Legacy M-Pesa Statement/Activity evidence parity (8 November 2026; CI and Redmi acceptance pending):_
+The existing ten-character M-Pesa receipt bridge now reads original SMS and
+notification transactions only, not manual or statement-derived copies.
+It withholds ordinary Statement category/evidence inheritance when the
+Activity transaction has a persisted debt event, inbound linked refund or
+reversal, direct relation, fee or Fuliza financing/access-fee metadata.
+Unknown account identity, invalid timestamps and Needs Review Activity
+evidence cannot establish a new receipt correlation. Confirmed personal
+receivable and investment projections remain on their separate, explicit
+review paths. No wider PDF formats, canonical money, existing classifications,
+balances, income/expense totals, saved decisions, database schema, source
+archives, backups or UI are changed. N2 #537 still holds; no physical Redmi
+or emulator result is claimed.
+
 _Refund, fee and loan-linked Activity evidence protection (8 November 2026; CI and Redmi acceptance pending):_
 Original SMS/notification Activity cash evidence retains its stored amount and
 reference, but cannot be used as ordinary same-leg or transfer-review proof

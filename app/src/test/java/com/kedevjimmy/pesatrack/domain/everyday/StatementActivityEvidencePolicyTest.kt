@@ -140,4 +140,14 @@ class StatementActivityEvidencePolicyTest {
         assertNull(StatementActivityEvidencePolicy.verified(
             row, "wallet-a", listOf(matching.copy(structurallyLinked = true))))
     }
+
+    @Test fun legacyActivityBridgeRequiresConfirmedAccountAndSettledReview() {
+        val matching = activity()
+        assertNull(StatementActivityEvidencePolicy.verified(
+            row, "wallet-a", listOf(matching.copy(accountId = null))))
+        assertNull(StatementActivityEvidencePolicy.verified(
+            row, "wallet-a", listOf(matching.copy(reviewState = "NEEDS_REVIEW"))))
+        assertNull(StatementActivityEvidencePolicy.verified(
+            row, "wallet-a", listOf(matching.copy(occurredAtEpochMs = Long.MIN_VALUE))))
+    }
 }
