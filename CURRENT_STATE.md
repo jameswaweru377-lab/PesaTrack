@@ -1,5 +1,17 @@
 # PesaTrack Current State
 
+_Cash evidence reference-proof safeguard (8 November 2026; exact-head CI and phone acceptance pending):_
+The existing local evidence journal now requires an 8–48 character
+alphanumeric receipt reference containing a digit before a Statement/SMS
+observation may corroborate an already recorded cash movement by reference.
+Generic narration such as TRANSFER or WITHDRAWAL, short codes and free text
+stay unlinked pending review even if amount, account and time agree. Valid
+strong references and exact-time manual/statement-created links remain eligible.
+No canonical transaction is inserted, deleted or reclassified; balances,
+financial totals, existing saved evidence links, source archives, schema,
+backups and approved UI are unchanged. Synthetic JVM coverage is test-first;
+no emulator/instrumentation or Redmi verification is claimed. N2 stays on hold.
+
 _Home-only heritage P mark (8 November 2026; Android CI and phone acceptance pending):_
 The centered brown Home header uses the previously approved purple P silhouette
 with its exact three vector paths recolored to warm brown tones on a light cream
