@@ -22,6 +22,7 @@ internal object StatementOwnedAccountUniquenessPolicy {
         }
         val duplicateIds = identities.groupBy({ it.second }, { it.first }).values
             .filter { it.size > 1 }.flatten().toSet()
-        return ownership.filterKeys { it !in duplicateIds }
+        val completeIdentityIds = identities.mapTo(mutableSetOf()) { it.first }
+        return ownership.filterKeys { it in completeIdentityIds && it !in duplicateIds }
     }
 }

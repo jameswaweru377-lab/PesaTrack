@@ -70,6 +70,34 @@ class StatementLegacyReviewIdentityPolicyTest {
         assertEquals(listOf(suggestion), guarded.possibleTransfers)
     }
 
+    @Test fun incompleteFullOwnedIdentityCannotConfirmOrSuggestTransfer() {
+        val debit = row("out", "bank", -900)
+        val credit = row("in", "wallet", 900)
+        val review = StatementMatchReviewPolicy.Review(
+            listOf(StatementMatchReviewPolicy.Transfer(listOf(debit), listOf(credit))),
+            emptyList(), 0
+        )
+        val possible = listOf(StatementPossibleTransferPolicy.Suggestion(debit, credit))
+        for (invalid in listOf<String?>(null, "", "****9012", "1234")) {
+            val guarded = StatementLegacyReviewIdentityPolicy.guard(
+                review, possible, mapOf(
+                    "bank" to account("BANK", invalid),
+                    "wallet" to account("MOBILE_WALLET", "0712345678")
+                )
+            )
+            assertTrue("Bank identity $invalid must not prove transfer", guarded.review.transfers.isEmpty())
+            assertTrue("Bank identity $invalid must not suggest transfer", guarded.possibleTransfers.isEmpty())
+        }
+        val walletMissing = StatementLegacyReviewIdentityPolicy.guard(
+            review, possible, mapOf(
+                "bank" to account("BANK", "123456789012"),
+                "wallet" to account("MOBILE_WALLET", "0712****78")
+            )
+        )
+        assertTrue(walletMissing.review.transfers.isEmpty())
+        assertTrue(walletMissing.possibleTransfers.isEmpty())
+    }
+
     @Test fun unconfirmedAccountCannotBeUsedAsTransferEndpoint() {
         val debit = row("out", "bank", -900)
         val credit = row("in", "unknown", 900)
