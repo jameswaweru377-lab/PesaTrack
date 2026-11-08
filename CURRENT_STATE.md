@@ -1,5 +1,21 @@
 # PesaTrack Current State
 
+_Coin-backed Transaction Details refinement (8 November 2026; CI and Redmi acceptance pending):_
+The selected warm cream Transaction Details page uses a local decorative
+Kenyan-coin/receipt image only behind the payment summary. Its values, recorded
+status, category, date, source account and reconciled Fuliza portions continue
+to come from the existing local transaction. The redundant Transaction
+information card has been removed. Original message, Linked evidence,
+Merchant history and More transaction facts now expand in the page using
+the shared brown palette; merchant rows still open the existing transactions.
+Add receipt follows the evidence/history sections. The detailed-facts list
+retains account, merchant/payee, category, direction, date/time, source,
+transaction kind, amounts/fees, balance after, reference and channel, without
+repeating the Note action already available above. Note/receipt editing and
+Save use the brown theme and retain their original local persistence.
+No posting, arithmetic, ledger, permissions, backups or release configuration
+is changed. CI and a real-device screen review remain separate acceptance gates.
+
 _Legacy M-Pesa Statement/Activity evidence parity (8 November 2026; CI and Redmi acceptance pending):_
 The existing ten-character M-Pesa receipt bridge now reads original SMS and
 notification transactions only, not manual or statement-derived copies.

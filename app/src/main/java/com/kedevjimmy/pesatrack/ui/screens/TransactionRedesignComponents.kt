@@ -283,17 +283,15 @@ internal fun RedesignDetailAccordion(
     val p = BrownHomePalette
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
         color = p.white, border = BorderStroke(1.dp, p.outline.copy(alpha = .55f))) {
-        Column(Modifier.padding(horizontal = 13.dp, vertical = 9.dp),
-            verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Row(Modifier.fillMaxWidth().clickable(onClick = onToggle).heightIn(min = 43.dp),
+        Column(Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth().clickable(onClick = onToggle).heightIn(min = 48.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Surface(Modifier.size(35.dp), shape = RoundedCornerShape(11.dp),
-                    color = p.cream) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(icon, null, Modifier.size(19.dp), tint = p.coffee)
-                    }
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.size(35.dp), contentAlignment = Alignment.Center) {
+                    Icon(icon, null, Modifier.size(24.dp), tint = p.coffee)
                 }
+                VerticalDivider(Modifier.height(32.dp), color = p.outline.copy(alpha = .7f))
                 Column(Modifier.weight(1f)) {
                     Text(title, fontWeight = FontWeight.Bold, color = p.ink, fontSize = 16.sp)
                     if (!expanded && !supporting.isNullOrBlank()) {
@@ -308,7 +306,7 @@ internal fun RedesignDetailAccordion(
             }
             if (expanded) {
                 HorizontalDivider(color = p.outline.copy(alpha = .5f))
-                content()
+                CompositionLocalProvider(LocalContentColor provides p.ink) { content() }
             }
         }
     }
@@ -319,13 +317,14 @@ internal fun TransactionOriginalMessage(
     evidence: TransactionMessageEvidenceResult?,
     source: String
 ) {
+    val p = BrownHomePalette
     val body = evidence?.message?.body
     if (body == null) Text(evidence?.unavailableReason ?: "Original message is not yet available for " + source + ".",
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = p.muted,
         style = MaterialTheme.typography.bodySmall)
     else SelectionContainer {
         Text(body, style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = p.ink,
             modifier = Modifier.padding(vertical = 6.dp))
     }
 }

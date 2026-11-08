@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.rounded.AttachFile
+import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.Favorite
@@ -160,7 +161,7 @@ fun TransactionDetailScreen(
     var showAnnotationDialog by remember(transactionId) {
         mutableStateOf(false)
     }
-    var showMerchantHistory by remember(transactionId) {
+    var merchantExpanded by remember(transactionId) {
         mutableStateOf(false)
     }
     val receiptPicker =
@@ -732,32 +733,6 @@ fun TransactionDetailScreen(
         )
     }
 
-    if (current != null && showMerchantHistory) {
-        MerchantHistoryDialog(
-            merchant =
-                current.counterparty
-                    ?: pretty(current.type),
-            transactions =
-                store.recent(250)
-                    .filter {
-                        it.id != current.id &&
-                            sameMerchant(
-                                current,
-                                it
-                            )
-                    }
-                    .take(12),
-            categoryStore = categoryStore,
-            onDismiss = {
-                showMerchantHistory = false
-            },
-            onTransactionClick = {
-                showMerchantHistory = false
-                onTransactionClick(it)
-            }
-        )
-    }
-
     val availableSources = remember(current?.id, evidenceRefresh) {
         current?.let { EvidenceJournalStore.sourcesFor(context, it.id) }.orEmpty()
     }
@@ -801,18 +776,13 @@ fun TransactionDetailScreen(
         if (current.relationType == TransactionStore.RELATION_REFUND) {
             item { RefundLinkCard(current, linkedRefundOriginal) }
         }
-        item(key = "transaction-information") {
-            BrownTransactionInformation(current, categoryLabel, accountLabel,
-                onCategory = { showCategoryPicker = true },
-                onAccount = current.accountId?.let { id -> { onAccountClick(id) } })
-        }
         item(key = "transaction-original-message") {
             RedesignDetailAccordion(
                 title = "Original message",
                 icon = Icons.Rounded.Sms,
                 expanded = messageExpanded,
                 onToggle = { messageExpanded = !messageExpanded },
-                supporting = "Tap to read the source message"
+                supporting = "View source SMS"
             ) {
                 TransactionOriginalMessage(messageEvidence, current.sourceKind)
             }
@@ -823,12 +793,13 @@ fun TransactionDetailScreen(
                 icon = Icons.Rounded.AttachFile,
                 expanded = evidenceExpanded,
                 onToggle = { evidenceExpanded = !evidenceExpanded },
-                supporting = availableSources.size.toString() + " connected source(s)"
+                supporting = if (availableSources.isEmpty()) "No attachment added"
+                    else availableSources.size.toString() + " connected source(s)"
             ) {
                 if (availableSources.isEmpty()) {
                     Text("No additional transaction source has been matched.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        color = BrownHomePalette.muted)
                 } else availableSources.forEach { source ->
                     val name = when(source.sourceKind) {
                         "STATEMENT" -> "Statement record"
@@ -839,29 +810,39 @@ fun TransactionDetailScreen(
                     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Link, null, Modifier.size(18.dp))
+                        Icon(Icons.Rounded.Link, null, Modifier.size(18.dp),
+                            tint = BrownHomePalette.coffee)
                         Column {
-                            Text(name, style = MaterialTheme.typography.bodyMedium)
+                            Text(name, style = MaterialTheme.typography.bodyMedium,
+                                color = BrownHomePalette.ink)
                             Text(if (source.needsReview) "Needs recheck after correction"
                                 else if (source.reason == "REFERENCE") "Matched by reference"
                                 else "Source evidence recorded",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                color = BrownHomePalette.muted)
                         }
                     }
-                }
-                TextButton(onClick = { showAnnotationDialog = true }) {
-                    Icon(Icons.Rounded.Add, null)
-                    Spacer(Modifier.width(6.dp))
-                    Text(if (annotation.receiptUri == null && annotation.note.isBlank())
-                        "Add note or receipt" else "View note and receipt")
                 }
             }
         }
         item(key = "transaction-merchant-history") {
-            TransactionMerchantHistoryCard(
-                onClick = { showMerchantHistory = true }
-            )
+            Box(Modifier.testTag("transaction-merchant-history-card")) {
+                RedesignDetailAccordion(
+                    title = "Merchant history",
+                    icon = Icons.Rounded.BarChart,
+                    expanded = merchantExpanded,
+                    onToggle = { merchantExpanded = !merchantExpanded },
+                    supporting = "View earlier payments"
+                ) {
+                    BrownMerchantHistory(
+                        merchant = current.counterparty ?: pretty(current.type),
+                        transactions = store.recent(250)
+                            .filter { it.id != current.id && sameMerchant(current, it) }.take(12),
+                        categoryStore = categoryStore,
+                        onTransactionClick = onTransactionClick
+                    )
+                }
+            }
         }
         item(key = "transaction-add-receipt") {
             BrownAddReceipt(onClick = { showAnnotationDialog = true },
@@ -875,9 +856,8 @@ fun TransactionDetailScreen(
                 onToggle = { factsExpanded = !factsExpanded }
             ) {
                 TransactionDetailFacts(
-                    item = current, accountLabel = accountLabel, note = annotation.note,
+                    item = current, accountLabel = accountLabel,
                     onAccount = current.accountId?.let { id -> { onAccountClick(id) } },
-                    onNote = { showAnnotationDialog = true },
                     onCategory = { showCategoryPicker = true }
                 )
             }
@@ -2181,45 +2161,6 @@ private fun categoryVisual(
     }
 
 @Composable
-private fun TransactionMerchantHistoryCard(onClick: () -> Unit) {
-    val ink = Color(0xFF0B103A)
-    val muted = Color(0xFF626B98)
-    val purple = Color(0xFF6231DA)
-    Surface(
-        modifier = Modifier.fillMaxWidth()
-            .testTag("transaction-merchant-history-card")
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(21.dp),
-        color = if (com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme())
-            MaterialTheme.colorScheme.surface else Color.White,
-        border = BorderStroke(1.dp, Color(0xFFE9E5F5))
-    ) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 61.dp)
-            .padding(horizontal = 13.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(Modifier.size(35.dp), color = Color(0xFFEEE5FF),
-                shape = RoundedCornerShape(13.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.ShoppingBag, null,
-                        Modifier.size(19.dp), tint = purple)
-                }
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Merchant history", fontWeight = FontWeight.Bold, fontSize = 16.sp,
-                    color = if (com.kedevjimmy.pesatrack.ui.components.isPesaDarkTheme())
-                        MaterialTheme.colorScheme.onSurface else ink)
-                Text("View previous transactions",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = muted)
-            }
-            Icon(Icons.Rounded.ChevronRight, "Open merchant history",
-                Modifier.size(22.dp), tint = Color(0xFF777B9F))
-        }
-    }
-}
-
-@Composable
 private fun TransactionActionCard(
     icon: ImageVector,
     title: String,
@@ -2342,8 +2283,8 @@ private fun TransactionAnnotationDialog(
     onAttachReceipt: () -> Unit,
     onRemoveReceipt: () -> Unit
 ) {
-    val context =
-        LocalContext.current
+    val context = LocalContext.current
+    val p = BrownHomePalette
     var note by remember(
         transaction.id,
         annotation.note
@@ -2356,6 +2297,9 @@ private fun TransactionAnnotationDialog(
     AlertDialog(
         onDismissRequest =
             onDismiss,
+        containerColor = p.canvas,
+        titleContentColor = p.ink,
+        textContentColor = p.ink,
         title = {
             Text(
                 "Note or receipt"
@@ -2386,7 +2330,13 @@ private fun TransactionAnnotationDialog(
                         )
                     },
                     minLines = 3,
-                    maxLines = 5
+                    maxLines = 5,
+                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = p.coffee,
+                        unfocusedBorderColor = p.outline,
+                        focusedLabelColor = p.coffee,
+                        cursorColor = p.coffee
+                    )
                 )
 
                 if (
@@ -2400,10 +2350,7 @@ private fun TransactionAnnotationDialog(
                             RoundedCornerShape(
                                 14.dp
                             ),
-                        color =
-                            pesaToneContainer(
-                                "green"
-                            )
+                        color = p.cream
                     ) {
                         Row(
                             modifier =
@@ -2446,13 +2393,16 @@ private fun TransactionAnnotationDialog(
                                             }
                                         )
                                     }
-                                }
+                                },
+                                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                                    contentColor = p.coffee)
                             ) {
                                 Text("Open")
                             }
                             TextButton(
-                                onClick =
-                                    onRemoveReceipt
+                                onClick = onRemoveReceipt,
+                                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                                    contentColor = p.coffee)
                             ) {
                                 Text("Remove")
                             }
@@ -2464,7 +2414,10 @@ private fun TransactionAnnotationDialog(
                     onClick =
                         onAttachReceipt,
                     modifier =
-                        Modifier.fillMaxWidth()
+                        Modifier.fillMaxWidth(),
+                    border = BorderStroke(1.dp, p.outline),
+                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                        contentColor = p.coffee)
                 ) {
                     Icon(
                         Icons.Rounded
@@ -2494,17 +2447,15 @@ private fun TransactionAnnotationDialog(
                         MaterialTheme
                             .typography
                             .bodySmall,
-                    color =
-                        MaterialTheme
-                            .colorScheme
-                            .onSurfaceVariant
+                    color = p.muted
                 )
             }
         },
         dismissButton = {
             TextButton(
-                onClick =
-                    onDismiss
+                onClick = onDismiss,
+                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                    contentColor = p.coffee)
             ) {
                 Text("Cancel")
             }
@@ -2515,154 +2466,11 @@ private fun TransactionAnnotationDialog(
                     onSaveNote(
                         note
                     )
-                }
+                },
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = p.coffee)
             ) {
                 Text("Save")
-            }
-        }
-    )
-}
-
-@Composable
-private fun MerchantHistoryDialog(
-    merchant: String,
-    transactions:
-        List<StoredTransaction>,
-    categoryStore: CategoryStore,
-    onDismiss: () -> Unit,
-    onTransactionClick: (Long) -> Unit
-) {
-    AlertDialog(
-        onDismissRequest =
-            onDismiss,
-        title = {
-            Text(
-                "Merchant history"
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier.heightIn(max = 420.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement =
-                    Arrangement.spacedBy(
-                        8.dp
-                    )
-            ) {
-                Text(
-                    merchant,
-                    style =
-                        MaterialTheme
-                            .typography
-                            .titleMedium,
-                    color =
-                        MaterialTheme
-                            .colorScheme
-                            .primary
-                )
-
-                if (
-                    transactions.isEmpty()
-                ) {
-                    Text(
-                        "No other recent transactions with this merchant.",
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .onSurfaceVariant
-                    )
-                } else {
-                    transactions.take(8)
-                        .forEach {
-                                item ->
-                            Surface(
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            onTransactionClick(
-                                                item.id
-                                            )
-                                        },
-                                shape =
-                                    RoundedCornerShape(
-                                        14.dp
-                                    ),
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .surfaceVariant
-                                        .copy(
-                                            alpha = .6f
-                                        )
-                            ) {
-                                Row(
-                                    modifier =
-                                        Modifier.padding(
-                                            11.dp
-                                        ),
-                                    verticalAlignment =
-                                        Alignment.CenterVertically
-                                ) {
-                                    Column(
-                                        modifier =
-                                            Modifier
-                                                .weight(
-                                                    1f
-                                                )
-                                    ) {
-                                        Text(
-                                            formatMoney(
-                                                item.amountMinor
-                                            ),
-                                            style =
-                                                MaterialTheme
-                                                    .typography
-                                                    .titleSmall
-                                        )
-                                        Text(
-                                            formatDateTime(
-                                                item.occurredAtEpochMs
-                                            ),
-                                            style =
-                                                MaterialTheme
-                                                    .typography
-                                                    .bodySmall,
-                                            color =
-                                                MaterialTheme
-                                                    .colorScheme
-                                                    .onSurfaceVariant
-                                        )
-                                    }
-                                    Text(
-                                        categoryStore.labelFor(
-                                            categoryStore.canonicalId(
-                                                item.category
-                                            )
-                                        ),
-                                        style =
-                                            MaterialTheme
-                                                .typography
-                                                .labelMedium
-                                    )
-                                    Icon(
-                                        Icons.Rounded
-                                            .ChevronRight,
-                                        contentDescription =
-                                            null
-                                    )
-                                }
-                            }
-                        }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick =
-                    onDismiss
-            ) {
-                Text("Done")
             }
         }
     )
