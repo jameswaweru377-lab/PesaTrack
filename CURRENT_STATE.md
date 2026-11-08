@@ -1,5 +1,16 @@
 # PesaTrack Current State
 
+_Activity-to-Statements review-consent parity (8 November 2026; CI and phone acceptance pending):_
+Original SMS/notification Activity cash evidence explicitly classified by the user
+or still marked Needs Review remains visible in Statements evidence, but cannot
+be treated by the legacy same-movement or transfer-review path as proof of a
+new matching relationship. This matches the existing newer transfer review's
+protection for USER_CLASSIFIED, NEEDS_REVIEW and EXCLUDED states. Ordinary
+unreviewed source evidence is unchanged. No canonical Activity posting,
+transaction state, source archive, saved review choice, balance, income,
+expenses, database schema, backup or UI changes. N2's statement-to-ledger hold
+remains. Synthetic JVM and exact-head CI acceptance are separate from Redmi tests.
+
 _Cash evidence reference-proof safeguard (8 November 2026; exact-head CI and phone acceptance pending):_
 The existing local evidence journal now requires an 8–48 character
 alphanumeric receipt reference containing a digit before a Statement/SMS
