@@ -604,8 +604,8 @@ private fun BackupStepLabel(text: String) {
 
 @Composable
 private fun BackupWarning(text: String) {
-    Surface(shape = RoundedCornerShape(16.dp), color = Color(0xFFFFF4DD)) {
-        Text(text, modifier = Modifier.fillMaxWidth().padding(16.dp), color = Color(0xFF6A4300),
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+        Text(text, modifier = Modifier.fillMaxWidth().padding(16.dp), color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.bodyMedium)
     }
 }

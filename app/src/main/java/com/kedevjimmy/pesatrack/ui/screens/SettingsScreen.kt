@@ -16,8 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
-import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
-import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
+import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
@@ -99,7 +98,7 @@ private fun SettingsCompactRow(
         .heightIn(min = PesaDesignTokens.minimumTouchTarget)
         .padding(horizontal = PesaDesignTokens.cardContentPadding, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        IconBubble(icon, tint = pesaToneContent(tone), background = pesaToneContainer(tone))
+        IconBubble(icon, tint = C.ink, background = C.lilac)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
