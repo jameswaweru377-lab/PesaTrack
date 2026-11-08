@@ -32,8 +32,17 @@ class StatementReceiptEvidenceReader(context: Context) {
                      WHERE learning.transaction_id=transactions.id
                        AND learning.category_id=transactions.category
                        AND learning.direction=transactions.direction),
-                   evidence_source
-                   FROM transactions WHERE transaction_code IN ($marks)""",
+                   evidence_source,related_transaction_id,fee_minor,
+                   fuliza_financed_minor,fuliza_access_fee_minor,fuliza_event_code,
+                   (EXISTS(SELECT 1 FROM debt_events d WHERE d.linked_transaction_id=transactions.id)
+                    OR EXISTS(SELECT 1 FROM transactions other
+                        WHERE other.related_transaction_id=transactions.id
+                           OR (transactions.transaction_code IS NOT NULL AND
+                               other.reversal_of_code=transactions.transaction_code))) AS special_cash
+                   FROM transactions WHERE transaction_code IN ($marks)
+                     AND (LOWER(source_kind) LIKE '%sms%' OR LOWER(source_kind) LIKE '%notification%')
+                     AND LOWER(source_kind) NOT LIKE '%manual%'
+                     AND LOWER(source_kind) NOT LIKE '%statement%'""",
                 chunk.toTypedArray()
             ).use { cursor ->
                 while (cursor.moveToNext()) {
@@ -51,7 +60,13 @@ class StatementReceiptEvidenceReader(context: Context) {
                         counterparty = cursor.getString(5),
                         phone = cursor.getString(6),
                         excluded = cursor.getString(7) == "EXCLUDED",
-                        structurallyLinked = !cursor.isNull(8) || !cursor.isNull(9),
+                        // Receivable/investment events are intentionally handled by
+                        // the explicit Activity projection; ordinary debt/refund/
+                        // fee evidence must not silently inherit a spending role.
+                        structurallyLinked = !cursor.isNull(8) || !cursor.isNull(9) ||
+                            !cursor.isNull(15) || cursor.getLong(16) != 0L ||
+                            cursor.getLong(17) != 0L || cursor.getLong(18) != 0L ||
+                            !cursor.isNull(19) || cursor.getInt(20) != 0,
                         transactionId = id,
                         reviewState = cursor.getString(7),
                         categoryId = cursor.getString(11)?.let {
