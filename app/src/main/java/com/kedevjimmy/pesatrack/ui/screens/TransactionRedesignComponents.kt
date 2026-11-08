@@ -633,19 +633,16 @@ internal fun TransactionCategoryChooser(
                     }
                 }
                 item {
-                    BoxWithConstraints {
-                        val cols = 3
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            matching.chunked(cols).forEach { row ->
-                                Row(Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    row.forEach { c ->
-                                        CategoryReferenceTile(c, selectedId == c.id,
-                                            Modifier.weight(1f), compact = true,
-                                            onSelect = { selectedId = c.id })
-                                    }
-                                    repeat(cols - row.size) { Spacer(Modifier.weight(1f)) }
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        matching.chunked(3).forEach { row ->
+                            Row(Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                row.forEach { c ->
+                                    CategoryReferenceTile(c, selectedId == c.id,
+                                        Modifier.weight(1f), compact = true,
+                                        onSelect = { selectedId = c.id })
                                 }
+                                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                             }
                         }
                     }

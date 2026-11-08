@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -22,7 +23,6 @@ import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 
 @Composable
 internal fun BrownTransactionHeader(
@@ -75,6 +75,7 @@ internal fun BrownTransactionHeader(
 @Composable
 private fun BrownTransactionPaymentCard(item: StoredTransaction, category: String, account: String) {
     val p = BrownHomePalette
+    val locale = LocalConfiguration.current.locales[0]
     val signed = when (item.direction) {
         MoneyDirection.EXPENSE.name -> "−"
         MoneyDirection.INCOME.name -> "+"
@@ -117,7 +118,7 @@ private fun BrownTransactionPaymentCard(item: StoredTransaction, category: Strin
                         color = p.coffee, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                 }
             }
-            Text(SimpleDateFormat("d MMM yyyy  ·  h:mm a", Locale.getDefault())
+            Text(SimpleDateFormat("d MMM yyyy  ·  h:mm a", locale)
                 .format(Date(item.occurredAtEpochMs)), color = p.muted, fontSize = 12.sp)
             BrownTransactionFunding(item, account)
         }
