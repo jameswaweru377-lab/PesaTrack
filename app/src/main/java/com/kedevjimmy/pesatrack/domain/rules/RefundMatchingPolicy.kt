@@ -7,6 +7,8 @@ data class RefundCandidate(
     val counterparty: String?
 )
 
+enum class RefundReviewReason { PARTIAL, AMBIGUOUS }
+
 object RefundMatchingPolicy {
     const val MAX_REFUND_DISTANCE_MS = 14L * 24L * 60L * 60L * 1000L
 
@@ -60,6 +62,39 @@ object RefundMatchingPolicy {
             newest.transactionId
         } else {
             null
+        }
+    }
+
+    /** Partial and competing evidence must never create an automatic ledger link. */
+    fun reviewReason(
+        receivedAmountMinor: Long,
+        receivedAtEpochMs: Long,
+        receivedCounterparty: String?,
+        candidates: List<RefundCandidate>
+    ): RefundReviewReason? {
+        val plausible = plausibleCandidates(
+            receivedAmountMinor, receivedAtEpochMs, receivedCounterparty, candidates
+        )
+        return when {
+            plausible.size > 1 -> RefundReviewReason.AMBIGUOUS
+            plausible.singleOrNull()?.amountMinor?.let { it > receivedAmountMinor } == true ->
+                RefundReviewReason.PARTIAL
+            else -> null
+        }
+    }
+
+    private fun plausibleCandidates(
+        amount: Long,
+        at: Long,
+        counterparty: String?,
+        candidates: List<RefundCandidate>
+    ): List<RefundCandidate> {
+        if (amount <= 0L) return emptyList()
+        val identity = merchantIdentity(counterparty) ?: return emptyList()
+        return candidates.filter { candidate ->
+            candidate.amountMinor >= amount && candidate.occurredAtEpochMs <= at &&
+                at - candidate.occurredAtEpochMs <= MAX_REFUND_DISTANCE_MS &&
+                merchantIdentity(candidate.counterparty) == identity
         }
     }
 
