@@ -787,7 +787,7 @@ fun BillsRemindersScreen(
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(MaterialTheme.colorScheme.background),
+            .background(BrownHomePalette.canvas),
         contentPadding = PaddingValues(
             horizontal = 16.dp,
             vertical = 14.dp
@@ -802,7 +802,7 @@ fun BillsRemindersScreen(
                 }
                 Text("Bills calendar", modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold, color = HomeMonochromePalette.ink)
+                    fontWeight = FontWeight.Bold, color = BrownHomePalette.ink)
             }
         }
         item {

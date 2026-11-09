@@ -25,18 +25,18 @@ import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 /** Selected Budget B: a calm, ring-led overview with real stored limit and spending. */
 @Composable
 internal fun SelectedBudgetRing(limitMinor: Long, spentMinor: Long, money: (Long) -> String) {
-    val p = HomeMonochromePalette
+    val p = BrownHomePalette
     val percent = selectedBudgetSpentPercent(limitMinor, spentMinor)
     val remaining = if (limitMinor >= spentMinor) limitMinor - spentMinor else 0L
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.size(216.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(176.dp), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(progress = { (percent ?: 0) / 100f },
                 modifier = Modifier.fillMaxSize(), strokeWidth = 12.dp,
-                color = p.green, trackColor = p.softGreen)
+                color = p.coffee, trackColor = p.cream)
             Column(horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(percent?.let { "$it%" } ?: "—", color = p.green,
+                Text(percent?.let { "$it%" } ?: "—", color = p.coffee,
                     style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                 Text(if (percent == null) "No budget set" else money(remaining),
                     style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
@@ -64,9 +64,9 @@ internal fun SelectedBudgetFilters(selected: String, onSelect: (String) -> Unit)
             Surface(modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 .clickable { onSelect(filter) },
                 shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-                color = if (active) HomeMonochromePalette.green else HomeMonochromePalette.softGreen) {
+                color = if (active) BrownHomePalette.coffee else BrownHomePalette.cream) {
                 Box(Modifier.padding(8.dp), contentAlignment = Alignment.Center) {
-                    Text(filter, color = if (active) Color.White else HomeMonochromePalette.ink,
+                    Text(filter, color = if (active) Color.White else BrownHomePalette.ink,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = if (active) FontWeight.Bold else FontWeight.Medium)
                 }
@@ -86,7 +86,7 @@ internal fun SelectedBudgetCategoryRow(
     onDelete: () -> Unit,
     timingContent: @Composable () -> Unit
 ) {
-    val p = HomeMonochromePalette
+    val p = BrownHomePalette
     val percent = selectedBudgetSpentPercent(limitMinor, spentMinor)
     val over = spentMinor > limitMinor
     var expanded by remember { mutableStateOf(false) }
@@ -94,9 +94,9 @@ internal fun SelectedBudgetCategoryRow(
         Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable { onEdit() },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(shape = RoundedCornerShape(PesaDesignTokens.iconRadius), color = p.softGreen) {
+            Surface(shape = RoundedCornerShape(PesaDesignTokens.iconRadius), color = p.cream) {
                 Box(Modifier.size(PesaDesignTokens.iconBubble), contentAlignment = Alignment.Center) {
-                    Icon(icon, contentDescription = null, tint = p.green)
+                    Icon(icon, contentDescription = null, tint = p.coffee)
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -105,7 +105,7 @@ internal fun SelectedBudgetCategoryRow(
                     overflow = TextOverflow.Ellipsis)
                 Text(if (over) "Over by ${money(spentMinor - limitMinor)}" else
                     "${money(limitMinor - spentMinor)} left",
-                    color = if (over) MaterialTheme.colorScheme.error else p.green,
+                    color = if (over) MaterialTheme.colorScheme.error else p.coffee,
                     style = MaterialTheme.typography.labelSmall)
             }
             Column(Modifier.weight(1.15f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -113,18 +113,18 @@ internal fun SelectedBudgetCategoryRow(
                     color = p.muted, style = MaterialTheme.typography.labelSmall, maxLines = 1)
                 LinearProgressIndicator(progress = { (percent ?: 0) / 100f },
                     modifier = Modifier.fillMaxWidth().height(8.dp),
-                    color = if (over) MaterialTheme.colorScheme.error else p.green,
-                    trackColor = p.softGreen)
+                    color = if (over) MaterialTheme.colorScheme.error else p.coffee,
+                    trackColor = p.cream)
             }
             Icon(Icons.Rounded.ChevronRight, "Edit $label budget", tint = p.ink)
         }
         TextButton(onClick = { expanded = !expanded }) {
-            Text(if (expanded) "Hide options" else "More options", color = p.green,
+            Text(if (expanded) "Hide options" else "More options", color = p.coffee,
                 style = MaterialTheme.typography.labelSmall)
         }
         if (expanded) {
-            Surface(color = p.surface,
-                border = BorderStroke(1.dp, p.line),
+            Surface(color = p.white,
+                border = BorderStroke(1.dp, p.outline),
                 shape = RoundedCornerShape(PesaDesignTokens.innerRadius)) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     timingContent()
@@ -139,6 +139,6 @@ internal fun SelectedBudgetCategoryRow(
                 }
             }
         }
-        HorizontalDivider(color = p.line)
+        HorizontalDivider(color = p.outline)
     }
 }

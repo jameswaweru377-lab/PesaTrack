@@ -773,7 +773,7 @@ fun SavingGoalsScreen(
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(MaterialTheme.colorScheme.background)
+            .background(BrownHomePalette.canvas)
             .testTag("saving-goals-list"),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -786,7 +786,7 @@ fun SavingGoalsScreen(
                 }
                 Text("Your savings goals", modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold, color = HomeMonochromePalette.ink)
+                    fontWeight = FontWeight.Bold, color = BrownHomePalette.ink)
                 OutlinedButton(onClick = { editingGoal = null; goalEditor = true },
                     modifier = Modifier.heightIn(min = 48.dp)) {
                     Icon(Icons.Rounded.Add, contentDescription = null)
@@ -796,7 +796,7 @@ fun SavingGoalsScreen(
             }
         }
         if (featured == null && loadError == null) item {
-            Surface(color = HomeMonochromePalette.softGreen,
+            Surface(color = BrownHomePalette.cream,
                 shape = RoundedCornerShape(PesaDesignTokens.cardRadius)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -818,7 +818,7 @@ fun SavingGoalsScreen(
             SelectedOtherGoal(model.title, model.savedMinor, model.targetMinor,
                 model.hasTotalTarget,
                 ::goalMoney) { selectedGoal = model }
-            HorizontalDivider(color = HomeMonochromePalette.line)
+            HorizontalDivider(color = BrownHomePalette.outline)
         }
         if (featured != null) item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.WaterDrop
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -375,9 +376,9 @@ pendingBudgetRemoval?.let { candidate ->
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .background(BrownHomePalette.canvas),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -393,8 +394,8 @@ pendingBudgetRemoval?.let { candidate ->
 
         item {
             Surface(shape = RoundedCornerShape(16.dp),
-                color = HomeMonochromePalette.surface,
-                border = androidx.compose.foundation.BorderStroke(1.dp, HomeMonochromePalette.line),
+                color = BrownHomePalette.white,
+                border = androidx.compose.foundation.BorderStroke(1.dp, BrownHomePalette.outline),
                 modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
                     verticalAlignment = Alignment.CenterVertically) {
@@ -438,10 +439,10 @@ pendingBudgetRemoval?.let { candidate ->
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
+                    color = BrownHomePalette.cream
                 ) {
                     Text(
-                        "No budgets yet. Add one above and PesaTrack will compare it with trusted Activity transactions automatically.",
+                        "No budgets yet. Add your first spending limit.",
                         modifier = Modifier.padding(15.dp),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -494,9 +495,16 @@ pendingBudgetRemoval?.let { candidate ->
             }
         }
         item {
-            VibrantActionButton("+ New budget", onClick = {
-                categoryExpanded = !categoryExpanded
-            })
+            Button(
+                onClick = { categoryExpanded = !categoryExpanded },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = BrownHomePalette.coffee),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(Icons.Rounded.Add, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("New budget")
+            }
         }
         if (categoryExpanded || budgets.isEmpty()) {
             item {

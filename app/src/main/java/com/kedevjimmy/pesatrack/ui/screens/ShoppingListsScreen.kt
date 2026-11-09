@@ -19,6 +19,7 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ShoppingCart
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,6 +27,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Surface
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,7 +50,6 @@ import com.kedevjimmy.pesatrack.data.local.ShoppingListStore
 import com.kedevjimmy.pesatrack.domain.planning.ShoppingItem
 import com.kedevjimmy.pesatrack.domain.planning.ShoppingList
 import com.kedevjimmy.pesatrack.domain.planning.ShoppingListPolicy
-import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import java.math.BigDecimal
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -70,7 +75,7 @@ fun ShoppingListsScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit) {
     LaunchedEffect(Unit) { state.reload() }
     BackHandler(selectedId != null) { selectedId = null }
 
-    LazyColumn(Modifier.padding(scaffoldPadding).background(HomeMonochromePalette.canvas),
+    LazyColumn(Modifier.padding(scaffoldPadding).background(BrownHomePalette.canvas),
         contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { ShoppingTitle(if (selected == null) "Shopping lists" else selected.title) {
             if (selected == null) onBack() else selectedId = null
@@ -219,11 +224,41 @@ private fun ShoppingTitle(title: String, onBack: () -> Unit) {
 
 @Composable
 internal fun ShoppingListsPlanEntry(onClick: () -> Unit) {
-    PesaCard {
-        TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Rounded.ShoppingCart, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("Shopping lists · Plan before you spend")
+    val context = LocalContext.current
+    val store = remember { ShoppingListStore(context) }
+    val monthKey = remember { SimpleDateFormat("yyyy-MM", Locale.US).format(Date()) }
+    val monthName = remember { SimpleDateFormat("MMMM", Locale.getDefault()).format(Date()) }
+    var monthlyLists by remember { mutableStateOf<List<ShoppingList>?>(null) }
+    LaunchedEffect(monthKey) {
+        monthlyLists = try { withContext(Dispatchers.IO) {
+            store.list().filter { it.month == monthKey }
+        } } catch (_: Exception) { null }
+    }
+    val single = monthlyLists?.singleOrNull()
+    val estimate = single?.let(ShoppingListPolicy::total)
+    val detail = when {
+        monthlyLists == null -> "Open shopping lists"
+        monthlyLists!!.isEmpty() -> "Make your monthly list"
+        single == null -> "${monthlyLists!!.size} lists planned"
+        single.items.isEmpty() -> "Add items to your list"
+        estimate != null && estimate.knownTotalMinor > 0L ->
+            "${single.items.size} items · ${formatShoppingMoney(estimate.knownTotalMinor)} est." +
+                if (estimate.missingPrices > 0) " (partial)" else ""
+        else -> "${single.items.size} items planned"
+    }
+    Surface(shape = RoundedCornerShape(16.dp), color = BrownHomePalette.cream,
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(Icons.Rounded.ShoppingCart, null, tint = BrownHomePalette.coffee,
+                modifier = Modifier.width(40.dp))
+            Column(Modifier.weight(1f)) {
+                Text("$monthName shopping", color = BrownHomePalette.ink,
+                    fontWeight = FontWeight.SemiBold)
+                Text(detail, color = BrownHomePalette.muted,
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            Icon(Icons.Rounded.ChevronRight, "Open shopping lists", tint = BrownHomePalette.ink)
         }
     }
 }
@@ -231,9 +266,10 @@ internal fun ShoppingListsPlanEntry(onClick: () -> Unit) {
 @Composable
 private fun ShoppingOverviewHeader(onNew: () -> Unit, disabled: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Plan purchases before spending. These estimates do not change your balance.",
-            style = MaterialTheme.typography.bodyMedium)
-        Button(onClick = onNew, enabled = !disabled) {
+        Text("Monthly lists", style = MaterialTheme.typography.titleMedium,
+            color = BrownHomePalette.coffee, fontWeight = FontWeight.Bold)
+        Button(onClick = onNew, enabled = !disabled,
+            colors = ButtonDefaults.buttonColors(containerColor = BrownHomePalette.coffee)) {
             Icon(Icons.Rounded.ShoppingCart, null)
             Text(" New list")
         }
@@ -242,52 +278,68 @@ private fun ShoppingOverviewHeader(onNew: () -> Unit, disabled: Boolean) {
 
 @Composable
 private fun ShoppingEmptyState() {
-    PesaCard { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Surface(color = BrownHomePalette.cream, shape = RoundedCornerShape(16.dp)) {
+      Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Your first list starts here", style = MaterialTheme.typography.titleMedium)
         Text("Add items and prices, then reuse this list next month.",
             style = MaterialTheme.typography.bodySmall)
-    } }
+      }
+    }
 }
 
 @Composable
 private fun ShoppingOverviewRow(list: ShoppingList, onOpen: () -> Unit,
     onReuse: () -> Unit, disabled: Boolean) {
     val estimate = ShoppingListPolicy.total(list)
-    PesaCard { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Surface(color = BrownHomePalette.white, shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, BrownHomePalette.outline)) {
+      Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(list.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("${list.month} · ${list.items.size} items", style = MaterialTheme.typography.bodySmall)
+        Text("${list.month} · ${list.items.size} items", style = MaterialTheme.typography.bodySmall,
+            color = BrownHomePalette.muted)
         Text(shoppingEstimateLabel(estimate), style = MaterialTheme.typography.bodyMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = onOpen, enabled = !disabled) { Text("Open") }
-            TextButton(onClick = onReuse, enabled = !disabled) { Text("Reuse this list") }
+            TextButton(onClick = onOpen, enabled = !disabled) {
+                Text("Open", color = BrownHomePalette.coffee)
+            }
+            TextButton(onClick = onReuse, enabled = !disabled) {
+                Text("Reuse", color = BrownHomePalette.coffee)
+            }
         }
-    } }
+      }
+    }
 }
 
 @Composable
 private fun ShoppingDetailHeader(list: ShoppingList, onAdd: () -> Unit,
     onRename: () -> Unit, onDelete: () -> Unit, disabled: Boolean) {
     val estimate = ShoppingListPolicy.total(list)
-    PesaCard { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("${list.month} · ${list.items.size} items", style = MaterialTheme.typography.bodySmall)
+    Surface(color = BrownHomePalette.cream, shape = RoundedCornerShape(16.dp)) {
+      Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("${list.month} · ${list.items.size} items", style = MaterialTheme.typography.bodySmall,
+            color = BrownHomePalette.muted)
         Text(shoppingEstimateLabel(estimate), style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold)
-        Text("Estimated only — no expense has been recorded.",
+        Text("Estimate only · not recorded as an expense",
             style = MaterialTheme.typography.bodySmall)
-        Button(onClick = onAdd, enabled = !disabled && list.items.size < ShoppingListPolicy.MAX_ITEMS) {
+        Button(onClick = onAdd, enabled = !disabled && list.items.size < ShoppingListPolicy.MAX_ITEMS,
+            colors = ButtonDefaults.buttonColors(containerColor = BrownHomePalette.coffee)) {
             Text("Add item")
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = onRename, enabled = !disabled) { Text("Rename") }
             TextButton(onClick = onDelete, enabled = !disabled) { Text("Delete list") }
         }
-    } }
+      }
+    }
 }
 
 @Composable
 private fun ShoppingItemRow(item: ShoppingItem, disabled: Boolean, onCheck: (Boolean) -> Unit,
     onEdit: () -> Unit, onRemove: () -> Unit) {
-    PesaCard { Row(Modifier.fillMaxWidth().padding(8.dp),
+    Surface(color = BrownHomePalette.white, shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, BrownHomePalette.outline.copy(alpha = 0.6f))) {
+      Row(Modifier.fillMaxWidth().padding(8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Checkbox(checked = item.bought, enabled = !disabled, onCheckedChange = onCheck)
         Column(Modifier.weight(1f)) {
@@ -301,7 +353,8 @@ private fun ShoppingItemRow(item: ShoppingItem, disabled: Boolean, onCheck: (Boo
         IconButton(onClick = onRemove, enabled = !disabled) {
             Icon(Icons.Rounded.DeleteOutline, contentDescription = "Remove ${item.name}")
         }
-    } }
+      }
+    }
 }
 
 @Composable

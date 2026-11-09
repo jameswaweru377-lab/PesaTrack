@@ -294,6 +294,8 @@ fun PlanScreen(
         available = formatPlanMoney(planningAvailability.availableMinor),
         starting = formatPlanMoney(snapshot.startingFundsMinor),
         committed = formatPlanMoney(snapshot.remainingCommitmentsMinor),
+        billsTotal = planUpcomingBillsTotalMinor(upcomingBills.map { it.remainingMinor })
+            ?.let(::formatPlanMoney),
         saved = formatPlanMoney(snapshot.savingsMinor),
         received = formatPlanMoney(snapshot.additionalIncomeMinor),
         spent = formatPlanMoney(snapshot.spentMinor),
@@ -323,7 +325,7 @@ fun PlanScreen(
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(HomeMonochromePalette.canvas),
+            .background(BrownHomePalette.canvas),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -353,15 +355,13 @@ fun PlanScreen(
                     onBudget = { onBudgetClick?.invoke() },
                     onGoals = { onGoalsClick?.invoke() },
                     onBills = { onBillsClick?.invoke() },
+                    onShopping = onShoppingClick,
                     onDetails = { showPlanDetails = true },
                     onSalary = { onSalaryClick?.invoke() }
                 )
             }
         }
         if (!showPlanDetails) {
-        if (onShoppingClick != null) item(key = "shopping-lists-entry") {
-            ShoppingListsPlanEntry(onShoppingClick)
-        }
         // Preserve the existing forecasting, recurring-bill confirmation and
         // funding-gap review flows below the new Plan overview.
         item {

@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -69,6 +71,7 @@ internal fun MoneyUntilSalaryCard(snapshot: PayCycleSnapshot) {
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(false) }
     var showEvidence by remember { mutableStateOf(false) }
     var refresh by remember { mutableIntStateOf(0) }
 
@@ -89,48 +92,49 @@ internal fun MoneyUntilSalaryCard(snapshot: PayCycleSnapshot) {
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(21.dp),
-        color = Color(0xFFF1ECFF),
-        border = BorderStroke(1.dp, Color(0xFFE4D9FF)),
-        shadowElevation = 2.dp
+        shape = RoundedCornerShape(16.dp),
+        color = BrownHomePalette.cream,
+        border = BorderStroke(1.dp, BrownHomePalette.outline)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .clickable { expanded = !expanded },
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(11.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                VibrantPlanIcon(
-                    Icons.Rounded.CalendarMonth, "violet",
-                    modifier = Modifier.size(48.dp), size = 48
-                )
+                Icon(Icons.Rounded.CalendarMonth, null,
+                    modifier = Modifier.size(24.dp), tint = BrownHomePalette.coffee)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
-                        "Planning status", color = PlanVibrant.ink,
-                        fontSize = 16.sp, fontWeight = FontWeight.ExtraBold
+                        "Planning status", color = BrownHomePalette.ink,
+                        fontSize = 14.sp, fontWeight = FontWeight.Bold
                     )
                     Text(
                         when {
-                            loading -> "Checking confirmed payday and spendable balance…"
-                            error -> "Your financial records are safe. Try checking again."
-                            current == null -> "Financial evidence is not available yet."
+                            loading -> "Checking payday…"
+                            error -> "Check again"
+                            current == null -> "Forecast unavailable"
                             current?.result?.lowMinor != null &&
                                 current?.result?.highMinor != null ->
-                                "A cautious money-until-salary estimate is available."
-                            else -> "More verified evidence is needed before a money-until-salary estimate."
+                                "Payday forecast available"
+                            else -> "Confirm payday and balance"
                         },
-                        color = PlanVibrant.muted,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp
+                        color = BrownHomePalette.muted, fontSize = 12.sp
                     )
                 }
+                Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = if (expanded) "Collapse planning status" else "Expand planning status",
+                    tint = BrownHomePalette.coffee)
             }
+            if (expanded) {
             when {
                 loading -> CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
-                    color = PlanVibrant.violet, strokeWidth = 2.dp
+                    color = BrownHomePalette.coffee, strokeWidth = 2.dp
                 )
                 error -> TextButton(onClick = { refresh++ }) { Text("Try again") }
                 current != null -> {
@@ -156,13 +160,13 @@ internal fun MoneyUntilSalaryCard(snapshot: PayCycleSnapshot) {
                             color = Color(0xFF965315), fontSize = 11.sp, lineHeight = 15.sp
                         )
                     }
-                    VibrantActionButton(
-                        label = if (read.confirmedPaydayIsCurrent && read.hasFreshSpendableBalance)
-                            "Review payday & balance" else "Confirm payday & balance",
-                        onClick = { editing = !editing }
-                    )
+                    Button(onClick = { editing = !editing }, modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = BrownHomePalette.coffee)) {
+                        Text(if (read.confirmedPaydayIsCurrent && read.hasFreshSpendableBalance)
+                            "Review payday & balance" else "Confirm payday & balance")
+                    }
                     if (editing) {
-                        HorizontalDivider(color = Color(0xFFDBD1F6))
+                        HorizontalDivider(color = BrownHomePalette.outline)
                         ForecastConfirmationForm(
                             repository = repository,
                             read = read,
@@ -184,21 +188,22 @@ internal fun MoneyUntilSalaryCard(snapshot: PayCycleSnapshot) {
                             else if (read.result.lowMinor != null && read.result.highMinor != null)
                                 "View forecast evidence"
                             else "Why is an estimate unavailable?",
-                            color = PlanVibrant.violet, fontSize = 11.sp,
+                            color = BrownHomePalette.coffee, fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                         Icon(
                             if (showEvidence) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                             contentDescription = null, modifier = Modifier.size(17.dp),
-                            tint = PlanVibrant.violet
+                            tint = BrownHomePalette.coffee
                         )
                     }
                     if (showEvidence) {
-                        HorizontalDivider(color = Color(0xFFDBD1F6))
+                        HorizontalDivider(color = BrownHomePalette.outline)
                         ForecastDetails(read)
                     }
                 }
                 else -> TextButton(onClick = { refresh++ }) { Text("Retry forecast") }
+            }
             }
         }
     }
@@ -211,7 +216,7 @@ private fun ForecastEvidenceChip(
     Surface(
         modifier = modifier.heightIn(min = 33.dp),
         shape = RoundedCornerShape(16.dp),
-        color = if (complete) Color(0xFFE3FAEE) else Color(0xFFE8DFFF)
+        color = if (complete) BrownHomePalette.canvas else BrownHomePalette.cream
     ) {
         Row(
             Modifier.padding(horizontal = 9.dp, vertical = 8.dp),
@@ -219,10 +224,10 @@ private fun ForecastEvidenceChip(
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             Text(if (complete) "✓" else "○",
-                color = if (complete) Color(0xFF008A68) else Color(0xFF5920CC),
+                color = BrownHomePalette.coffee,
                 fontSize = 13.sp, fontWeight = FontWeight.Bold)
             Text(text, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
-                color = PlanVibrant.ink, maxLines = 2, lineHeight = 12.sp)
+                color = BrownHomePalette.ink, maxLines = 2, lineHeight = 12.sp)
         }
     }
 }
