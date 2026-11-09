@@ -105,7 +105,8 @@ internal class DuplicateResolutionWriter(
         val expectedFirst = shownFirst ?: return false
         val expectedSecond = shownSecond ?: return false
         if (first.reversalOfCode != null || second.reversalOfCode != null ||
-            hasIncomingReversal(db, first, second)) return false
+            hasIncomingReversal(db, first, second) ||
+            DuplicateCashRoleSafety.hasDependents(db, first.id, second.id)) return false
         return PossibleDuplicatePolicy.canConfirm(
             pairKey,
             expectedFirst.toPossibleDuplicateObservation(),
@@ -164,6 +165,27 @@ internal class DuplicateResolutionWriter(
     }
 }
 
+/** A cash leg already used by another financial workflow must never be excluded
+ * merely because two messages share an amount and timestamp. All checks are
+ * read-only and run inside the duplicate writer's existing SQLite transaction.
+ */
+internal object DuplicateCashRoleSafety {
+    fun hasDependents(db: SQLiteDatabase, firstId: Long, secondId: Long): Boolean {
+        require(firstId > 0L && secondId > 0L && firstId != secondId)
+        val ids = arrayOf(firstId.toString(), secondId.toString())
+        val sql = """SELECT 1 WHERE
+            EXISTS(SELECT 1 FROM debt_events WHERE linked_transaction_id IN (?,?)) OR
+            EXISTS(SELECT 1 FROM investment_events WHERE linked_transaction_id IN (?,?)) OR
+            EXISTS(SELECT 1 FROM personal_receivable_events WHERE linked_transaction_id IN (?,?)) OR
+            EXISTS(SELECT 1 FROM transaction_allocations WHERE transaction_id IN (?,?)) OR
+            EXISTS(SELECT 1 FROM payday_snapshots WHERE salary_transaction_id IN (?,?)) OR
+            EXISTS(SELECT 1 FROM transactions WHERE related_transaction_id IN (?,?))
+            LIMIT 1""".trimIndent()
+        return db.rawQuery(sql, Array(6) { ids }.flatMap { it.toList() }.toTypedArray())
+            .use { it.moveToFirst() }
+    }
+}
+
 internal fun StoredTransaction.toPossibleDuplicateObservation(): PossibleDuplicateObservation =
     PossibleDuplicateObservation(
         id = id,
@@ -176,6 +198,10 @@ internal fun StoredTransaction.toPossibleDuplicateObservation(): PossibleDuplica
         direction = direction,
         reviewState = reviewState,
         category = category,
+        hasProtectedCashRole = linkedAccountId != null || relationType != null ||
+            relatedTransactionId != null || reversalOfCode != null || feeMinor != 0L ||
+            fulizaFinancedMinor != 0L || fulizaAccessFeeMinor != 0L ||
+            fulizaOutstandingMinor != null || fulizaEventCode != null,
         counterparty = counterparty,
         evidenceLabel = evidenceLabel,
         type = type

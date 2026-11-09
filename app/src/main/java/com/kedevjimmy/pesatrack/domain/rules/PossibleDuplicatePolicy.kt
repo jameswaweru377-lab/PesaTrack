@@ -14,6 +14,7 @@ data class PossibleDuplicateObservation(
     val direction: String,
     val reviewState: String,
     val category: String,
+    val hasProtectedCashRole: Boolean,
     val counterparty: String?,
     val evidenceLabel: String?,
     val type: String
@@ -73,6 +74,8 @@ object PossibleDuplicatePolicy {
         // is not permission to remove either source's movement from totals.
         if (first.accountId.isNullOrBlank() || second.accountId.isNullOrBlank() ||
             first.accountId != second.accountId ||
+            first.hasProtectedCashRole || second.hasProtectedCashRole ||
+            first.direction == "TRANSFER" || second.direction == "TRANSFER" ||
             (first.direction != "NEUTRAL" && second.direction != "NEUTRAL" &&
                 first.direction != second.direction) ||
             first.category.uppercase(Locale.ROOT) in protectedCashCategories ||

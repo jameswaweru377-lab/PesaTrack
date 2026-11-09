@@ -408,6 +408,7 @@ class DuplicateAccountingAcceptanceGateTest {
                 "NEEDS_REVIEW",
             category =
                 "UNCATEGORIZED",
+            hasProtectedCashRole = false,
             counterparty = null,
             evidenceLabel = null,
             type = "OTHER"

@@ -72,6 +72,8 @@ class PossibleDuplicatePolicyTest {
         val incomeLeg = sample(id = 2, amount = 98_500L, receivedAt = 1_010_000L,
             source = "com.bank", direction = "INCOME")
         assertFalse(PossibleDuplicatePolicy.isCandidate(transferLeg, incomeLeg))
+        assertFalse(PossibleDuplicatePolicy.isCandidate(transferLeg.copy(direction = "TRANSFER"),
+            incomeLeg.copy(direction = "TRANSFER")))
     }
 
     @Test
@@ -101,6 +103,21 @@ class PossibleDuplicatePolicyTest {
             assertFalse(category, PossibleDuplicatePolicy.canConfirm("21:22",
                 first, second.copy(category = category), first, second.copy(category = category)))
         }
+        assertTrue(PossibleDuplicatePolicy.isCandidate(first, second))
+    }
+
+    @Test
+    fun linkedFinancialRolesAreNeverCollapsedEvenWhenUncategorized() {
+        val first = sample(id = 31, amount = 80_000L, receivedAt = 1_000_000L,
+            source = "com.bank")
+        val second = sample(id = 32, amount = 80_000L, receivedAt = 1_004_000L,
+            source = "com.messages")
+        val protectedFirst = first.copy(hasProtectedCashRole = true)
+        val protectedSecond = second.copy(hasProtectedCashRole = true)
+        assertFalse(PossibleDuplicatePolicy.isCandidate(protectedFirst, second))
+        assertFalse(PossibleDuplicatePolicy.isCandidate(first, protectedSecond))
+        assertFalse(PossibleDuplicatePolicy.canConfirm("31:32", protectedFirst, second,
+            protectedFirst, second))
         assertTrue(PossibleDuplicatePolicy.isCandidate(first, second))
     }
 
@@ -209,6 +226,7 @@ class PossibleDuplicatePolicyTest {
             second.copy(receivedAtEpochMs = 1_110_000L),
             second.copy(sourcePackage = "com.mpesa"),
             second.copy(accountId = "different-wallet"),
+            second.copy(hasProtectedCashRole = true),
             second.copy(direction = "INCOME"),
             second.copy(transactionCode = "NEWCODE1"),
             second.copy(counterparty = "Different merchant")
@@ -263,7 +281,8 @@ class PossibleDuplicatePolicyTest {
         direction: String = "NEUTRAL",
         counterparty: String? = null,
         type: String = "OTHER",
-        accountId: String? = "owned-wallet"
+        accountId: String? = "owned-wallet",
+        protectedCashRole: Boolean = false
     ) = PossibleDuplicateObservation(
         id = id,
         accountId = accountId,
@@ -275,6 +294,7 @@ class PossibleDuplicatePolicyTest {
         direction = direction,
         reviewState = "NEEDS_REVIEW",
         category = "UNCATEGORIZED",
+        hasProtectedCashRole = protectedCashRole,
         counterparty = counterparty,
         evidenceLabel = null,
         type = type
