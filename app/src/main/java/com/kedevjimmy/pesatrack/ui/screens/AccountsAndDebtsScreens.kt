@@ -184,7 +184,7 @@ fun AccountsScreen(
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
-            android.util.Log.e("PesaTrackAccounts", "Recent accounts evidence unavailable", failure)
+            android.util.Log.e("PesaTrackAccounts", "Recent accounts evidence unavailable")
         }
     }
     val initialCache = remember { stateCache?.takeIf { it.revision == revision } }
