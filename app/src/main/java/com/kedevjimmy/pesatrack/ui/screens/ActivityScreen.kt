@@ -165,7 +165,8 @@ data class ActivityCoreData(
     val snapshot: ActivityLedgerSnapshot,
     val previousSnapshot: ActivityLedgerSnapshot,
     val accountsById: Map<String, MoneyAccount>,
-    val confirmedAccountIds: Set<String>
+    val confirmedAccountIds: Set<String>,
+    val recordedBalanceMinor: Long? = null
 )
 
 data class ActivitySupplementalData(
@@ -188,7 +189,8 @@ data class ActivityScreenData(
     val accountsById: Map<String, MoneyAccount>,
     val confirmedAccountIds: Set<String>,
     val identityReviewCount: Int,
-    val ownershipEvidence: Map<String, OwnershipReviewEvidence> = emptyMap()
+    val ownershipEvidence: Map<String, OwnershipReviewEvidence> = emptyMap(),
+    val recordedBalanceMinor: Long? = null
 )
 
 class ActivityScreenCache {
@@ -314,6 +316,9 @@ fun ActivityScreen(
             warmData?.previousSnapshot ?: warmedCore?.previousSnapshot
                 ?: emptyActivityLedgerSnapshot()
         )
+    }
+    var recordedBalanceMinor by remember {
+        mutableStateOf(warmData?.recordedBalanceMinor ?: warmedCore?.recordedBalanceMinor)
     }
     var activityError by remember { mutableStateOf(false) }
     var loadedMonthEpochMs by remember { mutableStateOf<Long?>(if (warmData != null || warmedCore != null) warmMonth else null) }
@@ -504,6 +509,7 @@ fun ActivityScreen(
             core.accountsById
         confirmedAccountIds =
             core.confirmedAccountIds
+        recordedBalanceMinor = core.recordedBalanceMinor
     }
 
     fun applyActivitySupplementalData(
@@ -556,6 +562,7 @@ fun ActivityScreen(
                         core.accountsById,
                     confirmedAccountIds =
                         core.confirmedAccountIds,
+                    recordedBalanceMinor = core.recordedBalanceMinor,
                     identityReviewCount =
                         supplemental
                             .identityReviewCount
@@ -940,7 +947,9 @@ fun ActivityScreen(
             }
             item(key = "activity-period-overview") {
                 Box(Modifier.padding(bottom = 8.dp)) {
-                    BrownActivityMonthlyHero(displaySnapshot ?: snapshot, payCycleMode)
+                    BrownActivityMonthlyHero(
+                        displaySnapshot ?: snapshot, payCycleMode, recordedBalanceMinor
+                    )
                 }
             }
             item(key = "activity-attention-card") {

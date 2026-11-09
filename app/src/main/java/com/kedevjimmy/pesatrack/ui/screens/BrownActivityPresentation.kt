@@ -49,8 +49,7 @@ internal val brownActivityFilters = listOf(
     BrownActivityFilter("Money In", "Money In"),
     BrownActivityFilter("Money Out", "Money Out"),
     BrownActivityFilter("Transfers", "Transfers"),
-    BrownActivityFilter("Review", "Needs Review"),
-    BrownActivityFilter("Invested", "Invested")
+    BrownActivityFilter("Review", "Needs Review")
 )
 
 internal fun brownActivityFilterKey(label: String): String? =
@@ -65,8 +64,7 @@ internal fun BrownActivityHeading(month: String, onMonth: () -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Activity", Modifier.weight(1f), color = p.ink,
-            fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 24.sp)
+        Spacer(Modifier.weight(1f))
         Surface(onClick = onMonth, color = p.canvas,
             modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)
                 .semantics { contentDescription = "Choose Activity month: $month" }) {
@@ -82,7 +80,11 @@ internal fun BrownActivityHeading(month: String, onMonth: () -> Unit) {
 
 /** Decorative photography only. The four values still come from the trusted local ledger. */
 @Composable
-internal fun BrownActivityMonthlyHero(snapshot: ActivityLedgerSnapshot, payCycleMode: Boolean) {
+internal fun BrownActivityMonthlyHero(
+    snapshot: ActivityLedgerSnapshot,
+    payCycleMode: Boolean,
+    balanceMinor: Long?
+) {
     val p = BrownHomePalette
     val totals = remember(snapshot) { activityDesign3Totals(snapshot) }
     Box(Modifier.fillMaxWidth().height(172.dp)
@@ -113,7 +115,7 @@ internal fun BrownActivityMonthlyHero(snapshot: ActivityLedgerSnapshot, payCycle
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     BrownActivityMinorMetric("Money in", totals.incomeMinor, Modifier.weight(1f))
-                    BrownActivityMinorMetric("Transfers", totals.transfersMinor, Modifier.weight(1f))
+                    BrownActivityMinorMetric("Balance", balanceMinor, Modifier.weight(1f))
                     BrownActivityMinorMetric("Invested", totals.investedMinor, Modifier.weight(1f))
                 }
             }

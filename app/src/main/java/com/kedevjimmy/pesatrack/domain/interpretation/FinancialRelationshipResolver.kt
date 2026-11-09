@@ -1678,7 +1678,7 @@ object FinancialRelationshipResolver {
 
     private val BANK_SOURCE_LANGUAGE_REGEX =
         Regex(
-            """\b(?:a/?c|acct|account|debited|credited|available\s+balance|book\s+balance|bank\s+balance|card|pos|atm|cash\s+withdrawal)\b""",
+            """\b(?:a/?c|acct|account|debited|credited|available\s+balance|book\s+balance|bank\s+balance|bank\s+to\s+(?:m-?pesa|mobile\s+wallet)|card|pos|atm|cash\s+withdrawal)\b""",
             RegexOption.IGNORE_CASE
         )
 

@@ -4,7 +4,9 @@ import android.content.Context
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.ActivityMonthBucket
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
+import com.kedevjimmy.pesatrack.data.local.PaydaySnapshotStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -24,6 +26,18 @@ internal suspend fun readActivityCoreForMonth(
     if (months.none { it.monthStartEpochMs == currentMonthEpochMs }) {
         months.add(0, ActivityMonthBucket(currentMonthEpochMs, 0))
     }
+    val accounts = AccountStore.get(app).listAccounts(enabledOnly = false)
+    val confirmed = FinancialUnderstandingStore.get(app).confirmedAccountIds()
+    val owned = accounts.filter {
+        AccountDisplayPolicy.isConfirmedOwned(it, confirmed, includeCash = true)
+    }
+    // A previous month's balance must not silently display today's money.
+    val endOfMonth = shiftMonth(monthEpochMs, 1) - 1L
+    val balanceAsOf = minOf(System.currentTimeMillis(), endOfMonth)
+    val recordedBalance = if (balanceAsOf < monthEpochMs) null else
+        activityRecordedSpendableBalance(
+            PaydaySnapshotStore.get(app).currentAccountSnapshots(owned, balanceAsOf)
+        )
     ActivityCoreData(
         monthBuckets = months.sortedByDescending { it.monthStartEpochMs },
         snapshot = transactions.activitySnapshot(nowEpochMs = monthEpochMs),
@@ -31,8 +45,8 @@ internal suspend fun readActivityCoreForMonth(
             nowEpochMs = shiftMonth(monthEpochMs, -1),
             performMaintenance = false
         ),
-        accountsById = AccountStore.get(app)
-            .listAccounts(enabledOnly = false).associateBy { it.id },
-        confirmedAccountIds = FinancialUnderstandingStore.get(app).confirmedAccountIds()
+        accountsById = accounts.associateBy { it.id },
+        confirmedAccountIds = confirmed,
+        recordedBalanceMinor = recordedBalance
     )
 }

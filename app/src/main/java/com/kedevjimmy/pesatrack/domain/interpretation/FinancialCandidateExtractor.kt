@@ -229,6 +229,12 @@ object FinancialCandidateExtractor {
             RegexOption.DOT_MATCHES_ALL
         )
     )
+    // Generic mobile transfer wording, independent of which Kenyan bank sent it.
+    // A bank-to-wallet notice is not proof of ownership; ingestion confirms both accounts.
+    private val bankToMobileTransferRegex = Regex(
+        """\bbank\s+to\s+(m-?pesa|mobile\s+wallet)\s+transfer\s+of\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+to\s+((?:\+?254|0)[17]\d{8})\b""",
+        RegexOption.IGNORE_CASE
+    )
     private val sentAmountRegex = Regex(
         """(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+sent\s+to\b""",
         RegexOption.IGNORE_CASE
@@ -252,14 +258,14 @@ object FinancialCandidateExtractor {
         RegexOption.IGNORE_CASE
     )
     private val paidPartyRegex = Regex(
-        """paid\s+to\s+(.+?)(?=\s+for\s+account\b|\s+on\s+\d|\.\s*(?:New\s+)?M-PESA|$)""",
+        """paid\s+to\s+(.+?)(?=\s+(?:for\s+)?account\s+[A-Z0-9]|\s+on\s+\d|[.;]\s*(?:Ref(?:erence)?|New\s+M-PESA)\b|$)""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.DOT_MATCHES_ALL
         )
     )
     private val paidAccountReferenceRegex = Regex(
-        """\bfor\s+account\s+(.+?)(?=\s+on\s+\d|\.\s*(?:New\s+)?M-PESA|$)""",
+        """\b(?:for\s+)?account\s+([A-Z0-9*-]{3,32})(?=[\s.,;]|$)""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.DOT_MATCHES_ALL
@@ -361,7 +367,7 @@ object FinancialCandidateExtractor {
     )
 
     private val receiptRegex = Regex(
-        """(?:you\s+have\s+)?received\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+from\s+(.+?)(?=\s+(?:\+?254|0)\d{9}\b|\s+on\s+\d|\.\s*(?:New\s+)?M-PESA|$)""",
+        """(?:you\s+have\s+)?received\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+from\s+(.+?)(?=\s+(?:\+?254|0)\d{9}\b|\s+on\s+\d|[.,;]\s*(?:transaction\s+ref(?:erence)?|m-?pesa\s+ref(?:erence)?|ref(?:erence)?)\b|\.\s*(?:New\s+)?M-PESA|$)""",
         setOf(
             RegexOption.IGNORE_CASE,
             RegexOption.DOT_MATCHES_ALL
@@ -1242,6 +1248,21 @@ object FinancialCandidateExtractor {
                 .containsMatchIn(body)
         ) {
             return null
+        }
+
+        val mobile = bankToMobileTransferRegex.find(body)
+        if (mobile != null) {
+            val party = mobile.groups[1] ?: return null
+            val amount = mobile.groups[2] ?: return null
+            return FinancialActionCandidate(
+                kind = FinancialActionCandidateKind.TRANSFER_TO_ACCOUNT,
+                amountMinor = amountToMinor(amount.value),
+                amountSpan = amount.range.toSpan(),
+                partyLabel = party.value,
+                partySpan = party.range.toSpan(),
+                partyPhone = mobile.groups[3]?.value?.let(::normalizeKenyanPhone),
+                ruleId = "transfer_to.bank_mobile"
+            )
         }
 
         val explicitAccountMatch =
