@@ -1885,9 +1885,10 @@ class DebtStore private constructor(context: Context) {
         startEpochMs: Long,
         endEpochMsExclusive: Long
     ): Long = synchronized(CanonicalStoreLock.monitor) {
+        val duplicateIds = DebtMovementAccountingReader.duplicateEventIds(database.readableDatabase)
         database.readableDatabase.rawQuery(
             """
-            SELECT fee_minor
+            SELECT id, fee_minor
             FROM debt_events
             WHERE occurred_at_epoch_ms >= ?
               AND occurred_at_epoch_ms < ?
@@ -1898,7 +1899,11 @@ class DebtStore private constructor(context: Context) {
             )
         ).use { cursor ->
             var total = 0L
-            while (cursor.moveToNext()) total = CheckedMoney.add(total, cursor.getLong(0))
+            while (cursor.moveToNext()) {
+                if (cursor.getLong(0) !in duplicateIds) {
+                    total = CheckedMoney.add(total, cursor.getLong(1))
+                }
+            }
             total
         }
     }
@@ -2613,9 +2618,10 @@ class DebtStore private constructor(context: Context) {
     /** The account row retains genuine observations, never arrival-order estimates. */
     private fun projectBalance(account: DebtAccountSnapshot): DebtAccountSnapshot {
         val db = database.readableDatabase
+        val duplicateIds = DebtMovementAccountingReader.duplicateEventIds(db, account.id)
         val movements = db.rawQuery(
             """
-            SELECT event_type, amount_minor, fee_minor, outstanding_after_minor,
+            SELECT id, event_type, amount_minor, fee_minor, outstanding_after_minor,
                    repayment_completion, occurred_at_epoch_ms, amount_is_net_proceeds,
                    event_key
             FROM debt_events WHERE debt_account_id = ?
@@ -2624,15 +2630,17 @@ class DebtStore private constructor(context: Context) {
         ).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
-                    add(BalanceMovement(
-                        type = DebtEventType.valueOf(cursor.getString(0)),
-                        amountMinor = cursor.getLong(1), feeMinor = cursor.getLong(2),
-                        outstandingAfterMinor = if (cursor.isNull(3)) null else cursor.getLong(3),
-                        completion = if (cursor.isNull(4)) null else cursor.getString(4),
-                        atEpochMs = cursor.getLong(5),
-                        principalKnown = !cursor.isNull(6) && cursor.getInt(6) == 0,
-                        eventKey = cursor.getString(7)
-                    ))
+                    if (cursor.getLong(0) !in duplicateIds) {
+                        add(BalanceMovement(
+                            type = DebtEventType.valueOf(cursor.getString(1)),
+                            amountMinor = cursor.getLong(2), feeMinor = cursor.getLong(3),
+                            outstandingAfterMinor = if (cursor.isNull(4)) null else cursor.getLong(4),
+                            completion = if (cursor.isNull(5)) null else cursor.getString(5),
+                            atEpochMs = cursor.getLong(6),
+                            principalKnown = !cursor.isNull(7) && cursor.getInt(7) == 0,
+                            eventKey = cursor.getString(8)
+                        ))
+                    }
                 }
             }
         }

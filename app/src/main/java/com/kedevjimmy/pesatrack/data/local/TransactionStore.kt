@@ -1469,7 +1469,7 @@ class TransactionStore private constructor(context: Context) {
             reconcileRecentReviewTriage(nowEpochMs, timeZone)
         }
 
-        val reversedCodes = reversedTransactionCodes()
+        val reversedIds = reversedTransactionIds()
         val monthTransactions = transactionsBetween(
             startEpochMs = startEpochMs,
             endEpochMsExclusive = endEpochMsExclusive
@@ -1482,7 +1482,7 @@ class TransactionStore private constructor(context: Context) {
             .toSet()
 
         val effective = monthTransactions.filter { item ->
-            accountingEligible(item, reversedCodes, possibleDuplicateIds)
+            accountingEligible(item, reversedIds, possibleDuplicateIds)
         }
 
         val cashIncome = effective
@@ -2222,6 +2222,7 @@ class TransactionStore private constructor(context: Context) {
                 AND account_id IS NOT NULL
                 AND direction IN (?, ?)
                 AND type IN (?, ?, ?, ?, ?)
+                AND COALESCE(evidence_source, '') != 'refund_review_required'
                 """.trimIndent(),
                 arrayOf(
                     ReviewState.NEEDS_REVIEW.name,
@@ -2260,16 +2261,16 @@ class TransactionStore private constructor(context: Context) {
         val original = getById(originalId) ?: return@synchronized null
         original.takeIf {
             it.direction == MoneyDirection.EXPENSE.name &&
-                accountingEligible(it, reversedTransactionCodes(), emptySet())
+                accountingEligible(it, reversedTransactionIds(), emptySet())
         }
     }
 
     private fun accountingEligible(
         item: StoredTransaction,
-        reversedCodes: Set<String>,
+        reversedIds: Set<Long>,
         possibleDuplicateIds: Set<Long>
     ): Boolean = item.id !in possibleDuplicateIds &&
-        item.transactionCode !in reversedCodes &&
+        item.id !in reversedIds &&
         item.type != MpesaTransactionType.REVERSAL.name &&
         item.reviewState != ReviewState.EXCLUDED.name &&
         item.reviewState != ReviewState.NEEDS_REVIEW.name &&
@@ -2351,7 +2352,7 @@ class TransactionStore private constructor(context: Context) {
             FROM transactions
             WHERE id != ?
               AND direction = ?
-              AND amount_minor = ?
+              AND amount_minor >= ?
               AND occurred_at_epoch_ms <= ?
               AND occurred_at_epoch_ms >= ?
               AND review_state NOT IN (?, ?)
@@ -2398,11 +2399,29 @@ class TransactionStore private constructor(context: Context) {
             }
         }
 
+        val reversedIds = reversedTransactionIds()
+        val trustedCandidates = candidates.filter { candidate ->
+            getById(candidate.transactionId)?.let {
+                it.direction == MoneyDirection.EXPENSE.name &&
+                    accountingEligible(it, reversedIds, emptySet())
+            } == true
+        }
+        val reviewReason = RefundMatchingPolicy.reviewReason(
+            receivedAmountMinor = incoming.amountMinor,
+            receivedAtEpochMs = incoming.occurredAtEpochMs,
+            receivedCounterparty = incoming.counterparty,
+            candidates = trustedCandidates
+        )
+        if (reviewReason != null) {
+            RefundEvidenceReviewWriter.markForReview(database.writableDatabase, incoming.id, reviewReason)
+            return false
+        }
+
         val originalId = RefundMatchingPolicy.chooseCandidate(
             receivedAmountMinor = incoming.amountMinor,
             receivedAtEpochMs = incoming.occurredAtEpochMs,
             receivedCounterparty = incoming.counterparty,
-            candidates = candidates.filter { trustedRefundOriginal(it.transactionId) != null }
+            candidates = trustedCandidates
         ) ?: return false
 
         val original = getById(originalId) ?: return false
@@ -4025,15 +4044,8 @@ class TransactionStore private constructor(context: Context) {
             cursor.moveToFirst()
         }
 
-    private fun reversedTransactionCodes(): Set<String> =
-        database.readableDatabase.rawQuery(
-            "SELECT reversal_of_code FROM transactions WHERE reversal_of_code IS NOT NULL",
-            null
-        ).use { cursor ->
-            buildSet {
-                while (cursor.moveToNext()) add(cursor.getString(0))
-            }
-        }
+    private fun reversedTransactionIds(): Set<Long> =
+        ReversalAccountingReader.reversedTransactionIds(database.readableDatabase)
 
     private fun classify(
         parsed: ParsedMpesaTransaction,

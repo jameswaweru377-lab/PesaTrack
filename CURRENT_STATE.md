@@ -1,5 +1,24 @@
 # PesaTrack Current State
 
+_Reconciliation edge-case accounting safeguards (9 November 2026; CI and phone acceptance pending):_
+Explicit completed partial refunds and competing same-merchant purchases are
+withheld for user review instead of being silently posted as income or linked
+to an arbitrary expense. Full unique refunds retain the existing automatic
+link. Manual partial-refund confirmation/linking is a follow-up, not a completed
+capability of this review-first change. Reversal references now suppress only
+a unique original cash leg with
+the same full amount, compatible owned-account identity and valid event order;
+an ambiguous or partial reversal cannot hide an unrelated transaction.
+Repeated loan drawdowns, repayments or fees are consolidated for Activity
+fee totals and projected liability balances only when they share a proven
+linked cash-transaction ID, liability, type, amount, fee and nearby time.
+Unlinked or conflicting evidence remains separate. These provider-neutral
+rules do not alter the original source records, user decisions, schema,
+backup, permissions or Statements source totals. Home and Activity continue
+to use one canonical Activity ledger, and the N2 #537 statement-posting hold
+remains. Only synthetic JVM/CI checks are requested; no Android/emulator,
+upgrade, data-retention or physical-phone test is claimed.
+
 _Shared brown navigation and Accounts visual polish (9 November 2026; CI and phone review pending):_
 The Home/Activity brown PesaTrack logo, tagline, notification bell and five-place
 bottom navigation now come from the shared scaffold across the app, rather than

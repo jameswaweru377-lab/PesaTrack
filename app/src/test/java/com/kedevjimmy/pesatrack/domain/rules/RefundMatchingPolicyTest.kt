@@ -6,6 +6,36 @@ import org.junit.Test
 
 class RefundMatchingPolicyTest {
     @Test
+    fun partialCompletedRefundNeedsReviewWithoutAutomaticMatching() {
+        val payment = RefundCandidate(41L, 120_000L, 22_000L, "SAMPLE SHOP")
+        assertNull(RefundMatchingPolicy.chooseCandidate(8_000L, 600_000L, "SAMPLE SHOP", listOf(payment)))
+        assertEquals(
+            RefundReviewReason.PARTIAL,
+            RefundMatchingPolicy.reviewReason(8_000L, 600_000L, "SAMPLE SHOP", listOf(payment))
+        )
+    }
+
+    @Test
+    fun ambiguousRefundNeedsReviewRatherThanSelectingOnePurchase() {
+        val payments = listOf(
+            RefundCandidate(41L, 530_000L, 22_000L, "SAMPLE SHOP"),
+            RefundCandidate(42L, 540_000L, 22_000L, "SAMPLE SHOP")
+        )
+        assertEquals(
+            RefundReviewReason.AMBIGUOUS,
+            RefundMatchingPolicy.reviewReason(22_000L, 600_000L, "SAMPLE SHOP", payments)
+        )
+    }
+
+    @Test
+    fun unrelatedCreditIsNotARefundCandidate() {
+        assertNull(RefundMatchingPolicy.reviewReason(
+            8_000L, 600_000L, "OTHER SHOP",
+            listOf(RefundCandidate(41L, 120_000L, 22_000L, "SAMPLE SHOP"))
+        ))
+    }
+
+    @Test
     fun prefixRelatedMerchantNamesAreNotTheSameIdentity() {
         assertNull(RefundMatchingPolicy.chooseCandidate(
             receivedAmountMinor = 22_000L,
