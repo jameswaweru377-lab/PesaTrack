@@ -167,6 +167,7 @@ internal class DuplicateResolutionWriter(
 internal fun StoredTransaction.toPossibleDuplicateObservation(): PossibleDuplicateObservation =
     PossibleDuplicateObservation(
         id = id,
+        accountId = accountId,
         amountMinor = amountMinor,
         receivedAtEpochMs = receivedAtEpochMs,
         transactionCode = transactionCode,

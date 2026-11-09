@@ -395,6 +395,7 @@ class DuplicateAccountingAcceptanceGateTest {
     ) =
         PossibleDuplicateObservation(
             id = id,
+            accountId = "owned-wallet",
             amountMinor = amount,
             receivedAtEpochMs = at,
             transactionCode = null,

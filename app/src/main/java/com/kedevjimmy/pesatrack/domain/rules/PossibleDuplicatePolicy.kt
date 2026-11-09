@@ -1,9 +1,11 @@
 package com.kedevjimmy.pesatrack.domain.rules
 
+import java.util.Locale
 import kotlin.math.abs
 
 data class PossibleDuplicateObservation(
     val id: Long,
+    val accountId: String?,
     val amountMinor: Long,
     val receivedAtEpochMs: Long,
     val transactionCode: String?,
@@ -22,7 +24,9 @@ object PossibleDuplicatePolicy {
     private const val CODED_WINDOW_MS =
         MAX_CANDIDATE_WINDOW_MS
     private const val CODELESS_WINDOW_MS = 20_000L
-    private const val COMPLEMENTARY_WINDOW_MS = 60_000L
+    private val protectedCashCategories = setOf(
+        "DEBT_LOAN", "FEES", "FEE", "REFUND", "SAVINGS", "INVESTMENT", "TRANSFER"
+    )
 
     /**
      * Preserve both ID orderings for existing Keep Both callers, but never
@@ -64,6 +68,15 @@ object PossibleDuplicatePolicy {
         // a weak-evidence duplicate of an ordinary payment.
         if (first.type.equals("REVERSAL", ignoreCase = true) ||
             second.type.equals("REVERSAL", ignoreCase = true)) return false
+        // A duplicate is one cash leg observed twice, not opposite sides of
+        // an owned transfer, loan repayment or refund. Missing account identity
+        // is not permission to remove either source's movement from totals.
+        if (first.accountId.isNullOrBlank() || second.accountId.isNullOrBlank() ||
+            first.accountId != second.accountId ||
+            (first.direction != "NEUTRAL" && second.direction != "NEUTRAL" &&
+                first.direction != second.direction) ||
+            first.category.uppercase(Locale.ROOT) in protectedCashCategories ||
+            second.category.uppercase(Locale.ROOT) in protectedCashCategories) return false
         if (first.id == second.id) return false
         if (first.amountMinor <= 0L || first.amountMinor != second.amountMinor) {
             return false
@@ -106,16 +119,11 @@ object PossibleDuplicatePolicy {
             return false
         }
 
-        val complementary =
-            setOf(first.direction, second.direction) ==
-                setOf("INCOME", "EXPENSE")
-
         val exactlyOneCoded =
             (firstCode == null) != (secondCode == null)
 
         return when {
             exactlyOneCoded -> delta <= CODED_WINDOW_MS
-            complementary -> delta <= COMPLEMENTARY_WINDOW_MS
             firstIdentity != null && firstIdentity == secondIdentity ->
                 delta <= CODED_WINDOW_MS
             else -> delta <= CODELESS_WINDOW_MS

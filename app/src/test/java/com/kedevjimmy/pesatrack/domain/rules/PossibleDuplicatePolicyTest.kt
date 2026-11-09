@@ -48,8 +48,8 @@ class PossibleDuplicatePolicyTest {
     }
 
     @Test
-    fun complementaryDirectionsCanBeReviewedWithinOneMinute() {
-        assertTrue(
+    fun oppositeCashDirectionsMustNotBeCollapsedIntoOneMovement() {
+        assertFalse(
             PossibleDuplicatePolicy.isCandidate(
                 sample(
                     id = 1,
@@ -67,6 +67,41 @@ class PossibleDuplicatePolicyTest {
                 )
             )
         )
+        val transferLeg = sample(id = 1, amount = 98_500L, receivedAt = 1_000_000L,
+            source = "com.mpesa", direction = "TRANSFER")
+        val incomeLeg = sample(id = 2, amount = 98_500L, receivedAt = 1_010_000L,
+            source = "com.bank", direction = "INCOME")
+        assertFalse(PossibleDuplicatePolicy.isCandidate(transferLeg, incomeLeg))
+    }
+
+    @Test
+    fun crossAccountAndUnassignedMovementsCannotBeCollapsedEvenWithMatchingTiming() {
+        val first = sample(id = 11, amount = 98_500L, receivedAt = 1_000_000L,
+            source = "com.bank", direction = "EXPENSE", accountId = "bank-1")
+        val otherAccount = sample(id = 12, amount = 98_500L, receivedAt = 1_005_000L,
+            source = "com.wallet", direction = "EXPENSE", accountId = "wallet-2")
+        val missingAccount = otherAccount.copy(accountId = null)
+        for (second in listOf(otherAccount, missingAccount)) {
+            assertFalse(PossibleDuplicatePolicy.isCandidate(first, second))
+            assertFalse(PossibleDuplicatePolicy.canConfirm("11:12", first, second, first, second))
+        }
+        assertFalse(PossibleDuplicatePolicy.isCandidate(first.copy(accountId = null),
+            otherAccount.copy(accountId = null)))
+    }
+
+    @Test
+    fun loanFeesRefundSavingsInvestmentAndTransferLegsAreNeverWeakDuplicates() {
+        val first = sample(id = 21, amount = 100_000L, receivedAt = 1_000_000L,
+            source = "com.messages")
+        val second = sample(id = 22, amount = 100_000L, receivedAt = 1_005_000L,
+            source = "com.bank")
+        for (category in listOf("DEBT_LOAN", "FEES", "REFUND", "SAVINGS", "INVESTMENT", "TRANSFER")) {
+            assertFalse(category, PossibleDuplicatePolicy.isCandidate(first.copy(category = category), second))
+            assertFalse(category, PossibleDuplicatePolicy.isCandidate(first, second.copy(category = category)))
+            assertFalse(category, PossibleDuplicatePolicy.canConfirm("21:22",
+                first, second.copy(category = category), first, second.copy(category = category)))
+        }
+        assertTrue(PossibleDuplicatePolicy.isCandidate(first, second))
     }
 
     @Test
@@ -173,6 +208,7 @@ class PossibleDuplicatePolicyTest {
             second.copy(type = "REVERSAL"),
             second.copy(receivedAtEpochMs = 1_110_000L),
             second.copy(sourcePackage = "com.mpesa"),
+            second.copy(accountId = "different-wallet"),
             second.copy(direction = "INCOME"),
             second.copy(transactionCode = "NEWCODE1"),
             second.copy(counterparty = "Different merchant")
@@ -226,9 +262,11 @@ class PossibleDuplicatePolicyTest {
         code: String? = null,
         direction: String = "NEUTRAL",
         counterparty: String? = null,
-        type: String = "OTHER"
+        type: String = "OTHER",
+        accountId: String? = "owned-wallet"
     ) = PossibleDuplicateObservation(
         id = id,
+        accountId = accountId,
         amountMinor = amount,
         receivedAtEpochMs = receivedAt,
         transactionCode = code,
