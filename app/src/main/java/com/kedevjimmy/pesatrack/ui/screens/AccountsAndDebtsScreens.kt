@@ -127,15 +127,8 @@ fun AccountsScreen(
     debtStateCache: DebtsScreenCache? = null,
     onDiscoverReceivables: (() -> Unit)? = null
 ) {
-    var selectedTab by rememberSaveable { mutableStateOf(0) }
     var amountsHidden by rememberSaveable { mutableStateOf(false) }
     var showInvestmentPositions by remember { mutableStateOf(false) }
-    if (selectedTab == 3) {
-        DebtsScreen(scaffoldPadding, onBack = { selectedTab = 0 },
-            header = { AccountsNavigation(selectedTab, { selectedTab = it }, onBack, onManageInstitutions) },
-            onReviewRelationships = onManageInstitutions, stateCache = debtStateCache)
-        return
-    }
     val context = LocalContext.current
     val accountStore =
         remember {
@@ -149,10 +142,6 @@ fun AccountsScreen(
     val balanceStore =
         remember {
             PaydaySnapshotStore.get(context)
-        }
-    val debtStore =
-        remember {
-            DebtStore.get(context)
         }
     val investmentStore = remember { InvestmentStore.get(context) }
     val transactionStore = remember { TransactionStore.get(context) }
@@ -193,11 +182,6 @@ fun AccountsScreen(
         List<AccountBalancePresentation> by
         remember {
             mutableStateOf(initialCache?.presentations ?: emptyList())
-        }
-    var activeDebts:
-        List<DebtAccountSnapshot> by
-        remember {
-            mutableStateOf(initialCache?.debts ?: emptyList())
         }
 
     var accountsLoading by remember { mutableStateOf(initialCache == null) }
@@ -256,22 +240,9 @@ fun AccountsScreen(
                     )
                 }
             }
-        val loadedDebts =
-            withContext(Dispatchers.IO) {
-                traceFinancialRead("accounts.activeDebts") {
-                    debtStore.accounts()
-                    }.filter {
-                        it.isActive
-                    }
-                    .sortedByDescending {
-                        it.outstandingMinor
-                    }
-            }
         presentations = loadedPresentations
-        activeDebts = loadedDebts
         accountsLoaded = true
         stateCache?.presentations = loadedPresentations
-        stateCache?.debts = loadedDebts
         stateCache?.revision = revision
         val elapsed = android.os.SystemClock.elapsedRealtime() - refreshStarted
         if (elapsed > 400L) android.util.Log.i("PesaTrackPerf", "Accounts refresh took ${elapsed}ms")
@@ -285,30 +256,32 @@ fun AccountsScreen(
         FinancialReadStatus(scaffoldPadding, "Accounts", accountsLoading, accountsError) { accountsRetry++ }
         return
     }
-
-    val visible = presentations.filter {
-        val mobileMoney = FinancialProviderRegistry.isMobileMoneyAccount(it.group.displayName, it.group.type)
-        when (selectedTab) {
-            1 -> !mobileMoney && it.group.type != AccountType.CASH
-            2 -> mobileMoney
-            else -> true
+    if (showInvestmentPositions) {
+        ApprovedInvestmentsPage(scaffoldPadding, observedInvestments) {
+            showInvestmentPositions = false
         }
+        return
     }
+
+    val visible = presentations
     val everyday = visible.filterNot {
         it.group.type == AccountType.SAVINGS || it.group.displayName.contains("M-Shwari", true)
     }
     val savings = visible.filter {
         it.group.type == AccountType.SAVINGS || it.group.displayName.contains("M-Shwari", true)
     }
-    LazyColumn(modifier = Modifier.padding(scaffoldPadding).background(MaterialTheme.colorScheme.background),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    val accountNames = remember(presentations) {
+        presentations.flatMap { it.group.accounts }.associate { it.id to it.name }
+    }
+    LazyColumn(modifier = Modifier.padding(scaffoldPadding).background(Color(0xFFFCF6F0)),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // An already-visible balance list must not jump down for an
         // intermittent loading banner on every background refresh.
         if (accountsError) item {
             FinancialReadBanner("Accounts", false, true) { accountsRetry++ }
         }
-        item { SelectedAccountsCompass(accountDisplayLines(visible), amountsHidden) {
+        item { ApprovedBalanceHero(accountDisplayLines(visible), visible.size, amountsHidden) {
             amountsHidden = !amountsHidden
         } }
         if (visible.isEmpty()) item {
@@ -319,28 +292,11 @@ fun AccountsScreen(
             } }
         }
         item {
-            HeritageAccountList(accountDisplayLines(everyday), accountDisplayLines(savings),
+            ApprovedAccountsList(accountDisplayLines(everyday), accountDisplayLines(savings),
                 amountsHidden, onAccountClick, onManageInstitutions)
         }
-        if (selectedTab == 0) {
-            item { HeritageInvestments(observedInvestments) { showInvestmentPositions = true } }
-            item { HeritageRecentAccountActivity(recentAccountActivity, amountsHidden) }
-        }
-        if (selectedTab == 0 && activeDebts.isNotEmpty()) {
-            item {
-                val unknown = activeDebts.count(::hasUnknownDebtBalance)
-                val known = CheckedMoney.orNull {
-                    activeDebts.filterNot(::hasUnknownDebtBalance).checkedMoneySumOf { it.outstandingMinor }
-                }
-                SelectedAccountDebtsLink { selectedTab = 3 }
-            }
-        }
-        if (onDiscoverReceivables != null) item { SmartDiscoveryCard(onDiscoverReceivables) }
-        item { AccountBalanceCheckAction() }
-        item { TransferOwnershipConsentAction() }
-    }
-    if (showInvestmentPositions) HomeBInvestmentsDialog(observedInvestments) {
-        showInvestmentPositions = false
+        item { ApprovedInvestmentEntry(observedInvestments) { showInvestmentPositions = true } }
+        item { ApprovedAccountActivity(recentAccountActivity, accountNames, amountsHidden) }
     }
 }
 

@@ -1,19 +1,18 @@
 # PesaTrack Current State
 
-_Accounts 3D artwork and balance-first layout (9 November 2026; CI and phone review pending):_
-The Accounts surface now uses the approved balance-first composition with a
-perspective-swiping card gallery. Its local elephant, cinnamon ridge and
-emerald landscape artwork is decorative; all card labels and balances come
-from existing account snapshots, with unknowns excluded and privacy masking
-preserved. The account list uses expandable M-Shwari/Locked Savings rows under
-M-Pesa when available, plus the existing add-account route. An investments
-entry opens the established read-only observed-position dialog and makes no
-market valuation claims. Recent account activity is restricted to recorded
-own-account transfer rows with both account IDs confirmed, plus recorded
-salary income in a confirmed owned account. No new ingestion, posting,
-accounting arithmetic, permissions, database schema or remote service is added.
-The existing PesaTrack top header and bottom navigation remain authoritative.
-The screenshot is a design reference, not sample financial data for production.
+_Approved Accounts balance-first layout correction (9 November 2026; CI and phone review pending):_
+The Accounts surface follows the approved static layout instead of displaying
+the earlier swipeable cards. A locally bundled warm building image sits behind
+the balance header, which retains local recorded account values and the privacy
+eye. The compact owned-account list branches M-Shwari and Locked Savings below
+M-Pesa with visible connector lines, when those accounts exist. The existing
+account-add action remains. The Investments row opens a read-only full page of
+observed executions, not the earlier popup, and does not invent market value.
+Recent activity names both owned endpoints on a confirmed transfer, or the
+receiving owned account for salary. The balance-check, debt link and transfer-
+matching actions were removed from this Accounts page only. The shared
+PesaTrack header and navigation remain unchanged, as do canonical money,
+permissions, database schema, backups and network behavior.
 
 _Provider-neutral bank statement identity proof (8 November 2026; CI and phone acceptance pending):_
 Historical verified bank documents remain in read-only source coverage and
