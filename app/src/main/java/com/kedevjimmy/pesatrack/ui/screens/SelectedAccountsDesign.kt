@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.zIndex
@@ -287,6 +288,7 @@ internal fun HeritageInvestments(positions: List<ObservedInvestmentPosition>, on
 
 @Composable
 internal fun HeritageRecentAccountActivity(rows: List<StoredTransaction>, hidden: Boolean) {
+    val locale = LocalConfiguration.current.locales[0]
     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
         Text("Recent account activity", style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold, color = Color(0xFF4C200F))
@@ -309,7 +311,7 @@ internal fun HeritageRecentAccountActivity(rows: List<StoredTransaction>, hidden
                             Text(if (salary) "Salary received" else "Own-account transfer",
                                 fontWeight = FontWeight.SemiBold)
                             Text((item.counterparty?.takeIf { it.isNotBlank() } ?: item.category) +
-                                " · " + java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.getDefault())
+                                " · " + java.text.SimpleDateFormat("d MMM yyyy", locale)
                                     .format(java.util.Date(item.occurredAtEpochMs)),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
