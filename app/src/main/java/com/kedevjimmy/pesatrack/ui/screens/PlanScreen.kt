@@ -236,7 +236,6 @@ fun PlanScreen(
             loadError = "Could not load your plan. Try again."
         } finally { loading = false }
     }
-
     if (!hasLoaded && (loading || loadError != null)) {
         Column(Modifier.padding(scaffoldPadding).padding(18.dp)) {
             Text(if (loading) "Loading your plan…" else loadError.orEmpty())
@@ -251,7 +250,6 @@ fun PlanScreen(
                 snapshot
                     .availableToLiveMinor
             )
-
     BackHandler(enabled = showPlanDetails) { showPlanDetails = false }
     val journeyBillRows = upcomingBills.sortedWith(compareBy<ScheduledBill> {
         it.nextDueEpochMs ?: Long.MAX_VALUE
@@ -361,7 +359,9 @@ fun PlanScreen(
             }
         }
         if (!showPlanDetails) {
-        item(key = "shopping-lists-entry") { ShoppingListsPlanEntry { onShoppingClick?.invoke() } }
+        if (onShoppingClick != null) item(key = "shopping-lists-entry") {
+            ShoppingListsPlanEntry(onShoppingClick)
+        }
         // Preserve the existing forecasting, recurring-bill confirmation and
         // funding-gap review flows below the new Plan overview.
         item {

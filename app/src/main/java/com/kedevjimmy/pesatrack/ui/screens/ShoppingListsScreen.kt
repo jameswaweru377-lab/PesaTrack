@@ -63,14 +63,8 @@ fun ShoppingListsScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state = remember { ShoppingListsState(ShoppingListStore(context), scope) }
+    val dialogs = remember { ShoppingDialogs() }
     var selectedId by remember { mutableStateOf<String?>(null) }
-    var showNew by remember { mutableStateOf(false) }
-    var showRename by remember { mutableStateOf(false) }
-    var editingItem by remember { mutableStateOf<ShoppingItem?>(null) }
-    var showItemForm by remember { mutableStateOf(false) }
-    var removeItem by remember { mutableStateOf<ShoppingItem?>(null) }
-    var confirmDelete by remember { mutableStateOf(false) }
-    var reuseSource by remember { mutableStateOf<ShoppingList?>(null) }
     val currentMonth = remember { SimpleDateFormat("yyyy-MM", Locale.US).format(Date()) }
     val selected = state.lists.firstOrNull { it.id == selectedId }
     LaunchedEffect(Unit) { state.reload() }
@@ -87,16 +81,17 @@ fun ShoppingListsScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit) {
         }
         if (state.loading) item { Text("Loading shopping lists…") }
         else if (selected == null) {
-            item { ShoppingOverviewHeader(onNew = { showNew = true }, disabled = state.busy) }
+            item { ShoppingOverviewHeader(onNew = { dialogs.showNew = true }, disabled = state.busy) }
             if (state.lists.isEmpty()) item { ShoppingEmptyState() }
             items(state.lists, key = { it.id }) { list ->
                 ShoppingOverviewRow(list, onOpen = { selectedId = list.id },
-                    onReuse = { reuseSource = list }, disabled = state.busy)
+                    onReuse = { dialogs.reuseSource = list }, disabled = state.busy)
             }
         } else {
             item { ShoppingDetailHeader(selected, onAdd = {
-                editingItem = null; showItemForm = true
-            }, onRename = { showRename = true }, onDelete = { confirmDelete = true },
+                dialogs.editingItem = null; dialogs.showItemForm = true
+            }, onRename = { dialogs.showRename = true },
+                onDelete = { dialogs.confirmDelete = true },
                 disabled = state.busy) }
             if (selected.items.isEmpty()) item {
                 Text("No items yet. Add your first planned purchase.",
@@ -107,47 +102,68 @@ fun ShoppingListsScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit) {
                     state.save(selected.copy(items = selected.items.map {
                         if (it.id == item.id) it.copy(bought = bought) else it
                     }))
-                }, onEdit = { editingItem = item; showItemForm = true },
-                    onRemove = { removeItem = item })
+                }, onEdit = { dialogs.editingItem = item; dialogs.showItemForm = true },
+                    onRemove = { dialogs.removeItem = item })
             }
         }
     }
 
-    if (showNew || showRename) ShoppingNameDialog(
-        title = if (showNew) "New shopping list" else "Rename list",
-        initial = if (showNew) "Monthly shopping" else selected?.title.orEmpty(),
-        onDismiss = { showNew = false; showRename = false }, onSave = { title ->
-            val list = if (showNew) ShoppingList(UUID.randomUUID().toString(), title,
+    ShoppingListDialogs(state, dialogs, selected, currentMonth) { selectedId = it }
+}
+
+private class ShoppingDialogs {
+    var showNew by mutableStateOf(false)
+    var showRename by mutableStateOf(false)
+    var editingItem by mutableStateOf<ShoppingItem?>(null)
+    var showItemForm by mutableStateOf(false)
+    var removeItem by mutableStateOf<ShoppingItem?>(null)
+    var confirmDelete by mutableStateOf(false)
+    var reuseSource by mutableStateOf<ShoppingList?>(null)
+}
+
+@Composable
+private fun ShoppingListDialogs(state: ShoppingListsState, dialogs: ShoppingDialogs,
+    selected: ShoppingList?, currentMonth: String, onSelect: (String?) -> Unit) {
+    if (dialogs.showNew || dialogs.showRename) ShoppingNameDialog(
+        title = if (dialogs.showNew) "New shopping list" else "Rename list",
+        initial = if (dialogs.showNew) "Monthly shopping" else selected?.title.orEmpty(),
+        saveError = state.error,
+        onDismiss = { dialogs.showNew = false; dialogs.showRename = false }, onSave = { title ->
+            val list = if (dialogs.showNew) ShoppingList(UUID.randomUUID().toString(), title,
                 currentMonth, System.currentTimeMillis()) else selected?.copy(title = title)
-            if (list != null) state.save(list) { selectedId = list.id }
-            showNew = false; showRename = false
+            if (list != null) state.save(list) {
+                onSelect(list.id)
+                dialogs.showNew = false; dialogs.showRename = false
+            }
         })
-    if (showItemForm && selected != null) ShoppingItemDialog(editingItem,
-        onDismiss = { showItemForm = false }, onSave = { name, quantity, priceMinor ->
-            val value = ShoppingItem(editingItem?.id ?: UUID.randomUUID().toString(),
-                name, quantity, priceMinor, editingItem?.bought ?: false)
-            state.save(selected.copy(items = if (editingItem == null) selected.items + value
-                else selected.items.map { if (it.id == value.id) value else it }))
-            showItemForm = false
+    if (dialogs.showItemForm && selected != null) ShoppingItemDialog(dialogs.editingItem,
+        saveError = state.error,
+        onDismiss = { dialogs.showItemForm = false }, onSave = { name, quantity, priceMinor ->
+            val value = ShoppingItem(dialogs.editingItem?.id ?: UUID.randomUUID().toString(),
+                name, quantity, priceMinor, dialogs.editingItem?.bought ?: false)
+            state.save(selected.copy(items = if (dialogs.editingItem == null) selected.items + value
+                else selected.items.map { if (it.id == value.id) value else it })) {
+                dialogs.showItemForm = false
+            }
         })
-    if (confirmDelete && selected != null) ShoppingConfirmation(
+    if (dialogs.confirmDelete && selected != null) ShoppingConfirmation(
         title = "Delete ${selected.title}?", body = "This removes the list and its items only.",
-        confirm = "Delete list", onDismiss = { confirmDelete = false }, onConfirm = {
-            state.delete(selected.id) { selectedId = null }; confirmDelete = false
+        confirm = "Delete list", onDismiss = { dialogs.confirmDelete = false }, onConfirm = {
+            state.delete(selected.id) { onSelect(null) }; dialogs.confirmDelete = false
         })
-    if (removeItem != null && selected != null) ShoppingConfirmation(
-        title = "Remove ${removeItem?.name}?", body = "Remove this item from the plan?",
-        confirm = "Remove item", onDismiss = { removeItem = null }, onConfirm = {
-            val itemId = removeItem?.id
+    if (dialogs.removeItem != null && selected != null) ShoppingConfirmation(
+        title = "Remove ${dialogs.removeItem?.name}?", body = "Remove this item from the plan?",
+        confirm = "Remove item", onDismiss = { dialogs.removeItem = null }, onConfirm = {
+            val itemId = dialogs.removeItem?.id
             state.save(selected.copy(items = selected.items.filterNot { it.id == itemId }))
-            removeItem = null
+            dialogs.removeItem = null
         })
-    reuseSource?.let { source -> ShoppingConfirmation(
+    dialogs.reuseSource?.let { source -> ShoppingConfirmation(
         title = "Reuse this list?", body = "Copy ${source.title} to $currentMonth. All items will be unchecked.",
-        confirm = "Make a copy", onDismiss = { reuseSource = null }, onConfirm = {
+        confirm = "Make a copy", onDismiss = { dialogs.reuseSource = null }, onConfirm = {
             val copy = ShoppingListPolicy.reuse(source, UUID.randomUUID().toString(),
                 currentMonth, System.currentTimeMillis())
-            state.save(copy) { selectedId = copy.id }; reuseSource = null
+            state.save(copy) { onSelect(copy.id) }; dialogs.reuseSource = null
         }) }
 }
 
@@ -289,12 +305,15 @@ private fun ShoppingItemRow(item: ShoppingItem, disabled: Boolean, onCheck: (Boo
 }
 
 @Composable
-private fun ShoppingNameDialog(title: String, initial: String, onDismiss: () -> Unit,
+private fun ShoppingNameDialog(title: String, initial: String, saveError: String?, onDismiss: () -> Unit,
     onSave: (String) -> Unit) {
     var name by remember(title, initial) { mutableStateOf(initial) }
     AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = {
-        OutlinedTextField(value = name, onValueChange = { name = it },
-            label = { Text("List name") }, singleLine = true)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(value = name, onValueChange = { name = it },
+                label = { Text("List name") }, singleLine = true)
+            if (saveError != null) Text(saveError, color = MaterialTheme.colorScheme.error)
+        }
     }, confirmButton = {
         TextButton(onClick = { onSave(name.trim()) },
             enabled = name.trim().length in 1..60) { Text("Save") }
@@ -302,7 +321,7 @@ private fun ShoppingNameDialog(title: String, initial: String, onDismiss: () -> 
 }
 
 @Composable
-private fun ShoppingItemDialog(existing: ShoppingItem?, onDismiss: () -> Unit,
+private fun ShoppingItemDialog(existing: ShoppingItem?, saveError: String?, onDismiss: () -> Unit,
     onSave: (String, Int, Long?) -> Unit) {
     var name by remember(existing?.id) { mutableStateOf(existing?.name.orEmpty()) }
     var quantity by remember(existing?.id) { mutableStateOf(existing?.quantity?.toString() ?: "1") }
@@ -320,7 +339,8 @@ private fun ShoppingItemDialog(existing: ShoppingItem?, onDismiss: () -> Unit,
             OutlinedTextField(price, onValueChange = { price = it; error = null },
                 label = { Text("Unit price (KSh, optional)") }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-            if (error != null) Text(error.orEmpty(), color = MaterialTheme.colorScheme.error)
+            if (error != null || saveError != null) Text(error ?: saveError.orEmpty(),
+                color = MaterialTheme.colorScheme.error)
         } }, confirmButton = { TextButton(onClick = {
             try {
                 val count = quantity.toIntOrNull() ?: throw IllegalArgumentException("Enter a whole-number quantity.")
