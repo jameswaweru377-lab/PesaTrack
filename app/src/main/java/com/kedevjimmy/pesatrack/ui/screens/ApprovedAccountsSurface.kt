@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.data.local.ObservedInvestmentPosition
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
@@ -53,6 +54,15 @@ private val coffee = Color(0xFF552510)
 private val mutedCoffee = Color(0xFF846554)
 private val thinBorder = Color(0xFFF0DCCE)
 private val ivory = Color(0xFFFCF6F0)
+
+/** Short screen label only; the full identifier is never shown in this list. */
+internal fun compactAccountLabel(raw: String): String = raw
+    .replace(Regex("(?i)\\s+Kenya(?=\\s*(?:\\(|$))"), "")
+    .replace(Regex("\\(\\s*•+\\s*([^)]*)\\)")) { match ->
+        val suffix = match.groupValues[1].trim()
+        if (suffix.matches(Regex("[A-Za-z0-9]{1,4}"))) "··· ${suffix.takeLast(3)}"
+        else ""
+    }.trimEnd()
 
 @Composable
 internal fun ApprovedBalanceHero(lines: List<AccountDisplayLine>, groupCount: Int,
@@ -135,15 +145,16 @@ private fun AccountMainRow(line: AccountDisplayLine, hidden: Boolean, expandable
     onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically) {
-        AccountProviderMark(line.name, Modifier.size(43.dp))
-        Box(Modifier.padding(horizontal = 10.dp).width(1.dp).height(30.dp)
+        AccountProviderMark(line.name, Modifier.size(40.dp))
+        Box(Modifier.padding(horizontal = 8.dp).width(1.dp).height(30.dp)
             .background(thinBorder))
-        Text(line.name, Modifier.weight(1f),
-            style = MaterialTheme.typography.titleMedium, color = coffee,
+        Text(compactAccountLabel(line.name), Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium, color = coffee,
+            fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold, maxLines = 1,
             overflow = TextOverflow.Ellipsis)
         Text(if (hidden) "••••" else line.balanceMinor?.let(::formatKesAmount) ?: "—",
-            style = MaterialTheme.typography.bodyMedium, color = coffee,
+            style = MaterialTheme.typography.bodySmall, color = coffee,
             fontWeight = FontWeight.SemiBold, maxLines = 1)
         Icon(if (expandable) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
             null, Modifier.padding(start = 4.dp).size(22.dp), tint = mutedCoffee)
@@ -253,36 +264,67 @@ internal fun ApprovedAccountActivity(rows: List<StoredTransaction>, accountNames
 @Composable
 internal fun ApprovedInvestmentsPage(padding: PaddingValues,
     positions: List<ObservedInvestmentPosition>, onBack: () -> Unit) {
-    LazyColumn(Modifier.padding(padding).fillMaxSize().background(ivory),
+    LazyColumn(Modifier.padding(padding).fillMaxSize().background(BrownHomePalette.canvas),
         contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back")
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = coffee)
                 }
-                AccountHeading("Investments")
+                AccountHeading("NSE shares")
             }
         }
-        item { Text("Observed holdings", color = mutedCoffee,
+        item { Text("Your recorded investments", color = mutedCoffee,
             style = MaterialTheme.typography.bodyMedium) }
         if (positions.isEmpty()) item {
-            Text("No executed investment holdings detected yet.",
-                color = mutedCoffee, style = MaterialTheme.typography.bodyMedium)
+            Surface(shape = RoundedCornerShape(16.dp), color = Color.White,
+                border = BorderStroke(1.dp, thinBorder)) {
+                Text("No share purchases recorded yet.", Modifier.padding(16.dp),
+                    color = mutedCoffee, style = MaterialTheme.typography.bodyMedium)
+            }
         }
         items(positions) { position ->
             Surface(shape = RoundedCornerShape(16.dp), color = Color.White,
                 border = BorderStroke(1.dp, thinBorder)) {
-                Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                    Text(position.label, style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold, color = coffee)
-                    Text("Observed net units: " + NumberFormat.getNumberInstance(Locale.US)
-                        .format(position.quantityMicrounits / 1_000_000.0), color = mutedCoffee)
+                Row(Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    val company = investmentCompanyName(position.label)
+                    Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
+                        .background(BrownHomePalette.cream), contentAlignment = Alignment.Center) {
+                        Text(investmentTicker(position.label), color = coffee,
+                            fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                        Text(company, style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold, color = coffee)
+                        Text(position.label, style = MaterialTheme.typography.bodySmall,
+                            color = mutedCoffee, maxLines = 1)
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(NumberFormat.getNumberInstance(Locale.US)
+                            .format(position.quantityMicrounits / 1_000_000.0),
+                            color = coffee, fontWeight = FontWeight.SemiBold)
+                        Text("Net units", color = mutedCoffee,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
-        item { Text("These are detected execution records, not live market values or a verified brokerage balance.",
+        item { Text("Units are based on recorded share executions, not live prices or a verified brokerage balance.",
             style = MaterialTheme.typography.bodySmall, color = mutedCoffee) }
     }
+}
+
+internal fun investmentCompanyName(label: String): String = when {
+    label.equals("SCOM", true) || label.contains("Safaricom", true) -> "Safaricom"
+    label.equals("KCB", true) || label.contains("KCB Group", true) -> "KCB Group"
+    else -> label
+}
+
+internal fun investmentTicker(label: String): String = when {
+    label.equals("SCOM", true) || label.contains("Safaricom", true) -> "SCOM"
+    label.equals("KCB", true) || label.contains("KCB Group", true) -> "KCB"
+    else -> "NSE"
 }
 
 @Composable

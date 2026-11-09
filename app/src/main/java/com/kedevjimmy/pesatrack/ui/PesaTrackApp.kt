@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.platform.LocalContext
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
@@ -30,6 +31,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.kedevjimmy.pesatrack.ui.components.AppScaffold
+import com.kedevjimmy.pesatrack.ui.components.LocalAppNotificationsDestination
 import com.kedevjimmy.pesatrack.ui.components.MainTab
 import com.kedevjimmy.pesatrack.ui.screens.AccountDetailsRedesignScreen
 import com.kedevjimmy.pesatrack.ui.screens.AccountsScreen
@@ -204,6 +206,9 @@ fun PesaTrackApp(
         onWelcomeVisibilityChange((currentEntry?.destination?.route ?: startDestination) == "onboarding")
     }
 
+    CompositionLocalProvider(LocalAppNotificationsDestination provides {
+        navController.navigate("activity-attention") { launchSingleTop = true }
+    }) {
     NavHost(
         navController = navController,
         startDestination = startDestination
@@ -892,5 +897,6 @@ fun PesaTrackApp(
                 )
             }
         }
+    }
     }
 }

@@ -1,5 +1,19 @@
 # PesaTrack Current State
 
+_Shared brown navigation and Accounts visual polish (9 November 2026; CI and phone review pending):_
+The Home/Activity brown PesaTrack logo, tagline, notification bell and five-place
+bottom navigation now come from the shared scaffold across the app, rather than
+being opt-in to individual tabs. The hamburger opens a working drawer with the
+five primary destinations and Profile; the shared bell opens Activity attention.
+Accounts keeps the approved building hero but allows its image to run edge to
+edge, with the remaining sections inset. Main account rows use shorter provider
+labels (without a redundant trailing "Kenya") and a three-dot/last-three mask
+for saved identifiers. Add-account and account-details screens share the warm
+brown and cream styling; the details screen drops its duplicate balance-check
+button. The NSE page has compact, named observed-position cards and never
+pretends to show live share prices. No accounting, account ownership, storage,
+permission, backup or network changes are part of this UI update.
+
 _Approved Accounts balance-first layout correction (9 November 2026; CI and phone review pending):_
 The Accounts surface follows the approved static layout instead of displaying
 the earlier swipeable cards. A locally bundled warm building image sits behind
