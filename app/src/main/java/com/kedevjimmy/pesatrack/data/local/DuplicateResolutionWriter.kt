@@ -170,18 +170,39 @@ internal class DuplicateResolutionWriter(
  * read-only and run inside the duplicate writer's existing SQLite transaction.
  */
 internal object DuplicateCashRoleSafety {
+    private val dependentColumns = listOf(
+        "debt_events" to "linked_transaction_id",
+        "financial_events" to "linked_transaction_id",
+        "investment_events" to "linked_transaction_id",
+        "personal_receivable_events" to "linked_transaction_id",
+        "transaction_allocations" to "transaction_id",
+        "liability_payment_decisions" to "transaction_id",
+        "pay_cycles" to "start_transaction_id",
+        "cycle_protections" to "cycle_start_transaction_id",
+        "payday_snapshots" to "salary_transaction_id",
+        "transactions" to "related_transaction_id"
+    )
+
     fun hasDependents(db: SQLiteDatabase, firstId: Long, secondId: Long): Boolean {
         require(firstId > 0L && secondId > 0L && firstId != secondId)
         val ids = arrayOf(firstId.toString(), secondId.toString())
-        val sql = """SELECT 1 WHERE
-            EXISTS(SELECT 1 FROM debt_events WHERE linked_transaction_id IN (?,?)) OR
-            EXISTS(SELECT 1 FROM investment_events WHERE linked_transaction_id IN (?,?)) OR
-            EXISTS(SELECT 1 FROM personal_receivable_events WHERE linked_transaction_id IN (?,?)) OR
-            EXISTS(SELECT 1 FROM transaction_allocations WHERE transaction_id IN (?,?)) OR
-            EXISTS(SELECT 1 FROM payday_snapshots WHERE salary_transaction_id IN (?,?)) OR
-            EXISTS(SELECT 1 FROM transactions WHERE related_transaction_id IN (?,?))
-            LIMIT 1""".trimIndent()
-        return db.rawQuery(sql, Array(6) { ids }.flatMap { it.toList() }.toTypedArray())
+        // The legacy Fuliza table is created by older migrations, but is absent from
+        // the current fresh-install schema. Do not make duplicate confirmation crash
+        // when that optional table is missing.
+        val hasLegacyFulizaTable = db.rawQuery(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='fuliza_events' LIMIT 1",
+            null
+        ).use { it.moveToFirst() }
+        val columns = if (hasLegacyFulizaTable) {
+            dependentColumns + ("fuliza_events" to "linked_transaction_id")
+        } else {
+            dependentColumns
+        }
+        val clauses = columns.joinToString(" OR ") { (table, column) ->
+            "EXISTS(SELECT 1 FROM $table WHERE $column IN (?,?))"
+        }
+        val sql = "SELECT 1 WHERE $clauses LIMIT 1"
+        return db.rawQuery(sql, Array(columns.size) { ids }.flatMap { it.toList() }.toTypedArray())
             .use { it.moveToFirst() }
     }
 }
