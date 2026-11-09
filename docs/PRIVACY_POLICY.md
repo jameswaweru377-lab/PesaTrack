@@ -12,6 +12,7 @@ Depending on the features you choose to enable, PesaTrack can process:
 - imported statement cash rows and statement-only archives you explicitly review and save;
 - transaction, account, debt, salary, budget, bill and saving-goal information derived from that evidence;
 - manual corrections, categories and settings you enter;
+- optional monthly shopping lists, item quantities, checked items and estimated prices;
 - optional financial-health context that you enter yourself, including accessible
   emergency savings, essential monthly costs and required debt repayments;
 - app-lock and encrypted-backup settings;
@@ -26,6 +27,11 @@ user-created encrypted backups, and never added to the transaction ledger. Those
 user-entered amounts need reconfirmation after 30 days to influence an assessment.
 PesaTrack's financial-health guidance is an indicative local calculation, not
 a credit score or a standardized assessment.
+
+Shopping lists are stored in app-private preferences and are included in
+user-created encrypted backups. They stay on the device and never become
+recorded financial transactions merely by adding or checking an item. The
+first release does not scan or upload shopping-list photographs.
 
 ## SMS permission
 

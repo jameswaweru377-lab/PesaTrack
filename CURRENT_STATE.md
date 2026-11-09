@@ -19,6 +19,19 @@ to use one canonical Activity ledger, and the N2 #537 statement-posting hold
 remains. Only synthetic JVM/CI checks are requested; no Android/emulator,
 upgrade, data-retention or physical-phone test is claimed.
 
+_Plan shopping lists first release (9 November 2026; Android CI and phone review pending):_
+Plan now links to a local shopping-list page. Users can create and rename monthly
+lists, add/edit/check/remove items with optional KSh unit prices, see explicitly
+partial estimates where prices are missing, delete lists with confirmation, and
+copy a previous list into the current month with bought flags reset. Planning
+metadata is kept in app-private preferences, included by the existing encrypted
+preferences backup export; no ledger, balance, expense, permission, network,
+database schema or APK-signing change is intended. Photo OCR and automatic item
+suggestions remain later, separately reviewed work. Focused JVM/Robolectric
+tests are provided; local Gradle could not execute because the distribution
+download was blocked. Exact-head CI, backup restore and Redmi UI acceptance
+remain unverified until run.
+
 _Shared brown navigation and Accounts visual polish (9 November 2026; CI and phone review pending):_
 The Home/Activity brown PesaTrack logo, tagline, notification bell and five-place
 bottom navigation now come from the shared scaffold across the app, rather than

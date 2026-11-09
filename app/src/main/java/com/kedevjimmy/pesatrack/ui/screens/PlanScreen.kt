@@ -87,6 +87,7 @@ fun PlanScreen(
     scaffoldPadding: PaddingValues,
     onBudgetClick: (() -> Unit)? = null,
     onGoalsClick: (() -> Unit)? = null,
+    onShoppingClick: (() -> Unit)? = null,
     onSalaryClick: (() -> Unit)? = null,
     onBillsClick: (() -> Unit)? = null,
     onPayCycleClick: (() -> Unit)? = null,
@@ -148,11 +149,9 @@ fun PlanScreen(
         mutableStateOf(false)
     }
     var showFundingEvidence by remember { mutableStateOf(false) }
-
     var loading by remember { mutableStateOf(initialData == null) }
     var hasLoaded by remember { mutableStateOf(initialData != null) }
     var loadError by remember { mutableStateOf<String?>(null) }
-
     LaunchedEffect(
         ledgerUpdateState.revision,
         localRefresh
@@ -237,7 +236,6 @@ fun PlanScreen(
             loadError = "Could not load your plan. Try again."
         } finally { loading = false }
     }
-
     if (!hasLoaded && (loading || loadError != null)) {
         Column(Modifier.padding(scaffoldPadding).padding(18.dp)) {
             Text(if (loading) "Loading your plan…" else loadError.orEmpty())
@@ -252,7 +250,6 @@ fun PlanScreen(
                 snapshot
                     .availableToLiveMinor
             )
-
     BackHandler(enabled = showPlanDetails) { showPlanDetails = false }
     val journeyBillRows = upcomingBills.sortedWith(compareBy<ScheduledBill> {
         it.nextDueEpochMs ?: Long.MAX_VALUE
@@ -362,6 +359,9 @@ fun PlanScreen(
             }
         }
         if (!showPlanDetails) {
+        if (onShoppingClick != null) item(key = "shopping-lists-entry") {
+            ShoppingListsPlanEntry(onShoppingClick)
+        }
         // Preserve the existing forecasting, recurring-bill confirmation and
         // funding-gap review flows below the new Plan overview.
         item {
