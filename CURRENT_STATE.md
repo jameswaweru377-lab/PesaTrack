@@ -1,5 +1,20 @@
 # PesaTrack Current State
 
+_Accounts 3D artwork and balance-first layout (9 November 2026; CI and phone review pending):_
+The Accounts surface now uses the approved balance-first composition with a
+perspective-swiping card gallery. Its local elephant, cinnamon ridge and
+emerald landscape artwork is decorative; all card labels and balances come
+from existing account snapshots, with unknowns excluded and privacy masking
+preserved. The account list uses expandable M-Shwari/Locked Savings rows under
+M-Pesa when available, plus the existing add-account route. An investments
+entry opens the established read-only observed-position dialog and makes no
+market valuation claims. Recent account activity is restricted to recorded
+own-account transfer rows with both account IDs confirmed, plus recorded
+salary income in a confirmed owned account. No new ingestion, posting,
+accounting arithmetic, permissions, database schema or remote service is added.
+The existing PesaTrack top header and bottom navigation remain authoritative.
+The screenshot is a design reference, not sample financial data for production.
+
 _Provider-neutral bank statement identity proof (8 November 2026; CI and phone acceptance pending):_
 Historical verified bank documents remain in read-only source coverage and
 per-account statement history when a confirmed account's full identifier
