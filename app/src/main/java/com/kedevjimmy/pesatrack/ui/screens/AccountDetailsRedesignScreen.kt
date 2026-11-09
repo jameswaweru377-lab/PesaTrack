@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -35,7 +35,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,7 +61,6 @@ import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 
@@ -127,10 +125,6 @@ private fun AccountDetailsContent(
     onAccountClick: (String) -> Unit, onImportStatement: () -> Unit, onRetry: () -> Unit
 ) {
     var filter by remember { mutableStateOf("All") }
-    val listState = rememberLazyListState()
-    val scrollScope = rememberCoroutineScope()
-    val activityIndex = 4 + (if (error != null) 1 else 0) +
-        (if (linked.isEmpty()) 0 else 1 + linked.size)
     val visible = transactions.filter { transaction ->
         when (filter) {
             "Money In" -> transaction.direction == MoneyDirection.INCOME.name
@@ -139,7 +133,7 @@ private fun AccountDetailsContent(
             else -> true
         }
     }.sortedByDescending { it.occurredAtEpochMs }
-    LazyColumn(state = listState, modifier = Modifier.padding(padding),
+    LazyColumn(modifier = Modifier.padding(padding).background(BrownHomePalette.canvas),
         contentPadding = PaddingValues(horizontal = PesaDesignTokens.screenHorizontalPadding,
             vertical = PesaDesignTokens.screenVerticalPadding),
         verticalArrangement = Arrangement.spacedBy(PesaDesignTokens.sectionGap)) {
@@ -150,20 +144,9 @@ private fun AccountDetailsContent(
         }
         item { AccountRecordedBalance(account, balance) }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                OutlinedButton(onClick = {
-                    filter = "All"
-                    scrollScope.launch { listState.animateScrollToItem(activityIndex) }
-                }, modifier = Modifier.weight(1f), border = BorderStroke(1.dp, AccountBlack)) {
-                    Text("View activity", color = AccountBlack)
-                }
-                Column(Modifier.weight(1f)) { AccountBalanceCheckAction(account?.id) }
-            }
-        }
-        item {
             Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-                color = MaterialTheme.colorScheme.surface) {
+                color = Color.White,
+                border = BorderStroke(1.dp, BrownHomePalette.outline)) {
                 Row(Modifier.fillMaxWidth().clickable(onClick = onImportStatement).padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text("Import a statement", Modifier.weight(1f),
@@ -212,9 +195,10 @@ private fun AccountDetailTitle(account: MoneyAccount?, onBack: () -> Unit) {
         }
         AccountProviderMark(account?.name ?: "Account")
         Column(Modifier.weight(1f).padding(start = 10.dp)) {
-            Text(account?.name ?: "Account details", style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold)
-            Text(account?.identifier?.takeLast(4)?.let { "•••• $it" } ?: "Your financial account",
+            Text(compactAccountLabel(account?.name ?: "Account details"),
+                style = MaterialTheme.typography.headlineSmall,
+                color = BrownHomePalette.coffee, fontWeight = FontWeight.Bold)
+            Text(account?.identifier?.takeLast(3)?.let { "··· $it" } ?: "Your financial account",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -233,19 +217,19 @@ private fun AccountRecordedBalance(account: MoneyAccount?, balance: PaydayAccoun
         else -> "No balance evidence yet"
     }
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        color = AccountMint,
-        border = BorderStroke(PesaDesignTokens.cardOutlineWidth, MaterialTheme.colorScheme.outlineVariant)) {
-        Column(Modifier.fillMaxWidth().padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        color = BrownHomePalette.cream,
+        border = BorderStroke(PesaDesignTokens.cardOutlineWidth, BrownHomePalette.outline)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AccountProviderMark(account?.name ?: "Account")
             Text("Recorded balance", style = MaterialTheme.typography.labelLarge,
-                color = AccountBlack)
+                color = BrownHomePalette.coffee)
             Text(amount?.let(::formatKesAmount) ?: "Balance unavailable",
                 style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
-                color = AccountBlack)
+                color = BrownHomePalette.coffee)
             Text(quality + (balance?.referenceEpochMs?.let { " · " +
                 SimpleDateFormat("d MMM yyyy, h:mm a", locale).format(Date(it)) } ?: ""),
                 style = MaterialTheme.typography.bodySmall,
-                color = AccountBlack)
+                color = BrownHomePalette.coffee)
             Text("Not live synced", style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -260,7 +244,8 @@ private fun LinkedSavingsAccount(
         snapshot?.quality == PaydayBalanceQuality.RECONSTRUCTED)
     Surface(onClick = { onAccountClick(account.id) },
         shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = MaterialTheme.colorScheme.surface) {
+        color = Color.White,
+        border = BorderStroke(1.dp, BrownHomePalette.outline)) {
         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             AccountProviderMark(account.name)
             Column(Modifier.weight(1f).padding(start = 10.dp)) {

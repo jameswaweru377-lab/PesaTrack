@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.ui.components.MainTab
 
-/** A self-contained Home treatment: other approved tab designs remain unchanged. */
+/** Shared navigation palette, first approved on Home. */
 internal object BrownHomePalette {
     val canvas = Color(0xFFFCF8F4)
     val ink = Color(0xFF201610)
@@ -32,6 +32,29 @@ internal object BrownHomePalette {
     val cream = Color(0xFFF8EBDE)
     val outline = Color(0xFFE3BE92)
     val white = Color.White
+}
+
+@Composable
+internal fun BrownHomeDrawerContent(
+    currentTab: MainTab?, onTab: (MainTab) -> Unit, onProfile: () -> Unit
+) {
+    ModalDrawerSheet(drawerContainerColor = BrownHomePalette.canvas) {
+        Text("PesaTrack", Modifier.padding(24.dp),
+            style = MaterialTheme.typography.headlineSmall, color = BrownHomePalette.coffee)
+        MainTab.entries.forEach { tab ->
+            NavigationDrawerItem(label = { Text(tab.label) }, selected = tab == currentTab,
+                icon = { Icon(tab.icon, contentDescription = null) },
+                onClick = { onTab(tab) }, modifier = Modifier.padding(horizontal = 12.dp),
+                colors = NavigationDrawerItemDefaults.colors(
+                    selectedContainerColor = BrownHomePalette.cream,
+                    selectedTextColor = BrownHomePalette.coffee,
+                    selectedIconColor = BrownHomePalette.coffee))
+        }
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        NavigationDrawerItem(label = { Text("Profile") }, selected = false,
+            icon = { Icon(Icons.Rounded.PersonOutline, null) },
+            onClick = onProfile, modifier = Modifier.padding(horizontal = 12.dp))
+    }
 }
 
 @Composable

@@ -45,7 +45,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 
 ### Five places to find what matters
 
-**Home** for the overview · **Activity** for your ledger · **Plan** for commitments and goals · **Accounts** for your money sources · **More** for statements, reports and settings.
+**Home** for the overview · **Activity** for your ledger · **Plan** for commitments and goals · **Accounts** for your money sources · **Profile** for personal details. The shared top-left menu also opens **More**, including statements, reports and settings.
 
 > **Screenshots:** A gallery of real, privacy-safe screens will be added after device capture and review. Unlocked screens can temporarily be captured for private UI feedback, so redact personal transactions, account numbers, and statement details before sharing. No private records will be published as examples.
 

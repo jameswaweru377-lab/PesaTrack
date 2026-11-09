@@ -16,17 +16,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
-import com.kedevjimmy.pesatrack.data.profile.ProfilePhotoStore
 import com.kedevjimmy.pesatrack.ui.screens.ActivityMoneyActions
-import com.kedevjimmy.pesatrack.ui.screens.ReferenceHomeBottomBar
-import com.kedevjimmy.pesatrack.ui.screens.ReferenceHomeHeader
 import com.kedevjimmy.pesatrack.ui.screens.BrownHomeHeader
 import com.kedevjimmy.pesatrack.ui.screens.BrownHomeBottomBar
+import com.kedevjimmy.pesatrack.ui.screens.BrownHomeDrawerContent
 import com.kedevjimmy.pesatrack.ui.screens.BrownHomePalette
 import com.kedevjimmy.pesatrack.ui.screens.HomeReferencePalette
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
+import kotlinx.coroutines.launch
+
+/** All tabs share one route for the notification bell. */
+val LocalAppNotificationsDestination = compositionLocalOf<(() -> Unit)?> { null }
 
 enum class MainTab(
     val route: String,
@@ -53,57 +52,47 @@ fun AppScaffold(
     onProfileClick: () -> Unit = {},
     onPaycheckClick: () -> Unit = {},
     onStatementsClick: (() -> Unit)? = null,
-    onNotificationsClick: () -> Unit = {},
+    onNotificationsClick: (() -> Unit)? = null,
     showTopBar: Boolean = true,
     useHomeHeader: Boolean = false,
     useBrownHome: Boolean = false,
     content: @Composable (PaddingValues) -> Unit
 ) {
     var toolsOpen by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-    val profileInitial = remember(context) {
-        context.getSharedPreferences("pesatrack_preferences", android.content.Context.MODE_PRIVATE)
-            .getString("profile_name", "J").orEmpty().trim().take(1).ifBlank { "J" }
+    val drawer = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    val sharedNotifications = LocalAppNotificationsDestination.current
+    val chooseTab: (MainTab) -> Unit = { tab ->
+        scope.launch { drawer.close(); onTabSelected(tab) }
     }
-    // Reload when returning to Home from another tab after changing the profile photo.
-    val profilePhoto = remember(context, currentTab) {
-        ProfilePhotoStore(context).load()?.asImageBitmap()
-    }
+    ModalNavigationDrawer(
+        drawerState = drawer,
+        gesturesEnabled = currentTab != null,
+        drawerContent = {
+            BrownHomeDrawerContent(currentTab, chooseTab) {
+                scope.launch { drawer.close(); onProfileClick() }
+            }
+        }
+    ) {
     Scaffold(
-        containerColor = if (useBrownHome) BrownHomePalette.canvas
-            else if (currentTab == MainTab.ACTIVITY || useHomeHeader) HomeReferencePalette.canvas
-            else MaterialTheme.colorScheme.background,
+        containerColor = when {
+            useBrownHome || currentTab == MainTab.ACCOUNTS -> BrownHomePalette.canvas
+            currentTab == MainTab.ACTIVITY || useHomeHeader -> HomeReferencePalette.canvas
+            else -> MaterialTheme.colorScheme.background
+        },
         topBar = {
-            if (showTopBar && (currentTab == MainTab.HOME || currentTab == MainTab.ACTIVITY || useHomeHeader)) {
+            if (showTopBar && currentTab != null) {
                 Box(
                     modifier = Modifier
-                        .background(if (useBrownHome) BrownHomePalette.canvas
-                            else HomeReferencePalette.canvas)
+                        .background(BrownHomePalette.canvas)
                         .statusBarsPadding()
                 ) {
-                    if (useBrownHome) {
-                        BrownHomeHeader(
-                            onMenu = { onTabSelected(MainTab.MORE) },
-                            onNotifications = onNotificationsClick
-                        )
-                    } else {
-                        ReferenceHomeHeader(
-                            onNotifications = onNotificationsClick,
-                            onProfile = onProfileClick,
-                            profileInitial = profileInitial,
-                            profilePhoto = profilePhoto
-                        )
-                    }
-                }
-            } else if (showTopBar && currentTab != null) {
-                Surface(
-                    modifier = Modifier.statusBarsPadding(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    PesaTrackTopBar(
-                        onProfileClick = onProfileClick,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
-                    )
+                    BrownHomeHeader(onMenu = { scope.launch { drawer.open() } },
+                        onNotifications = {
+                            if (onNotificationsClick != null) onNotificationsClick()
+                            else if (sharedNotifications != null) sharedNotifications()
+                            else onTabSelected(MainTab.ACTIVITY)
+                        })
                 }
             }
         },
@@ -111,19 +100,15 @@ fun AppScaffold(
             if (currentTab != null) {
                 Surface(
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-                    color = if (useBrownHome) BrownHomePalette.canvas
-                        else HomeReferencePalette.canvas
+                    color = BrownHomePalette.canvas
                 ) {
-                    if (useBrownHome) {
-                        BrownHomeBottomBar(currentTab, onTabSelected, onProfileClick)
-                    } else {
-                        ReferenceHomeBottomBar(currentTab, onTabSelected)
-                    }
+                    BrownHomeBottomBar(currentTab, onTabSelected, onProfileClick)
                 }
             }
         },
         content = content
     )
+    }
     if (toolsOpen) {
         ModalBottomSheet(onDismissRequest = { toolsOpen = false }) {
             Column(
