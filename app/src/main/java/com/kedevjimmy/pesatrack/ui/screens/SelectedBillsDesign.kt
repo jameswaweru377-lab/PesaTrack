@@ -35,11 +35,11 @@ internal fun SelectedBillsCalendar(
     locale: Locale,
     onOpenCalendar: () -> Unit
 ) {
-    val p = HomeMonochromePalette
+    val p = BrownHomePalette
     val days = selectedBillsFortnight(viewedMonthEpochMs, System.currentTimeMillis(),
         bills.filter { it.remainingMinor > 0L }.mapNotNull { it.nextDueEpochMs },
         locale, TimeZone.getDefault())
-    Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius), color = p.softGreen,
+    Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius), color = p.cream,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenCalendar)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth()) {
@@ -53,8 +53,8 @@ internal fun SelectedBillsCalendar(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     week.forEach { day ->
                         Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-                            modifier = Modifier.weight(1f).heightIn(min = 84.dp),
-                            color = if (day.isToday) p.green else Color.Transparent) {
+                            modifier = Modifier.weight(1f).heightIn(min = 64.dp),
+                            color = if (day.isToday) p.coffee else Color.Transparent) {
                             Column(Modifier.padding(vertical = 8.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -86,11 +86,11 @@ internal fun SelectedBillsSummary(bills: List<ScheduledBill>, money: (Long) -> S
         CheckedMoney.sum(pending.asSequence().map { it.remainingMinor })
     }
     Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = HomeMonochromePalette.softGreen) {
+        color = BrownHomePalette.cream) {
         Row(Modifier.fillMaxWidth().padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Rounded.CalendarMonth, null, tint = HomeMonochromePalette.green)
+            Icon(Icons.Rounded.CalendarMonth, null, tint = BrownHomePalette.coffee)
             Text("${pending.size} upcoming · ${outstandingTotal?.let(money) ?: "Total unavailable"}",
                 fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
         }
@@ -104,7 +104,7 @@ internal fun SelectedBillsUpcomingRow(
     money: (Long) -> String,
     onClick: () -> Unit
 ) {
-    val p = HomeMonochromePalette
+    val p = BrownHomePalette
     val title = bill.rule.displayLabel ?: bill.rule.name
     val icon = when {
         "rent" in title.lowercase(Locale.ROOT) -> Icons.Rounded.Home
@@ -128,9 +128,9 @@ internal fun SelectedBillsUpcomingRow(
         Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).clickable(onClick = onClick),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(shape = RoundedCornerShape(PesaDesignTokens.iconRadius), color = p.softGreen) {
+            Surface(shape = RoundedCornerShape(PesaDesignTokens.iconRadius), color = p.cream) {
                 Box(Modifier.size(PesaDesignTokens.iconBubble), contentAlignment = Alignment.Center) {
-                    Icon(icon, null, tint = p.green)
+                    Icon(icon, null, tint = p.coffee)
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -149,6 +149,6 @@ internal fun SelectedBillsUpcomingRow(
             }
             Icon(Icons.Rounded.ChevronRight, contentDescription = "Edit bill", tint = p.ink)
         }
-        HorizontalDivider(color = p.line)
+        HorizontalDivider(color = p.outline)
     }
 }

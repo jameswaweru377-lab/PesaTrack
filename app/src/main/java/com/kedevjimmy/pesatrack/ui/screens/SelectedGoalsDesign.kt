@@ -42,24 +42,24 @@ internal fun SelectedFeaturedGoal(
     money: (Long) -> String,
     onClick: () -> Unit
 ) {
-    val p = HomeMonochromePalette
+    val p = BrownHomePalette
     val progress = if (hasTotalTarget && targetMinor > 0) (savedMinor.toDouble() / targetMinor)
         .coerceIn(0.0, 1.0).toFloat() else 0f
     val next = if (hasTotalTarget) selectedGoalNextMilestone(targetMinor, savedMinor) else null
-    Surface(color = p.softGreen, shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
+    Surface(color = p.cream, shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Surface(color = Color.White, shape = RoundedCornerShape(PesaDesignTokens.iconRadius)) {
-                    Box(Modifier.size(64.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                         Icon(selectedGoalIcon(title), contentDescription = null,
-                            tint = p.green, modifier = Modifier.size(32.dp))
+                            tint = p.coffee, modifier = Modifier.size(24.dp))
                     }
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Featured goal", style = MaterialTheme.typography.labelMedium,
-                        color = p.green)
+                        color = p.coffee)
                     Text(title, style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold, color = p.ink,
                         maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -69,13 +69,13 @@ internal fun SelectedFeaturedGoal(
             }
             if (hasTotalTarget) LinearProgressIndicator(progress = { progress },
                 modifier = Modifier.fillMaxWidth().height(12.dp),
-                color = p.green, trackColor = Color.White)
+                color = p.coffee, trackColor = Color.White)
             Text(if (hasTotalTarget) "${(progress * 100).toInt()}% of ${money(targetMinor)}"
                 else "Monthly savings target: ${money(targetMinor)}",
                 color = p.ink, style = MaterialTheme.typography.bodyMedium)
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Rounded.Flag, contentDescription = null, tint = p.green)
+                Icon(Icons.Rounded.Flag, contentDescription = null, tint = p.coffee)
                 Text(when {
                     !hasTotalTarget -> "Set a full goal target to see milestones"
                     next == null -> "Goal reached"
@@ -90,8 +90,8 @@ internal fun SelectedFeaturedGoal(
                         val milestone = (targetMinor.toDouble() * index / 4).toLong()
                         val reached = savedMinor >= milestone && targetMinor > 0L
                         Surface(shape = CircleShape,
-                            color = if (reached) p.green else Color.White,
-                            border = BorderStroke(1.dp, p.green)) {
+                            color = if (reached) p.coffee else Color.White,
+                            border = BorderStroke(1.dp, p.coffee)) {
                             Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
                                 if (reached) Icon(Icons.Rounded.Check, contentDescription = null,
                                     tint = Color.White, modifier = Modifier.size(16.dp))
@@ -113,15 +113,15 @@ internal fun SelectedOtherGoal(
     money: (Long) -> String,
     onClick: () -> Unit
 ) {
-    val p = HomeMonochromePalette
+    val p = BrownHomePalette
     val progress = if (hasTotalTarget && targetMinor > 0L) (savedMinor.toDouble() / targetMinor)
         .coerceIn(0.0, 1.0).toFloat() else 0f
     Row(Modifier.fillMaxWidth().heightIn(min = 80.dp).clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Surface(shape = RoundedCornerShape(PesaDesignTokens.iconRadius), color = p.softGreen) {
+        Surface(shape = RoundedCornerShape(PesaDesignTokens.iconRadius), color = p.cream) {
             Box(Modifier.size(PesaDesignTokens.iconBubble), contentAlignment = Alignment.Center) {
-                Icon(selectedGoalIcon(title), contentDescription = null, tint = p.green)
+                Icon(selectedGoalIcon(title), contentDescription = null, tint = p.coffee)
             }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -136,8 +136,8 @@ internal fun SelectedOtherGoal(
                 "${money(savedMinor)} saved · Monthly target ${money(targetMinor)}", color = p.muted,
                 style = MaterialTheme.typography.labelMedium)
             if (hasTotalTarget) LinearProgressIndicator(progress = { progress },
-                modifier = Modifier.fillMaxWidth().height(8.dp), color = p.green,
-                trackColor = p.softGreen)
+                modifier = Modifier.fillMaxWidth().height(8.dp), color = p.coffee,
+                trackColor = p.cream)
         }
     }
 }

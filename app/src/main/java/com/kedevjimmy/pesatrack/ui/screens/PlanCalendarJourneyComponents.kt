@@ -68,6 +68,7 @@ internal data class PlanJourneyView(
     val available: String,
     val starting: String,
     val committed: String,
+    val billsTotal: String?,
     val saved: String,
     val received: String,
     val spent: String,
@@ -94,54 +95,12 @@ internal fun PlanJourneyOverview(
     onBudget: () -> Unit,
     onGoals: () -> Unit,
     onBills: () -> Unit,
+    onShopping: (() -> Unit)?,
     onDetails: () -> Unit,
     onSalary: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Plan your month", modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold, color = HomeMonochromePalette.ink)
-            PlanJourneyPeriodToggle(selectedPeriod, onPeriod)
-        }
-        PlanJourneyMonthMenu(data.month, onOtherMonths)
-        PlanJourneyWeek(data.week)
-        if (data.hasCycle) {
-            PlanJourneyAvailableCard(data, onDetails)
-        } else {
-            Surface(color = HomeMonochromePalette.softGreen,
-                shape = RoundedCornerShape(PesaDesignTokens.cardRadius)) {
-                Column(Modifier.fillMaxWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Start your financial plan", fontWeight = FontWeight.Bold)
-                    Text("Add a confirmed salary to calculate your available money.",
-                        style = MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick = onSalary) { Text("Add confirmed salary") }
-                }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PlanJourneyProgressTile("Budget", data.budgetUsed, data.budgetLimit,
-                data.budgetPercent, Icons.Rounded.Wallet, onBudget, Modifier.weight(1f))
-            PlanJourneyProgressTile("Goals", data.goalSaved, data.goalTarget,
-                data.goalPercent, Icons.Rounded.Flag, onGoals, Modifier.weight(1f))
-        }
-        PlanJourneyBillsButton(data.bills, data.billsPaidPercent, onBills)
-        PlanJourneyBillSection("Coming up next", data.bills.take(2), onBills)
-        if (data.hasCycle) {
-            Surface(color = HomeMonochromePalette.softGreen,
-                shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                    .clickable(role = Role.Button, onClick = onDetails)) {
-                Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text("Plan details", fontWeight = FontWeight.SemiBold,
-                        color = HomeMonochromePalette.ink)
-                    Icon(Icons.Rounded.ChevronRight, null, tint = HomeMonochromePalette.ink)
-                }
-            }
-        }
-    }
+    ApprovedCoffeePlanOverview(data, selectedPeriod, onPeriod, onOtherMonths,
+        onBudget, onGoals, onBills, onShopping, onDetails, onSalary)
 }
 
 @Composable
@@ -152,14 +111,14 @@ internal fun PlanJourneyDetails(
     onBills: () -> Unit,
     onPayCycle: () -> Unit
 ) {
-    val p = HomeMonochromePalette
+    val p = BrownHomePalette
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp),
             verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back to Plan", tint = p.ink)
             }
-            Text("${data.month.substringBefore(' ')} plan", modifier = Modifier.weight(1f),
+            Text("Plan details", modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold,
                 color = p.ink)
         }
@@ -182,15 +141,15 @@ private fun PlanJourneyMonthMenu(month: String, onOtherMonths: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         Surface(shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-            color = HomeMonochromePalette.surface,
-            border = BorderStroke(1.dp, HomeMonochromePalette.line),
+            color = BrownHomePalette.white,
+            border = BorderStroke(1.dp, BrownHomePalette.outline),
             modifier = Modifier.heightIn(min = 48.dp)
                 .clickable(role = Role.Button) { expanded = true }) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Text(month, color = HomeMonochromePalette.ink)
+                Text(month, color = BrownHomePalette.ink)
                 Icon(Icons.Rounded.KeyboardArrowDown, null,
-                    tint = HomeMonochromePalette.ink)
+                    tint = BrownHomePalette.ink)
             }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -229,17 +188,17 @@ private fun PlanJourneyPeriodToggle(selected: String, onPeriod: (String) -> Unit
 
 @Composable
 private fun PlanJourneyWeek(days: List<PlanCalendarDay>) {
-    var chosen by remember(days) { mutableStateOf(days.firstOrNull()?.startEpochMs) }
-    val p = HomeMonochromePalette
-    Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius), color = p.softGreen) {
+    var chosen by remember(days) { mutableStateOf(days.firstOrNull { it.isToday }?.startEpochMs) }
+    val p = BrownHomePalette
+    Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius), color = p.cream) {
         Row(Modifier.fillMaxWidth().padding(8.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             days.forEach { day ->
                 val selected = chosen == day.startEpochMs
                 Surface(modifier = Modifier.weight(1f)
-                    .heightIn(min = PesaDesignTokens.bottomBarHeight + 16.dp)
+                    .heightIn(min = 56.dp)
                     .clickable(role = Role.Button) { chosen = day.startEpochMs },
-                    color = if (selected) p.green else Color.Transparent,
+                    color = if (selected) p.coffee else Color.Transparent,
                     shape = RoundedCornerShape(PesaDesignTokens.innerRadius)) {
                     Column(Modifier.padding(vertical = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -249,11 +208,9 @@ private fun PlanJourneyWeek(days: List<PlanCalendarDay>) {
                             color = textColor, maxLines = 1)
                         Text(day.dayOfMonth, style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold, color = textColor)
-                        Text(day.month, style = MaterialTheme.typography.labelSmall,
-                            color = textColor, maxLines = 1)
                         if (day.hasBill) {
                             Box(Modifier.size(8.dp).background(
-                                if (selected) Color.White else p.green,
+                                if (selected) Color.White else p.coffee,
                                 RoundedCornerShape(PesaDesignTokens.controlRadius)))
                         }
                     }
@@ -367,7 +324,7 @@ private fun PlanJourneyBillsButton(
 private fun PlanJourneyBillSection(
     title: String, bills: List<PlanJourneyBill>, onClick: () -> Unit
 ) {
-    val p = HomeMonochromePalette
+    val p = BrownHomePalette
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium,
             color = p.ink, fontWeight = FontWeight.Bold)
@@ -379,13 +336,13 @@ private fun PlanJourneyBillSection(
                 .clickable(role = Role.Button, onClick = onClick),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Surface(color = p.softGreen,
+                Surface(color = p.cream,
                     shape = RoundedCornerShape(PesaDesignTokens.iconRadius)) {
                     Box(Modifier.size(PesaDesignTokens.minimumTouchTarget),
                         contentAlignment = Alignment.Center) {
                         Icon(if (bill.label.contains("rent", ignoreCase = true))
                             Icons.Rounded.Home else Icons.Rounded.ReceiptLong,
-                            null, tint = p.green)
+                            null, tint = p.coffee)
                     }
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -399,16 +356,16 @@ private fun PlanJourneyBillSection(
                     style = MaterialTheme.typography.bodyMedium, maxLines = 2)
                 Icon(Icons.Rounded.ChevronRight, null, tint = p.ink)
             }
-            if (index != bills.lastIndex) HorizontalDivider(color = p.line)
+            if (index != bills.lastIndex) HorizontalDivider(color = p.outline)
         }
     }
 }
 
 @Composable
 private fun PlanJourneyBreakdown(data: PlanJourneyView) {
-    val p = HomeMonochromePalette
+    val p = BrownHomePalette
     Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = p.surface, border = BorderStroke(1.dp, p.line)) {
+        color = p.white, border = BorderStroke(1.dp, p.outline)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (LocalConfiguration.current.fontScale > 1.15f) {
                 listOf(
@@ -431,7 +388,7 @@ private fun PlanJourneyBreakdown(data: PlanJourneyView) {
                     }
                 }
             }
-            Text("Figures from your confirmed pay cycle; other income, expenses and fees are shown below.",
+            Text("Other money movements and allocations are below.",
                 style = MaterialTheme.typography.labelSmall, color = p.muted)
         }
     }
@@ -445,21 +402,21 @@ private fun PlanJourneyDetailMetric(label: String, value: String, modifier: Modi
             "Committed" -> Icons.Rounded.CalendarMonth
             "Saved" -> Icons.Rounded.Savings
             else -> Icons.Rounded.Spa
-        }, null, tint = HomeMonochromePalette.green, modifier = Modifier.size(24.dp))
+        }, null, tint = BrownHomePalette.coffee, modifier = Modifier.size(24.dp))
         Text(label, style = MaterialTheme.typography.labelSmall,
-            color = HomeMonochromePalette.ink, maxLines = 2)
+            color = BrownHomePalette.ink, maxLines = 2)
         Text(value, fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.labelSmall,
-            color = if (label == "Available") HomeMonochromePalette.green
-                else HomeMonochromePalette.ink, maxLines = 3)
+            color = if (label == "Available") BrownHomePalette.coffee
+                else BrownHomePalette.ink, maxLines = 3)
     }
 }
 
 @Composable
 private fun PlanJourneyAllocations(data: PlanJourneyView) {
-    val p = HomeMonochromePalette
-    Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius), color = p.surface,
-        border = BorderStroke(1.dp, p.line)) {
+    val p = BrownHomePalette
+    Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius), color = p.white,
+        border = BorderStroke(1.dp, p.outline)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Your allocations", style = MaterialTheme.typography.titleMedium,
                 color = p.ink, fontWeight = FontWeight.Bold)
@@ -467,7 +424,7 @@ private fun PlanJourneyAllocations(data: PlanJourneyView) {
                 color = p.muted)
             val labels = listOf("Committed" to data.committed, "Saved" to data.saved,
                 "Available" to data.available)
-            val tints = listOf(p.green, p.green.copy(alpha = 0.45f), p.softGreen)
+            val tints = listOf(p.coffee, p.outline, p.cream)
             if (data.displayedShares != null) {
                 Row(Modifier.fillMaxWidth().height(16.dp)
                     .clip(RoundedCornerShape(PesaDesignTokens.controlRadius))) {
@@ -492,7 +449,7 @@ private fun PlanJourneyAllocations(data: PlanJourneyView) {
             }
             Text("Percentages compare these three amounts only; other money movements are below.",
                 style = MaterialTheme.typography.labelSmall, color = p.muted)
-            HorizontalDivider(color = p.line)
+            HorizontalDivider(color = p.outline)
             PlanJourneyMoneyRow("Income received", data.received)
             PlanJourneyMoneyRow("Spent", data.spent)
             PlanJourneyMoneyRow("Fees", data.fees)
@@ -506,8 +463,8 @@ private fun PlanJourneyMoneyRow(label: String, amount: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
-            color = HomeMonochromePalette.muted)
+            color = BrownHomePalette.muted)
         Text(amount, style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.SemiBold, color = HomeMonochromePalette.ink)
+            fontWeight = FontWeight.SemiBold, color = BrownHomePalette.ink)
     }
 }

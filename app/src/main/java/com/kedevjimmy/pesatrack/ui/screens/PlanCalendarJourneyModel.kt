@@ -16,7 +16,7 @@ internal data class PlanCalendarDay(
     val hasBill: Boolean
 )
 
-/** The seven-day ribbon starts today and uses the device time zone, not UTC dates. */
+/** Calendar week (Monday–Sunday) in the device's local time zone. */
 internal fun planCalendarJourneyWeek(
     todayEpochMs: Long,
     dueEpochMs: List<Long>,
@@ -31,20 +31,22 @@ internal fun planCalendarJourneyWeek(
         set(Calendar.MILLISECOND, 0)
     }.timeInMillis
     val dueDays = dueEpochMs.map(::dayStart).toSet()
+    val todayStart = dayStart(todayEpochMs)
     val calendar = Calendar.getInstance(timeZone).apply {
-        timeInMillis = dayStart(todayEpochMs)
+        timeInMillis = todayStart
+        add(Calendar.DAY_OF_YEAR, -((get(Calendar.DAY_OF_WEEK) + 5) % 7))
     }
     fun dated(epochMs: Long, pattern: String) = SimpleDateFormat(pattern, locale).apply {
         this.timeZone = timeZone
     }.format(Date(epochMs))
-    return (0 until 7).map { index ->
+    return (0 until 7).map {
         val start = calendar.timeInMillis
         val result = PlanCalendarDay(
             startEpochMs = start,
             weekday = dated(start, "EEE"),
             dayOfMonth = dated(start, "d"),
             month = dated(start, "MMM"),
-            isToday = index == 0,
+            isToday = start == todayStart,
             hasBill = start in dueDays
         )
         calendar.add(Calendar.DAY_OF_YEAR, 1)
@@ -67,4 +69,13 @@ internal fun planJourneyDisplayedShares(
             .add(total.divide(BigInteger.valueOf(2L))).divide(total).toInt()
     }
     return first + (100 - first.sum())
+}
+
+/** Scheduled bills only; this is not the pay-cycle commitments total. */
+internal fun planUpcomingBillsTotalMinor(remainingAmounts: List<Long>): Long? {
+    if (remainingAmounts.any { it < 0L }) return null
+    val total = remainingAmounts.fold(BigInteger.ZERO) { sum, value ->
+        sum + BigInteger.valueOf(value)
+    }
+    return total.takeIf { it <= BigInteger.valueOf(Long.MAX_VALUE) }?.toLong()
 }
