@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
@@ -53,7 +54,6 @@ import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 
 /** Approved phone-sized Plan surface. All money and events are sourced by PlanScreen. */
 @Composable
@@ -277,6 +277,7 @@ internal fun ApprovedPlanLink(title: String, detail: String,
 @Composable
 private fun ApprovedPlanComingUp(bills: List<PlanJourneyBill>, onBills: () -> Unit) {
     val p = BrownHomePalette
+    val locale = LocalConfiguration.current.locales[0]
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Coming up", color = p.ink, fontSize = 22.sp,
             fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold)
@@ -290,9 +291,9 @@ private fun ApprovedPlanComingUp(bills: List<PlanJourneyBill>, onBills: () -> Un
                     color = p.coffee, modifier = Modifier.size(8.dp)) {}
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     val date = bill.dueEpochMs?.let {
-                        SimpleDateFormat("EEE · d MMM", Locale.getDefault()).format(Date(it))
+                        SimpleDateFormat("EEE · d MMM", locale).format(Date(it))
                     } ?: "UPCOMING"
-                    Text(date.uppercase(Locale.getDefault()), color = p.coffee,
+                    Text(date.uppercase(locale), color = p.coffee,
                         fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
                     Text(bill.label, color = p.ink, fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
