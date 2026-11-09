@@ -35,7 +35,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 
 | | Feature | What it helps with |
 | --- | --- | --- |
-| 💸 | **Track activity** | Review income, spending, transfers, fees, refunds, and transaction details from supported sources. |
+| 💸 | **Track activity** | Review income, spending, transfers, fees, refunds, and transaction details from supported sources. The monthly card shows an owned-account balance only when its spendable sources have usable recorded evidence; this is not monthly net flow or a salary forecast. |
 | 🧾 | **Import statements** | Review supported M-Pesa and bank statement files with duplicate and verification safeguards. Unsupported or incomplete formats are not silently accepted. |
 | 📊 | **Understand your cash flow** | Explore Money In, Money Out, categories, account context, and reports based on recorded evidence. |
 | 📄 | **Export a personal money report** | Save an offline PesaTrack-branded PDF of your selected Reports period, including trusted Activity totals, categories, trends and selected large expenses. Exported PDFs are not encrypted bank statements. |
@@ -72,6 +72,8 @@ The preview targets **Android 7.0+ on supported ARM64 devices** and remains unde
 ## Project and development
 
 PesaTrack is built primarily with **Kotlin, Jetpack Compose, and SQLite**. Supported PDF processing runs locally, and an optional enrichment Worker provides non-authoritative merchant hints. Personal financial decisions are made by deterministic local logic and explicit user review—not by an online chatbot.
+
+Generic bank and wallet notification language can identify incoming receipts, payments, bank-to-mobile transfers and separate transaction/M-Pesa references without a Kotlin parser for each bank. Recognizing a transfer is not proof both accounts are yours; automatic owned-account accounting still requires confirmed identity and corroborating evidence.
 
 - [Product charter](docs/PRODUCT_CHARTER.md) — what PesaTrack is building and what it deliberately avoids.
 - [Current engineering state](CURRENT_STATE.md) — engineering progress, limitations, and pending acceptance.

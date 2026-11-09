@@ -272,7 +272,7 @@ object FinancialSemanticAnalyzer {
     )
 
     private val labeledReferenceRegex = Regex(
-        """\b((?:[A-Za-z][A-Za-z0-9&'’.-]*\s+)?(?:ref(?:erence)?\.?(?:\s*(?:no|number))?|txn(?:\s*(?:id|ref))?|transaction\s*(?:id|ref(?:erence)?)?|code))\s*[:#-]?\s*([A-Z0-9][A-Z0-9-]{4,31})\b""",
+        """\b((?:[A-Za-z][A-Za-z0-9&'’.-]*\s+)?(?:ref(?:erence)?\.?|txn(?:\s*(?:id|ref))?|transaction\s*(?:id|ref(?:erence)?)?|code)(?:\s+(?:id|no|number))?)\s*[:#-]?\s*([A-Z0-9][A-Z0-9-]{4,31})\b""",
         RegexOption.IGNORE_CASE
     )
 

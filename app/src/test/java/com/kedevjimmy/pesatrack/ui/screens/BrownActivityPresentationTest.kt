@@ -7,11 +7,11 @@ import org.junit.Test
 class BrownActivityPresentationTest {
     @Test fun segmentedLabelsPreserveTheExistingLedgerFilterKeys() {
         assertEquals(
-            listOf("All", "Money In", "Money Out", "Transfers", "Review", "Invested"),
+            listOf("All", "Money In", "Money Out", "Transfers", "Review"),
             brownActivityFilters.map { it.label }
         )
         assertEquals(
-            listOf("All", "Money In", "Money Out", "Transfers", "Needs Review", "Invested"),
+            listOf("All", "Money In", "Money Out", "Transfers", "Needs Review"),
             brownActivityFilters.map { it.key }
         )
     }
@@ -19,7 +19,7 @@ class BrownActivityPresentationTest {
     @Test fun reviewTabReusesExistingAttentionMode() {
         assertEquals("Needs Review", brownActivityFilterKey("Review"))
         assertEquals("Transfers", brownActivityFilterKey("Transfers"))
-        assertEquals("Invested", brownActivityFilterKey("Invested"))
+        assertNull(brownActivityFilterKey("Invested"))
         assertNull(brownActivityFilterKey("Unknown"))
     }
 

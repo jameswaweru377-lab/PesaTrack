@@ -1,5 +1,21 @@
 # PesaTrack Current State
 
+_Activity recorded-balance card and generic Kenyan message wording (9 November 2026; CI and phone acceptance pending):_
+The brown Activity monthly card retains Expenses, Money in and Invested, but
+replaces Transfers with the sum of recorded spendable, confirmed-owned account
+balances at the selected month-end (or now for the current month). It displays
+Unavailable when a spendable balance is missing, unverified or overflows; it
+does not present monthly net flow, expected pay or commitments as cash balance.
+The upper Activity title is removed while the month picker remains, and the
+small ledger filters keep All, Money In, Money Out, Transfers and Review (not
+Invested). Generic deterministic message language now handles completed bank-
+to-M-Pesa amount/phone wording, references with an ID suffix, beneficiary
+account suffixes and received-message reference metadata without introducing
+a bank-specific Kotlin parser. Provider identification alone never confirms an
+owned transfer; existing ownership/review gates and N2 statement posting hold
+remain. Source messages, account decisions, schema, backups and permissions
+are unchanged. This change makes no claim of physical Android verification.
+
 _Reconciliation edge-case accounting safeguards (9 November 2026; CI and phone acceptance pending):_
 Explicit completed partial refunds and competing same-merchant purchases are
 withheld for user review instead of being silently posted as income or linked
