@@ -49,6 +49,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.AccountStore
+import com.kedevjimmy.pesatrack.data.local.InvestmentStore
+import com.kedevjimmy.pesatrack.data.local.ObservedInvestmentPosition
+import com.kedevjimmy.pesatrack.data.local.StoredTransaction
+import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot
 import com.kedevjimmy.pesatrack.data.local.DebtBalanceQuality
 import com.kedevjimmy.pesatrack.data.local.DebtStore
@@ -125,7 +129,7 @@ fun AccountsScreen(
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
     var amountsHidden by rememberSaveable { mutableStateOf(false) }
-    var accountFilterOpen by rememberSaveable { mutableStateOf(false) }
+    var showInvestmentPositions by remember { mutableStateOf(false) }
     if (selectedTab == 3) {
         DebtsScreen(scaffoldPadding, onBack = { selectedTab = 0 },
             header = { AccountsNavigation(selectedTab, { selectedTab = it }, onBack, onManageInstitutions) },
@@ -150,11 +154,39 @@ fun AccountsScreen(
         remember {
             DebtStore.get(context)
         }
+    val investmentStore = remember { InvestmentStore.get(context) }
+    val transactionStore = remember { TransactionStore.get(context) }
+    var observedInvestments by remember { mutableStateOf<List<ObservedInvestmentPosition>>(emptyList()) }
+    var recentAccountActivity by remember { mutableStateOf<List<StoredTransaction>>(emptyList()) }
     val ledgerUpdateState by
         LedgerUpdateBus.state.collectAsState()
 
     val revision =
         ledgerUpdateState.revision
+    LaunchedEffect(revision) {
+        // This section is read-only; never infer transfer ownership from a payee name.
+        try {
+            val fresh = withContext(Dispatchers.IO) {
+                val owned = understandingStore.confirmedAccountIds()
+                val positions = investmentStore.observedPositions()
+                val movements = transactionStore.recent(250).filter { tx ->
+                    tx.reviewState != "EXCLUDED" && (
+                        (tx.direction == "TRANSFER" && tx.accountId != null && owned.contains(tx.accountId) &&
+                            tx.linkedAccountId != null && owned.contains(tx.linkedAccountId)) ||
+                        (tx.direction == "INCOME" && tx.accountId != null && owned.contains(tx.accountId) &&
+                            (tx.category.equals("Salary", true) || tx.type.contains("SALARY", true)))
+                    )
+                }.take(3)
+                positions to movements
+            }
+            observedInvestments = fresh.first
+            recentAccountActivity = fresh.second
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            android.util.Log.e("PesaTrackAccounts", "Recent accounts evidence unavailable")
+        }
+    }
     val initialCache = remember { stateCache?.takeIf { it.revision == revision } }
 
     var presentations:
@@ -271,36 +303,14 @@ fun AccountsScreen(
     LazyColumn(modifier = Modifier.padding(scaffoldPadding).background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { AccountsNavigation(selectedTab, { selectedTab = it }, onBack, onManageInstitutions,
-            amountsHidden, { amountsHidden = !amountsHidden }) }
         // An already-visible balance list must not jump down for an
         // intermittent loading banner on every background refresh.
         if (accountsError) item {
             FinancialReadBanner("Accounts", false, true) { accountsRetry++ }
         }
-        item { SelectedAccountsCompass(accountDisplayLines(visible), amountsHidden) }
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Info, null, modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("${accountDisplayLines(visible).count { it.balanceMinor != null }} of ${accountDisplayLines(visible).size} balances available",
-                    modifier = Modifier.padding(start = 8.dp).weight(1f),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall)
-                Box {
-                    TextButton(onClick = { accountFilterOpen = true }) { Text("Filter") }
-                    DropdownMenu(expanded = accountFilterOpen,
-                        onDismissRequest = { accountFilterOpen = false }) {
-                        listOf("All", "Banks", "Mobile").forEachIndexed { index, label ->
-                            DropdownMenuItem(text = { Text(label) }, onClick = {
-                                selectedTab = index
-                                accountFilterOpen = false
-                            })
-                        }
-                    }
-                }
-            }
-        }
+        item { SelectedAccountsCompass(accountDisplayLines(visible), amountsHidden) {
+            amountsHidden = !amountsHidden
+        } }
         if (visible.isEmpty()) item {
             PesaCard { Column(Modifier.padding(16.dp)) {
                 Text("No confirmed accounts here yet", style = MaterialTheme.typography.titleMedium)
@@ -308,13 +318,13 @@ fun AccountsScreen(
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } }
         }
-        if (everyday.isNotEmpty()) item { AccountsSectionTitle("Your accounts") }
-        if (everyday.isNotEmpty()) item {
-            SelectedAccountTiles(accountDisplayLines(everyday), amountsHidden, onAccountClick)
+        item {
+            HeritageAccountList(accountDisplayLines(everyday), accountDisplayLines(savings),
+                amountsHidden, onAccountClick, onManageInstitutions)
         }
-        if (savings.isNotEmpty()) {
-            item { AccountsSectionTitle("Savings") }
-            item { SelectedAccountTiles(accountDisplayLines(savings), amountsHidden, onAccountClick) }
+        if (selectedTab == 0) {
+            item { HeritageInvestments(observedInvestments) { showInvestmentPositions = true } }
+            item { HeritageRecentAccountActivity(recentAccountActivity, amountsHidden) }
         }
         if (selectedTab == 0 && activeDebts.isNotEmpty()) {
             item {
@@ -328,6 +338,9 @@ fun AccountsScreen(
         if (onDiscoverReceivables != null) item { SmartDiscoveryCard(onDiscoverReceivables) }
         item { AccountBalanceCheckAction() }
         item { TransferOwnershipConsentAction() }
+    }
+    if (showInvestmentPositions) HomeBInvestmentsDialog(observedInvestments) {
+        showInvestmentPositions = false
     }
 }
 
