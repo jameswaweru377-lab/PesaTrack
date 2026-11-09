@@ -56,4 +56,23 @@ class AccountsDisplayLinesTest {
         assertEquals("M-Shwari Lock Savings", lines.single().name)
         assertEquals("lock", lines.single().accountId)
     }
+
+    @Test
+    fun accountLabelsUseSmallThreeDotMaskAndShortBankNames() {
+        assertEquals("M-Pesa ··· 497", compactAccountLabel("M-Pesa (•••• 8497)"))
+        assertEquals("Equity Bank ··· 689",
+            compactAccountLabel("Equity Bank Kenya (•••• 5689)"))
+        assertEquals("KCB Bank", compactAccountLabel("KCB Bank Kenya"))
+        assertEquals("I&M Bank", compactAccountLabel("I&M Bank Kenya"))
+        assertEquals("Equity Bank", compactAccountLabel("Equity Bank Kenya (•••• 68...)"))
+        assertEquals("M-Shwari", compactAccountLabel("M-Shwari"))
+    }
+
+    @Test
+    fun portfolioShowsOnlyKnownTickerLabels() {
+        assertEquals("Safaricom", investmentCompanyName("SCOM"))
+        assertEquals("SCOM", investmentTicker("Safaricom PLC"))
+        assertEquals("KCB Group", investmentCompanyName("KCB"))
+        assertEquals("NSE", investmentTicker("Acme Investment Fund"))
+    }
 }

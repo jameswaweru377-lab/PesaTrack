@@ -273,30 +273,38 @@ fun AccountsScreen(
     val accountNames = remember(presentations) {
         presentations.flatMap { it.group.accounts }.associate { it.id to it.name }
     }
-    LazyColumn(modifier = Modifier.padding(scaffoldPadding).background(Color(0xFFFCF6F0)),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+    LazyColumn(modifier = Modifier.padding(scaffoldPadding).background(BrownHomePalette.canvas),
+        contentPadding = PaddingValues(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // An already-visible balance list must not jump down for an
         // intermittent loading banner on every background refresh.
         if (accountsError) item {
-            FinancialReadBanner("Accounts", false, true) { accountsRetry++ }
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                FinancialReadBanner("Accounts", false, true) { accountsRetry++ }
+            }
         }
         item { ApprovedBalanceHero(accountDisplayLines(visible), visible.size, amountsHidden) {
             amountsHidden = !amountsHidden
         } }
         if (visible.isEmpty()) item {
-            PesaCard { Column(Modifier.padding(16.dp)) {
+            Box(Modifier.padding(horizontal = 16.dp)) { PesaCard { Column(Modifier.padding(16.dp)) {
                 Text("No confirmed accounts here yet", style = MaterialTheme.typography.titleMedium)
                 Text("Accounts appear after their ownership is confirmed. Missing balances are never guessed.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } }
+            } } }
         }
         item {
-            ApprovedAccountsList(accountDisplayLines(everyday), accountDisplayLines(savings),
-                amountsHidden, onAccountClick, onManageInstitutions)
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                ApprovedAccountsList(accountDisplayLines(everyday), accountDisplayLines(savings),
+                    amountsHidden, onAccountClick, onManageInstitutions)
+            }
         }
-        item { ApprovedInvestmentEntry(observedInvestments) { showInvestmentPositions = true } }
-        item { ApprovedAccountActivity(recentAccountActivity, accountNames, amountsHidden) }
+        item { Box(Modifier.padding(horizontal = 16.dp)) {
+            ApprovedInvestmentEntry(observedInvestments) { showInvestmentPositions = true }
+        } }
+        item { Box(Modifier.padding(horizontal = 16.dp)) {
+            ApprovedAccountActivity(recentAccountActivity, accountNames, amountsHidden)
+        } }
     }
 }
 
