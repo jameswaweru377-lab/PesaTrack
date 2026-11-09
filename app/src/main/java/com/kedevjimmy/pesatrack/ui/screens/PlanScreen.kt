@@ -87,6 +87,7 @@ fun PlanScreen(
     scaffoldPadding: PaddingValues,
     onBudgetClick: (() -> Unit)? = null,
     onGoalsClick: (() -> Unit)? = null,
+    onShoppingClick: (() -> Unit)? = null,
     onSalaryClick: (() -> Unit)? = null,
     onBillsClick: (() -> Unit)? = null,
     onPayCycleClick: (() -> Unit)? = null,
@@ -148,11 +149,9 @@ fun PlanScreen(
         mutableStateOf(false)
     }
     var showFundingEvidence by remember { mutableStateOf(false) }
-
     var loading by remember { mutableStateOf(initialData == null) }
     var hasLoaded by remember { mutableStateOf(initialData != null) }
     var loadError by remember { mutableStateOf<String?>(null) }
-
     LaunchedEffect(
         ledgerUpdateState.revision,
         localRefresh
@@ -362,6 +361,7 @@ fun PlanScreen(
             }
         }
         if (!showPlanDetails) {
+        item(key = "shopping-lists-entry") { ShoppingListsPlanEntry { onShoppingClick?.invoke() } }
         // Preserve the existing forecasting, recurring-bill confirmation and
         // funding-gap review flows below the new Plan overview.
         item {
