@@ -105,7 +105,8 @@ internal class DuplicateResolutionWriter(
         val expectedFirst = shownFirst ?: return false
         val expectedSecond = shownSecond ?: return false
         if (first.reversalOfCode != null || second.reversalOfCode != null ||
-            hasIncomingReversal(db, first, second)) return false
+            hasIncomingReversal(db, first, second) ||
+            DuplicateCashRoleSafety.hasDependents(db, first.id, second.id)) return false
         return PossibleDuplicatePolicy.canConfirm(
             pairKey,
             expectedFirst.toPossibleDuplicateObservation(),
@@ -164,9 +165,52 @@ internal class DuplicateResolutionWriter(
     }
 }
 
+/** A cash leg already used by another financial workflow must never be excluded
+ * merely because two messages share an amount and timestamp. All checks are
+ * read-only and run inside the duplicate writer's existing SQLite transaction.
+ */
+internal object DuplicateCashRoleSafety {
+    private val dependentColumns = listOf(
+        "debt_events" to "linked_transaction_id",
+        "financial_events" to "linked_transaction_id",
+        "investment_events" to "linked_transaction_id",
+        "personal_receivable_events" to "linked_transaction_id",
+        "transaction_allocations" to "transaction_id",
+        "liability_payment_decisions" to "transaction_id",
+        "pay_cycles" to "start_transaction_id",
+        "cycle_protections" to "cycle_start_transaction_id",
+        "payday_snapshots" to "salary_transaction_id",
+        "transactions" to "related_transaction_id"
+    )
+
+    fun hasDependents(db: SQLiteDatabase, firstId: Long, secondId: Long): Boolean {
+        require(firstId > 0L && secondId > 0L && firstId != secondId)
+        val ids = arrayOf(firstId.toString(), secondId.toString())
+        // The legacy Fuliza table is created by older migrations, but is absent from
+        // the current fresh-install schema. Do not make duplicate confirmation crash
+        // when that optional table is missing.
+        val hasLegacyFulizaTable = db.rawQuery(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='fuliza_events' LIMIT 1",
+            null
+        ).use { it.moveToFirst() }
+        val columns = if (hasLegacyFulizaTable) {
+            dependentColumns + ("fuliza_events" to "linked_transaction_id")
+        } else {
+            dependentColumns
+        }
+        val clauses = columns.joinToString(" OR ") { (table, column) ->
+            "EXISTS(SELECT 1 FROM $table WHERE $column IN (?,?))"
+        }
+        val sql = "SELECT 1 WHERE $clauses LIMIT 1"
+        return db.rawQuery(sql, Array(columns.size) { ids }.flatMap { it.toList() }.toTypedArray())
+            .use { it.moveToFirst() }
+    }
+}
+
 internal fun StoredTransaction.toPossibleDuplicateObservation(): PossibleDuplicateObservation =
     PossibleDuplicateObservation(
         id = id,
+        accountId = accountId,
         amountMinor = amountMinor,
         receivedAtEpochMs = receivedAtEpochMs,
         transactionCode = transactionCode,
@@ -175,6 +219,10 @@ internal fun StoredTransaction.toPossibleDuplicateObservation(): PossibleDuplica
         direction = direction,
         reviewState = reviewState,
         category = category,
+        hasProtectedCashRole = linkedAccountId != null || relationType != null ||
+            relatedTransactionId != null || reversalOfCode != null || feeMinor != 0L ||
+            fulizaFinancedMinor != 0L || fulizaAccessFeeMinor != 0L ||
+            fulizaOutstandingMinor != null || fulizaEventCode != null,
         counterparty = counterparty,
         evidenceLabel = evidenceLabel,
         type = type
