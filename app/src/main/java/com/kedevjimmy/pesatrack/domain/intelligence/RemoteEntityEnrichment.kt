@@ -68,6 +68,15 @@ object EntityDescriptorPrivacyPolicy {
         "zuri properties"
     )
 
+    // A business suffix does not make an otherwise personal-looking label
+    // safe to disclose. This is deliberately conservative, not name detection.
+    private val personLikeOpeningTokens = setOf(
+        "achieng", "alice", "anne", "brian", "david", "faith",
+        "grace", "jane", "john", "joseph", "kevin", "mary",
+        "maryann", "moses", "otieno", "peter", "ruth", "samuel",
+        "susan", "wanjiku"
+    )
+
     private val strongBusinessSignals = setOf(
         "bank",
         "sacco",
@@ -169,6 +178,10 @@ object EntityDescriptorPrivacyPolicy {
                 .filter(String::isNotBlank)
 
         if (words.size !in 2..6) {
+            return false
+        }
+
+        if (words.first() in personLikeOpeningTokens) {
             return false
         }
 

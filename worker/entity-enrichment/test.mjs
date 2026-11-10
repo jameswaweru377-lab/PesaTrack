@@ -66,6 +66,10 @@ const privacyCorpus = JSON.parse(
     "utf8",
   ),
 );
+assert(
+  privacyCorpus.length >= 60,
+  "shared privacy corpus must cover at least 60 descriptors",
+);
 
 const CLIENT_ID =
   "7fbe6f76-c82a-4d44-9f1a-cf36bf9db905";
