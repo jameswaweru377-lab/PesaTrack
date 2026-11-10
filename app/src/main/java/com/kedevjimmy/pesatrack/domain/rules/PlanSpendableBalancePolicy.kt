@@ -14,6 +14,7 @@ internal data class PlanSpendableBalance(
     val spendableMinor: Long?,
     val liquidMinor: Long?,
     val protectedMinor: Long?,
+    val totalAccountsMinor: Long?,
     val needsReview: Boolean
 )
 
@@ -39,9 +40,16 @@ internal object PlanSpendableBalancePolicy {
                     it <= BigInteger.valueOf(Long.MAX_VALUE)
             }?.toLong()
         }
-        val liquidTotal = sum(liquid)
-        val savedTotal = if (protectedAccounts.isEmpty()) 0L else sum(protectedAccounts)
-        val possible = if (!unknown && !duplicateConflict && !unsafeBills && liquidTotal != null) {
+        val liquidTotal = if (duplicateConflict) null else sum(liquid)
+        val savedTotal = if (duplicateConflict) null else if (protectedAccounts.isEmpty()) 0L else sum(protectedAccounts)
+        val totalAccounts = if (liquidTotal != null && savedTotal != null) {
+            val total = BigInteger.valueOf(liquidTotal) + BigInteger.valueOf(savedTotal)
+            total.takeIf { it >= BigInteger.valueOf(Long.MIN_VALUE) &&
+                it <= BigInteger.valueOf(Long.MAX_VALUE) }?.toLong()
+        } else null
+        val provisionalLiquid = liquid.any { it.provisional }
+        val possible = if (!unknown && !duplicateConflict && !unsafeBills &&
+            !provisionalLiquid && liquidTotal != null) {
             BigInteger.valueOf(liquidTotal) - BigInteger.valueOf(requireNotNull(upcomingBillsMinor))
         } else null
         val spendable = possible?.takeIf {
@@ -51,8 +59,9 @@ internal object PlanSpendableBalancePolicy {
             spendableMinor = spendable,
             liquidMinor = liquidTotal,
             protectedMinor = savedTotal,
+            totalAccountsMinor = totalAccounts,
             needsReview = spendable == null || savedTotal == null || possible?.signum() == -1 ||
-                distinct.any { it.provisional }
+                totalAccounts == null || distinct.any { it.provisional }
         )
     }
 }

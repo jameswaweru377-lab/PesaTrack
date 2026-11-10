@@ -309,6 +309,7 @@ fun PlanScreen(
         available = formatPlanMoney(planningAvailability.availableMinor),
         spendable = spendable.spendableMinor?.let(::formatPlanMoney),
         liquid = spendable.liquidMinor?.let(::formatPlanMoney),
+        totalAccounts = spendable.totalAccountsMinor?.let(::formatPlanMoney),
         protectedSavings = spendable.protectedMinor?.let(::formatPlanMoney),
         spendableNeedsReview = spendable.needsReview,
         starting = formatPlanMoney(snapshot.startingFundsMinor),

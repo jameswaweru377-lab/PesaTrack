@@ -8,13 +8,11 @@ import org.junit.Test
 class HomeSummaryScopeTest {
     @Test fun historicalMonthRetainsCurrentConfirmedBalanceWhileUpdatingFlow() {
         val current = homeSummaryScope(
-            confirmedCycle = true,
             currentAvailableMinor = 1_925_000L,
             selectedNetFlowMinor = 120_000L,
             monthLabel = "November 2026"
         )
         val historical = homeSummaryScope(
-            confirmedCycle = true,
             currentAvailableMinor = 1_925_000L,
             selectedNetFlowMinor = -40_000L,
             monthLabel = "October 2026"
@@ -27,16 +25,15 @@ class HomeSummaryScopeTest {
         assertEquals("net recorded flow · October 2026", historical.netFlowCaption)
     }
 
-    @Test fun balanceRemainsUnknownWithoutConfirmedCurrentCycle() {
-        val unknown = homeSummaryScope(
-            confirmedCycle = false,
+    @Test fun verifiedCurrentBalanceIsNotHiddenWhenSalaryCycleIsMissing() {
+        val known = homeSummaryScope(
             currentAvailableMinor = 1_925_000L,
             selectedNetFlowMinor = null,
             monthLabel = "September 2026"
         )
 
-        assertNull(unknown.currentAvailableMinor)
-        assertNull(unknown.selectedNetFlowMinor)
-        assertEquals("net recorded flow · September 2026", unknown.netFlowCaption)
+        assertEquals(1_925_000L, known.currentAvailableMinor)
+        assertNull(known.selectedNetFlowMinor)
+        assertEquals("net recorded flow · September 2026", known.netFlowCaption)
     }
 }
