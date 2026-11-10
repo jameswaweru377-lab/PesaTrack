@@ -605,10 +605,40 @@ class PaydaySnapshotStore private constructor(
         account: MoneyAccount,
         snapshotEpochMs: Long
     ): PaydayAccountSnapshot = try {
-        reconstructAccountSnapshot(db, account, snapshotEpochMs)
+        if (account.id == AccountStore.DEFAULT_MPESA_ID) {
+            reportedMpesaSnapshot(db, account, snapshotEpochMs)
+        } else {
+            reconstructAccountSnapshot(db, account, snapshotEpochMs)
+        }
     } catch (_: ArithmeticException) {
         PaydayAccountSnapshot(account.id, account.name, account.type, null,
             PaydayBalanceQuality.UNKNOWN, null, spendability(account.type))
+    }
+
+    /** Safaricom's latest reported balance is authoritative; ledger deltas are not. */
+    private fun reportedMpesaSnapshot(
+        db: SQLiteDatabase,
+        account: MoneyAccount,
+        snapshotEpochMs: Long
+    ): PaydayAccountSnapshot {
+        val reported = latestBalanceAnchorAtOrBefore(db, account.id, snapshotEpochMs)
+        val opening = account.openingBalanceMinor?.takeIf {
+            reported == null && account.openingBalanceAsOfEpochMs?.let { at -> at <= snapshotEpochMs } == true
+        }
+        return PaydayAccountSnapshot(
+            accountId = account.id,
+            accountName = account.name,
+            accountType = account.type,
+            balanceMinor = reported?.balanceMinor ?: opening,
+            quality = when {
+                reported != null -> reported.quality
+                opening != null -> PaydayBalanceQuality.USER_ENTERED
+                else -> PaydayBalanceQuality.UNKNOWN
+            },
+            referenceEpochMs = reported?.epochMs
+                ?: account.openingBalanceAsOfEpochMs?.takeIf { opening != null },
+            spendability = spendability(account.type)
+        )
     }
 
     private fun reconstructAccountSnapshot(
@@ -635,11 +665,9 @@ class PaydaySnapshotStore private constructor(
                     toInclusive =
                         snapshotEpochMs
                 )
-            val exact =
-                delta == 0L &&
-                    snapshotEpochMs -
-                        prior.epochMs <=
-                        DIRECT_OBSERVATION_WINDOW_MS
+            // A recorded balance remains the latest fact until transaction
+            // evidence changes it. Age alone must not turn it into an estimate.
+            val exact = delta == 0L
             return PaydayAccountSnapshot(
                 accountId = account.id,
                 accountName = account.name,
@@ -687,10 +715,7 @@ class PaydaySnapshotStore private constructor(
                 balanceMinor =
                     CheckedMoney.add(openingBalance, delta),
                 quality =
-                    if (
-                        openingEpoch ==
-                        snapshotEpochMs
-                    ) {
+                    if (delta == 0L) {
                         PaydayBalanceQuality
                             .USER_ENTERED
                     } else {
@@ -808,7 +833,8 @@ class PaydaySnapshotStore private constructor(
             """
             SELECT balance_minor,
                    observed_at_epoch_ms,
-                   confidence,
+                   CASE WHEN source_kind = 'user_balance_check'
+                        THEN 'USER_ENTERED' ELSE 'OBSERVED' END AS balance_source,
                    0 AS source_priority
             FROM account_balance_observations
             WHERE account_id = ?
@@ -818,10 +844,7 @@ class PaydaySnapshotStore private constructor(
 
             SELECT balance_minor,
                    occurred_at_epoch_ms,
-                   COALESCE(
-                       evidence_confidence,
-                       'MEDIUM'
-                   ),
+                   'OBSERVED' AS balance_source,
                    1 AS source_priority
             FROM transactions
             WHERE account_id = ?
@@ -850,8 +873,7 @@ class PaydaySnapshotStore private constructor(
                     epochMs =
                         cursor.getLong(1),
                     quality =
-                        PaydayBalanceQuality
-                            .OBSERVED
+                        PaydayBalanceQuality.valueOf(cursor.getString(2))
                 )
             }
         }
@@ -1272,9 +1294,6 @@ class PaydaySnapshotStore private constructor(
                 AccountType.CASH,
                 AccountType.SAVINGS
             )
-        private const val
-            DIRECT_OBSERVATION_WINDOW_MS =
-            5L * 60L * 1000L
         private const val
             MAX_BACKCAST_WINDOW_MS =
             120L * 24L * 60L * 60L *

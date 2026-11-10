@@ -128,6 +128,7 @@ fun AccountsScreen(
     onDiscoverReceivables: (() -> Unit)? = null
 ) {
     var amountsHidden by rememberSaveable { mutableStateOf(false) }
+    var balanceDialogAccountId by rememberSaveable { mutableStateOf<String?>(null) }
     var showInvestmentPositions by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val accountStore =
@@ -296,7 +297,8 @@ fun AccountsScreen(
         item {
             Box(Modifier.padding(horizontal = 16.dp)) {
                 ApprovedAccountsList(accountDisplayLines(everyday), accountDisplayLines(savings),
-                    amountsHidden, onAccountClick, onManageInstitutions)
+                    amountsHidden, onAccountClick, onManageInstitutions,
+                    onBalanceClick = { balanceDialogAccountId = it })
             }
         }
         item { Box(Modifier.padding(horizontal = 16.dp)) {
@@ -305,6 +307,9 @@ fun AccountsScreen(
         item { Box(Modifier.padding(horizontal = 16.dp)) {
             ApprovedAccountActivity(recentAccountActivity, accountNames, amountsHidden)
         } }
+    }
+    balanceDialogAccountId?.let { accountId ->
+        AccountBalanceCheckSheet(accountId) { balanceDialogAccountId = null }
     }
 }
 
