@@ -31,6 +31,7 @@ internal object BrownHomePalette {
     val muted = Color(0xFF766C64)
     val cream = Color(0xFFF8EBDE)
     val outline = Color(0xFFE3BE92)
+    val attention = Color(0xFF925B10)
     val white = Color.White
 }
 

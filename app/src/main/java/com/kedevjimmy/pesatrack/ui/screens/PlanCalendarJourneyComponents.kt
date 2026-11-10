@@ -83,7 +83,11 @@ internal data class PlanJourneyView(
     val goalPercent: Int?,
     val displayedShares: List<Int>?,
     val bills: List<PlanJourneyBill>,
-    val week: List<PlanCalendarDay>
+    val week: List<PlanCalendarDay>,
+    val spendable: String? = null,
+    val liquid: String? = null,
+    val protectedSavings: String? = null,
+    val spendableNeedsReview: Boolean = true
 )
 
 @Composable

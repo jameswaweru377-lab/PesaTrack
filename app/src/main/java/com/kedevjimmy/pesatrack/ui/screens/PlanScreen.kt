@@ -42,6 +42,8 @@ import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternCandidate
 import com.kedevjimmy.pesatrack.domain.recurring.RecurringPatternConfidence
 import com.kedevjimmy.pesatrack.domain.rules.PlanningAvailabilityPolicy
+import com.kedevjimmy.pesatrack.domain.rules.PlanSpendableAccount
+import com.kedevjimmy.pesatrack.domain.rules.PlanSpendableBalancePolicy
 import com.kedevjimmy.pesatrack.planning.BillSchedules
 import com.kedevjimmy.pesatrack.planning.ScheduledBill
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
@@ -74,7 +76,8 @@ internal data class PlanReferenceData(
     val goals: List<SmartRule>,
     val bills: List<ScheduledBill>,
     val financialProgress: FinancialProgress? = null,
-    val billProgress: PlanBillProgress? = null
+    val billProgress: PlanBillProgress? = null,
+    val accountBalances: List<PlanSpendableAccount> = emptyList()
 )
 
 class PlanScreenCache {
@@ -116,6 +119,9 @@ fun PlanScreen(
             initialData?.snapshot ?: emptyPlanSnapshot()
         )
     }
+    var accountBalances by remember {
+        mutableStateOf(initialData?.accountBalances.orEmpty())
+    }
     var recurringSuggestions by remember {
         mutableStateOf<
             List<RecurringPatternCandidate>
@@ -144,7 +150,6 @@ fun PlanScreen(
     var billProgress by remember {
         mutableStateOf(initialData?.billProgress)
     }
-    var progressPeriod by remember { mutableStateOf("month") }
     var showPlanDetails by remember {
         mutableStateOf(false)
     }
@@ -196,6 +201,16 @@ fun PlanScreen(
                 val scheduledBills = traceFinancialRead("plan.scheduledBills") {
                     billSchedules.list()
                 }
+                val accountBalances = try {
+                    traceFinancialRead("plan.accountBalances") {
+                        readPlanSpendableAccounts(context)
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    android.util.Log.w("PesaTrackPlan", "Account balance read unavailable")
+                    emptyList()
+                }
                 // One canonical schedule read provides both upcoming items and real
                 // payment progress. An unknown due date is never assumed paid.
                 val monthBills = scheduledBills.filter {
@@ -208,6 +223,7 @@ fun PlanScreen(
                     goals = goals,
                     bills = scheduledBills.filter { it.dueThisMonth && it.remainingMinor > 0L },
                     financialProgress = progress,
+                    accountBalances = accountBalances,
                     billProgress = monthBills.takeIf { it.isNotEmpty() }?.let { items ->
                         PlanBillProgress(
                             paidMinor = items.sumOf {
@@ -219,6 +235,7 @@ fun PlanScreen(
                 )
             }
         snapshot = loaded.snapshot
+        accountBalances = loaded.accountBalances
         recurringSuggestions = loaded.recurring
         monthlyBudgets = loaded.budgets
         savingsGoals = loaded.goals
@@ -275,23 +292,25 @@ fun PlanScreen(
     val monthBudgetLimit = budgetRows.sumOf { it.target }
     val monthGoalSaved = goalRows.sumOf { it.saved }
     val monthGoalTarget = goalRows.sumOf { it.target }
-    val payCycleBase = runCatching {
-        Math.addExact(snapshot.startingFundsMinor, snapshot.additionalIncomeMinor)
-    }.getOrNull()?.coerceAtLeast(0L)
-    val isCycle = progressPeriod == "cycle"
-    val budgetSpent = if (isCycle) snapshot.spentMinor else monthBudgetSpent
-    val budgetLimit = if (isCycle) payCycleBase else monthBudgetLimit
-    val goalSaved = if (isCycle) snapshot.savingsMinor else monthGoalSaved
-    val goalLimit = if (isCycle) payCycleBase else monthGoalTarget
-    val budgetAvailable = (isCycle && snapshot.cycle != null && budgetLimit != null) ||
-        (!isCycle && financialProgress != null && budgetRows.isNotEmpty())
-    val goalAvailable = (isCycle && snapshot.cycle != null && goalLimit != null) ||
-        (!isCycle && financialProgress != null && goalRows.isNotEmpty())
+    val budgetSpent = monthBudgetSpent
+    val budgetLimit = monthBudgetLimit
+    val goalSaved = monthGoalSaved
+    val goalLimit = monthGoalTarget
+    val budgetAvailable = financialProgress != null && budgetRows.isNotEmpty()
+    val goalAvailable = financialProgress != null && goalRows.isNotEmpty()
+    val spendable = PlanSpendableBalancePolicy.calculate(
+        accountBalances,
+        planUpcomingBillsTotalMinor(upcomingBills.map { it.remainingMinor })
+    )
     val journey = PlanJourneyView(
         month = SimpleDateFormat("MMMM yyyy", locale).format(Date(now)),
         period = formatPlanPeriod(snapshot),
         hasCycle = snapshot.cycle != null,
         available = formatPlanMoney(planningAvailability.availableMinor),
+        spendable = spendable.spendableMinor?.let(::formatPlanMoney),
+        liquid = spendable.liquidMinor?.let(::formatPlanMoney),
+        protectedSavings = spendable.protectedMinor?.let(::formatPlanMoney),
+        spendableNeedsReview = spendable.needsReview,
         starting = formatPlanMoney(snapshot.startingFundsMinor),
         committed = formatPlanMoney(snapshot.remainingCommitmentsMinor),
         billsTotal = planUpcomingBillsTotalMinor(upcomingBills.map { it.remainingMinor })
@@ -349,8 +368,8 @@ fun PlanScreen(
             item(key = "calendar-journey-overview") {
                 PlanJourneyOverview(
                     data = journey,
-                    selectedPeriod = if (isCycle) "Pay cycle" else "Month",
-                    onPeriod = { progressPeriod = if (it == "Pay cycle") "cycle" else "month" },
+                    selectedPeriod = "Month",
+                    onPeriod = {},
                     onOtherMonths = { onInsightsClick?.invoke() },
                     onBudget = { onBudgetClick?.invoke() },
                     onGoals = { onGoalsClick?.invoke() },
@@ -368,6 +387,9 @@ fun PlanScreen(
             // This card also provides the forecast/payday confirmation flow
             // for people who have not yet recorded a confirmed salary cycle.
             MoneyUntilSalaryCard(snapshot)
+        }
+        item(key = "coming-up-after-status") {
+            ApprovedPlanComingUp(journey.bills.take(2)) { onBillsClick?.invoke() }
         }
         if (
             recurringSuggestions

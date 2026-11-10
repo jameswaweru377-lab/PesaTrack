@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,10 +18,15 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ShoppingCart
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +47,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -73,11 +80,16 @@ fun ShoppingListsScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit) {
     val currentMonth = remember { SimpleDateFormat("yyyy-MM", Locale.US).format(Date()) }
     val selected = state.lists.firstOrNull { it.id == selectedId }
     LaunchedEffect(Unit) { state.reload() }
+    LaunchedEffect(state.loading) {
+        if (!state.loading && selectedId == null) {
+            selectedId = state.lists.firstOrNull { it.month == currentMonth }?.id
+        }
+    }
     BackHandler(selectedId != null) { selectedId = null }
 
     LazyColumn(Modifier.padding(scaffoldPadding).background(BrownHomePalette.canvas),
         contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { ShoppingTitle(if (selected == null) "Shopping lists" else selected.title) {
+        item { ShoppingTitle(if (selected == null) "Shopping lists" else "Monthly shopping") {
             if (selected == null) onBack() else selectedId = null
         } }
         if (state.error != null) item {
@@ -314,24 +326,53 @@ private fun ShoppingOverviewRow(list: ShoppingList, onOpen: () -> Unit,
 private fun ShoppingDetailHeader(list: ShoppingList, onAdd: () -> Unit,
     onRename: () -> Unit, onDelete: () -> Unit, disabled: Boolean) {
     val estimate = ShoppingListPolicy.total(list)
+    var expanded by remember { mutableStateOf(false) }
+    var aboutEstimate by remember { mutableStateOf(false) }
+    val locale = LocalConfiguration.current.locales[0]
+    val month = runCatching {
+        SimpleDateFormat("MMMM yyyy", locale).format(
+            requireNotNull(SimpleDateFormat("yyyy-MM", Locale.US).parse(list.month))
+        )
+    }.getOrDefault(list.month)
     Surface(color = BrownHomePalette.cream, shape = RoundedCornerShape(16.dp)) {
       Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("${list.month} · ${list.items.size} items", style = MaterialTheme.typography.bodySmall,
-            color = BrownHomePalette.muted)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("$month · ${list.items.size} items", modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall, color = BrownHomePalette.muted)
+            Box {
+                IconButton(onClick = { expanded = true }, enabled = !disabled) {
+                    Icon(Icons.Rounded.MoreVert, "List options", tint = BrownHomePalette.coffee)
+                }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    DropdownMenuItem(text = { Text("Rename list") }, onClick = {
+                        expanded = false; onRename()
+                    })
+                    DropdownMenuItem(text = { Text("Delete list") }, onClick = {
+                        expanded = false; onDelete()
+                    })
+                }
+            }
+        }
         Text(shoppingEstimateLabel(estimate), style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold)
-        Text("Estimate only · not recorded as an expense",
-            style = MaterialTheme.typography.bodySmall)
-        Button(onClick = onAdd, enabled = !disabled && list.items.size < ShoppingListPolicy.MAX_ITEMS,
-            colors = ButtonDefaults.buttonColors(containerColor = BrownHomePalette.coffee)) {
-            Text("Add item")
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = onRename, enabled = !disabled) { Text("Rename") }
-            TextButton(onClick = onDelete, enabled = !disabled) { Text("Delete list") }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = onAdd,
+                enabled = !disabled && list.items.size < ShoppingListPolicy.MAX_ITEMS,
+                colors = ButtonDefaults.buttonColors(containerColor = BrownHomePalette.coffee)) {
+                Text("Add item")
+            }
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = { aboutEstimate = true }) {
+                Icon(Icons.Rounded.Info, "What does estimated mean?", tint = BrownHomePalette.coffee)
+            }
         }
       }
     }
+    if (aboutEstimate) AlertDialog(onDismissRequest = { aboutEstimate = false },
+        title = { Text("Shopping estimate") },
+        text = { Text("This is your planned shopping cost, not an actual expense. " +
+            "A purchase only counts when recorded in Activity.") },
+        confirmButton = { TextButton(onClick = { aboutEstimate = false }) { Text("Got it") } })
 }
 
 @Composable
@@ -341,17 +382,20 @@ private fun ShoppingItemRow(item: ShoppingItem, disabled: Boolean, onCheck: (Boo
         border = BorderStroke(1.dp, BrownHomePalette.outline.copy(alpha = 0.6f))) {
       Row(Modifier.fillMaxWidth().padding(8.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(checked = item.bought, enabled = !disabled, onCheckedChange = onCheck)
+        Checkbox(checked = item.bought, enabled = !disabled, onCheckedChange = onCheck,
+            colors = CheckboxDefaults.colors(checkedColor = BrownHomePalette.coffee))
         Column(Modifier.weight(1f)) {
             Text(item.name, fontWeight = FontWeight.Medium)
             Text("${item.quantity} × ${item.unitPriceMinor?.let(::formatShoppingMoney) ?: "price unknown"}",
                 style = MaterialTheme.typography.bodySmall)
         }
         IconButton(onClick = onEdit, enabled = !disabled) {
-            Icon(Icons.Rounded.Edit, contentDescription = "Edit ${item.name}")
+            Icon(Icons.Rounded.Edit, contentDescription = "Edit ${item.name}",
+                tint = BrownHomePalette.coffee)
         }
         IconButton(onClick = onRemove, enabled = !disabled) {
-            Icon(Icons.Rounded.DeleteOutline, contentDescription = "Remove ${item.name}")
+            Icon(Icons.Rounded.DeleteOutline, contentDescription = "Remove ${item.name}",
+                tint = BrownHomePalette.coffee)
         }
       }
     }

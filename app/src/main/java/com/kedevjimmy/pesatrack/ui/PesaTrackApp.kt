@@ -539,7 +539,8 @@ fun PesaTrackApp(
                 onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
                 onNotificationsClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
                 currentTab = MainTab.PLAN,
-                useHomeHeader = true,
+                useBrownHome = true,
+                showTopBar = false,
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 ShoppingListsScreen(padding, onBack = { navController.popBackStack() })
@@ -685,7 +686,8 @@ fun PesaTrackApp(
         composable("bills") {
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.PLAN,
-                useHomeHeader = true,
+                useBrownHome = true,
+                showTopBar = false,
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 BillsRemindersScreen(
