@@ -77,6 +77,8 @@ Generic bank and wallet notification language can identify incoming receipts, pa
 
 The Accounts list and account details let you manually record the exact bank or wallet balance you see. This dated observation is **not** income or spending. For M-Pesa, the latest explicit reported balance or user-confirmed observation is shown without adding reconstructed transactions to it; unknown or estimated bank balances are not silently counted as confirmed cash.
 
+Financial screens automatically re-read local records on the first launch after an APK update and when the app returns after a longer break. Existing SMS catch-up and transaction-change refreshes remain in place. This **does not** connect to a bank or make an unobserved balance available; Plan's balance-attention icon explains missing or stale evidence.
+
 - [Product charter](docs/PRODUCT_CHARTER.md) — what PesaTrack is building and what it deliberately avoids.
 - [Current engineering state](CURRENT_STATE.md) — engineering progress, limitations, and pending acceptance.
 - [Development tracker](docs/tracker/README.md) — tasks, ownership, and review rules.

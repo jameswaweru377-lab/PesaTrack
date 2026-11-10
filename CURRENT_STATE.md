@@ -1,5 +1,18 @@
 # PesaTrack Current State
 
+_Smart financial foreground refresh (10 November 2026; CI and phone acceptance pending):_
+The first app foreground after an APK version change invalidates cached
+financial screen reads. Returning after at least five minutes also triggers a
+lightweight re-read; rapid tab switching or short background visits preserve
+the existing cache. This is a presentation refresh only: actual transaction,
+balance and review changes still use the existing ledger-change events and
+SMS catch-up. The refreshed display cannot obtain absent bank balances or
+invent salary, expenses, transfers or account evidence. Plan's existing
+attention control explains why spendable money can remain unavailable. No new
+permission, network use, database migration or loss of local history is
+introduced. Device upgrade, lifecycle timing and financial accuracy still need
+physical-phone verification.
+
 _Profile editorial Nairobi redesign and compact-card follow-up (10 November 2026; CI and phone acceptance pending):_
 The private Profile landing screen follows the approved photo-led layout: a
 locally bundled Nairobi cover appears until the user selects their own image,
