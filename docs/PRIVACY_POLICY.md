@@ -40,6 +40,12 @@ by your encrypted backups. A photo in cloud-backed device storage may be fetched
 by Android's chosen photo provider when you select it. Historical shopping
 summaries and automatic suggestions are calculated locally from those lists;
 they are planning estimates, not proof of payment or spending.
+Where supported and already installed by Android, Gemini Nano may interpret
+recognized shopping text through the on-device AICore system service. PesaTrack
+does not automatically download that model, submit the text to cloud AI, or
+save AI drafts without your explicit review; unsupported devices use only
+offline text recognition. The Android operating system manages any separate
+model installation or updates, and PesaTrack never requires Gemini Nano.
 
 ## SMS permission
 
