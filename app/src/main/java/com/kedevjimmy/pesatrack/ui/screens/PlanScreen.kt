@@ -207,8 +207,8 @@ fun PlanScreen(
                     }
                 } catch (cancelled: CancellationException) {
                     throw cancelled
-                } catch (failure: Exception) {
-                    android.util.Log.w("PesaTrackPlan", "Account balance read unavailable", failure)
+                } catch (_: Exception) {
+                    android.util.Log.w("PesaTrackPlan", "Account balance read unavailable")
                     emptyList()
                 }
                 // One canonical schedule read provides both upcoming items and real
