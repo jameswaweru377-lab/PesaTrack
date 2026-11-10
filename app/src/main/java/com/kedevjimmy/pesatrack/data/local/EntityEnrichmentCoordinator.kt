@@ -33,82 +33,13 @@ class EntityEnrichmentCoordinator private constructor(
             appContext
         )
 
+    @Suppress("UNUSED_PARAMETER")
     fun enrichTransactionAsync(
         transactionId: Long,
         rawDescriptor: String?
     ) {
-        val sanitized =
-            EntityDescriptorPrivacyPolicy
-                .sanitize(rawDescriptor)
-                ?: return
-        val key =
-            EntityDescriptorPrivacyPolicy
-                .cacheKey(sanitized)
-        val hasCached =
-            cache.get(key) != null
-
-        if (
-            !hasCached &&
-            !preferences
-                .isOnlineLookupEnabled()
-        ) {
-            return
-        }
-
-        if (
-            !hasCached &&
-            !remote.isConfigured()
-        ) {
-            return
-        }
-
-        val constraints =
-            if (hasCached) {
-                Constraints.Builder()
-                    .build()
-            } else {
-                Constraints.Builder()
-                    .setRequiredNetworkType(
-                        NetworkType.CONNECTED
-                    )
-                    .build()
-            }
-
-        val input =
-            Data.Builder()
-                .putString(
-                    EntityEnrichmentWorker
-                        .KEY_DESCRIPTOR,
-                    sanitized
-                )
-                .putLong(
-                    EntityEnrichmentWorker
-                        .KEY_TRIGGER_TRANSACTION_ID,
-                    transactionId
-                )
-                .build()
-
-        val request =
-            OneTimeWorkRequest.Builder(
-                EntityEnrichmentWorker::
-                    class.java
-            )
-                .setInputData(input)
-                .setConstraints(constraints)
-                .setBackoffCriteria(
-                    BackoffPolicy.EXPONENTIAL,
-                    30L,
-                    TimeUnit.SECONDS
-                )
-                .build()
-
-        WorkManager.getInstance(
-            appContext
-        ).enqueueUniqueWork(
-            uniqueWorkName(key),
-            ExistingWorkPolicy.KEEP,
-            request
-        )
+        // Strict offline mode: legacy online-enrichment settings cannot
+        // initiate a request. Existing locally cached labels are retained.
     }
 
     private fun uniqueWorkName(
@@ -159,6 +90,8 @@ class EntityEnrichmentWorker(
     workerParams
 ) {
     override fun doWork(): Result {
+        // Ignore old queued remote jobs following the strictly offline update.
+        return Result.success()
         val sanitized =
             inputData.getString(
                 KEY_DESCRIPTOR
