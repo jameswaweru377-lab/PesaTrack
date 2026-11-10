@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,9 +22,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.data.profile.ProfileCoverStore
 import com.kedevjimmy.pesatrack.data.profile.ProfilePhotoStore
 import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
@@ -38,7 +41,7 @@ internal fun ProfileDetailTopBar(back: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp).heightIn(min = 52.dp),
         verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = back) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back to More", tint = C.ink)
+            Icon(Icons.Rounded.ChevronLeft, "Back to More", tint = C.ink)
         }
         Text("Profile", style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold, color = C.ink)
@@ -46,7 +49,12 @@ internal fun ProfileDetailTopBar(back: () -> Unit) {
 }
 
 @Composable
-internal fun ProfileCoverHeader(avatar: String, onAvatarEdit: () -> Unit) {
+internal fun ProfileCoverHeader(
+    name: String,
+    avatar: String,
+    onBack: () -> Unit,
+    onAvatarEdit: () -> Unit
+) {
     val context = LocalContext.current
     val coverStore = remember(context) { ProfileCoverStore(context) }
     val photoStore = remember(context) { ProfilePhotoStore(context) }
@@ -76,7 +84,7 @@ internal fun ProfileCoverHeader(avatar: String, onAvatarEdit: () -> Unit) {
     if (coverMenu) AlertDialog(
         onDismissRequest = { coverMenu = false },
         title = { Text("Cover photo") },
-        text = { Text("Choose an image from this phone or restore PesaTrack's purple cover.") },
+        text = { Text("Choose an image from this phone or restore the default Nairobi cover.") },
         confirmButton = { TextButton(onClick = { coverMenu = false; chooseCover() }) { Text("Choose photo") } },
         dismissButton = { TextButton(onClick = {
             coverMenu = false
@@ -88,25 +96,33 @@ internal fun ProfileCoverHeader(avatar: String, onAvatarEdit: () -> Unit) {
         }) { Text("Restore default") } }
     )
 
-    Box(Modifier.fillMaxWidth().height(216.dp)) {
-        ProfileCoverArtwork(coverPhoto, busy, onEdit = {
+    Box(Modifier.fillMaxWidth().height(272.dp)) {
+        ProfileCoverArtwork(coverPhoto, busy, onBack, onEdit = {
             if (coverPhoto == null) chooseCover() else coverMenu = true
         })
-        ProfileAvatarArtwork(avatar, avatarPhoto, onAvatarEdit,
+        ProfileAvatarArtwork(name, avatar, avatarPhoto, onAvatarEdit,
             modifier = Modifier.align(Alignment.BottomCenter))
         SnackbarHost(snackbar, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 
 @Composable
-private fun ProfileCoverArtwork(cover: Bitmap?, busy: Boolean, onEdit: () -> Unit) {
-    Box(Modifier.fillMaxWidth().height(160.dp).background(
-        Brush.horizontalGradient(listOf(C.violetBright, C.violet, C.violetDeep))
-    )) {
-        ProfileBannerWavesPublic(Modifier.matchParentSize())
-        cover?.let {
-            Image(it.asImageBitmap(), "Your cover photo", Modifier.fillMaxSize(),
+private fun ProfileCoverArtwork(
+    cover: Bitmap?, busy: Boolean, onBack: () -> Unit, onEdit: () -> Unit
+) {
+    Box(Modifier.fillMaxWidth().height(216.dp).background(C.sand)) {
+        if (cover == null) {
+            Image(painterResource(R.drawable.profile_default_nairobi_cover),
+                "Default Nairobi cover photo", Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop)
+        } else {
+            Image(cover.asImageBitmap(), "Your cover photo", Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop)
+        }
+        IconButton(onClick = onBack,
+            modifier = Modifier.align(Alignment.TopStart).padding(12.dp).size(48.dp)
+                .clip(CircleShape).background(Color.Black.copy(alpha = .32f))) {
+            Icon(Icons.Rounded.ChevronLeft, "Back", Modifier.size(32.dp), tint = Color.White)
         }
         IconButton(onClick = onEdit, enabled = !busy,
             modifier = Modifier.align(Alignment.TopEnd).padding(12.dp).size(48.dp)
@@ -120,20 +136,23 @@ private fun ProfileCoverArtwork(cover: Bitmap?, busy: Boolean, onEdit: () -> Uni
 
 @Composable
 private fun ProfileAvatarArtwork(
-    avatar: String, avatarPhoto: Bitmap?, onEdit: () -> Unit, modifier: Modifier = Modifier
+    name: String, avatar: String, avatarPhoto: Bitmap?, onEdit: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Box(modifier.size(112.dp)) {
         Surface(Modifier.fillMaxSize(), shape = CircleShape,
-            color = C.lilac, border = BorderStroke(4.dp, C.canvas)) {
+            color = C.cream, border = BorderStroke(4.dp, C.cream)) {
             Box(contentAlignment = Alignment.Center) {
                 if (avatarPhoto != null) Image(avatarPhoto.asImageBitmap(), "Profile photo",
                     Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                else Text(avatar, style = MaterialTheme.typography.headlineLarge)
+                else Text(profileAvatarLabel(name, avatar), color = C.coffee,
+                    fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold,
+                    fontSize = 36.sp)
             }
         }
         IconButton(onClick = onEdit,
             modifier = Modifier.align(Alignment.BottomEnd).size(48.dp)
-                .clip(CircleShape).background(C.violet)) {
+                .clip(CircleShape).background(C.ink)) {
             Icon(Icons.Rounded.PhotoCamera, "Change profile photo", Modifier.size(22.dp), tint = Color.White)
         }
     }
@@ -146,8 +165,11 @@ internal fun ProfileIdentityDetails(name: String, city: String, bio: String, onE
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(name, style = MaterialTheme.typography.headlineSmall,
-            color = C.ink, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+        Text(name.ifBlank { "Your profile" }, style = MaterialTheme.typography.headlineSmall,
+            color = C.ink, fontFamily = FontFamily.Serif,
+            fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+        Text("PERSONAL • PRIVATE • ON DEVICE", color = C.coffee,
+            style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
         if (city.isNotBlank()) Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.LocationOn, null, Modifier.size(16.dp), tint = C.muted)
             Text(city, color = C.muted, style = MaterialTheme.typography.bodyMedium,
@@ -155,17 +177,9 @@ internal fun ProfileIdentityDetails(name: String, city: String, bio: String, onE
         }
         if (bio.isNotBlank()) Text(bio, color = C.muted,
             style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-        Button(onClick = onEdit,
-            modifier = Modifier.fillMaxWidth(.62f).heightIn(min = 48.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = C.violet)) {
-            Icon(Icons.Rounded.Edit, null, Modifier.size(18.dp))
+        TextButton(onClick = onEdit, colors = ButtonDefaults.textButtonColors(contentColor = C.coffee)) {
+            Icon(Icons.Rounded.Edit, null, Modifier.size(16.dp))
             Text("Edit profile", Modifier.padding(start = 8.dp), fontWeight = FontWeight.Bold)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Smartphone, null, Modifier.size(16.dp), tint = C.muted)
-            Text("Only on this device", modifier = Modifier.padding(start = 4.dp),
-                color = C.muted, style = MaterialTheme.typography.labelMedium)
         }
     }
 }

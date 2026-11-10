@@ -139,93 +139,22 @@ fun ProfileScreen(
         "policy" -> LegalInformationPage(scaffoldPadding, { page = legalReturnPage }, LegalNotice.PRIVACY)
         "terms" -> LegalInformationPage(scaffoldPadding, backFromDirectSection, LegalNotice.TERMS)
         "financial_notice" -> LegalInformationPage(scaffoldPadding, { page = "about" }, LegalNotice.FINANCIAL)
-        else -> ProfileHomeScreen(
+        else -> ProfileEditorialHome(
             padding = scaffoldPadding,
             back = onBack,
-            name = prefs.getString("profile_name", "").orEmpty().ifBlank { "Your profile" },
+            name = prefs.getString("profile_name", "").orEmpty(),
             avatar = prefs.getString("profile_avatar", "🌿") ?: "🌿",
             city = prefs.getString("profile_city", "").orEmpty(),
             bio = prefs.getString("profile_bio", "").orEmpty(),
             moneyHabits = financialPresentation,
             onMoneyHabits = { page = "habits" },
             personal = { page = "personal" },
-            onPayCycle = onPayCycleClick ?: onPlanClick ?: onSettingsClick
+            accounts = onAccountsClick ?: onSettingsClick,
+            payCycle = onPayCycleClick ?: onPlanClick ?: onSettingsClick,
+            goals = onGoalsClick ?: onPlanClick ?: onSettingsClick,
+            privacy = { privacyReturnPage = "home"; page = "privacy" }
         )
     }
-}
-
-@Composable
-private fun ProfileHomeScreen(
-    padding: PaddingValues,
-    back: () -> Unit,
-    name: String,
-    avatar: String,
-    city: String,
-    bio: String,
-    moneyHabits: ProfileMoneyHabitsPresentation,
-    onMoneyHabits: () -> Unit,
-    personal: () -> Unit,
-    onPayCycle: () -> Unit
-) {
-    Box(Modifier.fillMaxSize().background(C.canvas)) {
-      LazyColumn(
-          modifier = Modifier.fillMaxSize().padding(padding),
-          verticalArrangement = Arrangement.spacedBy(12.dp),
-          contentPadding = PaddingValues(bottom = 24.dp)
-      ) {
-        item {
-            ProfileDetailTopBar(back)
-        }
-        item {
-            ProfileCoverHeader(avatar = avatar, onAvatarEdit = personal)
-        }
-        item {
-            ProfileIdentityDetails(name, city, bio, onEdit = personal)
-        }
-        item {
-            Box(Modifier.padding(horizontal = 16.dp)) {
-                ProfileMoneyHabitsCard(moneyHabits, onMoneyHabits)
-            }
-        }
-        item { Box(Modifier.padding(horizontal = 16.dp)) { ProfileSection("Your profile") } }
-        item {
-            Box(Modifier.padding(horizontal = 16.dp)) {
-                ProfileMenuGroup(listOf(
-                    ProfileMenuItem(Icons.Rounded.Person, "Personal information",
-                        "Photo, name, city & about me", "violet", personal),
-                    ProfileMenuItem(Icons.Rounded.CalendarMonth, "Pay cycle",
-                        "View your salary cycle in Plan", "green", onPayCycle)
-                ))
-            }
-        }
-        item {
-            Box(Modifier.padding(horizontal = 16.dp)) {
-                ProfileHint("Your personal profile stays on this phone. App settings are in More.")
-            }
-        }
-      }
-    }
-}
-private data class ProfileMenuItem(
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
-    val title: String,
-    val subtitle: String,
-    val tone: String,
-    val onClick: () -> Unit
-)
-
-@Composable
-private fun ProfileMenuGroup(items: List<ProfileMenuItem>) {
-    ProfilePremiumGroup(items.map { item -> ProfilePremiumItem(
-        icon = item.icon, title = item.title, subtitle = item.subtitle,
-        tone = when (item.tone) {
-            "green" -> ProfileTone.GREEN
-            "red" -> ProfileTone.PINK
-            "amber" -> ProfileTone.AMBER
-            "blue" -> ProfileTone.BLUE
-            else -> ProfileTone.VIOLET
-        }, onClick = item.onClick
-    ) })
 }
 
 @Composable
