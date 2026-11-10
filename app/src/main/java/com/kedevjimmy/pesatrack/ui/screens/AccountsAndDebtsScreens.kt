@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.InvestmentStore
+import com.kedevjimmy.pesatrack.data.local.ObservedInvestmentEvent
 import com.kedevjimmy.pesatrack.data.local.ObservedInvestmentPosition
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
@@ -147,6 +148,7 @@ fun AccountsScreen(
     val investmentStore = remember { InvestmentStore.get(context) }
     val transactionStore = remember { TransactionStore.get(context) }
     var observedInvestments by remember { mutableStateOf<List<ObservedInvestmentPosition>>(emptyList()) }
+    var investmentEvents by remember { mutableStateOf<List<ObservedInvestmentEvent>>(emptyList()) }
     var recentAccountActivity by remember { mutableStateOf<List<StoredTransaction>>(emptyList()) }
     val ledgerUpdateState by
         LedgerUpdateBus.state.collectAsState()
@@ -159,6 +161,7 @@ fun AccountsScreen(
             val fresh = withContext(Dispatchers.IO) {
                 val owned = understandingStore.confirmedAccountIds()
                 val positions = investmentStore.observedPositions()
+                val events = investmentStore.recentEvents()
                 val movements = transactionStore.recent(250).filter { tx ->
                     tx.reviewState != "EXCLUDED" && (
                         (tx.direction == "TRANSFER" && tx.accountId != null && owned.contains(tx.accountId) &&
@@ -167,10 +170,11 @@ fun AccountsScreen(
                             (tx.category.equals("Salary", true) || tx.type.contains("SALARY", true)))
                     )
                 }.take(3)
-                positions to movements
+                Triple(positions, movements, events)
             }
             observedInvestments = fresh.first
             recentAccountActivity = fresh.second
+            investmentEvents = fresh.third
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
@@ -258,7 +262,7 @@ fun AccountsScreen(
         return
     }
     if (showInvestmentPositions) {
-        ApprovedInvestmentsPage(scaffoldPadding, observedInvestments) {
+        ApprovedInvestmentsPage(scaffoldPadding, observedInvestments, investmentEvents) {
             showInvestmentPositions = false
         }
         return

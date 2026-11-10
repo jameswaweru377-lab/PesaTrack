@@ -20,6 +20,14 @@ data class ObservedInvestmentPosition(
     val quality: String
 )
 
+data class ObservedInvestmentEvent(
+    val type: InvestmentEventType,
+    val instrumentLabel: String,
+    val quantityMicrounits: Long,
+    val valueMinor: Long?,
+    val occurredAtEpochMs: Long
+)
+
 data class InvestmentWriteResult(
     val inserted: Boolean,
     val linkedTransactionId: Long?,
@@ -46,6 +54,32 @@ class InvestmentStore private constructor(
     private val database = PesaTrackDatabase.get(appContext)
     private val transactionStore =
         TransactionStore.get(appContext)
+
+    /** Existing local evidence only; pending orders do not change positions. */
+    fun recentEvents(limit: Int = 30): List<ObservedInvestmentEvent> =
+        synchronized(CanonicalStoreLock.monitor) {
+            database.readableDatabase.rawQuery(
+                """SELECT event_type, instrument_label, quantity_microunits, value_minor,
+                   occurred_at_epoch_ms FROM investment_events
+                   ORDER BY occurred_at_epoch_ms DESC, id DESC LIMIT ?""",
+                arrayOf(limit.coerceIn(1, 100).toString())
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        val type = runCatching {
+                            InvestmentEventType.valueOf(cursor.getString(0))
+                        }.getOrNull() ?: continue
+                        add(ObservedInvestmentEvent(
+                            type = type,
+                            instrumentLabel = cursor.getString(1),
+                            quantityMicrounits = cursor.getLong(2),
+                            valueMinor = if (cursor.isNull(3)) null else cursor.getLong(3),
+                            occurredAtEpochMs = cursor.getLong(4)
+                        ))
+                    }
+                }
+            }
+        }
 
     fun observedPositions(): List<ObservedInvestmentPosition> =
         synchronized(CanonicalStoreLock.monitor) {

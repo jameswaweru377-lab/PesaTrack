@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.data.local.ObservedInvestmentPosition
+import com.kedevjimmy.pesatrack.data.local.ObservedInvestmentEvent
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -279,68 +280,24 @@ internal fun ApprovedAccountActivity(rows: List<StoredTransaction>, accountNames
 
 @Composable
 internal fun ApprovedInvestmentsPage(padding: PaddingValues,
-    positions: List<ObservedInvestmentPosition>, onBack: () -> Unit) {
-    LazyColumn(Modifier.padding(padding).fillMaxSize().background(BrownHomePalette.canvas),
-        contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = coffee)
-                }
-                AccountHeading("Investments")
-            }
-        }
-        item { Text("Your recorded investments", color = mutedCoffee,
-            style = MaterialTheme.typography.bodyMedium) }
-        if (positions.isEmpty()) item {
-            Surface(shape = RoundedCornerShape(16.dp), color = Color.White,
-                border = BorderStroke(1.dp, thinBorder)) {
-                Text("No confirmed investment units recorded yet. Pending orders and applications do not count as holdings.", Modifier.padding(16.dp),
-                    color = mutedCoffee, style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-        items(positions) { position ->
-            Surface(shape = RoundedCornerShape(16.dp), color = Color.White,
-                border = BorderStroke(1.dp, thinBorder)) {
-                Row(Modifier.fillMaxWidth().padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    val company = investmentCompanyName(position.label)
-                    Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
-                        .background(BrownHomePalette.cream), contentAlignment = Alignment.Center) {
-                        Text(investmentTicker(position.label), color = coffee,
-                            fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                    }
-                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                        Text(company, style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold, color = coffee)
-                        Text(position.label, style = MaterialTheme.typography.bodySmall,
-                            color = mutedCoffee, maxLines = 1)
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(NumberFormat.getNumberInstance(Locale.US)
-                            .format(position.quantityMicrounits / 1_000_000.0),
-                            color = coffee, fontWeight = FontWeight.SemiBold)
-                        Text("Net units", color = mutedCoffee,
-                            style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-        }
-        item { Text("Units are net changes from confirmed investment events, not live prices or verified provider balances. IPO applications are not holdings until allotment is confirmed.",
-            style = MaterialTheme.typography.bodySmall, color = mutedCoffee) }
-    }
+    positions: List<ObservedInvestmentPosition>, events: List<ObservedInvestmentEvent>, onBack: () -> Unit) {
+    InvestmentPortfolioContent(padding, positions, events, onBack)
 }
 
 internal fun investmentCompanyName(label: String): String = when {
     label.equals("SCOM", true) || label.contains("Safaricom", true) -> "Safaricom"
+    label.equals("KPLC", true) || label.contains("Kenya Power", true) -> "Kenya Power"
+    label.equals("ZIIDI", true) || label.contains("Ziidi", true) -> "Ziidi Money Market Fund"
     label.equals("KCB", true) || label.contains("KCB Group", true) -> "KCB Group"
     else -> label
 }
 
 internal fun investmentTicker(label: String): String = when {
     label.equals("SCOM", true) || label.contains("Safaricom", true) -> "SCOM"
+    label.equals("KPLC", true) || label.contains("Kenya Power", true) -> "KPLC"
+    label.equals("ZIIDI", true) || label.contains("Ziidi", true) -> "ZIIDI"
     label.equals("KCB", true) || label.contains("KCB Group", true) -> "KCB"
-    else -> "NSE"
+    else -> "INV"
 }
 
 @Composable
