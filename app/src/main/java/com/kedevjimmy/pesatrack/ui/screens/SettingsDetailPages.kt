@@ -152,12 +152,7 @@ internal fun PrivacyPage(padding: PaddingValues, back: () -> Unit, access: () ->
                 "See how your data is handled", ProfileTone.BLUE, onClick = it) }
         )) }
         item { ProfileHint("You're in control of what PesaTrack can access.", Icons.Rounded.VerifiedUser) }
-        item { ProfileSection("Optional online help") }
-        item { ProfilePremiumGroup(listOf(ProfilePremiumItem(Icons.Rounded.TravelExplore,
-            "Help identify businesses", "Only share a cleaned business name if you choose",
-            ProfileTone.BLUE, checked = lookup, onToggle = {
-                lookup = it; prefs.setOnlineLookupEnabled(it)
-            }))) }
+        item { ProfileHint("PesaTrack works offline. Business lookups do not contact a server.", Icons.Rounded.VerifiedUser) }
         item { TextButton(onClick = { details = !details }) {
             Text(if (details) "Show less" else "How my data is handled")
         } }
