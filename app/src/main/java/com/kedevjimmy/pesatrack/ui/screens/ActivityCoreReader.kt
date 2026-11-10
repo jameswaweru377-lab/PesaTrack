@@ -6,7 +6,6 @@ import com.kedevjimmy.pesatrack.data.local.ActivityMonthBucket
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.PaydaySnapshotStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
-import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -28,9 +27,7 @@ internal suspend fun readActivityCoreForMonth(
     }
     val accounts = AccountStore.get(app).listAccounts(enabledOnly = false)
     val confirmed = FinancialUnderstandingStore.get(app).confirmedAccountIds()
-    val owned = accounts.filter {
-        AccountDisplayPolicy.isConfirmedOwned(it, confirmed, includeCash = true)
-    }
+    val owned = activityRecordedBalanceAccounts(accounts, confirmed)
     // A previous month's balance must not silently display today's money.
     val endOfMonth = shiftMonth(monthEpochMs, 1) - 1L
     val balanceAsOf = minOf(System.currentTimeMillis(), endOfMonth)

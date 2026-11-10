@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Savings
@@ -43,8 +44,6 @@ import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.data.local.ObservedInvestmentPosition
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
-import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
-import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -67,15 +66,15 @@ internal fun compactAccountLabel(raw: String): String = raw
 @Composable
 internal fun ApprovedBalanceHero(lines: List<AccountDisplayLine>, groupCount: Int,
     hidden: Boolean, onToggleHidden: () -> Unit) {
-    val known = lines.filter { it.balanceMinor != null }
-    val total = CheckedMoney.orNull { known.checkedMoneySumOf { requireNotNull(it.balanceMinor) } }
-    val complete = lines.size == known.size && total != null
+    val summary = accountVerifiedBalanceSummary(lines)
+    val total = summary.totalMinor
+    val complete = summary.complete
     Box(Modifier.fillMaxWidth().height(204.dp)) {
         Image(painterResource(R.drawable.accounts_balance_building), null,
             modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         Column(Modifier.align(Alignment.CenterStart).padding(start = 12.dp, end = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(if (complete) "TOTAL ACROSS ACCOUNTS" else "KNOWN ACCOUNT BALANCES",
+            Text(if (complete) "TOTAL ACROSS ACCOUNTS" else "RECORDED ACCOUNT BALANCES",
                 color = coffee, style = MaterialTheme.typography.labelMedium,
                 letterSpacing = androidx.compose.ui.unit.TextUnit.Unspecified,
                 fontWeight = FontWeight.SemiBold)
@@ -92,7 +91,9 @@ internal fun ApprovedBalanceHero(lines: List<AccountDisplayLine>, groupCount: In
                         if (hidden) "Show balances" else "Hide balances", tint = coffee)
                 }
             }
-            Text("Balances from $groupCount accounts", color = mutedCoffee,
+            Text(if (complete) "Balances from $groupCount accounts"
+                else "Recorded: ${summary.recordedCount} of ${lines.size} accounts · estimates excluded",
+                color = mutedCoffee,
                 style = MaterialTheme.typography.bodyMedium,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
         }
@@ -101,7 +102,8 @@ internal fun ApprovedBalanceHero(lines: List<AccountDisplayLine>, groupCount: In
 
 @Composable
 internal fun ApprovedAccountsList(lines: List<AccountDisplayLine>, savings: List<AccountDisplayLine>,
-    hidden: Boolean, onAccountClick: ((String) -> Unit)?, onAdd: (() -> Unit)?) {
+    hidden: Boolean, onAccountClick: ((String) -> Unit)?, onAdd: (() -> Unit)?,
+    onBalanceClick: ((String) -> Unit)?) {
     var expanded by remember { mutableStateOf(true) }
     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -121,6 +123,9 @@ internal fun ApprovedAccountsList(lines: List<AccountDisplayLine>, savings: List
                     if (index > 0) HorizontalDivider(color = thinBorder)
                     AccountMainRow(line, hidden,
                         expandable = line.name.contains("M-Pesa", true) && savings.isNotEmpty(),
+                        onBalanceClick = line.accountId?.let { id ->
+                            onBalanceClick?.let { callback -> { callback(id) } }
+                        },
                         onClick = {
                             if (line.name.contains("M-Pesa", true) && savings.isNotEmpty())
                                 expanded = !expanded
@@ -131,7 +136,10 @@ internal fun ApprovedAccountsList(lines: List<AccountDisplayLine>, savings: List
                 }
                 if (!hasMpesa) savings.forEach { line ->
                     HorizontalDivider(color = thinBorder)
-                    AccountMainRow(line, hidden, false) {
+                    AccountMainRow(line, hidden, false,
+                        onBalanceClick = line.accountId?.let { id ->
+                            onBalanceClick?.let { callback -> { callback(id) } }
+                        }) {
                         line.accountId?.let { onAccountClick?.invoke(it) }
                     }
                 }
@@ -142,7 +150,7 @@ internal fun ApprovedAccountsList(lines: List<AccountDisplayLine>, savings: List
 
 @Composable
 private fun AccountMainRow(line: AccountDisplayLine, hidden: Boolean, expandable: Boolean,
-    onClick: () -> Unit) {
+    onBalanceClick: (() -> Unit)?, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically) {
         AccountProviderMark(line.name, Modifier.size(40.dp))
@@ -153,9 +161,17 @@ private fun AccountMainRow(line: AccountDisplayLine, hidden: Boolean, expandable
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold, maxLines = 1,
             overflow = TextOverflow.Ellipsis)
-        Text(if (hidden) "••••" else line.balanceMinor?.let(::formatKesAmount) ?: "—",
+        Text(if (hidden) "••••" else line.balanceMinor?.let {
+            if (line.quality == com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality.RECONSTRUCTED)
+                "Est. ${formatKesAmount(it)}" else formatKesAmount(it)
+        } ?: "—",
             style = MaterialTheme.typography.bodySmall, color = coffee,
             fontWeight = FontWeight.SemiBold, maxLines = 1)
+        if (onBalanceClick != null) IconButton(onClick = onBalanceClick,
+            modifier = Modifier.size(48.dp)) {
+            Icon(Icons.Rounded.Edit, contentDescription = "Enter ${line.name} balance",
+                modifier = Modifier.size(20.dp), tint = coffee)
+        }
         Icon(if (expandable) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
             null, Modifier.padding(start = 4.dp).size(22.dp), tint = mutedCoffee)
     }

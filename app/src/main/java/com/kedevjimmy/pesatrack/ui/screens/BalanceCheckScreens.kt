@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -39,21 +40,24 @@ import java.nio.charset.CodingErrorAction
 
 @Composable internal fun AccountBalanceCheckAction(preselectedAccountId: String? = null) {
  var open by rememberSaveable {mutableStateOf(false)}
- OutlinedButton(onClick={open=true},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Icon(Icons.Rounded.FactCheck,null);Spacer(Modifier.width(8.dp));Text("Check a balance")}
- if(open)BalanceCheckSheet(preselectedAccountId){open=false}
+ OutlinedButton(onClick={open=true},modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),
+   border=BorderStroke(1.dp,BrownHomePalette.coffee),
+   colors=ButtonDefaults.outlinedButtonColors(contentColor=BrownHomePalette.coffee)){
+   Icon(Icons.Rounded.Edit,null);Spacer(Modifier.width(8.dp));Text("Add or update balance")}
+ if(open)AccountBalanceCheckSheet(preselectedAccountId){open=false}
 }
-@Composable private fun BalanceCheckSheet(preselectedAccountId: String?, onDismiss:()->Unit) {
+@Composable internal fun AccountBalanceCheckSheet(preselectedAccountId: String?, onDismiss:()->Unit) {
  val c=LocalContext.current;val store=remember {EverydayMoneyStore(c)};val scope=rememberCoroutineScope()
  var accounts by remember {mutableStateOf<List<MoneyAccount>>(emptyList())};var accountId by rememberSaveable(preselectedAccountId){mutableStateOf(preselectedAccountId.orEmpty())}
- var recorded by remember {mutableStateOf<Long?>(null)};var recent by remember {mutableStateOf<List<StoredTransaction>>(emptyList())};var loaded by remember {mutableStateOf(false)};var actual by rememberSaveable{mutableStateOf("")};var busy by remember {mutableStateOf(false)};var error by remember {mutableStateOf<String?>(null)}
+ var recorded by remember {mutableStateOf<Long?>(null)};var quality by remember {mutableStateOf<PaydayBalanceQuality?>(null)};var recent by remember {mutableStateOf<List<StoredTransaction>>(emptyList())};var loaded by remember {mutableStateOf(false)};var actual by rememberSaveable{mutableStateOf("")};var busy by remember {mutableStateOf(false)};var error by remember {mutableStateOf<String?>(null)}
  LaunchedEffect(Unit){try{accounts=withContext(Dispatchers.IO){store.ownedAccounts()}}catch(e:CancellationException){throw e}catch(e:Exception){error="Could not load accounts."}}
- LaunchedEffect(accountId){loaded=false;actual="";error=null;if(accountId.isNotEmpty()){try {val account=accounts.firstOrNull{it.id==accountId}?:return@LaunchedEffect;val data=withContext(Dispatchers.IO){PaydaySnapshotStore.get(c).currentAccountSnapshot(account).balanceMinor to TransactionStore.get(c).recent(500).filter{it.accountId==accountId||it.linkedAccountId==accountId}.take(8)};recorded=data.first;recent=data.second;loaded=true}catch(e:CancellationException){throw e}catch(e:Exception){error="Could not load this balance."}}}
- MoneyToolSheet("Check balance","Compare the balance shown by your bank or M-Pesa with PesaTrack. Check recent entries if they differ. Saving records the balance you saw now; it does not create income or an expense, or erase earlier messages.",busy,onDismiss){
+ LaunchedEffect(accountId,accounts){loaded=false;actual="";error=null;if(accountId.isNotEmpty()){try {val account=accounts.firstOrNull{it.id==accountId}?:return@LaunchedEffect;val data=withContext(Dispatchers.IO){PaydaySnapshotStore.get(c).currentAccountSnapshot(account) to TransactionStore.get(c).recent(500).filter{it.accountId==accountId||it.linkedAccountId==accountId}.take(8)};recorded=data.first.balanceMinor;quality=data.first.quality;recent=data.second;loaded=true}catch(e:CancellationException){throw e}catch(e:Exception){error="Could not load this balance."}}}
+ MoneyToolSheet("Update account balance","Enter the exact balance currently shown by your bank or M-Pesa. This saves a dated observation, not income or spending. A later provider balance can replace it.",busy,onDismiss){
   item{ChoiceField("Account",accounts.firstOrNull{it.id==accountId}?.name ?: "Choose account",accounts.map{it.id to it.name},!busy){accountId=it}}
-  if(loaded){item {Text("Recorded: ${recorded?.let(::toolMoney) ?: "Not known yet"}",style=MaterialTheme.typography.titleMedium)}
-   item {MoneyAmount(actual,"Balance you see now (KES)",!busy){actual=it;error=null}}
+  if(loaded){item {Text("${if(quality==PaydayBalanceQuality.RECONSTRUCTED)"Previous estimate" else "Last recorded"}: ${recorded?.let(::toolMoney) ?: "Not known yet"}",style=MaterialTheme.typography.titleMedium,color=BrownHomePalette.coffee)}
+   item {MoneyAmount(actual,"Exact balance you see now (KES)",!busy){actual=it;error=null}}
    item {val value=EverydayMoneyPolicy.money(actual);if(value!=null && recorded!=null){val delta=java.math.BigInteger.valueOf(value)-java.math.BigInteger.valueOf(recorded!!);Text(if(delta.signum()==0)"Balances match"else "Difference: KES ${java.math.BigDecimal(delta,2).toPlainString()}",style=MaterialTheme.typography.titleMedium)}}
-   item {ToolError(error);Button(onClick={val value=EverydayMoneyPolicy.money(actual);if(value==null){error="Enter a valid balance."}else{busy=true;scope.launch{try{withContext(Dispatchers.IO){store.saveObservedBalance(accountId,value,recorded)};onDismiss()}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "Could not save balance."}finally{busy=false}}}},enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp)){Text("Save observed balance")}}
+   item {ToolError(error);Button(onClick={val value=EverydayMoneyPolicy.money(actual);if(value==null){error="Enter a valid balance."}else{busy=true;scope.launch{try{withContext(Dispatchers.IO){store.saveObservedBalance(accountId,value,recorded)};onDismiss()}catch(e:CancellationException){throw e}catch(e:Exception){error=e.message ?: "Could not save balance."}finally{busy=false}}}},enabled=!busy,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),colors=ButtonDefaults.buttonColors(containerColor=BrownHomePalette.coffee)){Text("Save balance")}}
    if(recent.isNotEmpty())item{Text("Recent entries",style=MaterialTheme.typography.titleMedium)}
    items(recent,key={it.id}){row->Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){Column(Modifier.weight(1f)){Text(row.counterparty ?: "Entry",style=MaterialTheme.typography.bodyMedium);Text(toolDate(row.occurredAtEpochMs),style=MaterialTheme.typography.bodySmall)};Text(toolMoney(row.amountMinor),style=MaterialTheme.typography.bodyMedium)}}
   }else item{ToolError(error);if(accountId.isNotEmpty()&&error==null)LinearProgressIndicator(Modifier.fillMaxWidth())}

@@ -1,5 +1,21 @@
 # PesaTrack Current State
 
+_M-Pesa reported-balance authority and manual account balance entry (10 November 2026; CI and phone acceptance pending):_
+The Accounts list and individual account details now expose an Add/Update
+Balance action using the existing local, dated balance-observation writer.
+It accepts a user-confirmed amount in KES, creates no transaction or income,
+and triggers refreshed Accounts/Activity reads; later provider observations
+supersede older entries by observation time. The M-Pesa account snapshot now
+uses its latest explicit balance observation (or a directly entered opening
+balance), never a ledger sum added after that anchor or a future backcast.
+Missing evidence stays unavailable. The Accounts hero excludes reconstructed
+estimates from recorded totals, and Account rows label such figures "Est.";
+Activity's Balance metric uses confirmed bank/wallet accounts (not unverified
+loose cash) and withholds the total if any spendable account is only
+reconstructed. No schema, permission, backup, account identity,
+debt/Fuliza handling, statement-posting or signing change is included.
+Physical phone accuracy and data retention are owner-tested, not asserted.
+
 _Activity recorded-balance card and generic Kenyan message wording (9 November 2026; CI and phone acceptance pending):_
 The brown Activity monthly card retains Expenses, Money in and Invested, but
 replaces Transfers with the sum of recorded spendable, confirmed-owned account
