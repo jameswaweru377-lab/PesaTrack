@@ -54,7 +54,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 
 - **Local-first:** the on-device SQLite data is the source of truth for personal financial records.
 - **Optional access:** historical SMS and financial-notification access depend on the permissions you choose to grant.
-- **No raw financial-message uploads:** optional online merchant lookup is off by default and uses a sanitized business descriptor when enabled.
+- **Offline processing:** the app does not request internet permission or perform online merchant lookup; financial message interpretation stays on-device.
 - **Your exports:** backups are passphrase-encrypted; exported reports and files need the same care as other financial documents.
 
 An app-lock PIN protects access to the app's interface; it **does not encrypt the ordinary local databases**. See the [security policy](SECURITY.md) and [pre-release privacy-policy source](docs/PRIVACY_POLICY.md) for details.
@@ -71,7 +71,7 @@ The preview targets **Android 7.0+ on supported ARM64 devices** and remains unde
 
 ## Project and development
 
-PesaTrack is built primarily with **Kotlin, Jetpack Compose, and SQLite**. Supported PDF processing runs locally, and an optional enrichment Worker provides non-authoritative merchant hints. Personal financial decisions are made by deterministic local logic and explicit user review—not by an online chatbot.
+PesaTrack is built primarily with **Kotlin, Jetpack Compose, and SQLite**. Supported PDF processing runs locally; online merchant enrichment is disabled. Personal financial decisions are made by deterministic local logic and explicit user review—not by an online chatbot.
 
 Generic bank and wallet notification language can identify incoming receipts, payments, bank-to-mobile transfers and separate transaction/M-Pesa references without a Kotlin parser for each bank. Recognizing a transfer is not proof both accounts are yours; automatic owned-account accounting still requires confirmed identity and corroborating evidence.
 
