@@ -47,6 +47,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -327,8 +328,9 @@ private fun ShoppingDetailHeader(list: ShoppingList, onAdd: () -> Unit,
     val estimate = ShoppingListPolicy.total(list)
     var expanded by remember { mutableStateOf(false) }
     var aboutEstimate by remember { mutableStateOf(false) }
+    val locale = LocalConfiguration.current.locales[0]
     val month = runCatching {
-        SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(
+        SimpleDateFormat("MMMM yyyy", locale).format(
             requireNotNull(SimpleDateFormat("yyyy-MM", Locale.US).parse(list.month))
         )
     }.getOrDefault(list.month)
