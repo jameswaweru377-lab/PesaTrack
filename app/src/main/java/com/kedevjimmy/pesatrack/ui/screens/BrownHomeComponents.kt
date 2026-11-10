@@ -33,9 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.data.local.PaydayAccountSnapshot
-import com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
-import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
 import java.text.SimpleDateFormat
@@ -78,7 +76,7 @@ internal fun BrownHomeHero(available: String, onAccounts: () -> Unit) {
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(4.dp))
                 Text(if (page == 0) "Your money, your plans.\nAll in one place."
-                     else "Based on your confirmed pay cycle",
+                     else "After unpaid bills · check Accounts for balance",
                     color = p.white, fontSize = 11.sp, lineHeight = 16.sp,
                     maxLines = 2)
                 Spacer(Modifier.height(4.dp))
@@ -162,19 +160,7 @@ internal fun BrownHomeSectionTitle(title: String, action: String, onAction: () -
 /** Absence, unknown quality and incomplete account groups must never become a fake balance. */
 internal fun trustedBrownHomeBalance(
     group: TrackedAccountGroup, snapshots: List<PaydayAccountSnapshot>
-): Long? {
-    val relevant = snapshots.filter { it.accountId in group.accountIds }
-    if (relevant.size != group.accounts.size ||
-        relevant.map { it.accountId }.toSet() != group.accountIds ||
-        relevant.any { it.balanceMinor == null || it.quality == PaydayBalanceQuality.UNKNOWN }) {
-        return null
-    }
-    return CheckedMoney.orNull {
-        relevant.fold(0L) { sum, snapshot ->
-            CheckedMoney.add(sum, requireNotNull(snapshot.balanceMinor))
-        }
-    }
-}
+): Long? = VerifiedAccountBalancePolicy.groupTotal(group.accountIds, snapshots)
 
 @Composable
 internal fun BrownHomeAccounts(

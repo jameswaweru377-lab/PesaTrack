@@ -19,6 +19,7 @@ class PlanSpendableBalancePolicyTest {
         assertEquals(3_300_000L, value.spendableMinor)
         assertEquals(3_500_000L, value.liquidMinor)
         assertEquals(1_200_000L, value.protectedMinor)
+        assertEquals(4_700_000L, value.totalAccountsMinor)
         assertFalse(value.needsReview)
     }
 
@@ -44,6 +45,7 @@ class PlanSpendableBalancePolicyTest {
             upcomingBillsMinor = 20_000L
         )
         assertNull(value.protectedMinor)
+        assertNull(value.totalAccountsMinor)
         assertEquals(100_000L, value.spendableMinor)
         assertTrue(value.needsReview)
     }

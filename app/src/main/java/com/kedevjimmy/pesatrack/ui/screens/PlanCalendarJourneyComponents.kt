@@ -86,6 +86,7 @@ internal data class PlanJourneyView(
     val week: List<PlanCalendarDay>,
     val spendable: String? = null,
     val liquid: String? = null,
+    val totalAccounts: String? = null,
     val protectedSavings: String? = null,
     val spendableNeedsReview: Boolean = true
 )
@@ -236,18 +237,23 @@ private fun PlanJourneyAvailableCard(data: PlanJourneyView, onDetails: () -> Uni
                 Column {
                     Text("Available", color = p.ink,
                         style = MaterialTheme.typography.bodyMedium)
-                    Text(data.available, color = p.green,
+                    Text(data.spendable ?: "Unavailable", color = p.green,
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold)
                 }
             }
             HorizontalDivider(color = p.line)
+            Text("Current total account balance: ${data.totalAccounts ?: "Unavailable"}",
+                style = MaterialTheme.typography.bodySmall, color = p.ink)
+            Text("Pay-cycle breakdown", style = MaterialTheme.typography.labelSmall,
+                color = p.muted)
             Row(Modifier.fillMaxWidth()) {
                 PlanJourneyMiniFact("Starting fund", data.starting, Modifier.weight(1f))
                 PlanJourneyMiniFact("Committed", data.committed, Modifier.weight(1f))
                 PlanJourneyMiniFact("Saved", data.saved, Modifier.weight(1f))
             }
-            Text("Available refers to your current confirmed pay cycle, not a bank balance.",
+            Text("Available is confirmed account money after unpaid bills. " +
+                "Account totals may need review if a bank balance is missing or old.",
                 style = MaterialTheme.typography.labelSmall, color = p.muted)
         }
     }
@@ -374,7 +380,7 @@ private fun PlanJourneyBreakdown(data: PlanJourneyView) {
             if (LocalConfiguration.current.fontScale > 1.15f) {
                 listOf(
                     "Starting fund" to data.starting, "Committed" to data.committed,
-                    "Saved" to data.saved, "Available" to data.available
+                    "Saved" to data.saved, "Cycle remaining" to data.available
                 ).chunked(2).forEach { pair ->
                     Row(Modifier.fillMaxWidth()) {
                         pair.forEach { (label, amount) ->
@@ -386,7 +392,7 @@ private fun PlanJourneyBreakdown(data: PlanJourneyView) {
                 Row(Modifier.fillMaxWidth()) {
                     listOf(
                         "Starting fund" to data.starting, "Committed" to data.committed,
-                        "Saved" to data.saved, "Available" to data.available
+                        "Saved" to data.saved, "Cycle remaining" to data.available
                     ).forEach { (label, amount) ->
                         PlanJourneyDetailMetric(label, amount, Modifier.weight(1f))
                     }
@@ -411,7 +417,7 @@ private fun PlanJourneyDetailMetric(label: String, value: String, modifier: Modi
             color = BrownHomePalette.ink, maxLines = 2)
         Text(value, fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.labelSmall,
-            color = if (label == "Available") BrownHomePalette.coffee
+            color = if (label == "Cycle remaining") BrownHomePalette.coffee
                 else BrownHomePalette.ink, maxLines = 3)
     }
 }
@@ -427,7 +433,7 @@ private fun PlanJourneyAllocations(data: PlanJourneyView) {
             Text("Current pay-cycle amounts", style = MaterialTheme.typography.bodySmall,
                 color = p.muted)
             val labels = listOf("Committed" to data.committed, "Saved" to data.saved,
-                "Available" to data.available)
+                "Cycle remaining" to data.available)
             val tints = listOf(p.coffee, p.outline, p.cream)
             if (data.displayedShares != null) {
                 Row(Modifier.fillMaxWidth().height(16.dp)

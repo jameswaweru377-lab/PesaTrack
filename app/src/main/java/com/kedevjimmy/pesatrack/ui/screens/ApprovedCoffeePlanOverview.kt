@@ -166,9 +166,9 @@ private fun ApprovedPlanMoneyCard(data: PlanJourneyView, onDetails: () -> Unit) 
                 }
                 HorizontalDivider(color = p.coffee.copy(alpha = 0.33f))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    ApprovedPlanMiniMoney("Accounts", data.liquid ?: "—", Modifier.weight(1f))
+                    ApprovedPlanMiniMoney("Total accounts", data.totalAccounts ?: "—", Modifier.weight(1f))
                     ApprovedPlanMiniMoney("Bills", data.billsTotal ?: "—", Modifier.weight(1f))
-                    ApprovedPlanMiniMoney("Saved", data.protectedSavings ?: "—", Modifier.weight(1f))
+                    ApprovedPlanMiniMoney("Protected", data.protectedSavings ?: "—", Modifier.weight(1f))
                 }
             }
         }
