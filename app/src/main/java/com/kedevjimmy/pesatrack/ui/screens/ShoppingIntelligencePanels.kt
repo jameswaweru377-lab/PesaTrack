@@ -192,7 +192,7 @@ internal fun ShoppingPhotoReviewOverlay(
             text = { Text(scanError.orEmpty()) },
             confirmButton = { TextButton(onClick = { scanError = null }) { Text("OK") } })
     }
-    if (reviewText != null && selected?.id == scanOwner) {
+    if (reviewText != null && selected != null && selected.id == scanOwner) {
         ShoppingPhotoTextReview(selected, reviewText.orEmpty(), busy, saveError,
             onDismiss = { reviewText = null }, onSave = { candidates ->
                 val result = ShoppingIntelligencePolicy.importCandidates(selected, candidates) {
