@@ -287,7 +287,7 @@ internal fun ApprovedInvestmentsPage(padding: PaddingValues,
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = coffee)
                 }
-                AccountHeading("NSE shares")
+                AccountHeading("Investments")
             }
         }
         item { Text("Your recorded investments", color = mutedCoffee,
@@ -295,7 +295,7 @@ internal fun ApprovedInvestmentsPage(padding: PaddingValues,
         if (positions.isEmpty()) item {
             Surface(shape = RoundedCornerShape(16.dp), color = Color.White,
                 border = BorderStroke(1.dp, thinBorder)) {
-                Text("No share purchases recorded yet.", Modifier.padding(16.dp),
+                Text("No confirmed investment units recorded yet. Pending orders and applications do not count as holdings.", Modifier.padding(16.dp),
                     color = mutedCoffee, style = MaterialTheme.typography.bodyMedium)
             }
         }
@@ -326,7 +326,7 @@ internal fun ApprovedInvestmentsPage(padding: PaddingValues,
                 }
             }
         }
-        item { Text("Units are based on recorded share executions, not live prices or a verified brokerage balance.",
+        item { Text("Units are net changes from confirmed investment events, not live prices or verified provider balances. IPO applications are not holdings until allotment is confirmed.",
             style = MaterialTheme.typography.bodySmall, color = mutedCoffee) }
     }
 }
