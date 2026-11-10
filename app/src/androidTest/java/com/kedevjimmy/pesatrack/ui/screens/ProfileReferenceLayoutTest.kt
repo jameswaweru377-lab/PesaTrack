@@ -36,14 +36,17 @@ class ProfileReferenceLayoutTest {
     }
 
     @Test
-    fun profileShowsPrivateIdentityAndNoDuplicateSettings() {
+    fun profileShowsCompactEditorialIdentityAndEveryShortcut() {
         showProfile()
 
         listOf(
             "Personal info",
+            "My accounts",
             "Pay cycle",
-            "Better money habits",
-            "Edit profile",
+            "Your goals",
+            "Better\nmoney habits",
+            "Make sense of your money",
+            "Your money, your plans",
             "Only on this device",
             "PesaTrack"
         ).forEach { compose.onNodeWithText(it).assertExists() }
@@ -53,6 +56,13 @@ class ProfileReferenceLayoutTest {
         compose.onNodeWithContentDescription("Back").assertExists()
         compose.onNodeWithContentDescription("Change cover photo").assertExists()
         compose.onNodeWithContentDescription("Change profile photo").assertExists()
+    }
+
+    @Test
+    fun allFourCompactShortcutsStayVisibleWithoutHorizontalScrolling() {
+        showProfile()
+        listOf("Personal info", "My accounts", "Pay cycle", "Your goals")
+            .forEach { compose.onNodeWithText(it).assertIsDisplayed() }
     }
 
     @Test
@@ -81,7 +91,7 @@ class ProfileReferenceLayoutTest {
     @Test
     fun moneyHabitsHasExplainedEmptyStateAndAction() {
         showProfile()
-        compose.onNodeWithText("Better money habits").performScrollTo().performClick()
+        compose.onNodeWithText("Better\nmoney habits").performScrollTo().performClick()
         compose.onNodeWithText("Not enough information yet").assertIsDisplayed()
         compose.onNodeWithText("WHAT WE CAN SEE").performScrollTo().assertIsDisplayed()
     }
