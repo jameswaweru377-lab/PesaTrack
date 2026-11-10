@@ -46,7 +46,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 
 ### Five places to find what matters
 
-**Home** for the overview · **Activity** for your ledger · **Plan** for commitments and goals · **Accounts** for your money sources · **Profile** for local personal details, chosen cover/photo, pay-cycle shortcuts and money-wellness insights. Profile uses a bundled Nairobi cover until you choose a private replacement. The shared top-left menu also opens **More**, including statements, reports and settings.
+**Home** for the overview · **Activity** for your ledger · **Plan** for commitments and goals · **Accounts** for your money sources · **Profile** for local personal details, chosen cover/photo, compact shortcuts and money-wellness insights. Profile blends a bundled Nairobi cover into a warm identity header until you choose your own private replacement. The shared top-left menu also opens **More**, including statements, reports and settings.
 
 > **Screenshots:** A gallery of real, privacy-safe screens will be added after device capture and review. Unlocked screens can temporarily be captured for private UI feedback, so redact personal transactions, account numbers, and statement details before sharing. No private records will be published as examples.
 
