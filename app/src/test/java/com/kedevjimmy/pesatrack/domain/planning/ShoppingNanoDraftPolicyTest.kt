@@ -29,6 +29,19 @@ class ShoppingNanoDraftPolicyTest {
         assertNull(ShoppingNanoDraftPolicy.reviewableDraft("", "1 x Bread @ 80"))
     }
 
+    @Test fun rejectsReceiptMetadataEvenIfModelFormatsItAsAnItem() {
+        val original = "O and D Perfumes Your Perfumes\nSale receipt no 33\n" +
+            "Sold by Joyce\nCustomer James\nAfnan 9 PM Rebel one piece 5700\n" +
+            "Discount 570\nAmount to pay 5170\nLoyalty points balance 10\n" +
+            "Thank you for your purchase\nPlease note that returns require a receipt"
+        val model = "1 x O and D Perfumes\n1 x Sold by Joyce\n" +
+            "1 x Afnan 9 PM Rebel @ 5700\n1 x Discount @ 570\n" +
+            "1 x Loyalty points balance 10\n1 x Thank you for your purchase\n" +
+            "1 x Please note that returns require a receipt"
+        assertEquals("1 x Afnan 9 PM Rebel @ 5700",
+            ShoppingNanoDraftPolicy.reviewableDraft(original, model))
+    }
+
     @Test fun promptForbidsGuessingAndExplicitlyRequiresReviewableFormat() {
         val prompt = ShoppingNanoDraftPolicy.prompt("20 tomatoes 60")
         assertEquals(true, prompt.contains("20 tomatoes 60"))
