@@ -143,6 +143,9 @@ private fun AccountDetailsContent(
             TextButton(onClick = onRetry) { Text("Retry") }
         }
         item { AccountRecordedBalance(account, balance) }
+        if (account != null) item {
+            AccountBalanceCheckAction(account.id)
+        }
         item {
             Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
                 color = Color.White,

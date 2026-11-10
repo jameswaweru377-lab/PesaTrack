@@ -4,6 +4,7 @@ import com.kedevjimmy.pesatrack.data.local.PaydayAccountSnapshot
 import com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality
 import com.kedevjimmy.pesatrack.data.local.PaydaySpendability
 import com.kedevjimmy.pesatrack.domain.model.AccountType
+import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -25,6 +26,17 @@ class ActivityBalancePolicyTest {
         assertNull(activityRecordedSpendableBalance(emptyList()))
     }
 
+    @Test fun reconstructedAccountAmountIsNotPresentedAsConfirmedCash() {
+        assertNull(activityRecordedSpendableBalance(listOf(
+            balance("mpesa", 184_635L),
+            balance("bank", 678_020L, PaydayBalanceQuality.RECONSTRUCTED)
+        )))
+        assertEquals(862_655L, activityRecordedSpendableBalance(listOf(
+            balance("mpesa", 184_635L),
+            balance("bank", 678_020L, PaydayBalanceQuality.USER_ENTERED)
+        )))
+    }
+
     @Test fun overflowAndProtectedOnlyWithholdBalance() {
         assertNull(activityRecordedSpendableBalance(listOf(
             balance("bank", Long.MAX_VALUE), balance("wallet", 1L)
@@ -32,6 +44,17 @@ class ActivityBalancePolicyTest {
         assertNull(activityRecordedSpendableBalance(listOf(
             balance("locked", 500_000L, spendability = PaydaySpendability.PROTECTED)
         )))
+    }
+
+    @Test fun monthlyRecordedAccountBalanceDoesNotAutomaticallyIncludeCash() {
+        val accounts = listOf(
+            MoneyAccount("wallet", "Sample Wallet", AccountType.MOBILE_WALLET, identifier = "0712000000"),
+            MoneyAccount("bank", "Sample Bank", AccountType.BANK, identifier = "123456789"),
+            MoneyAccount("disabled-bank", "Old Bank", AccountType.BANK, enabled = false),
+            MoneyAccount("cash", "Cash", AccountType.CASH)
+        )
+        val chosen = activityRecordedBalanceAccounts(accounts, setOf("wallet", "bank", "disabled-bank", "cash"))
+        assertEquals(setOf("wallet", "bank"), chosen.map { it.id }.toSet())
     }
 
     private fun balance(
