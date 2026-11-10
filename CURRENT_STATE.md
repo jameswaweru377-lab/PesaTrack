@@ -11,7 +11,8 @@ without an arrow shaft. The identity content grows below the avatar when the
 phone uses larger accessibility fonts. All four small personal/account/pay-cycle/goals cards
 now fit in one row rather than a horizontally scrolling strip. The compact
 Nairobi city Money Wellness image opens the existing evidence-aware profile insights page;
-it is not a video and does not show a play button. The redundant Essentials
+it is not a video and does not show a play button. The compact hero also expands
+for large system fonts so its Review insights action remains readable. The redundant Essentials
 tiles are removed, Privacy still opens the local policy/controls, and the
 "PesaTrack • Your money, your plans" footer follows the final content card
 without hiding scrollable content. The headline uses the user's saved name,

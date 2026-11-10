@@ -87,6 +87,24 @@ class ProfileReferenceLayoutTest {
     }
 
     @Test
+    fun largeSystemFontKeepsMoneyWellnessActionVisible() {
+        compose.setContent {
+            val original = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(original.density, 2f)) {
+                PesaTrackTheme {
+                    ProfileNairobiWellnessFeature(presentProfileMoneyHabits(null), {})
+                }
+            }
+        }
+        val heading = compose.onNodeWithText("Better\nmoney habits")
+            .fetchSemanticsNode().boundsInRoot
+        val action = compose.onNodeWithText("Review insights")
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue("Wellness action must remain below its heading", action.top >= heading.bottom)
+        compose.onNodeWithText("Review insights").assertIsDisplayed()
+    }
+
+    @Test
     fun personalInformationOpensLocalFields() {
         showProfile()
         compose.onNodeWithText("Personal info").performScrollTo().performClick()

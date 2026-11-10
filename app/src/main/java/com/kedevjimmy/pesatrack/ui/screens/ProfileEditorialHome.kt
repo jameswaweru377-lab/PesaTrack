@@ -152,12 +152,12 @@ private fun ProfileShortcutRow(
 }
 
 @Composable
-private fun ProfileNairobiWellnessFeature(
+internal fun ProfileNairobiWellnessFeature(
     state: ProfileMoneyHabitsPresentation,
     onClick: () -> Unit
 ) {
     Box(
-        Modifier.fillMaxWidth().height(164.dp)
+        Modifier.fillMaxWidth().heightIn(min = 164.dp)
             .clip(RoundedCornerShape(PesaDesignTokens.cardRadius))
             .clickable(role = Role.Button, onClick = onClick)
             .semantics { stateDescription = state.label }
@@ -165,7 +165,7 @@ private fun ProfileNairobiWellnessFeature(
         Image(
             painterResource(R.drawable.profile_money_wellness_nairobi),
             contentDescription = "Nairobi city at sunset",
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.matchParentSize(),
             contentScale = ContentScale.Crop
         )
         Box(Modifier.matchParentSize().background(Brush.horizontalGradient(listOf(
@@ -173,8 +173,8 @@ private fun ProfileNairobiWellnessFeature(
             Color.Transparent
         ))))
         Column(
-            Modifier.fillMaxHeight().fillMaxWidth(.82f).padding(12.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+            Modifier.fillMaxWidth(.82f).padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Surface(shape = CircleShape, color = C.coffee.copy(alpha = .80f)) {
