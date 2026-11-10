@@ -21,6 +21,7 @@ import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.ShoppingBag
 import androidx.compose.material.icons.rounded.Wallet
@@ -71,35 +72,21 @@ internal fun ApprovedCoffeePlanOverview(
 ) {
     val p = BrownHomePalette
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Plan your money", Modifier.weight(1f), fontFamily = FontFamily.Serif,
-                fontWeight = FontWeight.Bold, fontSize = 22.sp, color = p.ink,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
-            ApprovedPlanPeriodTabs(selectedPeriod, onPeriod)
-        }
+        Text("Plan your money", fontFamily = FontFamily.Serif,
+            fontWeight = FontWeight.Bold, fontSize = 19.sp, color = p.ink,
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
+        ApprovedPlanWeek(data.week)
         Surface(shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
             color = Color.White, border = BorderStroke(1.dp, p.outline),
             modifier = Modifier.heightIn(min = 48.dp).clickable(onClickLabel = "Other months", onClick = onOtherMonths)) {
-            Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Text(data.month, color = p.ink, fontSize = 15.sp)
                 Spacer(Modifier.width(8.dp))
                 Icon(Icons.Rounded.KeyboardArrowDown, null, tint = p.ink)
             }
         }
-        ApprovedPlanWeek(data.week)
-        if (data.hasCycle) ApprovedPlanMoneyCard(data)
-        else Surface(color = p.cream, shape = RoundedCornerShape(PesaDesignTokens.cardRadius)) {
-            Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Available money not yet confirmed", color = p.ink,
-                        fontWeight = FontWeight.SemiBold)
-                    Text("Confirm a salary to get started", color = p.muted, fontSize = 12.sp)
-                }
-                TextButton(onClick = onSalary) { Text("Add salary", color = p.coffee) }
-            }
-        }
+        ApprovedPlanMoneyCard(data)
         Text("Your plans", color = p.ink, fontFamily = FontFamily.Serif,
             fontWeight = FontWeight.Bold, fontSize = 22.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -114,35 +101,6 @@ internal fun ApprovedCoffeePlanOverview(
             1 -> "1 upcoming"
             else -> "${data.bills.size} upcoming"
         }, Icons.Rounded.CalendarMonth, onBills)
-        ApprovedPlanComingUp(data.bills.take(2), onBills)
-        TextButton(onClick = onDetails, modifier = Modifier.align(Alignment.End)) {
-            Text("Plan details", color = p.coffee)
-            Icon(Icons.Rounded.ChevronRight, null, tint = p.coffee)
-        }
-    }
-}
-
-@Composable
-private fun ApprovedPlanPeriodTabs(selected: String, onPeriod: (String) -> Unit) {
-    val p = BrownHomePalette
-    Surface(shape = RoundedCornerShape(PesaDesignTokens.controlRadius), color = p.canvas,
-        border = BorderStroke(1.dp, p.outline)) {
-        Row {
-            listOf("Month", "Pay cycle").forEach { mode ->
-                val active = selected == mode
-                Surface(shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-                    color = if (active) p.coffee else Color.Transparent,
-                    modifier = Modifier.heightIn(min = 48.dp)
-                        .clickable(role = Role.Button) { onPeriod(mode) }) {
-                    Box(Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
-                        contentAlignment = Alignment.Center) {
-                        Text(mode, fontSize = 12.sp, maxLines = 1,
-                            color = if (active) Color.White else p.ink,
-                            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -182,36 +140,37 @@ private fun ApprovedPlanMoneyCard(data: PlanJourneyView) {
         Box {
             Image(painterResource(R.drawable.plan_coffee_notebook), contentDescription = null,
                 contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
-            Column(Modifier.fillMaxWidth().padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.fillMaxWidth().padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("AVAILABLE", color = p.coffee, fontWeight = FontWeight.SemiBold,
+                    Text("SPENDABLE", color = p.coffee, fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp, letterSpacing = 1.sp)
-                    IconButton(onClick = { info = true }, modifier = Modifier.size(40.dp)) {
-                        Icon(Icons.Rounded.Info, "What does available mean?", tint = p.coffee,
+                    IconButton(onClick = { info = true }, modifier = Modifier.size(48.dp)) {
+                        Icon(if (data.spendableNeedsReview) Icons.Rounded.WarningAmber
+                            else Icons.Rounded.Info,
+                            if (data.spendableNeedsReview) "Spendable needs balance review"
+                            else "How is spendable calculated?",
+                            tint = if (data.spendableNeedsReview) p.attention else p.coffee,
                             modifier = Modifier.size(18.dp))
                     }
                 }
-                Text(data.available, color = p.ink, fontFamily = FontFamily.Serif,
+                Text(data.spendable ?: "Unavailable", color = p.ink, fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold, fontSize = 29.sp, lineHeight = 32.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("This pay cycle",
-                    color = p.coffee, fontSize = 12.sp)
-                Spacer(Modifier.height(4.dp))
                 HorizontalDivider(color = p.coffee.copy(alpha = 0.33f))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    ApprovedPlanMiniMoney("Starting", data.starting, Modifier.weight(1f))
+                    ApprovedPlanMiniMoney("Accounts", data.liquid ?: "—", Modifier.weight(1f))
                     ApprovedPlanMiniMoney("Bills", data.billsTotal ?: "—", Modifier.weight(1f))
-                    ApprovedPlanMiniMoney("Saved", data.saved, Modifier.weight(1f))
+                    ApprovedPlanMiniMoney("Saved", data.protectedSavings ?: "—", Modifier.weight(1f))
                 }
             }
         }
     }
     if (info) AlertDialog(onDismissRequest = { info = false },
-        title = { Text("About available money") },
-        text = { Text("Available is calculated from confirmed planning information. " +
-            "It is not your live bank or M-Pesa balance. Bills shows the remaining " +
-            "scheduled bills due this month; other commitments remain in Plan details.") },
+        title = { Text("About spendable money") },
+        text = { Text("Spendable uses recorded balances from your accounts, excludes protected " +
+            "savings and reserves unpaid bills for this month. It is an estimate, not a live " +
+            "bank balance. If an account balance is missing or old, check it in Accounts.") },
         confirmButton = { TextButton(onClick = { info = false }) { Text("Got it") } })
 }
 
@@ -275,7 +234,7 @@ internal fun ApprovedPlanLink(title: String, detail: String,
 }
 
 @Composable
-private fun ApprovedPlanComingUp(bills: List<PlanJourneyBill>, onBills: () -> Unit) {
+internal fun ApprovedPlanComingUp(bills: List<PlanJourneyBill>, onBills: () -> Unit) {
     val p = BrownHomePalette
     val locale = LocalConfiguration.current.locales[0]
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

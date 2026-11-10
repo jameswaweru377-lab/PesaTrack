@@ -200,7 +200,7 @@ private fun BillMonthSelector(
         Surface(
             modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)
                 .clickable { expanded = true },
-            shape = RoundedCornerShape(50.dp),
+            shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
             color = HomeMonochromePalette.surface,
             border = androidx.compose.foundation.BorderStroke(
                 1.dp,
@@ -812,7 +812,8 @@ fun BillsRemindersScreen(
                     BillMonthSelector(monthOffset) { monthOffset = it }
                 }
                 OutlinedButton(onClick = { editingBill = null; billEditor = true },
-                    modifier = Modifier.heightIn(min = 48.dp)) {
+                    modifier = Modifier.heightIn(min = 48.dp),
+                    shape = RoundedCornerShape(PesaDesignTokens.controlRadius)) {
                     Icon(Icons.Rounded.Add, null)
                     Spacer(Modifier.width(4.dp))
                     Text("Add bill")
@@ -823,7 +824,6 @@ fun BillsRemindersScreen(
             SelectedBillsCalendar(billMonth(monthOffset).timeInMillis,
                 bills, locale) { showCalendar = true }
         }
-        item { SelectedBillsSummary(bills, ::billMoney) }
         if (incompleteBills.isNotEmpty()) item {
             PesaCard {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -891,35 +891,16 @@ fun BillsRemindersScreen(
                 }
             }
         }
+        item { SelectedBillsSummary(bills, ::billMoney) }
 
         if (upcomingBills.isEmpty()) {
             item {
-                PesaCard {
-                    Column(Modifier.padding(18.dp)) {
-                        Text(
-                            if (bills.isEmpty()) "No bills yet" else "No upcoming bills",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            if (bills.isEmpty()) "Add a bill to start tracking due dates and reminders."
-                            else "There are no outstanding payments for this month.",
-                            modifier = Modifier.padding(top = 4.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Button(
-                            onClick = {
-                                editingBill = null
-                                billEditor = true
-                            },
-                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
-                        ) {
-                            Icon(Icons.Rounded.Add, contentDescription = null)
-                            Spacer(Modifier.width(7.dp))
-                            Text("Add bill")
-                        }
-                    }
-                }
+                Text(
+                    "No upcoming bills",
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    color = BrownHomePalette.muted,
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         } else {
             items(upcomingBills, key = { it.rule.id }) { bill ->

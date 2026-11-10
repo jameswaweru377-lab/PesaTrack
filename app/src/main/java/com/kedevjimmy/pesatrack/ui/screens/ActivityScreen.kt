@@ -940,10 +940,15 @@ fun ActivityScreen(
                 TextButton(onClick = { refresh() }) { Text("Try again") }
             }
             item(key = "activity-brown-heading") {
-                BrownActivityHeading(periodLabel) {
-                    payCycleMode = false
-                    showMonthPicker = true
-                }
+                BrownActivityHeading(
+                    month = periodLabel,
+                    payCycleMode = payCycleMode,
+                    onMonth = {
+                        payCycleMode = false
+                        showMonthPicker = true
+                    },
+                    onCycle = { showCyclePicker = true }
+                )
             }
             item(key = "activity-period-overview") {
                 Box(Modifier.padding(bottom = 8.dp)) {

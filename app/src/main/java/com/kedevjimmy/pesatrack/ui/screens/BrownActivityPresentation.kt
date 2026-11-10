@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -59,11 +60,32 @@ internal fun brownActivityPeriodCaption(payCycleMode: Boolean): String =
     if (payCycleMode) "THIS PAY CYCLE" else "THIS MONTH"
 
 @Composable
-internal fun BrownActivityHeading(month: String, onMonth: () -> Unit) {
+internal fun BrownActivityHeading(
+    month: String,
+    payCycleMode: Boolean,
+    onMonth: () -> Unit,
+    onCycle: () -> Unit
+) {
     val p = BrownHomePalette
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf("Month", "Pay cycle").forEach { mode ->
+                val active = (mode == "Pay cycle") == payCycleMode
+                Surface(onClick = if (mode == "Pay cycle") onCycle else onMonth,
+                    color = if (active) p.coffee else p.cream,
+                    shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
+                    modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)) {
+                    Box(Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+                        contentAlignment = Alignment.Center) {
+                        Text(mode, fontSize = 12.sp,
+                            color = if (active) Color.White else p.coffee,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
+                    }
+                }
+            }
+        }
         Spacer(Modifier.weight(1f))
         Surface(onClick = onMonth, color = p.canvas,
             modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)

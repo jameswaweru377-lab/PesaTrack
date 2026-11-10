@@ -1,5 +1,21 @@
 # PesaTrack Current State
 
+_Plan spendable balance and compact pages (10 November 2026; CI and phone acceptance pending):_
+Plan now requests the same confirmed-owned account balance evidence as Accounts.
+Its Spendable estimate adds known liquid balances once, excludes savings-account
+balances, and reserves outstanding scheduled bills due this month. Missing or
+inconsistent liquid balances withhold the amount; outdated or reconstructed
+balance evidence shows an attention icon with a short explanation on tap. It is
+not a live bank balance and is not the salary-cycle estimate. Budget and goal
+progress remain monthly against their own targets. The Month / Pay cycle choice
+is presented in Activity using its existing period reads; Plan has a compact
+week, month label and notebook card, with Coming up after Planning status.
+Bills keeps one calendar week and a concise zero state; Bills and Shopping use
+compact inner-page headers and Shopping keeps estimates separate from expenses.
+No transaction, account observation, bill, goal or shopping entry is written by
+these presentation changes. Real-device layout and accounting acceptance are
+not yet verified.
+
 _Activity recorded-balance card and generic Kenyan message wording (9 November 2026; CI and phone acceptance pending):_
 The brown Activity monthly card retains Expenses, Money in and Invested, but
 replaces Transfers with the sum of recorded spendable, confirmed-owned account

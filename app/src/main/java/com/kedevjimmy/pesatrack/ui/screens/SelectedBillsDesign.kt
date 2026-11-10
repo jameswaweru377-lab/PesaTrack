@@ -27,7 +27,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-/** Selected Bills B: 14 actual local-calendar dates and sourced bill markers. */
+/** Compact calendar week; the full month remains in the existing calendar sheet. */
 @Composable
 internal fun SelectedBillsCalendar(
     viewedMonthEpochMs: Long,
@@ -38,10 +38,10 @@ internal fun SelectedBillsCalendar(
     val p = BrownHomePalette
     val days = selectedBillsFortnight(viewedMonthEpochMs, System.currentTimeMillis(),
         bills.filter { it.remainingMinor > 0L }.mapNotNull { it.nextDueEpochMs },
-        locale, TimeZone.getDefault())
+        locale, TimeZone.getDefault()).take(7)
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius), color = p.cream,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenCalendar)) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(Modifier.fillMaxWidth()) {
                 listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun").forEach { weekday ->
                     Text(weekday, modifier = Modifier.weight(1f),
@@ -53,17 +53,15 @@ internal fun SelectedBillsCalendar(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     week.forEach { day ->
                         Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-                            modifier = Modifier.weight(1f).heightIn(min = 64.dp),
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                             color = if (day.isToday) p.coffee else Color.Transparent) {
-                            Column(Modifier.padding(vertical = 8.dp),
+                            Column(Modifier.padding(vertical = 4.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Text(day.dayOfMonth,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = if (day.isToday) Color.White else p.ink)
-                                Text(day.month, style = MaterialTheme.typography.labelSmall,
-                                    color = if (day.isToday) Color.White else p.muted)
                                 if (day.hasBill) {
                                     Surface(shape = CircleShape, color = Color(0xFFD7A33C),
                                         modifier = Modifier.size(8.dp)) {}
@@ -85,16 +83,9 @@ internal fun SelectedBillsSummary(bills: List<ScheduledBill>, money: (Long) -> S
     val outstandingTotal = CheckedMoney.orNull {
         CheckedMoney.sum(pending.asSequence().map { it.remainingMinor })
     }
-    Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = BrownHomePalette.cream) {
-        Row(Modifier.fillMaxWidth().padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Rounded.CalendarMonth, null, tint = BrownHomePalette.coffee)
-            Text("${pending.size} upcoming · ${outstandingTotal?.let(money) ?: "Total unavailable"}",
-                fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
-        }
-    }
+    Text("${pending.size} upcoming · ${outstandingTotal?.let(money) ?: "Total unavailable"}",
+        color = BrownHomePalette.coffee, fontWeight = FontWeight.SemiBold,
+        style = MaterialTheme.typography.titleSmall)
 }
 
 @Composable

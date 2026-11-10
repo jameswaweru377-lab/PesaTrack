@@ -39,7 +39,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 | 🧾 | **Import statements** | Review supported M-Pesa and bank statement files with duplicate and verification safeguards. Unsupported or incomplete formats are not silently accepted. |
 | 📊 | **Understand your cash flow** | Explore Money In, Money Out, categories, account context, and reports based on recorded evidence. |
 | 📄 | **Export a personal money report** | Save an offline PesaTrack-branded PDF of your selected Reports period, including trusted Activity totals, categories, trends and selected large expenses. Exported PDFs are not encrypted bank statements. |
-| 🎯 | **Plan ahead** | Organize budgets, bills, saving goals, and payday context without treating expected income as money already received. |
+| 🎯 | **Plan ahead** | Organize monthly budgets, bills, saving goals and shopping around recorded spendable account funds; use Activity for the separate salary-cycle view. |
 | 🛒 | **Shopping lists (preview)** | Make private monthly lists, estimate item costs and explicitly reuse previous lists. These plans do not post expenses or change balances; photo scanning is not yet included. |
 | 🤝 | **Keep track of debts** | Distinguish loans and repayments from ordinary purchases and transfers, with user confirmation where needed. |
 | 🔐 | **Keep control of your data** | Use local storage, optional app lock, encrypted user-created backups, and privacy controls. |
