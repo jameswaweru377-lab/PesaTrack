@@ -1,5 +1,8 @@
 # PesaTrack Current State
 
+_Offline investment parsing and network lockdown (10 November 2026; verification pending):_
+Accounts keeps displaying observed net investment units from confirmed executions, without inventing a current market valuation. The semantic parser now accepts Ziidi-style "bought 55 of SCOM shares" confirmations in addition to previous wording. Submitted orders and IPO payment/application messages do not establish confirmed holdings. Online merchant lookups are disabled even for persisted old jobs; the app no longer declares internet permission and the privacy screen no longer offers the online toggle. The existing ledger, accounting classifications and backup schema remain unchanged. JVM tests, merged manifest, CI and phone behaviour are not yet verified.
+
 _Profile editorial Nairobi redesign (10 November 2026; Android CI and phone acceptance pending):_
 The private Profile landing screen follows the approved photo-led layout: a
 locally bundled Nairobi cover appears until the user selects their own image,
