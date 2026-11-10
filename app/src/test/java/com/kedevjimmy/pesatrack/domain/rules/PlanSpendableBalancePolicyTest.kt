@@ -63,6 +63,16 @@ class PlanSpendableBalancePolicyTest {
         assertEquals(20_000L, value.spendableMinor)
     }
 
+    @Test fun `provisional account evidence cannot be called currently spendable money`() {
+        val value = PlanSpendableBalancePolicy.calculate(
+            listOf(PlanSpendableAccount("wallet", 150_000L,
+                isProtected = false, provisional = true)), 20_000L
+        )
+        assertNull(value.spendableMinor)
+        assertEquals(150_000L, value.liquidMinor)
+        assertTrue(value.needsReview)
+    }
+
     @Test fun `unknown or overflowing source is unavailable rather than fabricated`() {
         assertNull(PlanSpendableBalancePolicy.calculate(emptyList(), 0L).spendableMinor)
         val value = PlanSpendableBalancePolicy.calculate(

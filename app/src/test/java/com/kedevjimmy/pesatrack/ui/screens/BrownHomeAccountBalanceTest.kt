@@ -25,6 +25,11 @@ class BrownHomeAccountBalanceTest {
         assertNull(trustedBrownHomeBalance(group, listOf(snapshot(999000L).copy(accountId = "different"))))
     }
 
+    @Test fun reconstructedLedgerDeltaCannotPassForObservedProviderBalance() {
+        assertNull(trustedBrownHomeBalance(group,
+            listOf(snapshot(735400L, PaydayBalanceQuality.RECONSTRUCTED))))
+    }
+
     private fun snapshot(balance: Long?, quality: PaydayBalanceQuality = PaydayBalanceQuality.OBSERVED) =
         PaydayAccountSnapshot("main", "M-PESA", AccountType.MOBILE_WALLET,
             balance, quality, null, PaydaySpendability.SPENDABLE)
