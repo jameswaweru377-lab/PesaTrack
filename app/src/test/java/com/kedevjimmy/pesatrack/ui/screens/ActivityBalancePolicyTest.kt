@@ -50,9 +50,10 @@ class ActivityBalancePolicyTest {
         val accounts = listOf(
             MoneyAccount("wallet", "Sample Wallet", AccountType.MOBILE_WALLET, identifier = "0712000000"),
             MoneyAccount("bank", "Sample Bank", AccountType.BANK, identifier = "123456789"),
+            MoneyAccount("disabled-bank", "Old Bank", AccountType.BANK, enabled = false),
             MoneyAccount("cash", "Cash", AccountType.CASH)
         )
-        val chosen = activityRecordedBalanceAccounts(accounts, setOf("wallet", "bank", "cash"))
+        val chosen = activityRecordedBalanceAccounts(accounts, setOf("wallet", "bank", "disabled-bank", "cash"))
         assertEquals(setOf("wallet", "bank"), chosen.map { it.id }.toSet())
     }
 

@@ -12,7 +12,7 @@ import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 internal fun activityRecordedBalanceAccounts(
     accounts: List<MoneyAccount>, confirmedAccountIds: Set<String>
 ): List<MoneyAccount> = accounts.filter {
-    it.type != AccountType.CASH &&
+    it.enabled && it.type != AccountType.CASH &&
         AccountDisplayPolicy.isConfirmedOwned(it, confirmedAccountIds)
 }
 
