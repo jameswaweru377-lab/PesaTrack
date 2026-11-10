@@ -22,4 +22,10 @@ object ProfileVisualColors {
     val blueSoft = Color(0xFFF3F3F3)
     val coral = Color.Black
     val coralSoft = Color(0xFFF3F3F3)
+    // The approved editorial Profile home uses the warm PesaTrack accent.
+    // Nested settings pages keep their existing monochrome appearance.
+    val coffee = Color(0xFF6B381A)
+    val cream = Color(0xFFFFF9F1)
+    val sand = Color(0xFFF3E5D7)
+    val sandBorder = Color(0xFFE2CDB9)
 }

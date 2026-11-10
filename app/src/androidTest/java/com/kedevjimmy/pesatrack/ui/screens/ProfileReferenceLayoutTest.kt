@@ -40,16 +40,17 @@ class ProfileReferenceLayoutTest {
         showProfile()
 
         listOf(
-            "Personal information",
+            "Personal info",
             "Pay cycle",
             "Better money habits",
             "Edit profile",
-            "Only on this device"
+            "Only on this device",
+            "PesaTrack"
         ).forEach { compose.onNodeWithText(it).assertExists() }
         listOf("App lock & security", "Notifications", "Appearance", "Help & support",
             "About PesaTrack", "Past transactions", "Funds")
             .forEach { compose.onNodeWithText(it).assertDoesNotExist() }
-        compose.onNodeWithContentDescription("Back to More").assertExists()
+        compose.onNodeWithContentDescription("Back").assertExists()
         compose.onNodeWithContentDescription("Change cover photo").assertExists()
         compose.onNodeWithContentDescription("Change profile photo").assertExists()
     }
@@ -57,7 +58,7 @@ class ProfileReferenceLayoutTest {
     @Test
     fun personalInformationOpensLocalFields() {
         showProfile()
-        compose.onNodeWithText("Personal information").performScrollTo().performClick()
+        compose.onNodeWithText("Personal info").performScrollTo().performClick()
         compose.onNodeWithText("Display name").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("City or town (optional)").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("About me (optional)").performScrollTo().assertIsDisplayed()
