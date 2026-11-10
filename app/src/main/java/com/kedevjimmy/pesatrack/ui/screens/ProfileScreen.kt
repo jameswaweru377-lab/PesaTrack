@@ -144,8 +144,6 @@ fun ProfileScreen(
             back = onBack,
             name = prefs.getString("profile_name", "").orEmpty(),
             avatar = prefs.getString("profile_avatar", "🌿") ?: "🌿",
-            city = prefs.getString("profile_city", "").orEmpty(),
-            bio = prefs.getString("profile_bio", "").orEmpty(),
             moneyHabits = financialPresentation,
             onMoneyHabits = { page = "habits" },
             personal = { page = "personal" },

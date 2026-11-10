@@ -25,7 +25,9 @@ object ProfileVisualColors {
     // The approved editorial Profile home uses the warm PesaTrack accent.
     // Nested settings pages keep their existing monochrome appearance.
     val coffee = Color(0xFF6B381A)
-    val cream = Color(0xFFFFF9F1)
-    val sand = Color(0xFFF3E5D7)
-    val sandBorder = Color(0xFFE2CDB9)
+    val cream = Color(0xFFFCF0E7)
+    val card = Color(0xFFFFF8F3)
+    val sand = Color(0xFFF3E3D6)
+    val sandBorder = Color(0xFFE3D0C0)
+    val leaf = Color(0xFF94B95B)
 }

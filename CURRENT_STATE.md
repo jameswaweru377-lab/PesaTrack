@@ -1,16 +1,22 @@
 # PesaTrack Current State
 
-_Profile editorial Nairobi redesign (10 November 2026; Android CI and phone acceptance pending):_
+_Profile editorial Nairobi redesign and reference-fidelity revision (10 November 2026; phone acceptance pending):_
 The private Profile landing screen follows the approved photo-led layout: a
 locally bundled Nairobi cover appears until the user selects their own image,
 and the avatar uses the saved profile photo, chosen symbol or a name initial
-("J" when no profile name exists). Its header has an over-photo chevron back
-control without an arrow shaft. Image-free compact personal/account/pay-cycle/
-goals shortcuts open their existing destinations. The large Nairobi city
-Money Wellness image opens the existing evidence-aware profile insights page;
-it is not a video and does not show a play button. The redundant Essentials
+("J" when no profile name exists). A warm white gradient now blends the cover
+into the identity area, with the user's name, private-device badge and short
+brand tagline overlaying the fade. The top-left back control uses a chevron
+without an arrow shaft. The identity content grows below the avatar when the
+phone uses larger accessibility fonts. All four small personal/account/pay-cycle/goals cards
+now fit in one row rather than a horizontally scrolling strip. The compact
+Nairobi city Money Wellness image opens the existing evidence-aware profile insights page;
+it is not a video and does not show a play button. The compact hero also expands
+for large system fonts so its Review insights action remains readable. The redundant Essentials
 tiles are removed, Privacy still opens the local policy/controls, and the
-"PesaTrack • Your money, your plans" footer stays at the bottom of the page.
+"PesaTrack • Your money, your plans" footer follows the final content card
+without hiding scrollable content. The headline uses the user's saved name,
+not a hardcoded sample name. The city/bio fields remain in Personal information.
 Existing cover/photo picking, private local storage, financial calculations,
 account observations, permissions and backups are unchanged. Real-device
 layout, screen-reader behavior and APK upgrade compatibility remain unverified.
