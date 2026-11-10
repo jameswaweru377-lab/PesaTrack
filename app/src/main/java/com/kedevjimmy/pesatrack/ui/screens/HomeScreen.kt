@@ -88,7 +88,7 @@ import com.kedevjimmy.pesatrack.domain.model.SmartRule
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.SalaryExpectationPolicy
-import com.kedevjimmy.pesatrack.domain.rules.PlanningAvailabilityPolicy
+import com.kedevjimmy.pesatrack.domain.rules.PlanSpendableBalancePolicy
 import com.kedevjimmy.pesatrack.planning.BillSchedules
 import com.kedevjimmy.pesatrack.planning.ScheduledBill
 import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
@@ -940,13 +940,6 @@ fun HomeScreen(
         return
     }
 
-    val planningAvailability = if (cycleSnapshot.availableToLiveMinor == Long.MIN_VALUE) null else
-        PlanningAvailabilityPolicy
-            .from(
-                cycleSnapshot
-                    .availableToLiveMinor
-            )
-
     val spendSlices = remember(activitySnapshot, receivableShares) {
         try {
         activitySnapshot.trustedTransactions
@@ -1406,9 +1399,16 @@ fun HomeScreen(
     // the attractive KES amounts in the reference artwork are never hardcoded.
     val monthName = SimpleDateFormat("MMMM yyyy", homeConfigurationLocale)
         .format(selectedCalendar.time)
+    val currentAccountMoney = VerifiedAccountBalancePolicy.planAccounts(
+        trackedAccounts, confirmedAccountIds, accountBalanceSnapshots,
+        System.currentTimeMillis()
+    )
+    val currentSpendable = PlanSpendableBalancePolicy.calculate(
+        currentAccountMoney,
+        planUpcomingBillsTotalMinor(upcomingBills.map { it.remainingMinor })
+    )
     val homeSummary = homeSummaryScope(
-        confirmedCycle = cycleSnapshot.cycle != null,
-        currentAvailableMinor = planningAvailability?.availableMinor,
+        currentAvailableMinor = currentSpendable.spendableMinor,
         selectedNetFlowMinor = selectedNetFlow,
         monthLabel = monthName
     )

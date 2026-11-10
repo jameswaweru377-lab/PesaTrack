@@ -1,6 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-/** The selected activity month must not redefine the current confirmed pay-cycle balance. */
+/** The selected activity month must not redefine verified current account money. */
 internal data class HomeSummaryScope(
     val currentAvailableMinor: Long?,
     val selectedNetFlowMinor: Long?,
@@ -10,12 +10,11 @@ internal data class HomeSummaryScope(
 }
 
 internal fun homeSummaryScope(
-    confirmedCycle: Boolean,
     currentAvailableMinor: Long?,
     selectedNetFlowMinor: Long?,
     monthLabel: String
 ): HomeSummaryScope = HomeSummaryScope(
-    currentAvailableMinor = if (confirmedCycle) currentAvailableMinor else null,
+    currentAvailableMinor = currentAvailableMinor,
     selectedNetFlowMinor = selectedNetFlowMinor,
     monthLabel = monthLabel
 )

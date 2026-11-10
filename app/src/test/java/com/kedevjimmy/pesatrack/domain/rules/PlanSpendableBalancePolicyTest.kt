@@ -19,6 +19,7 @@ class PlanSpendableBalancePolicyTest {
         assertEquals(3_300_000L, value.spendableMinor)
         assertEquals(3_500_000L, value.liquidMinor)
         assertEquals(1_200_000L, value.protectedMinor)
+        assertEquals(4_700_000L, value.totalAccountsMinor)
         assertFalse(value.needsReview)
     }
 
@@ -44,6 +45,7 @@ class PlanSpendableBalancePolicyTest {
             upcomingBillsMinor = 20_000L
         )
         assertNull(value.protectedMinor)
+        assertNull(value.totalAccountsMinor)
         assertEquals(100_000L, value.spendableMinor)
         assertTrue(value.needsReview)
     }
@@ -61,6 +63,16 @@ class PlanSpendableBalancePolicyTest {
         val same = PlanSpendableAccount("wallet", 20_000L, isProtected = false)
         val value = PlanSpendableBalancePolicy.calculate(listOf(same, same), 0L)
         assertEquals(20_000L, value.spendableMinor)
+    }
+
+    @Test fun `provisional account evidence cannot be called currently spendable money`() {
+        val value = PlanSpendableBalancePolicy.calculate(
+            listOf(PlanSpendableAccount("wallet", 150_000L,
+                isProtected = false, provisional = true)), 20_000L
+        )
+        assertNull(value.spendableMinor)
+        assertEquals(150_000L, value.liquidMinor)
+        assertTrue(value.needsReview)
     }
 
     @Test fun `unknown or overflowing source is unavailable rather than fabricated`() {
