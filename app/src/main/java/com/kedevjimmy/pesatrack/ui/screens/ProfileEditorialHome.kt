@@ -153,12 +153,12 @@ private fun ProfileShortcutRow(
                     Icon(shortcut.icon, null, tint = C.coffee, modifier = Modifier.size(18.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(shortcut.title, modifier = Modifier.weight(1f), fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold, color = C.ink,
+                            lineHeight = 13.sp, fontWeight = FontWeight.Bold, color = C.ink,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Icon(Icons.Rounded.ChevronRight, null, tint = C.coffee,
                             modifier = Modifier.size(12.dp))
                     }
-                    Text(shortcut.subtitle, fontSize = 9.sp, color = C.muted,
+                    Text(shortcut.subtitle, fontSize = 9.sp, lineHeight = 11.sp, color = C.muted,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
