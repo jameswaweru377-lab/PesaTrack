@@ -7,7 +7,8 @@ and the avatar uses the saved profile photo, chosen symbol or a name initial
 ("J" when no profile name exists). A warm white gradient now blends the cover
 into the identity area, with the user's name, private-device badge and short
 brand tagline overlaying the fade. The top-left back control uses a chevron
-without an arrow shaft. All four small personal/account/pay-cycle/goals cards
+without an arrow shaft. The identity content grows below the avatar when the
+phone uses larger accessibility fonts. All four small personal/account/pay-cycle/goals cards
 now fit in one row rather than a horizontally scrolling strip. The compact
 Nairobi city Money Wellness image opens the existing evidence-aware profile insights page;
 it is not a video and does not show a play button. The redundant Essentials

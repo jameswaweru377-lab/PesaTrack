@@ -101,22 +101,26 @@ internal fun ProfileCoverHeader(
         }) { Text("Restore default") } }
     )
 
-    Box(Modifier.fillMaxWidth().height(264.dp)) {
+    Box(Modifier.fillMaxWidth().background(C.cream)) {
         ProfileCoverArtwork(coverPhoto, busy, onBack, onEdit = {
             if (coverPhoto == null) chooseCover() else coverMenu = true
         })
-        Column(
-            Modifier.align(Alignment.TopStart).padding(start = 24.dp, top = 60.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text("Pesa\nTrack", color = C.coffee, fontFamily = FontFamily.Cursive,
-                fontSize = 26.sp, lineHeight = 24.sp, textAlign = TextAlign.Center)
-            Box(Modifier.padding(top = 4.dp).width(42.dp).height(2.dp)
-                .background(C.leaf, CircleShape))
+        Column(Modifier.fillMaxWidth()) {
+            Box(Modifier.fillMaxWidth().height(168.dp)) {
+                Column(
+                    Modifier.align(Alignment.TopStart).padding(start = 24.dp, top = 60.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("Pesa\nTrack", color = C.coffee, fontFamily = FontFamily.Cursive,
+                        fontSize = 26.sp, lineHeight = 24.sp, textAlign = TextAlign.Center)
+                    Box(Modifier.padding(top = 4.dp).width(42.dp).height(2.dp)
+                        .background(C.leaf, CircleShape))
+                }
+                ProfileAvatarArtwork(name, avatar, avatarPhoto, onAvatarEdit,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 68.dp))
+            }
+            ProfileIdentityDetails(name)
         }
-        ProfileAvatarArtwork(name, avatar, avatarPhoto, onAvatarEdit,
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 68.dp))
-        ProfileIdentityDetails(name, modifier = Modifier.align(Alignment.BottomCenter))
         SnackbarHost(snackbar, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
@@ -125,7 +129,7 @@ internal fun ProfileCoverHeader(
 private fun ProfileCoverArtwork(
     cover: Bitmap?, busy: Boolean, onBack: () -> Unit, onEdit: () -> Unit
 ) {
-    Box(Modifier.fillMaxSize().background(C.sand)) {
+    Box(Modifier.fillMaxWidth().height(264.dp).background(C.sand)) {
         if (cover == null) {
             Image(painterResource(R.drawable.profile_default_nairobi_cover),
                 "Default Nairobi cover photo", Modifier.fillMaxSize(),
