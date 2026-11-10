@@ -86,7 +86,7 @@ internal fun ApprovedCoffeePlanOverview(
                 Icon(Icons.Rounded.KeyboardArrowDown, null, tint = p.ink)
             }
         }
-        ApprovedPlanMoneyCard(data)
+        ApprovedPlanMoneyCard(data, onDetails)
         Text("Your plans", color = p.ink, fontFamily = FontFamily.Serif,
             fontWeight = FontWeight.Bold, fontSize = 22.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -132,7 +132,7 @@ private fun ApprovedPlanWeek(days: List<PlanCalendarDay>) {
 }
 
 @Composable
-private fun ApprovedPlanMoneyCard(data: PlanJourneyView) {
+private fun ApprovedPlanMoneyCard(data: PlanJourneyView, onDetails: () -> Unit) {
     val p = BrownHomePalette
     var info by remember { mutableStateOf(false) }
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
@@ -154,9 +154,16 @@ private fun ApprovedPlanMoneyCard(data: PlanJourneyView) {
                             modifier = Modifier.size(18.dp))
                     }
                 }
-                Text(data.spendable ?: "Unavailable", color = p.ink, fontFamily = FontFamily.Serif,
-                    fontWeight = FontWeight.Bold, fontSize = 29.sp, lineHeight = 32.sp,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(Modifier.fillMaxWidth().clickable(
+                    role = Role.Button, onClickLabel = "View Plan breakdown", onClick = onDetails),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(data.spendable ?: "Unavailable", modifier = Modifier.weight(1f),
+                        color = p.ink, fontFamily = FontFamily.Serif,
+                        fontWeight = FontWeight.Bold, fontSize = 29.sp, lineHeight = 32.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = p.coffee,
+                        modifier = Modifier.size(20.dp))
+                }
                 HorizontalDivider(color = p.coffee.copy(alpha = 0.33f))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     ApprovedPlanMiniMoney("Accounts", data.liquid ?: "—", Modifier.weight(1f))

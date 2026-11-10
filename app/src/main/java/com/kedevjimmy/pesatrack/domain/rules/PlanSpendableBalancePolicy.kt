@@ -51,7 +51,7 @@ internal object PlanSpendableBalancePolicy {
             spendableMinor = spendable,
             liquidMinor = liquidTotal,
             protectedMinor = savedTotal,
-            needsReview = spendable == null || possible?.signum() == -1 ||
+            needsReview = spendable == null || savedTotal == null || possible?.signum() == -1 ||
                 distinct.any { it.provisional }
         )
     }

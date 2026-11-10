@@ -34,6 +34,20 @@ class PlanSpendableBalancePolicyTest {
         assertTrue(value.needsReview)
     }
 
+    @Test fun `uncertain protected savings stay unavailable without reducing spendable cash`() {
+        val filteredSavings = BalancePresentationPolicy.savingsBalance(-2_995L, true, true)
+        val value = PlanSpendableBalancePolicy.calculate(
+            listOf(
+                PlanSpendableAccount("mpesa", 120_000L, isProtected = false),
+                PlanSpendableAccount("locked", filteredSavings, isProtected = true)
+            ),
+            upcomingBillsMinor = 20_000L
+        )
+        assertNull(value.protectedMinor)
+        assertEquals(100_000L, value.spendableMinor)
+        assertTrue(value.needsReview)
+    }
+
     @Test fun `unpaid bills cannot turn spendable into negative bank money`() {
         val value = PlanSpendableBalancePolicy.calculate(
             listOf(PlanSpendableAccount("wallet", 20_000L, isProtected = false)),

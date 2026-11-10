@@ -7,7 +7,9 @@ import com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality
 import com.kedevjimmy.pesatrack.data.local.PaydaySnapshotStore
 import com.kedevjimmy.pesatrack.data.local.PaydaySpendability
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
+import com.kedevjimmy.pesatrack.domain.rules.BalancePresentationPolicy
 import com.kedevjimmy.pesatrack.domain.rules.PlanSpendableAccount
+import com.kedevjimmy.pesatrack.domain.model.AccountType
 
 /** Reuse Accounts' ownership and balance evidence instead of the salary-cycle estimate. */
 internal fun readPlanSpendableAccounts(context: Context): List<PlanSpendableAccount> {
@@ -26,7 +28,11 @@ internal fun readPlanSpendableAccounts(context: Context): List<PlanSpendableAcco
         } ?: true
         PlanSpendableAccount(
             id = it.accountId,
-            balanceMinor = it.balanceMinor,
+            balanceMinor = BalancePresentationPolicy.savingsBalance(
+                it.balanceMinor,
+                it.accountType == AccountType.SAVINGS,
+                it.quality == PaydayBalanceQuality.RECONSTRUCTED
+            ),
             isProtected = it.spendability == PaydaySpendability.PROTECTED,
             provisional = old || it.quality == PaydayBalanceQuality.RECONSTRUCTED
         )
