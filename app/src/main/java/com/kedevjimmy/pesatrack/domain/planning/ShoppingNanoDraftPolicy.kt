@@ -12,6 +12,15 @@ object ShoppingNanoDraftPolicy {
         RegexOption.IGNORE_CASE
     )
     private val words = Regex("[\\p{L}\\p{N}]+")
+    private val receiptMetadata = Regex(
+        "^(?:thank\\s+you|please\\s+note|sold\\s+by|customer(?:\\s+name)?|" +
+            "sale\\s+receipt|receipt(?:\\s+(?:no|number))?|bill\\s+(?:no|number)|" +
+            "loyalty\\s+points?|amount\\s+(?:to\\s+pay|given|paid)|" +
+            "sub\\s*total|grand\\s+total|total|discount|vat|tax|change|" +
+            "account\\s+(?:no|number)|pin|telephone|phone|website|www\\.|" +
+            "payment|mpesa|m-pesa|your\\s+perfumes)\\b.*",
+        RegexOption.IGNORE_CASE
+    )
 
     fun prompt(ocrText: String): String = """
         You are helping a private shopping planner interpret OCR text from a receipt or handwritten list.
@@ -35,11 +44,21 @@ object ShoppingNanoDraftPolicy {
         if (ocrText.isBlank() || modelText.isBlank() || modelText.length > MAX_RESPONSE) return null
         val source = ocrText.take(MAX_SOURCE).lowercase(Locale.ROOT).replace(",", "")
         val sourceWords = words.findAll(source).map { it.value }.toSet()
+        val sourceLines = source.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        val isReceipt = sourceLines.take(5).any {
+            it.contains("receipt") || it.contains("invoice") || it.contains("sold by")
+        }
+        val firstLine = sourceLines.firstOrNull().orEmpty()
         val verified = modelText.lineSequence().take(MAX_LINES).mapNotNull { untrusted ->
             val line = untrusted.trim()
             val match = itemFormat.matchEntire(line) ?: return@mapNotNull null
             val candidate = ShoppingIntelligencePolicy.parseLines(line).singleOrNull()
                 ?: return@mapNotNull null
+            if (receiptMetadata.matches(candidate.name.trim())) return@mapNotNull null
+            // A business name at the top of a sale receipt is not a purchased item.
+            if (isReceipt && firstLine.startsWith(candidate.name.lowercase(Locale.ROOT))) {
+                return@mapNotNull null
+            }
             if (words.findAll(candidate.name.lowercase(Locale.ROOT))
                     .map { it.value }.any { it !in sourceWords }) return@mapNotNull null
             val quantity = match.groupValues[1]
