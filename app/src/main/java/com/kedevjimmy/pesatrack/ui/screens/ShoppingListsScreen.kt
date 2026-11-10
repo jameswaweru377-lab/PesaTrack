@@ -77,6 +77,7 @@ fun ShoppingListsScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit) {
     val state = remember { ShoppingListsState(ShoppingListStore(context), scope) }
     val dialogs = remember { ShoppingDialogs() }
     var selectedId by remember { mutableStateOf<String?>(null) }
+    var scanRequested by remember { mutableStateOf(false) }
     val currentMonth = remember { SimpleDateFormat("yyyy-MM", Locale.US).format(Date()) }
     val selected = state.lists.firstOrNull { it.id == selectedId }
     LaunchedEffect(Unit) { state.reload() }
@@ -99,6 +100,7 @@ fun ShoppingListsScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit) {
         if (state.loading) item { Text("Loading shopping lists…") }
         else if (selected == null) {
             item { ShoppingOverviewHeader(onNew = { dialogs.showNew = true }, disabled = state.busy) }
+            item { ShoppingHistoryPanel(state.lists) }
             if (state.lists.isEmpty()) item { ShoppingEmptyState() }
             items(state.lists, key = { it.id }) { list ->
                 ShoppingOverviewRow(list, onOpen = { selectedId = list.id },
@@ -110,6 +112,8 @@ fun ShoppingListsScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit) {
             }, onRename = { dialogs.showRename = true },
                 onDelete = { dialogs.confirmDelete = true },
                 disabled = state.busy) }
+            item { ShoppingIntelligenceActions(selected, state.lists, state.busy,
+                onScan = { scanRequested = true }, onSave = { state.save(it) }) }
             if (selected.items.isEmpty()) item {
                 Text("No items yet. Add your first planned purchase.",
                     style = MaterialTheme.typography.bodyMedium)
@@ -126,6 +130,9 @@ fun ShoppingListsScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit) {
     }
 
     ShoppingListDialogs(state, dialogs, selected, currentMonth) { selectedId = it }
+    ShoppingPhotoReviewOverlay(selected, scanRequested,
+        onRequestConsumed = { scanRequested = false }, busy = state.busy,
+        saveError = state.error, onSave = { value, onSaved -> state.save(value, onSaved) })
 }
 
 private class ShoppingDialogs {

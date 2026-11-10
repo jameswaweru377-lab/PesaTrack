@@ -31,7 +31,15 @@ a credit score or a standardized assessment.
 Shopping lists are stored in app-private preferences and are included in
 user-created encrypted backups. They stay on the device and never become
 recorded financial transactions merely by adding or checking an item. The
-first release does not scan or upload shopping-list photographs.
+optional photo-scanning feature uses Android's photo picker and bundled on-device
+text recognition, without requiring photo-library or camera permission from
+PesaTrack. The original photo is not copied into PesaTrack's storage or uploaded
+by PesaTrack; raw recognized text stays in the temporary review screen. Only
+items you explicitly approve are saved to the local shopping list and covered
+by your encrypted backups. A photo in cloud-backed device storage may be fetched
+by Android's chosen photo provider when you select it. Historical shopping
+summaries and automatic suggestions are calculated locally from those lists;
+they are planning estimates, not proof of payment or spending.
 
 ## SMS permission
 

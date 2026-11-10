@@ -16,6 +16,20 @@ No transaction, account observation, bill, goal or shopping entry is written by
 these presentation changes. Real-device layout and accounting acceptance are
 not yet verified.
 
+_Shopping photo recognition and planning insights (10 November 2026; CI and phone acceptance pending):_
+Monthly shopping lists now offer a system photo picker and bundled offline Latin
+text recognition. The user edits recognized text and explicitly approves items
+before they enter the existing local list; neither the source photo nor the raw
+OCR transcript is saved by PesaTrack. Simple quantity and explicitly marked
+unit-price formats are proposed, while ambiguous prices remain unknown. The
+screen also suggests repeat items from previous saved lists (without reusing an
+old price as today's price) and displays grouped monthly counts and known/partial
+planning estimates. This does not record purchases, update budgets, Accounts or
+Activity, add permissions/network calls, or change the shopping-list storage or
+encrypted-backup format. The bundled OCR model adds approximately 4 MB to the
+app; measure the actual signed APK impact in CI. Handwriting/complex receipts,
+OCR recognition quality and real-device layout remain unverified.
+
 _M-Pesa reported-balance authority and manual account balance entry (10 November 2026; CI and phone acceptance pending):_
 The Accounts list and individual account details now expose an Add/Update
 Balance action using the existing local, dated balance-observation writer.
