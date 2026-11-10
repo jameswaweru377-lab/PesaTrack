@@ -31,6 +31,27 @@ class ShoppingIntelligencePolicyTest {
         assertTrue(lines.all { it.unitPriceMinor == null })
     }
 
+    @Test fun receiptScanKeepsPurchasedItemsButNotMerchantOrFooterText() {
+        val receipt = """
+            O and D Perfumes Your Perfumes
+            Sale receipt no 33
+            Sold by Joyce
+            Customer James
+            Afnan 9 PM Rebel @ KSh 5700
+            Subtotal 5700
+            Discount 570
+            Total 5170
+            Amount given M-Pesa 5170
+            Loyalty points gained 10
+            Thank you for your purchase
+            Please keep your receipt for returns
+            Website www.example.com
+        """.trimIndent()
+        val items = ShoppingIntelligencePolicy.parseLines(receipt)
+        assertEquals(listOf("Afnan 9 PM Rebel"), items.map { it.name })
+        assertEquals(listOf(570000L), items.map { it.unitPriceMinor })
+    }
+
     @Test fun noTextOrOnlyTotalsDoesNotCreateItems() {
         assertTrue(ShoppingIntelligencePolicy.parseLines(" ").isEmpty())
         assertTrue(ShoppingIntelligencePolicy.parseLines("TOTAL 300\nChange 20").isEmpty())
