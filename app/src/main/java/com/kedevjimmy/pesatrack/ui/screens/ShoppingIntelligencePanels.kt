@@ -29,6 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -45,6 +46,7 @@ import java.math.BigDecimal
 import java.text.NumberFormat
 import java.util.Locale
 import java.util.UUID
+import kotlinx.coroutines.launch
 
 /** Suggestions are local planning hints; their previous prices are never treated as current. */
 @Composable
@@ -136,12 +138,15 @@ internal fun ShoppingPhotoReviewOverlay(
     onSave: (ShoppingList, () -> Unit) -> Unit
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var scanning by remember { mutableStateOf(false) }
     var reviewText by remember { mutableStateOf<String?>(null) }
+    var reviewSource by remember { mutableStateOf("") }
     var scanOwner by remember { mutableStateOf<String?>(null) }
     var scanError by remember { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri: Uri? ->
         if (uri != null && selected != null) {
+            val selectedId = selected.id
             scanning = true
             scanError = null
             scanOwner = selected.id
@@ -150,14 +155,20 @@ internal fun ShoppingPhotoReviewOverlay(
                 val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
                 recognizer.process(image)
                     .addOnSuccessListener { text ->
-                        if (scanOwner == selected.id) reviewText = text.text.take(24_000)
-                        scanning = false
+                        scope.launch {
+                            val draft = ShoppingNanoInterpreter.propose(text.text.take(24_000))
+                            if (scanOwner == selectedId) {
+                                reviewText = draft.text
+                                reviewSource = draft.source
+                                scanning = false
+                            }
+                        }
                     }
                     .addOnFailureListener {
-                        if (scanOwner == selected.id) {
+                        if (scanOwner == selectedId) {
                             scanError = "Could not read the photo. Try a clearer image."
+                            scanning = false
                         }
-                        scanning = false
                     }
                     .addOnCompleteListener { recognizer.close() }
             } catch (_: Exception) {
@@ -178,13 +189,14 @@ internal fun ShoppingPhotoReviewOverlay(
     LaunchedEffect(selected?.id) {
         if (selected?.id != scanOwner) {
             reviewText = null
+            reviewSource = ""
             scanError = null
             scanOwner = null
         }
     }
     if (scanning && selected != null) {
         AlertDialog(onDismissRequest = {}, title = { Text("Reading photo locally") },
-            text = { Text("Please wait while PesaTrack reads the image on your phone.") },
+            text = { Text("Reading the image and checking for Gemini Nano on this phone.") },
             confirmButton = {})
     }
     if (scanError != null && selected != null) {
@@ -193,7 +205,7 @@ internal fun ShoppingPhotoReviewOverlay(
             confirmButton = { TextButton(onClick = { scanError = null }) { Text("OK") } })
     }
     if (reviewText != null && selected != null && selected.id == scanOwner) {
-        ShoppingPhotoTextReview(selected, reviewText.orEmpty(), busy, saveError,
+        ShoppingPhotoTextReview(selected, reviewText.orEmpty(), reviewSource, busy, saveError,
             onDismiss = { reviewText = null }, onSave = { candidates ->
                 val result = ShoppingIntelligencePolicy.importCandidates(selected, candidates) {
                     UUID.randomUUID().toString()
@@ -207,6 +219,7 @@ internal fun ShoppingPhotoReviewOverlay(
 private fun ShoppingPhotoTextReview(
     selected: ShoppingList,
     text: String,
+    source: String,
     busy: Boolean,
     saveError: String?,
     onDismiss: () -> Unit,
@@ -221,6 +234,8 @@ private fun ShoppingPhotoTextReview(
     AlertDialog(onDismissRequest = onDismiss, title = { Text("Review scanned shopping items") },
         text = { Column(Modifier.verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(source, style = MaterialTheme.typography.bodySmall,
+                color = BrownHomePalette.muted)
             Text("Edit the recognized lines before saving. Format: 2 x Milk KSh 120 or Bread @ 60.",
                 style = MaterialTheme.typography.bodySmall)
             OutlinedTextField(value = edited, onValueChange = { edited = it.take(24_000) },
