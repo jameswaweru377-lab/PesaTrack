@@ -332,7 +332,7 @@ internal fun StatementOverviewPage(
 
 @Composable
 internal fun StatementInsightCard(content: @Composable ColumnScope.() -> Unit) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White,
+    Surface(modifier = Modifier.fillMaxWidth(), color = PremiumVisualTokens.card,
         shape = RoundedCornerShape(22.dp), shadowElevation = 2.dp) {
         Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp),
             content = content)
@@ -346,7 +346,7 @@ private fun StatementOverviewCashTile(
 ) {
     val p = HomeReferencePalette
     val tint = if (incoming) p.green else p.red
-    Surface(modifier = modifier.clickable(onClick = onClick), color = Color.White,
+    Surface(modifier = modifier.clickable(onClick = onClick), color = PremiumVisualTokens.card,
         shape = RoundedCornerShape(19.dp), shadowElevation = 1.dp) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import androidx.core.content.ContextCompat
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.domain.model.SmartRule
@@ -179,8 +180,8 @@ private fun BillHeroBars() {
                     .background(
                         Brush.verticalGradient(
                             listOf(
-                                Color(0xFF55E6D1),
-                                Color(0xFF3933A8)
+                                PremiumVisualTokens.leaf,
+                                PremiumVisualTokens.coffee
                             )
                         )
                     )

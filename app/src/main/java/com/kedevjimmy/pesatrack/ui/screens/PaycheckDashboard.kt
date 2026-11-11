@@ -384,14 +384,13 @@ private fun PaycheckImportAction(
 ) {
     val shape=RoundedCornerShape(20.dp)
     val onDark=Color.White
-    val darkTheme=MaterialTheme.colorScheme.background.luminance()<.5f
     val foreground=if(manual) MaterialTheme.colorScheme.primary else onDark
     val background=if(manual) MaterialTheme.colorScheme.surfaceContainerLow else DashPurple
     Row(
         Modifier.fillMaxWidth().heightIn(min=68.dp)
             .clip(shape)
             .background(if(manual) Brush.linearGradient(listOf(background,background))
-            else Brush.horizontalGradient(listOf(Color(0xFF6833DB), Color(0xFF4B319C))))
+            else Brush.horizontalGradient(listOf(Color(0xFF845236), PremiumVisualTokens.coffee)))
             .border(1.dp,if(manual) MaterialTheme.colorScheme.outlineVariant
                 else DashPurple.copy(alpha=.7f),shape)
             .clickable(enabled=enabled,onClick=onClick)
@@ -409,7 +408,7 @@ private fun PaycheckImportAction(
             if(!manual) Text(if(Build.VERSION.SDK_INT>=35)
                 "Read locally · private payroll review" else "Requires Android 15+",
                 style=MaterialTheme.typography.labelSmall,
-                color=if(darkTheme)Color(0xFFEEE5FF) else Color.White.copy(alpha=.9f))
+                color=Color.White.copy(alpha=.9f))
         }
         Icon(Icons.Rounded.ChevronRight,null,tint=foreground)
     }

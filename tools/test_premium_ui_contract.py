@@ -11,6 +11,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 THEME = ROOT / "app/src/main/java/com/kedevjimmy/pesatrack/ui/theme"
 SCREENS = ROOT / "app/src/main/java/com/kedevjimmy/pesatrack/ui/screens"
+COMPONENTS = ROOT / "app/src/main/java/com/kedevjimmy/pesatrack/ui/components"
 
 
 def source(path: Path) -> str:
@@ -77,6 +78,35 @@ class PremiumUiContractTest(unittest.TestCase):
         activity = source(SCREENS / "ActivityScreen.kt")
         self.assertNotIn("0xFFEDE6FF", activity)
         self.assertNotIn("0xFFE9E2FF", activity)
+
+    def test_paycheck_import_action_uses_coffee_instead_of_legacy_purple(self):
+        paycheck = source(SCREENS / "PaycheckDashboard.kt")
+        self.assertNotIn("0xFF6833DB", paycheck)
+        self.assertNotIn("0xFF4B319C", paycheck)
+        self.assertIn("PremiumVisualTokens.coffee", paycheck)
+
+    def test_reachable_concept_hero_and_tiles_use_shared_premium_palette(self):
+        concepts = source(COMPONENTS / "ReferenceConceptComponents.kt")
+        for legacy in ("0xFF5B55E7", "0xFF7C6FF2", "0xFF3933A8", "0xFFA69CFF", "0xFFF0EFFF"):
+            with self.subTest(legacy=legacy):
+                self.assertNotIn(legacy, concepts)
+        self.assertIn("PremiumVisualTokens.coffee", concepts)
+        self.assertIn("PremiumVisualTokens.cream", concepts)
+
+    def test_bills_and_goals_illustrated_progress_no_longer_reuses_indigo(self):
+        bills = source(SCREENS / "BillsReferenceScreen.kt")
+        goals = source(SCREENS / "GoalReferenceScreen.kt")
+        self.assertNotIn("0xFF3933A8", bills)
+        for legacy in ("0xFF7C6FF2", "0xFF5B55E7", "0xFF4F46D8"):
+            with self.subTest(legacy=legacy):
+                self.assertNotIn(legacy, goals)
+
+    def test_statement_filters_and_cards_share_premium_surface(self):
+        unified = source(SCREENS / "StatementUnifiedOverviewPage.kt")
+        overview = source(SCREENS / "StatementOverviewPage.kt")
+        self.assertNotIn("Surface(color = Color.White, shape = RoundedCornerShape(14.dp)", unified)
+        self.assertNotIn("color = Color.White,\n        shape = RoundedCornerShape(22.dp)", overview)
+        self.assertNotIn("color = Color.White,\n        shape = RoundedCornerShape(19.dp)", overview)
 
     def test_core_text_colours_reach_wcag_aa_contrast(self):
         palette = source(THEME / "PremiumVisualTokens.kt")

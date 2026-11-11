@@ -128,9 +128,9 @@ private fun goalArtwork(title: String): GoalArtwork {
         "ps5" in text || "playstation" in text || "game" in text ->
             GoalArtwork(
                 Icons.Rounded.SportsEsports,
-                listOf(Color(0xFF243B73), Color(0xFF4A3FB4)),
+                listOf(Color(0xFF242D31), Color(0xFF503B30)),
                 Icons.Rounded.SportsEsports,
-                Color(0xFF7C6FF2)
+                PremiumVisualTokens.leafReadable
             )
         "table" in text || "furniture" in text || "sofa" in text ->
             GoalArtwork(
@@ -144,28 +144,28 @@ private fun goalArtwork(title: String): GoalArtwork {
                 Icons.Rounded.HealthAndSafety,
                 listOf(Color(0xFF533A18), Color(0xFF9A6D25)),
                 Icons.Rounded.HealthAndSafety,
-                Color(0xFF14B8A6)
+                PremiumVisualTokens.leafReadable
             )
         "vacation" in text || "holiday" in text || "travel" in text || "diani" in text ->
             GoalArtwork(
                 Icons.Rounded.BeachAccess,
-                listOf(Color(0xFF2878B8), Color(0xFF5B55E7)),
+                listOf(Color(0xFF2878B8), Color(0xFF356A77)),
                 Icons.Rounded.Flight,
                 Color(0xFF57C7FF)
             )
         "land" in text || "house" in text || "home" in text ->
             GoalArtwork(
                 Icons.Rounded.HomeWork,
-                listOf(Color(0xFF29254F), Color(0xFF5A54A6)),
+                listOf(Color(0xFF302922), PremiumVisualTokens.coffee),
                 Icons.Rounded.Home,
-                Color(0xFF14B8A6)
+                PremiumVisualTokens.leafReadable
             )
         else ->
             GoalArtwork(
                 Icons.Rounded.Savings,
-                listOf(Color(0xFF1A2135), Color(0xFF4F46D8)),
+                listOf(Color(0xFF302922), PremiumVisualTokens.coffee),
                 Icons.Rounded.TrackChanges,
-                Color(0xFF14B8A6)
+                PremiumVisualTokens.leafReadable
             )
     }
 }
@@ -565,7 +565,7 @@ private fun GoalDetailsSheet(
                     .fillMaxWidth()
                     .height(10.dp)
                     .clip(RoundedCornerShape(50.dp)),
-                color = Color(0xFF7C6FF2),
+                color = PremiumVisualTokens.leafReadable,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
             Row(

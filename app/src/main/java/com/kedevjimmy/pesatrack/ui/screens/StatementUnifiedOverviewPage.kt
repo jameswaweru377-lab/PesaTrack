@@ -133,7 +133,7 @@ internal fun StatementUnifiedOverviewPage(
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 Box(Modifier.weight(.42f)) {
-                    Surface(color = Color.White, shape = RoundedCornerShape(14.dp),
+                    Surface(color = PremiumVisualTokens.card, shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth().clickable { yearMenu = true }) {
                         Row(Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
                             verticalAlignment = Alignment.CenterVertically) {
@@ -155,7 +155,7 @@ internal fun StatementUnifiedOverviewPage(
                     }
                 }
                 Box(Modifier.weight(.58f)) {
-                    Surface(color = Color.White, shape = RoundedCornerShape(14.dp),
+                    Surface(color = PremiumVisualTokens.card, shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth().clickable(enabled = accountInventory.accountIds.isNotEmpty()) {
                             accountMenu = true
                         }) {
