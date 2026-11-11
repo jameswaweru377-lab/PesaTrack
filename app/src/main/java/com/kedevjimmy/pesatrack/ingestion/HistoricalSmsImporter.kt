@@ -38,7 +38,9 @@ data class HistoricalImportResult(
     val stateRefreshed: Int = 0,
     val pendingReview: Int = 0,
     val cancelled: Boolean = false,
-    val resumed: Boolean = false
+    val resumed: Boolean = false,
+    val ledgerTransactionsAdded: Int = 0,
+    val otherFinancialRecordsAdded: Int = 0
 )
 
 class HistoricalSmsImporter(
@@ -128,7 +130,7 @@ class HistoricalSmsImporter(
 
         var scanned = 0
         var matched = 0
-        var inserted = 0
+        var recordTotals = HistoricalImportRecordTotals()
         var duplicates = 0
         var ignored = 0
         var understood = 0
@@ -234,7 +236,7 @@ class HistoricalSmsImporter(
                         scanned = scanned,
                         total = total,
                         matched = matched,
-                        inserted = inserted,
+                        inserted = recordTotals.allRecords,
                         duplicates = duplicates,
                         ignored = ignored,
                         resumed = resumed
@@ -333,9 +335,10 @@ class HistoricalSmsImporter(
                         .consumesLegacyTransactionParsing
                 ) {
                     matched += 1
-                    inserted +=
-                        interpreted.insertedTransactions +
-                            interpreted.insertedFinancialEvents
+                    recordTotals = recordTotals.plus(
+                        interpreted.insertedTransactions,
+                        interpreted.insertedFinancialEvents
+                    )
                     if (
                         interpreted.insertedTransactions == 0 &&
                         interpreted.insertedFinancialEvents == 0 &&
@@ -356,9 +359,10 @@ class HistoricalSmsImporter(
                         .handledWithoutLedgerMovement
                 ) {
                     matched += 1
-                    inserted +=
-                        interpreted.insertedTransactions +
-                            interpreted.insertedFinancialEvents
+                    recordTotals = recordTotals.plus(
+                        interpreted.insertedTransactions,
+                        interpreted.insertedFinancialEvents
+                    )
                     continue
                 }
 
@@ -417,7 +421,7 @@ class HistoricalSmsImporter(
                     matched += 1
                     understood += 1
                     if (didInsert) {
-                        inserted += 1
+                        recordTotals = recordTotals.plus(ledgerTransactions = 1, otherFinancialRecords = 0)
                     } else {
                         duplicates += 1
                     }
@@ -500,7 +504,7 @@ class HistoricalSmsImporter(
         return HistoricalImportResult(
             scanned = scanned,
             matched = matched,
-            inserted = inserted,
+            inserted = recordTotals.allRecords,
             duplicates = duplicates,
             ignored = ignored,
             understood = understood,
@@ -509,7 +513,9 @@ class HistoricalSmsImporter(
             pendingReview =
                 pendingReview,
             cancelled = cancelled,
-            resumed = resumed
+            resumed = resumed,
+            ledgerTransactionsAdded = recordTotals.ledgerTransactions,
+            otherFinancialRecordsAdded = recordTotals.otherFinancialRecords
         )
     }
 
