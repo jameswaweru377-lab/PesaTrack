@@ -61,6 +61,16 @@ class ShoppingNanoDraftPolicyTest {
             ShoppingNanoDraftPolicy.reviewableDraft(original, model))
     }
 
+    @Test fun cannotTreatCashierOrCustomerNamesAsProducts() {
+        val original = "Shop\\nSale receipt no 33\\nSold by Joyce\\n" +
+            "Customer James\\nBread 80"
+        assertEquals("1 x Bread @ 80",
+            ShoppingNanoDraftPolicy.reviewableDraft(
+                original,
+                "1 x Joyce\\n1 x James\\n1 x Bread @ 80"
+            ))
+    }
+
     @Test fun promptForbidsGuessingAndExplicitlyRequiresReviewableFormat() {
         val prompt = ShoppingNanoDraftPolicy.prompt("20 tomatoes 60")
         assertEquals(true, prompt.contains("20 tomatoes 60"))
