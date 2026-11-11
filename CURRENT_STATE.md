@@ -10,7 +10,7 @@ amount. With no usable balance, the amount stays unavailable.
 Home offers Add balance and a menu to dismiss the notice or archive an
 individual account from current balance totals. Accounts provides Restore.
 The archive is a local presentation preference and leaves account ownership,
-transactions, transfer review decisions and past Activity balance periods intact.
+transactions, transfer review decisions and past Activity calendar months intact.
 Physical-phone acceptance remains pending.
 
 _Smart financial foreground refresh (10 November 2026; CI and phone acceptance pending):_

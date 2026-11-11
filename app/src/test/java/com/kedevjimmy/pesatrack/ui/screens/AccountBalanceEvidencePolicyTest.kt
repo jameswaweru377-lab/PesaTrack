@@ -1,6 +1,8 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import com.kedevjimmy.pesatrack.data.local.PaydayAccountSnapshot
 import com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality
+import com.kedevjimmy.pesatrack.data.local.PaydaySpendability
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -43,6 +45,19 @@ class AccountBalanceEvidencePolicyTest {
         assertFalse(overflow.complete)
     }
 
+    @Test fun accountsWithTheSameDisplayNameKeepSeparateCoverage() {
+        val first = line("first", 185_000L, PaydayBalanceQuality.OBSERVED)
+            .copy(accountName = "Sample Bank")
+        val second = line("second", null, PaydayBalanceQuality.UNKNOWN)
+            .copy(accountName = "Sample Bank")
+        val summary = accountVerifiedBalanceSummary(listOf(first, second))
+        assertEquals(185_000L, summary.totalMinor)
+        assertEquals(1, summary.recordedCount)
+        assertEquals(2, summary.accountCount)
+        assertFalse(summary.complete)
+    }
+
     private fun line(name: String, balance: Long?, quality: PaydayBalanceQuality) =
-        AccountDisplayLine(name, name, AccountType.BANK, balance, quality)
+        PaydayAccountSnapshot(name, name, AccountType.BANK, balance, quality,
+            referenceEpochMs = 1_000L, spendability = PaydaySpendability.SPENDABLE)
 }

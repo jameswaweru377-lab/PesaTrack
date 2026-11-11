@@ -70,6 +70,6 @@ internal object VerifiedAccountBalancePolicy {
         val distinct = snapshots.distinctBy { it.accountId }
         val amounts = distinct.mapNotNull(::trustedAmount)
         if (amounts.isEmpty() || (!allowPartial && amounts.size != distinct.size)) return null
-        return CheckedMoney.orNull { amounts.fold(0L, CheckedMoney::add) }
+        return CheckedMoney.orNull { CheckedMoney.sum(amounts.asSequence()) }
     }
 }

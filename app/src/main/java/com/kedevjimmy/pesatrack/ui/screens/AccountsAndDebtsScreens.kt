@@ -107,6 +107,7 @@ internal data class AccountBalancePresentation(
 class AccountsScreenCache {
     internal var presentations: List<AccountBalancePresentation> = emptyList()
     internal var archivedAccounts: List<MoneyAccount> = emptyList()
+    internal var balanceSummary = VerifiedAccountBalanceSummary(null, 0, 0)
     internal var debts: List<DebtAccountSnapshot> = emptyList()
     internal var revision: Long = -1L
 }
@@ -189,6 +190,9 @@ fun AccountsScreen(
         }
 
     var archivedAccounts by remember { mutableStateOf(initialCache?.archivedAccounts.orEmpty()) }
+    var balanceSummary by remember {
+        mutableStateOf(initialCache?.balanceSummary ?: VerifiedAccountBalanceSummary(null, 0, 0))
+    }
 
     var accountsLoading by remember { mutableStateOf(initialCache == null) }
     var accountsLoaded by remember { mutableStateOf(initialCache != null) }
@@ -209,7 +213,7 @@ fun AccountsScreen(
         accountsError = false
         val refreshStarted = android.os.SystemClock.elapsedRealtime()
         try {
-        val (loadedPresentations, loadedArchived) =
+        val (loadedPresentations, loadedArchived, loadedSummary) =
             withContext(Dispatchers.IO) {
                 val accounts = traceFinancialRead("accounts.accountList") {
                     accountStore.listAccounts(enabledOnly = true)
@@ -237,7 +241,7 @@ fun AccountsScreen(
                         nowEpochMs = referenceEpochMs
                     ).associateBy { it.accountId }
                 }
-                groups.map { group ->
+                val accountPresentations = groups.map { group ->
                     accountBalancePresentation(
                         group = group,
                         snapshots =
@@ -249,13 +253,16 @@ fun AccountsScreen(
                                     ]
                                 }
                     )
-                } to hidden
+                }
+                Triple(accountPresentations, hidden, accountVerifiedBalanceSummary(allSnapshots.values))
             }
         presentations = loadedPresentations
         archivedAccounts = loadedArchived
+        balanceSummary = loadedSummary
         accountsLoaded = true
         stateCache?.presentations = loadedPresentations
         stateCache?.archivedAccounts = loadedArchived
+        stateCache?.balanceSummary = loadedSummary
         stateCache?.revision = revision
         val elapsed = android.os.SystemClock.elapsedRealtime() - refreshStarted
         if (elapsed > 400L) android.util.Log.i("PesaTrackPerf", "Accounts refresh took ${elapsed}ms")
@@ -296,7 +303,7 @@ fun AccountsScreen(
                 FinancialReadBanner("Accounts", false, true) { accountsRetry++ }
             }
         }
-        item { ApprovedBalanceHero(accountDisplayLines(visible), visible.size, amountsHidden) {
+        item { ApprovedBalanceHero(balanceSummary, amountsHidden) {
             amountsHidden = !amountsHidden
         } }
         if (visible.isEmpty()) item {

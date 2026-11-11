@@ -710,19 +710,12 @@ fun HomeScreen(
         BalanceAccountVisibility(context).archivedAccountIds()
     }
     val balanceAccounts = trackedAccounts.filterNot { it.id in archivedBalanceAccounts }
-    val visibleAccountGroups =
-        AccountDisplayPolicy.groups(
-            balanceAccounts, includeCash = true
-        ).filter { group ->
-            group.accounts.any {
-                AccountDisplayPolicy
-                    .isConfirmedOwned(
-                        account = it,
-                        confirmedAccountIds =
-                            confirmedAccountIds, includeCash = true
-                    )
-            }
-        }
+    val visibleAccountGroups = AccountDisplayPolicy.groups(
+        balanceAccounts.filter {
+            AccountDisplayPolicy.isConfirmedOwned(it, confirmedAccountIds, includeCash = true)
+        },
+        includeCash = true
+    )
     val activeDebtAccounts =
         debtAccounts
             .filter {

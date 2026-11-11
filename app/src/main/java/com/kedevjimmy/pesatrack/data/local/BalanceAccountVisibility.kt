@@ -8,8 +8,9 @@ internal class BalanceAccountVisibility(context: Context) {
     private val preferences = context.applicationContext
         .getSharedPreferences("balance_account_visibility", Context.MODE_PRIVATE)
 
-    fun archivedAccountIds(): Set<String> =
+    fun archivedAccountIds(): Set<String> = synchronized(lock) {
         preferences.getStringSet(ARCHIVED_ACCOUNTS, emptySet()).orEmpty().toSet()
+    }
 
     fun visibleAccounts(accounts: List<MoneyAccount>): List<MoneyAccount> {
         val archived = archivedAccountIds()

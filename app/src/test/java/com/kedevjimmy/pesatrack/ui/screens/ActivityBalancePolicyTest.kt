@@ -62,6 +62,12 @@ class ActivityBalancePolicyTest {
         )))
     }
 
+    @Test fun signedBankAmountsSumBeforeCheckingTheFinalRange() {
+        assertEquals(Long.MAX_VALUE, activityRecordedSpendableBalance(listOf(
+            balance("bank", Long.MAX_VALUE), balance("wallet", 1L), balance("other", -1L)
+        )))
+    }
+
     @Test fun monthlyRecordedAccountBalanceDoesNotAutomaticallyIncludeCash() {
         val accounts = listOf(
             MoneyAccount("wallet", "Sample Wallet", AccountType.MOBILE_WALLET, identifier = "0712000000"),
