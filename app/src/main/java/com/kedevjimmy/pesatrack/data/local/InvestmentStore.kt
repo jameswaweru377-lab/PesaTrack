@@ -6,6 +6,9 @@ import android.database.sqlite.SQLiteDatabase
 import com.kedevjimmy.pesatrack.domain.interpretation.SemanticInvestmentAction
 import com.kedevjimmy.pesatrack.domain.interpretation.SemanticInvestmentFact
 import com.kedevjimmy.pesatrack.domain.interpretation.SemanticInvestmentStage
+import com.kedevjimmy.pesatrack.domain.interpretation.canonicalInvestmentLabel
+import com.kedevjimmy.pesatrack.domain.interpretation.canonicalInvestmentKey
+import com.kedevjimmy.pesatrack.domain.interpretation.legacyOfPrefixInvestmentKey
 
 enum class InvestmentEventType {
     ORDER_SUBMITTED,
@@ -18,6 +21,14 @@ data class ObservedInvestmentPosition(
     val label: String,
     val quantityMicrounits: Long,
     val quality: String
+)
+
+data class ObservedInvestmentEvent(
+    val type: InvestmentEventType,
+    val instrumentLabel: String,
+    val quantityMicrounits: Long,
+    val valueMinor: Long?,
+    val occurredAtEpochMs: Long
 )
 
 data class InvestmentWriteResult(
@@ -47,26 +58,70 @@ class InvestmentStore private constructor(
     private val transactionStore =
         TransactionStore.get(appContext)
 
+    fun submittedOrderCount(): Int = synchronized(CanonicalStoreLock.monitor) {
+        database.readableDatabase.rawQuery(
+            "SELECT COUNT(*) FROM investment_events WHERE event_type = ?",
+            arrayOf(InvestmentEventType.ORDER_SUBMITTED.name)
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getInt(0) else 0
+        }
+    }
+
+    /** Existing local evidence only; pending orders do not change positions. */
+    fun recentEvents(limit: Int = 30): List<ObservedInvestmentEvent> =
+        synchronized(CanonicalStoreLock.monitor) {
+            database.readableDatabase.rawQuery(
+                """SELECT event_type, instrument_label, quantity_microunits, value_minor,
+                   occurred_at_epoch_ms FROM investment_events
+                   ORDER BY occurred_at_epoch_ms DESC, id DESC LIMIT ?""",
+                arrayOf(limit.coerceIn(1, 100).toString())
+            ).use { cursor ->
+                buildList {
+                    while (cursor.moveToNext()) {
+                        val type = runCatching {
+                            InvestmentEventType.valueOf(cursor.getString(0))
+                        }.getOrNull() ?: continue
+                        add(ObservedInvestmentEvent(
+                            type = type,
+                            instrumentLabel = cursor.getString(1),
+                            quantityMicrounits = cursor.getLong(2),
+                            valueMinor = if (cursor.isNull(3)) null else cursor.getLong(3),
+                            occurredAtEpochMs = cursor.getLong(4)
+                        ))
+                    }
+                }
+            }
+        }
+
     fun observedPositions(): List<ObservedInvestmentPosition> =
         synchronized(CanonicalStoreLock.monitor) {
             database.readableDatabase.rawQuery(
                 """
-                SELECT instrument_label, net_observed_quantity_microunits, quality
+                SELECT instrument_key, instrument_label, net_observed_quantity_microunits, quality
                 FROM investment_positions
                 WHERE net_observed_quantity_microunits != 0
                 ORDER BY instrument_label COLLATE NOCASE
                 """.trimIndent(),
                 null
             ).use { cursor ->
-                buildList {
-                    while (cursor.moveToNext()) add(
+                val combined = linkedMapOf<String, ObservedInvestmentPosition>()
+                while (cursor.moveToNext()) {
+                    val key = canonicalInvestmentKey(cursor.getString(0))
+                    val label = canonicalInvestmentLabel(cursor.getString(1))
+                    val units = cursor.getLong(2)
+                    val quality = cursor.getString(3)
+                    val previous = combined[key]
+                    combined[key] = if (previous == null) {
+                        ObservedInvestmentPosition(label, units, quality)
+                    } else {
                         ObservedInvestmentPosition(
-                            label = cursor.getString(0),
-                            quantityMicrounits = cursor.getLong(1),
-                            quality = cursor.getString(2)
+                            label = label,
+                            quantityMicrounits = Math.addExact(previous.quantityMicrounits, units),
+                            quality = if (previous.quality == quality) quality else POSITION_QUALITY_INCOMPLETE
                         )
-                    )
+                    }
                 }
+                combined.values.filter { it.quantityMicrounits != 0L }
             }
         }
 
@@ -91,6 +146,18 @@ class InvestmentStore private constructor(
                 references =
                     normalizedReferences
             )
+        // Protect upgrades: historical grammar included "of " in the
+        // identity. Replaying that same SMS must not add a second holding.
+        val existingByLegacyKey = legacyOfPrefixInvestmentKey(fact.instrumentKey)
+            ?.let { legacyKey ->
+                eventId(buildEventKey(
+                    messageFingerprint = messageFingerprint,
+                    eventType = eventType,
+                    fact = fact.copy(instrumentKey = legacyKey),
+                    references = normalizedReferences
+                ))
+            }
+        val existingEventId = existingByReference ?: existingByLegacyKey
         val eventKey =
             buildEventKey(
                 messageFingerprint = messageFingerprint,
@@ -151,7 +218,7 @@ class InvestmentStore private constructor(
         }
 
         val rowId =
-            if (existingByReference == null) {
+            if (existingEventId == null) {
                 database.writableDatabase
                     .insertWithOnConflict(
                         "investment_events",
@@ -165,7 +232,7 @@ class InvestmentStore private constructor(
 
         val inserted = rowId != -1L
         val eventId =
-            existingByReference
+            existingEventId
                 ?: if (inserted) {
                     rowId
                 } else {
@@ -676,6 +743,7 @@ class InvestmentStore private constructor(
             buildList {
                 add(eventType.name)
                 add(fact.instrumentKey)
+                add(legacyOfPrefixInvestmentKey(fact.instrumentKey) ?: fact.instrumentKey)
                 add(
                     fact.quantityMicrounits
                         .toString()
@@ -694,7 +762,7 @@ class InvestmentStore private constructor(
                 JOIN investment_event_references r
                   ON r.investment_event_id = e.id
                 WHERE e.event_type = ?
-                  AND e.instrument_key = ?
+                  AND e.instrument_key IN (?, ?)
                   AND e.quantity_microunits = ?
                   AND $valueClause
                   AND r.reference_value

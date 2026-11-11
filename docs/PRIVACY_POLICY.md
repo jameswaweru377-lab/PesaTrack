@@ -59,21 +59,13 @@ You can use PesaTrack without granting historical SMS access, although historica
 
 Live financial-notification tracking is optional. If enabled in Android settings, PesaTrack processes supported financial confirmations as they arrive. You can disable notification access from Android settings.
 
-## Optional online merchant lookup
+## Offline merchant identification
 
-Online merchant/entity lookup is off by default.
+Online merchant/entity lookup is disabled. PesaTrack does not request Android internet permission. Business names are identified using local rules and saved evidence.
 
-If you turn it on, PesaTrack may send a sanitized business descriptor to the configured enrichment service to improve merchant naming or branding. Before sending, the app applies a privacy filter intended to reject likely phone numbers, transaction codes, email addresses, long numeric references and likely personal names.
+Previous versions offered optional online merchant lookup. That control is removed and previously saved preferences cannot re-enable remote requests.
 
-PesaTrack does not intentionally send full SMS bodies, transaction amounts, balances, account numbers, phone numbers or transaction/reference codes to this service.
-
-The client also supplies a random install-scoped identifier used only to partition rate limits. It is not an account login or device identifier.
-
-The enrichment Worker may also use the connection IP address supplied by
-Cloudflare **only as a temporary abuse-rate-limit key**. Many legitimate
-mobile users can share one address, so a limit may sometimes affect multiple
-users. This IP is not included in the merchant lookup sent to the upstream
-provider or in app-side records, and PesaTrack does not deliberately log it.
+No business descriptor, SMS text, transaction amount, balance, account number, phone number or reference is sent to a merchant-lookup service by this version. Existing locally cached merchant hints may remain on the device.
 
 ## Backups and exports
 
@@ -83,7 +75,7 @@ CSV, PesaTrack personal PDF reports or other user-requested exports may contain 
 
 ## Advertising, sale and profiling
 
-PesaTrack is not designed to sell financial data or use financial-message content for advertising. Optional enrichment exists only to improve user-facing entity identification.
+PesaTrack is not designed to sell financial data or use financial-message content for advertising. Local merchant identification exists only to improve user-facing entity identification.
 
 ## Retention and deletion
 

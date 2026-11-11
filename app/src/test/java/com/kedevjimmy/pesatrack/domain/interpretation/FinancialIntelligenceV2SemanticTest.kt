@@ -362,6 +362,38 @@ class FinancialIntelligenceV2SemanticTest {
     }
 
     @Test
+    fun ziidiConfirmationWithOfCreatesExecutedShares() {
+        val interpretation = FinancialMessageInterpreter.interpret(
+            title = "Ziidi Trader",
+            body = "You have successfully bought 55 of SCOM shares valued at KES 1,916.75."
+        )
+        val investment = interpretation.semanticAssessment?.investment
+            ?: error("Expected a confirmed share purchase")
+        assertEquals(SemanticInvestmentStage.EXECUTED, investment.stage)
+        assertEquals(55_000_000L, investment.quantityMicrounits)
+        assertEquals("SCOM", investment.instrumentLabel)
+        assertEquals(191_675L, investment.valueMinor)
+    }
+
+    @Test
+    fun ipoPaymentReceiptDoesNotInventAllottedShares() {
+        val interpretation = FinancialMessageInterpreter.interpret(
+            title = "Issuer Registrars",
+            body = "Dear shareholder, we confirm receipt of payment of KES 3,000 for SAMPLE initial public offer. Reference ABC12345."
+        )
+        assertEquals(null, interpretation.semanticAssessment?.investment)
+    }
+
+    @Test
+    fun gdrApplicationDoesNotInventExecutedHolding() {
+        val interpretation = FinancialMessageInterpreter.interpret(
+            title = "Broker",
+            body = "You have successfully applied for 10 EXAMPLE GDR valued at KES 53.55."
+        )
+        assertEquals(null, interpretation.semanticAssessment?.investment)
+    }
+
+    @Test
     fun submittedInvestmentOrderExtractsPendingFactsOnly() {
         val interpretation =
             FinancialMessageInterpreter.interpret(

@@ -156,7 +156,7 @@ object FinancialSemanticAnalyzer {
     )
 
     private val investmentExecutionDetailsRegex = Regex(
-        """\b(?:successfully\s+)?(bought|sold)\s+([0-9]+(?:\.\d{1,6})?)\s+([A-Za-z][A-Za-z0-9.&'’()/_-]*(?:\s+[A-Za-z0-9.&'’()/_-]+){0,4})\s+(?:shares?|stocks?|units?)\b""",
+        """\b(?:successfully\s+)?(bought|sold)\s+([0-9]+(?:\.\d{1,6})?)\s+(?:of\s+)?([A-Za-z][A-Za-z0-9.&'’()/_-]*(?:\s+[A-Za-z0-9.&'’()/_-]+){0,4})\s+(?:shares?|stocks?|units?)\b""",
         RegexOption.IGNORE_CASE
     )
 

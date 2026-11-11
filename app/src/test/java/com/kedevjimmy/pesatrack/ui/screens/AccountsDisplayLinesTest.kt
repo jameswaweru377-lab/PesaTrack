@@ -1,6 +1,9 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality
+import com.kedevjimmy.pesatrack.data.local.InvestmentEventType
+import com.kedevjimmy.pesatrack.data.local.ObservedInvestmentEvent
+import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
@@ -73,6 +76,24 @@ class AccountsDisplayLinesTest {
         assertEquals("Safaricom", investmentCompanyName("SCOM"))
         assertEquals("SCOM", investmentTicker("Safaricom PLC"))
         assertEquals("KCB Group", investmentCompanyName("KCB"))
-        assertEquals("NSE", investmentTicker("Acme Investment Fund"))
+        assertEquals("INV", investmentTicker("Acme Investment Fund"))
+        assertEquals("Kenya Power", investmentCompanyName("KPLC"))
+        assertEquals("Ziidi Money Market Fund", investmentCompanyName("ZIIDI"))
+    }
+
+    @Test
+    fun investmentLogosUseLocallyBundledKnownBrandsOnly() {
+        assertEquals(R.drawable.investment_safaricom_mark, investmentBrandDrawable("SCOM"))
+        assertEquals(R.drawable.investment_kenya_power_mark, investmentBrandDrawable("KPLC"))
+        assertEquals(R.drawable.investment_ziidi_mark, investmentBrandDrawable("Ziidi"))
+        assertNull(investmentBrandDrawable("Unknown PLC"))
+    }
+
+    @Test
+    fun submittedInvestmentIsLabelledAsOrderNotConfirmedHolding() {
+        val submitted = ObservedInvestmentEvent(
+            InvestmentEventType.ORDER_SUBMITTED, "SCOM", 55_000_000L, 191_675L, 1L
+        )
+        assertEquals("Order submitted", investmentEventTitle(submitted))
     }
 }

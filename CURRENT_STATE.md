@@ -1,5 +1,13 @@
 # PesaTrack Current State
 
+_Investment review corrections (11 November 2026; CI pending):_
+Investment replay now recognises the legacy `instrument:OF_SCOM` identity from older "bought 55 of SCOM shares" parsing as equivalent to `instrument:SCOM`, including reference-based matches and message-fingerprint event keys. Existing position rows for those aliases are grouped for display without deleting or rewriting historical events. The submitted-order metric reads a full-table count, rather than counting only the 30 most recent history entries. Added pure unit regressions for identity aliases and labels. Android CI and installed-phone replay remain unverified.
+
+_Investment portfolio visual redesign (10 November 2026; Android CI pending):_
+The Accounts Investments page uses the approved warm coffee-and-cream style with a locally bundled money-growth seedling hero and locally bundled Safaricom, Kenya Power and Ziidi marks for safely recognised labels. Unknown instruments keep a neutral ticker fallback. Confirmed observed units and local investment-event history are shown separately from submitted orders. Portfolio value and cost remain unavailable rather than guessed; dividend, IPO allotment, manual investment entry and investment-specific statement imports still need dedicated evidence and flows. No changes to financial postings, schema, account balance totals, navigation or remote access. Physical-phone layout acceptance remains the owner's manual check.
+
+_Offline investment parsing and network lockdown (10 November 2026; verification pending):_
+Accounts keeps displaying observed net investment units from confirmed executions, without inventing a current market valuation. The semantic parser now accepts Ziidi-style "bought 55 of SCOM shares" confirmations in addition to previous wording. Submitted orders and IPO payment/application messages do not establish confirmed holdings. Online merchant lookups are disabled even for persisted old jobs; the app no longer declares internet permission and the privacy screen no longer offers the online toggle. The existing ledger, accounting classifications and backup schema remain unchanged. JVM tests, merged manifest, CI and phone behaviour are not yet verified.
 _Partial recorded balances and Home account notice (11 November 2026):_
 Home and Plan show spendable money from usable recorded account balances after
 unpaid bills and identify partial coverage. They retain the 14-day freshness
