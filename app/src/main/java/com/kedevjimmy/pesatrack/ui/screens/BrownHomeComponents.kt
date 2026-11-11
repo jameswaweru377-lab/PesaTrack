@@ -357,13 +357,37 @@ internal fun BrownHomeReviewStatus(pending: Int?, onReview: () -> Unit) {
         Icon(if (pending != null && pending > 0) Icons.Rounded.NotificationsActive
              else Icons.Rounded.CheckCircleOutline, null, Modifier.size(21.dp), tint = p.coffee)
         Column(Modifier.weight(1f)) {
-            Text(if (pending == null) "Review status unavailable" else if (pending > 0)
-                "$pending item${if (pending == 1) "" else "s"} need review"
-                else "You're all caught up", color = p.ink, fontSize = 12.sp,
+            Text("Quick Review", color = p.ink, fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold)
-            Text(if (pending == 0) "Nothing currently needs review" else "Review your transactions",
+            Text(homeQuickReviewTitle(pending),
                 color = p.muted, fontSize = 10.sp)
         }
         Icon(Icons.Rounded.ChevronRight, "Review", Modifier.size(19.dp), tint = p.coffee)
+    }
+}
+
+@Composable
+internal fun BrownHomeFinancialInsight(
+    guidance: List<HomeGuidanceAction>,
+    trustedRowCount: Int,
+    onOpenReports: () -> Unit
+) {
+    val p = BrownHomePalette
+    val (headline, description) = homeInsightCardText(guidance, trustedRowCount)
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+        .background(p.cream).clickable(onClick = onOpenReports)
+        .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Icon(Icons.Rounded.Insights, null, Modifier.size(21.dp), tint = p.coffee)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("Financial Insights", color = p.ink, fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold)
+            Text(headline, color = p.ink, fontSize = 11.sp,
+                fontWeight = FontWeight.Medium)
+            Text(description, color = p.muted, fontSize = 10.sp,
+                maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        Icon(Icons.Rounded.ChevronRight, "Open reports", Modifier.size(19.dp), tint = p.coffee)
     }
 }
