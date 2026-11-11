@@ -280,8 +280,9 @@ internal fun ApprovedAccountActivity(rows: List<StoredTransaction>, accountNames
 
 @Composable
 internal fun ApprovedInvestmentsPage(padding: PaddingValues,
-    positions: List<ObservedInvestmentPosition>, events: List<ObservedInvestmentEvent>, onBack: () -> Unit) {
-    InvestmentPortfolioContent(padding, positions, events, onBack)
+    positions: List<ObservedInvestmentPosition>, events: List<ObservedInvestmentEvent>,
+    submittedOrders: Int, onBack: () -> Unit) {
+    InvestmentPortfolioContent(padding, positions, events, submittedOrders, onBack)
 }
 
 internal fun investmentCompanyName(label: String): String = when {

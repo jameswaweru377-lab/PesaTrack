@@ -54,6 +54,7 @@ internal fun InvestmentPortfolioContent(
     padding: PaddingValues,
     positions: List<ObservedInvestmentPosition>,
     events: List<ObservedInvestmentEvent>,
+    submittedOrders: Int,
     onBack: () -> Unit
 ) {
     LazyColumn(
@@ -79,7 +80,7 @@ internal fun InvestmentPortfolioContent(
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 InvestmentMetric("${positions.size}", "Observed holdings", Modifier.weight(1f))
-                InvestmentMetric("${events.count { it.type == InvestmentEventType.ORDER_SUBMITTED }}",
+                InvestmentMetric("$submittedOrders",
                     "Orders submitted", Modifier.weight(1f))
             }
         }

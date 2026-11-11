@@ -149,6 +149,7 @@ fun AccountsScreen(
     val transactionStore = remember { TransactionStore.get(context) }
     var observedInvestments by remember { mutableStateOf<List<ObservedInvestmentPosition>>(emptyList()) }
     var investmentEvents by remember { mutableStateOf<List<ObservedInvestmentEvent>>(emptyList()) }
+    var submittedInvestmentOrders by remember { mutableIntStateOf(0) }
     var recentAccountActivity by remember { mutableStateOf<List<StoredTransaction>>(emptyList()) }
     val ledgerUpdateState by
         LedgerUpdateBus.state.collectAsState()
@@ -162,6 +163,7 @@ fun AccountsScreen(
                 val owned = understandingStore.confirmedAccountIds()
                 val positions = investmentStore.observedPositions()
                 val events = investmentStore.recentEvents()
+                val orderCount = investmentStore.submittedOrderCount()
                 val movements = transactionStore.recent(250).filter { tx ->
                     tx.reviewState != "EXCLUDED" && (
                         (tx.direction == "TRANSFER" && tx.accountId != null && owned.contains(tx.accountId) &&
@@ -170,11 +172,12 @@ fun AccountsScreen(
                             (tx.category.equals("Salary", true) || tx.type.contains("SALARY", true)))
                     )
                 }.take(3)
-                Triple(positions, movements, events)
+                Triple(positions, movements, events to orderCount)
             }
             observedInvestments = fresh.first
             recentAccountActivity = fresh.second
-            investmentEvents = fresh.third
+            investmentEvents = fresh.third.first
+            submittedInvestmentOrders = fresh.third.second
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (failure: Exception) {
@@ -262,7 +265,7 @@ fun AccountsScreen(
         return
     }
     if (showInvestmentPositions) {
-        ApprovedInvestmentsPage(scaffoldPadding, observedInvestments, investmentEvents) {
+        ApprovedInvestmentsPage(scaffoldPadding, observedInvestments, investmentEvents, submittedInvestmentOrders) {
             showInvestmentPositions = false
         }
         return
