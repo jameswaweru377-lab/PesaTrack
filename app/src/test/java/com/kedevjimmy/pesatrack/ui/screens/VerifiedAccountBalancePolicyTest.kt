@@ -28,7 +28,7 @@ class VerifiedAccountBalancePolicyTest {
         val accounts = listOf(bank, wallet, locked)
         val confirmed = accounts.map { it.id }.toSet()
         val planInputs = VerifiedAccountBalancePolicy.planAccounts(accounts, confirmed, snapshots, now)
-        val plan = PlanSpendableBalancePolicy.calculate(planInputs, 200_000L)
+        val plan = PlanSpendableBalancePolicy.calculate(planInputs, 200_000L, nowEpochMs = now)
 
         assertEquals(3_500_000L, activityRecordedSpendableBalance(snapshots))
         assertEquals(3_500_000L, plan.liquidMinor)
@@ -43,15 +43,15 @@ class VerifiedAccountBalancePolicyTest {
         val missing = VerifiedAccountBalancePolicy.planAccounts(accounts,
             setOf("bank", "wallet"), snapshots, now)
         assertEquals(2, missing.size)
-        assertNull(PlanSpendableBalancePolicy.calculate(missing, 0L).spendableMinor)
+        assertEquals(600_000L, PlanSpendableBalancePolicy.calculate(missing, 0L, nowEpochMs = now).spendableMinor)
 
         val reconstructed = listOf(snapshot("bank", 200_000L,
             quality = PaydayBalanceQuality.RECONSTRUCTED), snapshot("wallet", 600_000L))
         val plan = VerifiedAccountBalancePolicy.planAccounts(accounts,
             setOf("bank", "wallet"), reconstructed, now)
         assertNull(plan.single { it.id == "bank" }.balanceMinor)
-        assertNull(VerifiedAccountBalancePolicy.spendableTotal(reconstructed))
-        assertNull(PlanSpendableBalancePolicy.calculate(plan, 0L).spendableMinor)
+        assertEquals(600_000L, VerifiedAccountBalancePolicy.spendableTotal(reconstructed))
+        assertEquals(600_000L, PlanSpendableBalancePolicy.calculate(plan, 0L, nowEpochMs = now).spendableMinor)
     }
 
     @Test fun `old or conflicting evidence requires review without overwriting the history`() {
@@ -59,7 +59,7 @@ class VerifiedAccountBalancePolicyTest {
         val stale = VerifiedAccountBalancePolicy.planAccounts(listOf(wallet),
             setOf("wallet"), listOf(old), now)
         assertTrue(stale.single().provisional)
-        assertNull(PlanSpendableBalancePolicy.calculate(stale, 0L).spendableMinor)
+        assertNull(PlanSpendableBalancePolicy.calculate(stale, 0L, nowEpochMs = now).spendableMinor)
 
         val conflicting = listOf(snapshot("wallet", 600_000L), snapshot("wallet", 200_000L))
         assertNull(VerifiedAccountBalancePolicy.spendableTotal(conflicting))

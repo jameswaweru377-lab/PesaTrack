@@ -29,6 +29,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -164,6 +165,10 @@ private fun ApprovedPlanMoneyCard(data: PlanJourneyView, onDetails: () -> Unit) 
                     Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = p.coffee,
                         modifier = Modifier.size(20.dp))
                 }
+                if (data.spendablePartial) {
+                    Text("Some account balances are excluded.", color = p.coffee,
+                        style = MaterialTheme.typography.labelMedium)
+                }
                 HorizontalDivider(color = p.coffee.copy(alpha = 0.33f))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     ApprovedPlanMiniMoney("Total accounts", data.totalAccounts ?: "—", Modifier.weight(1f))
@@ -178,8 +183,8 @@ private fun ApprovedPlanMoneyCard(data: PlanJourneyView, onDetails: () -> Unit) 
         text = { Text("Spendable uses recorded balances from your accounts, excludes protected " +
             "savings and reserves unpaid bills for this month. It is an estimate, not a live " +
             "bank balance. PesaTrack refreshes its local view when the app reopens after an " +
-            "update or a longer break; it cannot fetch a missing bank balance. If an account " +
-            "balance is missing or old, check it in Accounts.") },
+            "update or a longer break. A partial amount uses the current recorded balances " +
+            "available to PesaTrack. Add or update missing or old balances in Accounts.") },
         confirmButton = { TextButton(onClick = { info = false }) { Text("Got it") } })
 }
 

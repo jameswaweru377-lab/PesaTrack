@@ -166,7 +166,7 @@ data class ActivityCoreData(
     val previousSnapshot: ActivityLedgerSnapshot,
     val accountsById: Map<String, MoneyAccount>,
     val confirmedAccountIds: Set<String>,
-    val recordedBalanceMinor: Long? = null
+    val recordedBalance: ActivityRecordedBalance? = null
 )
 
 data class ActivitySupplementalData(
@@ -190,7 +190,7 @@ data class ActivityScreenData(
     val confirmedAccountIds: Set<String>,
     val identityReviewCount: Int,
     val ownershipEvidence: Map<String, OwnershipReviewEvidence> = emptyMap(),
-    val recordedBalanceMinor: Long? = null
+    val recordedBalance: ActivityRecordedBalance? = null
 )
 
 class ActivityScreenCache {
@@ -317,8 +317,8 @@ fun ActivityScreen(
                 ?: emptyActivityLedgerSnapshot()
         )
     }
-    var recordedBalanceMinor by remember {
-        mutableStateOf(warmData?.recordedBalanceMinor ?: warmedCore?.recordedBalanceMinor)
+    var recordedBalance by remember {
+        mutableStateOf(warmData?.recordedBalance ?: warmedCore?.recordedBalance)
     }
     var activityError by remember { mutableStateOf(false) }
     var loadedMonthEpochMs by remember { mutableStateOf<Long?>(if (warmData != null || warmedCore != null) warmMonth else null) }
@@ -498,7 +498,7 @@ fun ActivityScreen(
             core.accountsById
         confirmedAccountIds =
             core.confirmedAccountIds
-        recordedBalanceMinor = core.recordedBalanceMinor
+        recordedBalance = core.recordedBalance
     }
 
     fun applyActivitySupplementalData(
@@ -551,7 +551,7 @@ fun ActivityScreen(
                         core.accountsById,
                     confirmedAccountIds =
                         core.confirmedAccountIds,
-                    recordedBalanceMinor = core.recordedBalanceMinor,
+                    recordedBalance = core.recordedBalance,
                     identityReviewCount =
                         supplemental
                             .identityReviewCount
@@ -952,7 +952,7 @@ fun ActivityScreen(
             item(key = "activity-period-overview") {
                 Box(Modifier.padding(bottom = 8.dp)) {
                     BrownActivityMonthlyHero(
-                        displaySnapshot ?: snapshot, payCycleMode, recordedBalanceMinor
+                        displaySnapshot ?: snapshot, payCycleMode, recordedBalance
                     )
                 }
             }

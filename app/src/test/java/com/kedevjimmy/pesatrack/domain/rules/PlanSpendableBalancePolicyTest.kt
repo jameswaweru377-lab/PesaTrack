@@ -23,7 +23,7 @@ class PlanSpendableBalancePolicyTest {
         assertFalse(value.needsReview)
     }
 
-    @Test fun `unknown liquid account prevents misleading spendable total`() {
+    @Test fun `known spendable balance survives an unknown account`() {
         val value = PlanSpendableBalancePolicy.calculate(
             listOf(
                 PlanSpendableAccount("equity", null, isProtected = false),
@@ -31,8 +31,37 @@ class PlanSpendableBalancePolicyTest {
             ),
             upcomingBillsMinor = 50_000L
         )
-        assertNull(value.spendableMinor)
+        assertEquals(450_000L, value.spendableMinor)
+        assertTrue(value.spendablePartial)
+        assertNull(value.totalAccountsMinor)
         assertTrue(value.needsReview)
+    }
+
+    @Test fun `stale evidence does not hide a fresh recorded zero`() {
+        val accounts = listOf(
+            PlanSpendableAccount("stale", 500_000L, isProtected = false, provisional = true),
+            PlanSpendableAccount("wallet", 0L, isProtected = false)
+        )
+        assertEquals(0L, PlanSpendableBalancePolicy.calculate(accounts, 0L).spendableMinor)
+        assertNull(PlanSpendableBalancePolicy.calculate(accounts.take(1), 0L).spendableMinor)
+        assertNull(PlanSpendableBalancePolicy.calculate(accounts, null).spendableMinor)
+    }
+
+    @Test fun `cached recorded balance stops being spendable after the cutoff`() {
+        val accounts = listOf(
+            PlanSpendableAccount("bank", -15_000L, isProtected = false, freshThroughEpochMs = 2_000L),
+            PlanSpendableAccount("wallet", 20_000L, isProtected = false)
+        )
+        val atCutoff = PlanSpendableBalancePolicy.calculate(accounts, 0L, nowEpochMs = 2_000L)
+        assertEquals(5_000L, atCutoff.spendableMinor)
+        assertFalse(atCutoff.spendablePartial)
+        val expired = PlanSpendableBalancePolicy.calculate(accounts, 25_000L, nowEpochMs = 2_001L)
+        assertEquals(0L, expired.spendableMinor)
+        assertTrue(expired.spendablePartial)
+        assertNull(PlanSpendableBalancePolicy.calculate(
+            accounts + PlanSpendableAccount("conflict", null, isProtected = false, conflicting = true),
+            0L, nowEpochMs = 2_000L
+        ).spendableMinor)
     }
 
     @Test fun `uncertain protected savings stay unavailable without reducing spendable cash`() {
