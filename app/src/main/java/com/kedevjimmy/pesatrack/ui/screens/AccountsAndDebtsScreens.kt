@@ -149,7 +149,7 @@ fun AccountsScreen(
     val transactionStore = remember { TransactionStore.get(context) }
     var observedInvestments by remember { mutableStateOf<List<ObservedInvestmentPosition>>(emptyList()) }
     var investmentEvents by remember { mutableStateOf<List<ObservedInvestmentEvent>>(emptyList()) }
-    var submittedInvestmentOrders by remember { mutableIntStateOf(0) }
+    var submittedInvestmentOrders by remember { mutableStateOf(0) }
     var recentAccountActivity by remember { mutableStateOf<List<StoredTransaction>>(emptyList()) }
     val ledgerUpdateState by
         LedgerUpdateBus.state.collectAsState()
