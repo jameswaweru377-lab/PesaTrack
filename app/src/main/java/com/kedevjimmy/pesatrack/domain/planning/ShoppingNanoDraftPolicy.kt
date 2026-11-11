@@ -43,7 +43,6 @@ object ShoppingNanoDraftPolicy {
     fun reviewableDraft(ocrText: String, modelText: String): String? {
         if (ocrText.isBlank() || modelText.isBlank() || modelText.length > MAX_RESPONSE) return null
         val source = ocrText.take(MAX_SOURCE).lowercase(Locale.ROOT).replace(",", "")
-        val sourceWords = words.findAll(source).map { it.value }.toSet()
         val sourceLines = source.lines().map { it.trim() }.filter { it.isNotEmpty() }
         val isReceipt = sourceLines.take(5).any {
             it.contains("receipt") || it.contains("invoice") || it.contains("sold by")
@@ -59,15 +58,31 @@ object ShoppingNanoDraftPolicy {
             if (isReceipt && firstLine.startsWith(candidate.name.lowercase(Locale.ROOT))) {
                 return@mapNotNull null
             }
-            if (words.findAll(candidate.name.lowercase(Locale.ROOT))
-                    .map { it.value }.any { it !in sourceWords }) return@mapNotNull null
-            val quantity = match.groupValues[1]
-            if (quantity != "1" && !Regex("(?<!\\d)${Regex.escape(quantity)}(?!\\d)")
-                    .containsMatchIn(source)) return@mapNotNull null
+            val nameWords = words.findAll(candidate.name.lowercase(Locale.ROOT))
+                .map { it.value }.toList()
+            // Evidence must come from this item's line, not another item, total or footer.
+            val itemLines = sourceLines.filter { sourceLine ->
+                val lineWords = words.findAll(sourceLine).map { it.value }.toList()
+                val nameIndex = lineWords.windowed(nameWords.size).indexOfFirst { it == nameWords }
+                if (nameIndex < 0) return@filter false
+                val countIndex = if (lineWords.getOrNull(nameIndex - 1) == "x") nameIndex - 2
+                    else nameIndex - 1
+                val sourceCount = lineWords.getOrNull(countIndex)?.toIntOrNull()
+                (sourceCount == null || sourceCount == candidate.quantity) &&
+                    (candidate.quantity == 1 || sourceCount == candidate.quantity)
+            }
+            if (itemLines.isEmpty()) return@mapNotNull null
             val price = match.groupValues[3].replace(",", "")
             if (price.isNotEmpty() && !Regex("(?<![\\d.])${Regex.escape(price)}(?![\\d.])")
                     .containsMatchIn(source)) return@mapNotNull null
-            line
+            if (price.isEmpty()) return@mapNotNull line
+            val amount = Regex("(?<![\\d.])${Regex.escape(price)}(?![\\d.])")
+            val markedUnitPrice = Regex("@\\s*(?:(?:ksh|kes|sh)\\.?\\s*)?${Regex.escape(price)}(?![\\d.])")
+            val grounded = itemLines.any { sourceLine ->
+                amount.containsMatchIn(sourceLine) &&
+                    (candidate.quantity == 1 || markedUnitPrice.containsMatchIn(sourceLine))
+            }
+            if (grounded) line else line.substringBeforeLast(" @").trim()
         }.toList()
         return verified.takeIf { it.isNotEmpty() }?.joinToString("\n")
     }
