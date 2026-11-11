@@ -1494,6 +1494,9 @@ fun HomeScreen(
                 selectedSpending?.let(::formatMoney) ?: "Unavailable",
                 onReportsClick, onMonth = { showHomeMonthPicker = true })
         }
+        item(key = "brown-financial-insights") {
+            BrownHomeFinancialInsight(financialHealth.actions, trustedRows, onReportsClick)
+        }
         item(key = "brown-recent") {
             BrownHomeRecent(monthTransactions, ::formatMoney,
                 onTransactionClick, onActivityClick)
