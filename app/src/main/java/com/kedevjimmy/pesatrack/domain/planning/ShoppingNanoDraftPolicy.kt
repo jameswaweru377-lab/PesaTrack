@@ -44,6 +44,9 @@ object ShoppingNanoDraftPolicy {
         if (ocrText.isBlank() || modelText.isBlank() || modelText.length > MAX_RESPONSE) return null
         val source = ocrText.take(MAX_SOURCE).lowercase(Locale.ROOT).replace(",", "")
         val sourceLines = source.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        // Receipt labels can contain real-looking names or numbers. They are not
+        // evidence that Nano's proposed shopping item actually exists.
+        val productEvidenceLines = sourceLines.filterNot { receiptMetadata.matches(it) }
         val isReceipt = sourceLines.take(5).any {
             it.contains("receipt") || it.contains("invoice") || it.contains("sold by")
         }
@@ -61,7 +64,7 @@ object ShoppingNanoDraftPolicy {
             val nameWords = words.findAll(candidate.name.lowercase(Locale.ROOT))
                 .map { it.value }.toList()
             // Evidence must come from this item's line, not another item, total or footer.
-            val itemLines = sourceLines.filter { sourceLine ->
+            val itemLines = productEvidenceLines.filter { sourceLine ->
                 val lineWords = words.findAll(sourceLine).map { it.value }.toList()
                 val nameIndex = lineWords.windowed(nameWords.size).indexOfFirst { it == nameWords }
                 if (nameIndex < 0) return@filter false
