@@ -18,6 +18,25 @@ class ShoppingNanoDraftPolicyTest {
             ShoppingNanoDraftPolicy.reviewableDraft(original, "20 x tomatoes"))
     }
 
+    @Test fun doesNotPromoteAmbiguousMultiItemTotalToUnitPrice() {
+        assertEquals("20 x tomatoes",
+            ShoppingNanoDraftPolicy.reviewableDraft("20 tomatoes 60", "20 x tomatoes @ 60"))
+        assertEquals("20 x tomatoes @ 60",
+            ShoppingNanoDraftPolicy.reviewableDraft("20 tomatoes @ 60", "20 x tomatoes @ 60"))
+    }
+
+    @Test fun cannotBorrowPriceFromAnotherProductOrReceiptTotal() {
+        val receipt = "Bread 80\nMilk 250\nTotal 330"
+        assertEquals("1 x Bread",
+            ShoppingNanoDraftPolicy.reviewableDraft(receipt, "1 x Bread @ 250"))
+        assertEquals("1 x Bread",
+            ShoppingNanoDraftPolicy.reviewableDraft(receipt, "1 x Bread @ 330"))
+    }
+
+    @Test fun cannotInventSingleItemWhenSourceExplicitlyHasTwenty() {
+        assertNull(ShoppingNanoDraftPolicy.reviewableDraft("20 tomatoes 60", "1 x tomatoes @ 60"))
+    }
+
     @Test fun rejectsInventedProductOrInventedAmount() {
         assertNull(ShoppingNanoDraftPolicy.reviewableDraft("Bread 80", "1 x Milk @ 80"))
         assertNull(ShoppingNanoDraftPolicy.reviewableDraft("Bread 80", "1 x Bread @ 950"))
