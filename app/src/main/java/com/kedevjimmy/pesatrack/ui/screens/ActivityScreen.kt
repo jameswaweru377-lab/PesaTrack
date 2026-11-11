@@ -466,35 +466,24 @@ fun ActivityScreen(
     suspend fun loadActivitySupplementalData():
         ActivitySupplementalData =
         withContext(Dispatchers.IO) {
-            val evidence = financialStore.ownershipReviewEvidence()
-            ActivitySupplementalData(
-                ownershipEvidence = evidence,
-                globalOverview =
-                    store.activityReviewOverview(
-                        performMaintenance =
-                            false
-                    ),
-                relationshipReviews =
-                    relationshipReviewStore
-                        .pendingReviews(),
-                pendingFinancialEntities =
-                    financialStore
-                        .pendingEntities().filter { evidence[it.entityKey]?.canAsk == true }.distinctBy { it.entityKey },
-                financialDiagnostics =
-                    diagnosticsStore
-                        .recent(500)
-                        .filter {
-                            it.code !=
-                                FinancialIngestionDiagnosticCode
-                                    .IGNORED_NON_FINANCIAL
-                        },
-                identityReviewCount =
-                    identityGraphStore
-                        .pendingReviewPrompts(
-                            limit = 100,
-                            includeOptional = false
-                        )
-                        .size
+            loadActivitySupplementalSafely(
+                reviewOverview = { store.activityReviewOverview(performMaintenance = false) },
+                ownershipEvidence = { financialStore.ownershipReviewEvidence() },
+                relationships = { relationshipReviewStore.pendingReviews() },
+                financialEntities = { financialStore.pendingEntities() },
+                diagnostics = { diagnosticsStore.recent(500) },
+                identityCount = {
+                    identityGraphStore.pendingReviewPrompts(
+                        limit = 100,
+                        includeOptional = false
+                    ).size
+                },
+                onOptionalFailure = { source ->
+                    android.util.Log.w(
+                        "PesaTrackActivity",
+                        "Optional Activity reader unavailable: $source"
+                    )
+                }
             )
         }
 
@@ -897,6 +886,16 @@ fun ActivityScreen(
     }
     LaunchedEffect(selectedMonthEpochMs, payCycleMode, chosenCycle?.startTransactionId) {
         activityListState.scrollToItem(0)
+    }
+    // The attention card changes the active filter; bring the review rows into
+    // view so the tap does not appear to return to the same Activity screen.
+    LaunchedEffect(selectedFilter, selectedGlobalQueue) {
+        if (selectedFilter == "Needs Review" && selectedGlobalQueue == "Attention") {
+            val firstReviewItem = 5 + if (showExtraFilters) 2 else 0
+            if (activityListState.layoutInfo.totalItemsCount > firstReviewItem) {
+                activityListState.animateScrollToItem(firstReviewItem)
+            }
+        }
     }
 
     Column(
