@@ -69,6 +69,16 @@ encrypted-backup format. The bundled OCR model adds approximately 4 MB to the
 app; measure the actual signed APK impact in CI. Handwriting/complex receipts,
 OCR recognition quality and real-device layout remain unverified.
 
+_Optional Gemini Nano shopping interpretation (10 November 2026; PR CI and phone acceptance pending):_
+After bundled offline OCR, shopping-photo review may use Android AICore's Gemini Nano
+to propose editable product lines on supported phones with the model already available.
+Untrusted Nano suggestions are restricted to items, quantities and prices present in
+the recognized text. If unavailable, not downloaded, slow, or unsuccessful, the
+original OCR transcript remains the review draft. PesaTrack does not download a
+Nano model automatically, send a receipt off-device, write to the financial ledger,
+or bypass explicit user approval. Gemini Nano support on the owner's Redmi Note 14
+and real-world extraction quality remain unverified.
+
 _M-Pesa reported-balance authority and manual account balance entry (10 November 2026; CI and phone acceptance pending):_
 The Accounts list and individual account details now expose an Add/Update
 Balance action using the existing local, dated balance-observation writer.
