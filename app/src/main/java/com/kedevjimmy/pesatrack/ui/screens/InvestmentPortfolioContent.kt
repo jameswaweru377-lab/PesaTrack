@@ -30,6 +30,7 @@ import com.kedevjimmy.pesatrack.data.local.ObservedInvestmentPosition
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 
 private val brown = Color(0xFF552510)
 private val secondaryBrown = Color(0xFF846554)
