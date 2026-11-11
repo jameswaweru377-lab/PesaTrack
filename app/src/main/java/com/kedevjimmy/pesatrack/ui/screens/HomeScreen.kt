@@ -457,7 +457,7 @@ fun HomeScreen(
                     Triple(activity, shares, spendingByCategory)
                 }
             }
-            val budgets = budgetStore.list()
+            val budgets = traceFinancialRead("home.budgets") { budgetStore.list() }
             HomeCoreState(
                 cycleSnapshot = traceFinancialRead("home.payCycleSnapshot") {
                     cycleStore.snapshot()
@@ -467,26 +467,20 @@ fun HomeScreen(
                 },
                 activitySnapshot = activityData.first,
                 receivableShares = activityData.second,
-                debtAccounts =
-                    debtStore.accounts(),
+                debtAccounts = traceFinancialRead("home.debts") { debtStore.accounts() },
                 trackedAccounts =
                     accounts,
                 monthlyBudgets = budgets,
                 budgetSpendingByCategory = activityData.third,
-                confirmedAccountIds =
-                    financialStore
-                        .confirmedAccountIds(),
-                salaryRule =
-                    ruleStore
-                        .listRules(
-                            enabledOnly = true
-                        )
-                        .firstOrNull {
-                            it.startsPayCycle
-                        },
-                upcomingBills =
-                    billSchedules
-                        .upcomingThisMonth(),
+                confirmedAccountIds = traceFinancialRead("home.accountOwnership") {
+                    financialStore.confirmedAccountIds()
+                },
+                salaryRule = traceFinancialRead("home.salaryRules") {
+                    ruleStore.listRules(enabledOnly = true).firstOrNull { it.startsPayCycle }
+                },
+                upcomingBills = traceFinancialRead("home.upcomingBills") {
+                    billSchedules.upcomingThisMonth()
+                },
                 accountBalanceSnapshots =
                     balanceSnapshots
             )
@@ -498,9 +492,11 @@ fun HomeScreen(
             val referenceEpochMs =
                 System.currentTimeMillis()
             HomeSupplementalState(
-                recordedSpendingInsight = com.kedevjimmy.pesatrack.data.local.OfflineMoneyInsightStore
-                    .spendingComparison(transactionStore, referenceEpochMs),
-                needsAttentionCount =
+                recordedSpendingInsight = traceFinancialRead("home.supplementalInsight") {
+                    com.kedevjimmy.pesatrack.data.local.OfflineMoneyInsightStore
+                        .spendingComparison(transactionStore, referenceEpochMs)
+                },
+                needsAttentionCount = traceFinancialRead("home.supplementalReviews") {
                     transactionStore
                         .activityReviewOverview(
                             performMaintenance =
@@ -523,14 +519,16 @@ fun HomeScreen(
                                 limit = 100,
                                 includeOptional = false
                             )
-                            .size,
-                moneyPictureHealth =
+                            .size
+                },
+                moneyPictureHealth = traceFinancialRead("home.supplementalHealth") {
                     MoneyPictureHealthEvaluator(
                         context
                     ).evaluate(
                         nowEpochMs =
                             referenceEpochMs
                     )
+                }
             )
         }
 
@@ -641,6 +639,10 @@ fun HomeScreen(
                     // are already usable.
                     homeLoaded = true
                     homeLoading = false
+                    val coreElapsed = android.os.SystemClock.elapsedRealtime() - refreshStarted
+                    if (coreElapsed > 400L) {
+                        android.util.Log.i("PesaTrackPerf", "Home core ready in ${coreElapsed}ms")
+                    }
 
                     stateCache?.data
                         ?.let {
