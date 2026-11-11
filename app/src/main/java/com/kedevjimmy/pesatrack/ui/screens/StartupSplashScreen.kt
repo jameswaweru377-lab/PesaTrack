@@ -17,21 +17,21 @@ import com.kedevjimmy.pesatrack.ui.components.ConceptWalletIllustration
 
 @Composable
 fun StartupSplashScreen(darkTheme: Boolean = false) {
-    val foreground = if (darkTheme) Color.White else Color(0xFF0B103A)
-    val secondary = if (darkTheme) Color.White.copy(alpha = .78f) else Color(0xFF626B98)
+    val foreground = if (darkTheme) Color.White else Color(0xFF6B381A)
+    val secondary = if (darkTheme) Color.White.copy(alpha = .78f) else Color(0xFF785C4C)
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
                     if (darkTheme) listOf(
-                        Color(0xFF3933A8),
-                        Color(0xFF24213F),
-                        Color(0xFF111827)
+                        Color(0xFF6B381A),
+                        Color(0xFF4B2919),
+                        Color(0xFF2D1D16)
                     ) else listOf(
-                        Color(0xFFF8F7FF),
-                        Color(0xFFEAF3FF),
-                        Color(0xFFF7F7FF)
+                        Color(0xFFFAF7F0),
+                        Color(0xFFF5EDE1),
+                        Color(0xFFFAF7F0)
                     )
                 )
             )
