@@ -18,16 +18,22 @@ class ActivityBalancePolicyTest {
         )))
     }
 
-    @Test fun unknownSpendableAccountCannotBeHiddenByAnotherKnownAccount() {
-        assertNull(activityRecordedSpendableBalance(listOf(
+    @Test fun missingSpendableAccountDoesNotHideKnownBalance() {
+        assertEquals(600_000L, activityRecordedSpendableBalance(listOf(
             balance("bank", 600_000L),
             balance("wallet", null, PaydayBalanceQuality.UNKNOWN)
         )))
         assertNull(activityRecordedSpendableBalance(emptyList()))
+        assertNull(activityRecordedSpendableBalance(listOf(
+            balance("wallet", null, PaydayBalanceQuality.UNKNOWN)
+        )))
+        assertEquals(0L, activityRecordedSpendableBalance(listOf(
+            balance("wallet", 0L), balance("bank", null, PaydayBalanceQuality.UNKNOWN)
+        )))
     }
 
     @Test fun reconstructedAccountAmountIsNotPresentedAsConfirmedCash() {
-        assertNull(activityRecordedSpendableBalance(listOf(
+        assertEquals(184_635L, activityRecordedSpendableBalance(listOf(
             balance("mpesa", 184_635L),
             balance("bank", 678_020L, PaydayBalanceQuality.RECONSTRUCTED)
         )))

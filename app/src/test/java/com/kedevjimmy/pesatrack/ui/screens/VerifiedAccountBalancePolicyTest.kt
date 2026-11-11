@@ -43,15 +43,15 @@ class VerifiedAccountBalancePolicyTest {
         val missing = VerifiedAccountBalancePolicy.planAccounts(accounts,
             setOf("bank", "wallet"), snapshots, now)
         assertEquals(2, missing.size)
-        assertNull(PlanSpendableBalancePolicy.calculate(missing, 0L).spendableMinor)
+        assertEquals(600_000L, PlanSpendableBalancePolicy.calculate(missing, 0L).spendableMinor)
 
         val reconstructed = listOf(snapshot("bank", 200_000L,
             quality = PaydayBalanceQuality.RECONSTRUCTED), snapshot("wallet", 600_000L))
         val plan = VerifiedAccountBalancePolicy.planAccounts(accounts,
             setOf("bank", "wallet"), reconstructed, now)
         assertNull(plan.single { it.id == "bank" }.balanceMinor)
-        assertNull(VerifiedAccountBalancePolicy.spendableTotal(reconstructed))
-        assertNull(PlanSpendableBalancePolicy.calculate(plan, 0L).spendableMinor)
+        assertEquals(600_000L, VerifiedAccountBalancePolicy.spendableTotal(reconstructed))
+        assertEquals(600_000L, PlanSpendableBalancePolicy.calculate(plan, 0L).spendableMinor)
     }
 
     @Test fun `old or conflicting evidence requires review without overwriting the history`() {

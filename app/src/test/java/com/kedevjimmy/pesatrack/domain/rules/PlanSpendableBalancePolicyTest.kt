@@ -23,7 +23,7 @@ class PlanSpendableBalancePolicyTest {
         assertFalse(value.needsReview)
     }
 
-    @Test fun `unknown liquid account prevents misleading spendable total`() {
+    @Test fun `known spendable balance survives an unknown account`() {
         val value = PlanSpendableBalancePolicy.calculate(
             listOf(
                 PlanSpendableAccount("equity", null, isProtected = false),
@@ -31,8 +31,19 @@ class PlanSpendableBalancePolicyTest {
             ),
             upcomingBillsMinor = 50_000L
         )
-        assertNull(value.spendableMinor)
+        assertEquals(450_000L, value.spendableMinor)
+        assertNull(value.totalAccountsMinor)
         assertTrue(value.needsReview)
+    }
+
+    @Test fun `stale evidence does not hide a fresh recorded zero`() {
+        val accounts = listOf(
+            PlanSpendableAccount("stale", 500_000L, isProtected = false, provisional = true),
+            PlanSpendableAccount("wallet", 0L, isProtected = false)
+        )
+        assertEquals(0L, PlanSpendableBalancePolicy.calculate(accounts, 0L).spendableMinor)
+        assertNull(PlanSpendableBalancePolicy.calculate(accounts.take(1), 0L).spendableMinor)
+        assertNull(PlanSpendableBalancePolicy.calculate(accounts, null).spendableMinor)
     }
 
     @Test fun `uncertain protected savings stay unavailable without reducing spendable cash`() {
