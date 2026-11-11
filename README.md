@@ -46,7 +46,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 
 ### Five places to find what matters
 
-**Home** for the overview · **Activity** for your ledger · **Plan** for commitments and goals · **Accounts** for your money sources · **Profile** for local personal details, chosen cover/photo, compact shortcuts and money-wellness insights. Profile blends a bundled Nairobi cover into a warm identity header until you choose your own private replacement. The shared top-left menu also opens **More**, including statements, reports and settings.
+**Home** for the overview · **Activity** for your ledger · **Plan** for commitments and goals · **Accounts** for your money sources · **Profile** for local personal details, chosen cover/photo, four compact rectangular shortcuts and money-wellness insights. Profile blends a bundled Nairobi cover into a warm identity header until you choose your own private replacement, with a grouped icon row and a shorter Nairobi wellness card. The shared top-left menu also opens **More**, including statements, reports and settings.
 
 > **Screenshots:** A gallery of real, privacy-safe screens will be added after device capture and review. Unlocked screens can temporarily be captured for private UI feedback, so redact personal transactions, account numbers, and statement details before sharing. No private records will be published as examples.
 
@@ -76,6 +76,8 @@ PesaTrack is built primarily with **Kotlin, Jetpack Compose, and SQLite**. Suppo
 Generic bank and wallet notification language can identify incoming receipts, payments, bank-to-mobile transfers and separate transaction/M-Pesa references without a Kotlin parser for each bank. Recognizing a transfer is not proof both accounts are yours; automatic owned-account accounting still requires confirmed identity and corroborating evidence.
 
 The Accounts list and account details let you manually record the exact bank or wallet balance you see. This dated observation is **not** income or spending. For M-Pesa, the latest explicit reported balance or user-confirmed observation is shown without adding reconstructed transactions to it; unknown or estimated bank balances are not silently counted as confirmed cash.
+
+Financial screens automatically re-read local records on the first launch after an APK update and when the app returns after a longer break. Existing SMS catch-up and transaction-change refreshes remain in place. This **does not** connect to a bank or make an unobserved balance available; Plan's balance-attention icon explains missing or stale evidence.
 
 - [Product charter](docs/PRODUCT_CHARTER.md) — what PesaTrack is building and what it deliberately avoids.
 - [Current engineering state](CURRENT_STATE.md) — engineering progress, limitations, and pending acceptance.

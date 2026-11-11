@@ -177,7 +177,9 @@ private fun ApprovedPlanMoneyCard(data: PlanJourneyView, onDetails: () -> Unit) 
         title = { Text("About spendable money") },
         text = { Text("Spendable uses recorded balances from your accounts, excludes protected " +
             "savings and reserves unpaid bills for this month. It is an estimate, not a live " +
-            "bank balance. If an account balance is missing or old, check it in Accounts.") },
+            "bank balance. PesaTrack refreshes its local view when the app reopens after an " +
+            "update or a longer break; it cannot fetch a missing bank balance. If an account " +
+            "balance is missing or old, check it in Accounts.") },
         confirmButton = { TextButton(onClick = { info = false }) { Text("Got it") } })
 }
 

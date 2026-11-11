@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -185,7 +186,7 @@ private fun ProfileAvatarArtwork(
 @Composable
 internal fun ProfileIdentityDetails(name: String, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
@@ -196,7 +197,7 @@ internal fun ProfileIdentityDetails(name: String, modifier: Modifier = Modifier)
                 color = C.ink, fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Icon(Icons.Rounded.CheckCircle, "Profile stored on device",
+            Icon(Icons.Outlined.VerifiedUser, "Profile stored on device",
                 modifier = Modifier.size(18.dp), tint = C.leaf)
         }
         Text("PERSONAL • PRIVATE • ON DEVICE", color = C.coffee,

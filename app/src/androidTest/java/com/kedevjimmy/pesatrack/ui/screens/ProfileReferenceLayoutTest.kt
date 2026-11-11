@@ -5,7 +5,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -67,6 +69,23 @@ class ProfileReferenceLayoutTest {
         showProfile()
         listOf("Personal info", "My accounts", "Pay cycle", "Your goals")
             .forEach { compose.onNodeWithText(it).assertIsDisplayed() }
+    }
+
+    @Test
+    fun shortcutCardsAreCompactRectanglesAndQuickIconsStayGrouped() {
+        showProfile()
+        listOf("personal", "accounts", "pay_cycle", "goals").forEach { id ->
+            val bounds = compose.onNodeWithTag("profile_shortcut_$id")
+                .fetchSemanticsNode().boundsInRoot
+            assertTrue("$id shortcut must be wider than it is tall", bounds.width > bounds.height * 1.2f)
+        }
+        val first = compose.onNodeWithTag("profile_quick_personal")
+            .fetchSemanticsNode().boundsInRoot
+        val last = compose.onNodeWithTag("profile_quick_privacy")
+            .fetchSemanticsNode().boundsInRoot
+        val root = compose.onRoot().fetchSemanticsNode().boundsInRoot
+        assertTrue("Quick actions must form a centered compact cluster",
+            last.right - first.left < root.width * .8f)
     }
 
     @Test

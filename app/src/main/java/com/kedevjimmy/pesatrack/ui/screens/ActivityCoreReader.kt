@@ -37,7 +37,10 @@ internal suspend fun readActivityCoreForMonth(
         )
     ActivityCoreData(
         monthBuckets = months.sortedByDescending { it.monthStartEpochMs },
-        snapshot = transactions.activitySnapshot(nowEpochMs = monthEpochMs),
+        snapshot = transactions.activitySnapshot(
+            nowEpochMs = monthEpochMs,
+            performMaintenance = false
+        ),
         previousSnapshot = transactions.activitySnapshot(
             nowEpochMs = shiftMonth(monthEpochMs, -1),
             performMaintenance = false
