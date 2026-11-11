@@ -56,6 +56,7 @@ import com.kedevjimmy.pesatrack.data.local.CanonicalStoreLock
 import com.kedevjimmy.pesatrack.data.local.PersonalReceivableStore
 import com.kedevjimmy.pesatrack.data.local.ReceivableShare
 import com.kedevjimmy.pesatrack.data.local.AccountStore
+import com.kedevjimmy.pesatrack.data.local.BalanceAccountVisibility
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
 import com.kedevjimmy.pesatrack.data.local.ActivitySummary
 import com.kedevjimmy.pesatrack.data.local.BudgetStore
@@ -705,9 +706,13 @@ fun HomeScreen(
         }
     }
 
+    val archivedBalanceAccounts = remember(context, ledgerUpdateState.revision) {
+        BalanceAccountVisibility(context).archivedAccountIds()
+    }
+    val balanceAccounts = trackedAccounts.filterNot { it.id in archivedBalanceAccounts }
     val visibleAccountGroups =
         AccountDisplayPolicy.groups(
-            trackedAccounts, includeCash = true
+            balanceAccounts, includeCash = true
         ).filter { group ->
             group.accounts.any {
                 AccountDisplayPolicy
@@ -1399,13 +1404,14 @@ fun HomeScreen(
     // the attractive KES amounts in the reference artwork are never hardcoded.
     val monthName = SimpleDateFormat("MMMM yyyy", homeConfigurationLocale)
         .format(selectedCalendar.time)
+    val balanceNow = System.currentTimeMillis()
     val currentAccountMoney = VerifiedAccountBalancePolicy.planAccounts(
-        trackedAccounts, confirmedAccountIds, accountBalanceSnapshots,
-        System.currentTimeMillis()
+        balanceAccounts, confirmedAccountIds, accountBalanceSnapshots, balanceNow
     )
     val currentSpendable = PlanSpendableBalancePolicy.calculate(
         currentAccountMoney,
-        planUpcomingBillsTotalMinor(upcomingBills.map { it.remainingMinor })
+        planUpcomingBillsTotalMinor(upcomingBills.map { it.remainingMinor }),
+        nowEpochMs = balanceNow
     )
     val homeSummary = homeSummaryScope(
         currentAvailableMinor = currentSpendable.spendableMinor,
@@ -1470,10 +1476,13 @@ fun HomeScreen(
             TextButton(onClick = { refresh() }) { Text("Retry") }
         }
         item(key = "brown-money-hero") {
-            BrownHomeHero(
-                homeSummary.currentAvailableMinor?.let(::formatMoney) ?: "Unavailable",
-                onAccountsClick
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                BrownHomeHero(
+                    homeSummary.currentAvailableMinor?.let(::formatMoney) ?: "Unavailable",
+                    onAccountsClick, partial = currentSpendable.spendablePartial
+                )
+                HomeBalanceNotice(balanceAccounts, currentAccountMoney)
+            }
         }
         item(key = "brown-shortcuts") {
             BrownHomeShortcuts(onActivityClick, onAccountsClick, onBudgetClick,

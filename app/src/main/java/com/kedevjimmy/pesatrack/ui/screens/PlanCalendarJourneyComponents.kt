@@ -88,7 +88,8 @@ internal data class PlanJourneyView(
     val liquid: String? = null,
     val totalAccounts: String? = null,
     val protectedSavings: String? = null,
-    val spendableNeedsReview: Boolean = true
+    val spendableNeedsReview: Boolean = true,
+    val spendablePartial: Boolean = false
 )
 
 @Composable
@@ -235,7 +236,8 @@ private fun PlanJourneyAvailableCard(data: PlanJourneyView, onDetails: () -> Uni
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(Icons.Rounded.Spa, null, Modifier.size(32.dp), tint = p.green)
                 Column {
-                    Text("Available", color = p.ink,
+                    Text(if (data.spendablePartial) "Available from recorded balances" else "Available",
+                        color = p.ink,
                         style = MaterialTheme.typography.bodyMedium)
                     Text(data.spendable ?: "Unavailable", color = p.green,
                         style = MaterialTheme.typography.headlineSmall,

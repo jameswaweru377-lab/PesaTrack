@@ -32,6 +32,16 @@ class ActivityBalancePolicyTest {
         )))
     }
 
+    @Test fun coverageTravelsWithTheRecordedAmount() {
+        val wallet = balance("wallet", 0L)
+        val unknownBank = balance("bank", null, PaydayBalanceQuality.UNKNOWN)
+        assertEquals(ActivityRecordedBalance(0L, partial = true),
+            activityRecordedBalance(listOf(wallet, unknownBank)))
+        assertEquals(ActivityRecordedBalance(0L, partial = false),
+            activityRecordedBalance(listOf(wallet)))
+        assertNull(activityRecordedBalance(listOf(unknownBank)))
+    }
+
     @Test fun reconstructedAccountAmountIsNotPresentedAsConfirmedCash() {
         assertEquals(184_635L, activityRecordedSpendableBalance(listOf(
             balance("mpesa", 184_635L),
