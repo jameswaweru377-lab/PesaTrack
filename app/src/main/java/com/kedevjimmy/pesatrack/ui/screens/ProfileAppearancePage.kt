@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
@@ -51,6 +52,7 @@ import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.SectionHeader
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
 
 @Composable
@@ -81,17 +83,17 @@ internal fun ProfileAppearancePage(padding: PaddingValues, back: () -> Unit) {
                     Surface(color = C.lilac, shape = RoundedCornerShape(16.dp)) {
                       Column(Modifier.fillMaxWidth().padding(24.dp),
                           verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Surface(color = Color.White, shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
+                        Surface(color = PremiumVisualTokens.card, shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
                           Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 com.kedevjimmy.pesatrack.ui.components.PesaLogoMark(size = 28.dp)
                                 com.kedevjimmy.pesatrack.ui.components.PesaBrandName(
                                     modifier = Modifier.weight(1f).padding(start = 8.dp),
-                                    fontSize = 17.sp, baseColor = Color(0xFF101311))
+                                    fontSize = 17.sp, baseColor = PremiumVisualTokens.ink)
                                 Icon(Icons.Rounded.Notifications, null, tint = C.ink)
                             }
                             Box(Modifier.fillMaxWidth().height(86.dp).clip(RoundedCornerShape(16.dp))
-                                .background(Color(0xFF101310))) {
+                                .background(PremiumVisualTokens.coffee)) {
                                 Row(Modifier.fillMaxWidth().padding(16.dp),
                                     verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White,
@@ -106,13 +108,15 @@ internal fun ProfileAppearancePage(padding: PaddingValues, back: () -> Unit) {
                                 Triple("Home", Icons.Rounded.Home, ProfileTone.VIOLET),
                                 Triple("Activity", Icons.Rounded.List, ProfileTone.GREEN),
                                 Triple("Plan", Icons.Rounded.PieChart, ProfileTone.PINK),
+                                Triple("Accounts", Icons.Rounded.AccountBalanceWallet, ProfileTone.VIOLET),
                                 Triple("More", Icons.Rounded.MoreHoriz, ProfileTone.BLUE)
                             )
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 tabs.forEach { (name, icon, tone) ->
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                                         ProfileTile(icon, tone, 36.dp)
-                                        Text(name, color = C.muted, style = MaterialTheme.typography.labelSmall)
+                                        Text(name, color = C.muted, style = MaterialTheme.typography.labelSmall,
+                                            maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
                             }

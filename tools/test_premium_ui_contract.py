@@ -108,6 +108,12 @@ class PremiumUiContractTest(unittest.TestCase):
         self.assertNotIn("color = Color.White,\n        shape = RoundedCornerShape(22.dp)", overview)
         self.assertNotIn("color = Color.White,\n        shape = RoundedCornerShape(19.dp)", overview)
 
+    def test_appearance_preview_shows_all_five_tabs_and_coffee_hero(self):
+        appearance = source(SCREENS / "ProfileAppearancePage.kt")
+        self.assertIn('Triple("Accounts", Icons.Rounded.AccountBalance', appearance)
+        self.assertIn("PremiumVisualTokens.coffee", appearance)
+        self.assertNotIn(".background(Color(0xFF101310))", appearance)
+
     def test_core_text_colours_reach_wcag_aa_contrast(self):
         palette = source(THEME / "PremiumVisualTokens.kt")
         values = dict(re.findall(r"val (\w+) = Color\(0xFF([0-9A-F]{6})\)", palette))
