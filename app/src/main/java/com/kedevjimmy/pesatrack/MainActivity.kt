@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.kedevjimmy.pesatrack.ingestion.AutomaticHistoryRepair
+import com.kedevjimmy.pesatrack.ingestion.FinancialRefreshCoordinator
 import com.kedevjimmy.pesatrack.ingestion.RecentSmsCatchUp
 import com.kedevjimmy.pesatrack.ui.PesaTrackApp
 import com.kedevjimmy.pesatrack.ui.screens.StartupSplashScreen
@@ -252,6 +253,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         if (com.kedevjimmy.pesatrack.security.BackupRecoveryStatus.failure != null) return
+        FinancialRefreshCoordinator.onForeground(this)
         RecentSmsCatchUp.schedule(this)
         if (
             ::appLockManager

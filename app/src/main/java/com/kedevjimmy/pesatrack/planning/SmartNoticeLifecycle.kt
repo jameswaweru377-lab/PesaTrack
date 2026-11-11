@@ -33,7 +33,7 @@ object SmartNoticeLifecycle {
             LedgerUpdateBus.state.collect { state ->
                 runCatching {
                     if (state.isProcessing) SmartNoticeCoordinator.cancel(app)
-                    else if (state.revision != previous.revision || previous.isProcessing)
+                    else if (state.dataRevision != previous.dataRevision || previous.isProcessing)
                         SmartNoticeCoordinator.dataChanged(app)
                     else SmartNoticeCoordinator.check(app,allowPost = false)
                 }

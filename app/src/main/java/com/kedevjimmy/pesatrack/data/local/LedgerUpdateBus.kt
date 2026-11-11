@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 data class LedgerUpdateState(
     val revision: Long = 0L,
+    val dataRevision: Long = 0L,
     val processingCount: Int = 0
 ) {
     val isProcessing: Boolean
@@ -28,12 +29,23 @@ object LedgerUpdateBus {
         val current = mutableState.value
         mutableState.value = current.copy(
             revision = current.revision + if (changed) 1 else 0,
+            dataRevision = current.dataRevision + if (changed) 1 else 0,
             processingCount = (current.processingCount - 1).coerceAtLeast(0)
         )
     }
 
     @Synchronized
     fun notifyChanged() {
+        val current = mutableState.value
+        mutableState.value = current.copy(
+            revision = current.revision + 1,
+            dataRevision = current.dataRevision + 1
+        )
+    }
+
+    /** Invalidate screen caches without representing an additional financial event. */
+    @Synchronized
+    fun requestPresentationRefresh() {
         val current = mutableState.value
         mutableState.value = current.copy(revision = current.revision + 1)
     }

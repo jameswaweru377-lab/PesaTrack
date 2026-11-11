@@ -425,10 +425,11 @@ fun HistoricalImportScreen(
                     ) {
                         ImportResultRow("SMS scanned", importResult.scanned)
                         ImportResultRow("Money messages matched", importResult.matched)
-                        ImportResultRow("New transactions added", importResult.inserted)
+                        ImportResultRow("Transactions added to Activity", importResult.ledgerTransactionsAdded)
+                        ImportResultRow("Other financial records added", importResult.otherFinancialRecordsAdded)
                         ImportResultRow("Duplicates skipped", importResult.duplicates)
                         ImportResultRow("Unrelated messages ignored", importResult.ignored)
-                        if (importResult.inserted == 0) {
+                        if (importResult.ledgerTransactionsAdded == 0) {
                             Text(
                                 when {
                                     importResult.matched > 0 ->

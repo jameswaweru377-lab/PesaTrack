@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -23,6 +24,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,14 +51,14 @@ internal fun ProfileEditorialHome(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(C.cream).padding(padding),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
         item { ProfileCoverHeader(name, avatar, back, personal) }
         item { ProfileQuickActions(personal, accounts, payCycle, goals, privacy) }
         item { ProfileShortcutRow(personal, accounts, payCycle, goals) }
         item {
-            Box(Modifier.padding(horizontal = 16.dp)) {
+            Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 ProfileNairobiWellnessFeature(moneyHabits, onMoneyHabits)
             }
         }
@@ -70,8 +72,16 @@ internal fun ProfileEditorialHome(
 }
 
 private data class ProfileShortcut(
+    val id: String,
     val title: String,
     val subtitle: String,
+    val icon: ImageVector,
+    val action: () -> Unit
+)
+
+private data class ProfileQuickAction(
+    val id: String,
+    val label: String,
     val icon: ImageVector,
     val action: () -> Unit
 )
@@ -85,22 +95,25 @@ private fun ProfileQuickActions(
     privacy: () -> Unit
 ) {
     val actions = listOf(
-        Triple(Icons.Rounded.PersonOutline, "Personal information", personal),
-        Triple(Icons.Rounded.AccountBalance, "My accounts", accounts),
-        Triple(Icons.Rounded.CalendarMonth, "Pay cycle", payCycle),
-        Triple(Icons.Rounded.Flag, "Your goals", goals),
-        Triple(Icons.Rounded.Shield, "Privacy", privacy)
+        ProfileQuickAction("personal", "Personal information", Icons.Outlined.PersonOutline, personal),
+        ProfileQuickAction("accounts", "My accounts", Icons.Outlined.AccountBalance, accounts),
+        ProfileQuickAction("pay_cycle", "Pay cycle", Icons.Outlined.CalendarMonth, payCycle),
+        ProfileQuickAction("goals", "Your goals", Icons.Outlined.TrackChanges, goals),
+        ProfileQuickAction("privacy", "Privacy", Icons.Outlined.VerifiedUser, privacy)
     )
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        actions.forEach { (icon, label, action) ->
-            Box(Modifier.size(48.dp).clickable(role = Role.Button, onClick = action),
-                contentAlignment = Alignment.Center) {
-                Surface(modifier = Modifier.size(40.dp), shape = CircleShape, color = C.sand) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(icon, label, tint = C.coffee, modifier = Modifier.size(24.dp))
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Row(Modifier.widthIn(max = 264.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween) {
+            actions.forEach { item ->
+                Box(Modifier.size(48.dp).testTag("profile_quick_${item.id}")
+                    .clickable(role = Role.Button, onClick = item.action),
+                    contentAlignment = Alignment.Center) {
+                    Surface(modifier = Modifier.size(32.dp), shape = CircleShape,
+                        color = C.card.copy(alpha = .68f)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(item.icon, item.label,
+                                tint = C.coffee.copy(alpha = .84f), modifier = Modifier.size(20.dp))
+                        }
                     }
                 }
             }
@@ -116,10 +129,10 @@ private fun ProfileShortcutRow(
     goals: () -> Unit
 ) {
     val shortcuts = listOf(
-        ProfileShortcut("Personal info", "Name & photo", Icons.Rounded.PersonOutline, personal),
-        ProfileShortcut("My accounts", "Linked balances", Icons.Rounded.AccountBalance, accounts),
-        ProfileShortcut("Pay cycle", "Salary dates", Icons.Rounded.CalendarMonth, payCycle),
-        ProfileShortcut("Your goals", "Plans ahead", Icons.Rounded.Flag, goals)
+        ProfileShortcut("personal", "Personal info", "Name & photo", Icons.Outlined.PersonOutline, personal),
+        ProfileShortcut("accounts", "My accounts", "Linked balances", Icons.Outlined.AccountBalance, accounts),
+        ProfileShortcut("pay_cycle", "Pay cycle", "Salary dates", Icons.Outlined.CalendarMonth, payCycle),
+        ProfileShortcut("goals", "Your goals", "Plans ahead", Icons.Outlined.TrackChanges, goals)
     )
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -127,24 +140,26 @@ private fun ProfileShortcutRow(
     ) {
         shortcuts.forEach { shortcut ->
             Surface(
-                modifier = Modifier.weight(1f).heightIn(min = 72.dp)
+                modifier = Modifier.weight(1f).heightIn(min = 60.dp)
+                    .testTag("profile_shortcut_${shortcut.id}")
                     .clickable(role = Role.Button, onClick = shortcut.action),
                 shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
                 color = C.card,
-                shadowElevation = 2.dp,
+                shadowElevation = 1.dp,
                 border = BorderStroke(1.dp, C.sandBorder)
             ) {
-                Column(Modifier.fillMaxWidth().padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Icon(shortcut.icon, null, tint = C.coffee, modifier = Modifier.size(20.dp))
-                    Text(shortcut.title, fontSize = 11.sp, fontWeight = FontWeight.Bold,
-                        color = C.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Icon(shortcut.icon, null, tint = C.coffee, modifier = Modifier.size(18.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(shortcut.subtitle, modifier = Modifier.weight(1f), fontSize = 9.sp,
-                            color = C.muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(shortcut.title, modifier = Modifier.weight(1f), fontSize = 11.sp,
+                            lineHeight = 13.sp, fontWeight = FontWeight.Bold, color = C.ink,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Icon(Icons.Rounded.ChevronRight, null, tint = C.coffee,
                             modifier = Modifier.size(12.dp))
                     }
+                    Text(shortcut.subtitle, fontSize = 9.sp, lineHeight = 11.sp, color = C.muted,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -157,7 +172,7 @@ internal fun ProfileNairobiWellnessFeature(
     onClick: () -> Unit
 ) {
     Box(
-        Modifier.fillMaxWidth().heightIn(min = 164.dp)
+        Modifier.fillMaxWidth().heightIn(min = 144.dp)
             .clip(RoundedCornerShape(PesaDesignTokens.cardRadius))
             .clickable(role = Role.Button, onClick = onClick)
             .semantics { stateDescription = state.label }
@@ -174,25 +189,30 @@ internal fun ProfileNairobiWellnessFeature(
         ))))
         Column(
             Modifier.fillMaxWidth(.82f).padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Surface(shape = CircleShape, color = C.coffee.copy(alpha = .80f)) {
                     Text("MONEY WELLNESS", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         color = C.cream, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
-                Text("Better\nmoney habits", color = Color.White, fontSize = 25.sp,
-                    fontFamily = FontFamily.Serif, lineHeight = 24.sp,
+                Text("Better\nmoney habits", color = Color.White, fontSize = 22.sp,
+                    fontFamily = FontFamily.Serif, lineHeight = 22.sp,
                     fontWeight = FontWeight.Bold)
                 Text("Make sense of your money", color = Color.White.copy(alpha = .94f),
                     fontSize = 11.sp, maxLines = 1)
-                Box(Modifier.width(48.dp).height(2.dp).background(C.leaf, CircleShape))
+                Row(Modifier.width(160.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    repeat(2) {
+                        Box(Modifier.width(28.dp).height(2.dp)
+                            .background(C.leaf.copy(alpha = .80f), CircleShape))
+                    }
+                }
             }
             Surface(
                 shape = CircleShape,
                 color = C.cream
             ) {
-                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.BarChart, null, tint = C.coffee,
                         modifier = Modifier.size(16.dp))
@@ -215,7 +235,10 @@ private fun ProfileDevicePrivacy(onClick: () -> Unit) {
     ) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Rounded.Shield, null, tint = C.coffee, modifier = Modifier.size(32.dp))
+            Icon(Icons.Outlined.VerifiedUser, null, tint = C.coffee,
+                modifier = Modifier.size(28.dp))
+            Box(Modifier.width(1.dp).height(32.dp)
+                .background(C.coffee.copy(alpha = .28f)))
             Column(Modifier.weight(1f)) {
                 Text("Only on this device", fontSize = 16.sp,
                     fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = C.ink)
