@@ -43,7 +43,7 @@ import kotlinx.coroutines.launch
 
 /** Reference photography is decorative; all displayed financial figures remain ledger-backed. */
 @Composable
-internal fun BrownHomeHero(available: String, onAccounts: () -> Unit) {
+internal fun BrownHomeHero(available: String, onAccounts: () -> Unit, partial: Boolean = false) {
     val p = BrownHomePalette
     val context = LocalContext.current
     val name = remember(context) {
@@ -75,8 +75,12 @@ internal fun BrownHomeHero(available: String, onAccounts: () -> Unit) {
                     fontSize = if (page == 0) 28.sp else 24.sp, lineHeight = 30.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(4.dp))
-                Text(if (page == 0) "Your money, your plans.\nAll in one place."
-                     else "After unpaid bills · check Accounts for balance",
+                val caption = when {
+                    page == 0 -> "Your money, your plans.\nAll in one place."
+                    partial -> "Partial balance · after unpaid bills"
+                    else -> "After unpaid bills · check Accounts for balance"
+                }
+                Text(caption,
                     color = p.white, fontSize = 11.sp, lineHeight = 16.sp,
                     maxLines = 2)
                 Spacer(Modifier.height(4.dp))

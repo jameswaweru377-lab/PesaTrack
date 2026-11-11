@@ -42,15 +42,29 @@ object ShoppingIntelligencePolicy {
     private val bullet = Regex("^[•*\\-]\\s*")
     private val noise = Regex(
         "(?i)^(?:sub\\s*total|total|vat|tax|change|date|receipt|balance|payment|cash|" +
-            "thank\\s*you|shopping\\s*list|items?\\s*:)\\b.*"
+            "thank\\s*you|shopping\\s*list|items?\\s*:|sale\\s+receipt|sold\\s+by|" +
+            "customer|discount|amount\\s+(?:given|paid|to\\s+pay)|loyalty\\s+points?|" +
+            "bill\\s+(?:no|number)|account\\s+(?:no|number)|pin|telephone|website|" +
+            "www\\.|please\\s+(?:note|keep)|terms\\s+and\\s+conditions)\\b.*"
     )
+    private val receiptHeading = Regex(
+        "(?i)\\b(?:sale\\s+receipt|receipt\\s+(?:no|number)|tax\\s+invoice)\\b"
+    )
+    private val receiptEnd = Regex("(?i)^(?:thank\\s+you|please\\s+(?:note|keep)|terms\\s+and\\s+conditions)\\b.*")
 
     private fun normalized(name: String): String = name.trim()
         .replace(Regex("\\s+"), " ").lowercase(Locale.ROOT)
 
     /** Only explicit KSh/KES/@ prices are parsed; plain trailing numbers stay as text. */
-    fun parseLines(text: String): List<ShoppingScanCandidate> = text.take(24_000)
-        .lineSequence().take(200).mapNotNull(::parseLine).toList()
+    fun parseLines(text: String): List<ShoppingScanCandidate> {
+        val lines = text.take(24_000).lineSequence().take(200).toList()
+        // Printed receipts start with the merchant and receipt number, not a purchased item.
+        // Handwritten lists have no receipt heading and retain every candidate line.
+        val receiptIndex = lines.take(12).indexOfFirst { receiptHeading.containsMatchIn(it) }
+        val itemRegion = if (receiptIndex >= 0) lines.drop(receiptIndex + 1)
+            .takeWhile { !receiptEnd.matches(it.trim()) } else lines
+        return itemRegion.mapNotNull(::parseLine)
+    }
 
     private fun parseLine(line: String): ShoppingScanCandidate? {
         var value = line.trim().replace(lineNumber, "").replace(bullet, "").trim()

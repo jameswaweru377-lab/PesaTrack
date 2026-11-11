@@ -65,9 +65,9 @@ internal fun compactAccountLabel(raw: String): String = raw
     }.trimEnd()
 
 @Composable
-internal fun ApprovedBalanceHero(lines: List<AccountDisplayLine>, groupCount: Int,
-    hidden: Boolean, onToggleHidden: () -> Unit) {
-    val summary = accountVerifiedBalanceSummary(lines)
+internal fun ApprovedBalanceHero(
+    summary: VerifiedAccountBalanceSummary, hidden: Boolean, onToggleHidden: () -> Unit
+) {
     val total = summary.totalMinor
     val complete = summary.complete
     Box(Modifier.fillMaxWidth().height(204.dp)) {
@@ -92,8 +92,8 @@ internal fun ApprovedBalanceHero(lines: List<AccountDisplayLine>, groupCount: In
                         if (hidden) "Show balances" else "Hide balances", tint = coffee)
                 }
             }
-            Text(if (complete) "Balances from $groupCount accounts"
-                else "Recorded: ${summary.recordedCount} of ${lines.size} accounts · estimates excluded",
+            Text(if (complete) "Balances from ${summary.accountCount} accounts"
+                else "Recorded: ${summary.recordedCount} of ${summary.accountCount} accounts · estimates excluded",
                 color = mutedCoffee,
                 style = MaterialTheme.typography.bodyMedium,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)

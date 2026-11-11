@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 import android.content.Context
 import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.ActivityMonthBucket
+import com.kedevjimmy.pesatrack.data.local.BalanceAccountVisibility
 import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.PaydaySnapshotStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
@@ -27,12 +28,15 @@ internal suspend fun readActivityCoreForMonth(
     }
     val accounts = AccountStore.get(app).listAccounts(enabledOnly = false)
     val confirmed = FinancialUnderstandingStore.get(app).confirmedAccountIds()
-    val owned = activityRecordedBalanceAccounts(accounts, confirmed)
+    val balanceAccounts = if (monthEpochMs == currentMonthEpochMs) {
+        BalanceAccountVisibility(app).visibleAccounts(accounts)
+    } else accounts
+    val owned = activityRecordedBalanceAccounts(balanceAccounts, confirmed)
     // A previous month's balance must not silently display today's money.
     val endOfMonth = shiftMonth(monthEpochMs, 1) - 1L
     val balanceAsOf = minOf(System.currentTimeMillis(), endOfMonth)
     val recordedBalance = if (balanceAsOf < monthEpochMs) null else
-        activityRecordedSpendableBalance(
+        activityRecordedBalance(
             PaydaySnapshotStore.get(app).currentAccountSnapshots(owned, balanceAsOf)
         )
     ActivityCoreData(
@@ -47,6 +51,6 @@ internal suspend fun readActivityCoreForMonth(
         ),
         accountsById = accounts.associateBy { it.id },
         confirmedAccountIds = confirmed,
-        recordedBalanceMinor = recordedBalance
+        recordedBalance = recordedBalance
     )
 }

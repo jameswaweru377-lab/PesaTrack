@@ -40,7 +40,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 | 📊 | **Understand your cash flow** | Explore Money In, Money Out, categories, account context, and reports based on recorded evidence. |
 | 📄 | **Export a personal money report** | Save an offline PesaTrack-branded PDF of your selected Reports period, including trusted Activity totals, categories, trends and selected large expenses. Exported PDFs are not encrypted bank statements. |
 | 🎯 | **Plan ahead** | Organize monthly budgets, bills, saving goals and shopping around recorded spendable account funds; use Activity for the separate salary-cycle view. |
-| 🛒 | **Shopping lists (preview)** | Make private monthly lists, estimate costs, reuse earlier lists, scan a chosen photo into editable suggestions with on-device text recognition, and review previous monthly plans. Plans do not post expenses or change balances. |
+| 🛒 | **Shopping lists (preview)** | Make private monthly lists, estimate costs, reuse earlier lists, and review monthly plans. Photo scanning uses offline text recognition, optionally enhanced by Gemini Nano on supported phones, with editable suggestions and an offline fallback. Plans do not post expenses or change balances. |
 | 🤝 | **Keep track of debts** | Distinguish loans and repayments from ordinary purchases and transfers, with user confirmation where needed. |
 | 🔐 | **Keep control of your data** | Use local storage, optional app lock, encrypted user-created backups, and privacy controls. |
 

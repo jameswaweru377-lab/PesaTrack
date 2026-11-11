@@ -18,16 +18,32 @@ class ActivityBalancePolicyTest {
         )))
     }
 
-    @Test fun unknownSpendableAccountCannotBeHiddenByAnotherKnownAccount() {
-        assertNull(activityRecordedSpendableBalance(listOf(
+    @Test fun missingSpendableAccountDoesNotHideKnownBalance() {
+        assertEquals(600_000L, activityRecordedSpendableBalance(listOf(
             balance("bank", 600_000L),
             balance("wallet", null, PaydayBalanceQuality.UNKNOWN)
         )))
         assertNull(activityRecordedSpendableBalance(emptyList()))
+        assertNull(activityRecordedSpendableBalance(listOf(
+            balance("wallet", null, PaydayBalanceQuality.UNKNOWN)
+        )))
+        assertEquals(0L, activityRecordedSpendableBalance(listOf(
+            balance("wallet", 0L), balance("bank", null, PaydayBalanceQuality.UNKNOWN)
+        )))
+    }
+
+    @Test fun coverageTravelsWithTheRecordedAmount() {
+        val wallet = balance("wallet", 0L)
+        val unknownBank = balance("bank", null, PaydayBalanceQuality.UNKNOWN)
+        assertEquals(ActivityRecordedBalance(0L, partial = true),
+            activityRecordedBalance(listOf(wallet, unknownBank)))
+        assertEquals(ActivityRecordedBalance(0L, partial = false),
+            activityRecordedBalance(listOf(wallet)))
+        assertNull(activityRecordedBalance(listOf(unknownBank)))
     }
 
     @Test fun reconstructedAccountAmountIsNotPresentedAsConfirmedCash() {
-        assertNull(activityRecordedSpendableBalance(listOf(
+        assertEquals(184_635L, activityRecordedSpendableBalance(listOf(
             balance("mpesa", 184_635L),
             balance("bank", 678_020L, PaydayBalanceQuality.RECONSTRUCTED)
         )))
@@ -43,6 +59,12 @@ class ActivityBalancePolicyTest {
         )))
         assertNull(activityRecordedSpendableBalance(listOf(
             balance("locked", 500_000L, spendability = PaydaySpendability.PROTECTED)
+        )))
+    }
+
+    @Test fun signedBankAmountsSumBeforeCheckingTheFinalRange() {
+        assertEquals(Long.MAX_VALUE, activityRecordedSpendableBalance(listOf(
+            balance("bank", Long.MAX_VALUE), balance("wallet", 1L), balance("other", -1L)
         )))
     }
 

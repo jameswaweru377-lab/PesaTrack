@@ -300,7 +300,8 @@ fun PlanScreen(
     val goalAvailable = financialProgress != null && goalRows.isNotEmpty()
     val spendable = PlanSpendableBalancePolicy.calculate(
         accountBalances,
-        planUpcomingBillsTotalMinor(upcomingBills.map { it.remainingMinor })
+        planUpcomingBillsTotalMinor(upcomingBills.map { it.remainingMinor }),
+        nowEpochMs = now
     )
     val journey = PlanJourneyView(
         month = SimpleDateFormat("MMMM yyyy", locale).format(Date(now)),
@@ -312,6 +313,7 @@ fun PlanScreen(
         totalAccounts = spendable.totalAccountsMinor?.let(::formatPlanMoney),
         protectedSavings = spendable.protectedMinor?.let(::formatPlanMoney),
         spendableNeedsReview = spendable.needsReview,
+        spendablePartial = spendable.spendablePartial,
         starting = formatPlanMoney(snapshot.startingFundsMinor),
         committed = formatPlanMoney(snapshot.remainingCommitmentsMinor),
         billsTotal = planUpcomingBillsTotalMinor(upcomingBills.map { it.remainingMinor })

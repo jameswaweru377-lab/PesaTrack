@@ -29,7 +29,7 @@ internal object VerifiedAccountBalancePolicy {
         }
 
     fun spendableTotal(snapshots: List<PaydayAccountSnapshot>): Long? =
-        sumTrusted(snapshots.filter { it.spendability == PaydaySpendability.SPENDABLE })
+        sumTrusted(snapshots.filter { it.spendability == PaydaySpendability.SPENDABLE }, allowPartial = true)
 
     fun groupTotal(
         accountIds: Set<String>, snapshots: List<PaydayAccountSnapshot>
@@ -47,26 +47,29 @@ internal object VerifiedAccountBalancePolicy {
         val candidates = snapshots.filter { it.accountId == account.id }.distinct()
         val snapshot = candidates.singleOrNull()
         val at = snapshot?.referenceEpochMs
-        val stale = at == null || at > nowEpochMs || nowEpochMs - at > MAX_AGE_MS
+        val freshThrough = at?.let { minOf(it, Long.MAX_VALUE - MAX_AGE_MS) + MAX_AGE_MS }
+        val stale = at == null || at > nowEpochMs || nowEpochMs > requireNotNull(freshThrough)
+        val amount = snapshot?.let(::trustedAmount)
         PlanSpendableAccount(
             id = account.id,
-            balanceMinor = snapshot?.let(::trustedAmount),
+            balanceMinor = amount,
             isProtected = snapshot?.spendability == PaydaySpendability.PROTECTED ||
                 (snapshot == null && account.type == AccountType.SAVINGS),
-            provisional = stale || snapshot?.let(::trustedAmount) == null
+            provisional = stale || amount == null,
+            freshThroughEpochMs = freshThrough,
+            conflicting = candidates.size > 1
         )
     }
 
-    private fun sumTrusted(snapshots: List<PaydayAccountSnapshot>): Long? {
+    private fun sumTrusted(
+        snapshots: List<PaydayAccountSnapshot>, allowPartial: Boolean = false
+    ): Long? {
         if (snapshots.isEmpty() || snapshots.groupBy { it.accountId }.values.any {
                 same -> same.distinct().size != 1
             }) return null
         val distinct = snapshots.distinctBy { it.accountId }
-        if (distinct.any { trustedAmount(it) == null }) return null
-        return CheckedMoney.orNull {
-            distinct.fold(0L) { total, snapshot ->
-                CheckedMoney.add(total, requireNotNull(trustedAmount(snapshot)))
-            }
-        }
+        val amounts = distinct.mapNotNull(::trustedAmount)
+        if (amounts.isEmpty() || (!allowPartial && amounts.size != distinct.size)) return null
+        return CheckedMoney.orNull { CheckedMoney.sum(amounts.asSequence()) }
     }
 }
