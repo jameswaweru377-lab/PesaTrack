@@ -105,7 +105,7 @@ internal fun BrownActivityHeading(
 internal fun BrownActivityMonthlyHero(
     snapshot: ActivityLedgerSnapshot,
     payCycleMode: Boolean,
-    balanceMinor: Long?
+    balance: ActivityRecordedBalance?
 ) {
     val p = BrownHomePalette
     val totals = remember(snapshot) { activityDesign3Totals(snapshot) }
@@ -137,7 +137,10 @@ internal fun BrownActivityMonthlyHero(
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     BrownActivityMinorMetric("Money in", totals.incomeMinor, Modifier.weight(1f))
-                    BrownActivityMinorMetric("Balance", balanceMinor, Modifier.weight(1f))
+                    BrownActivityMinorMetric(
+                        if (balance?.partial == true) "Partial balance" else "Balance",
+                        balance?.amountMinor, Modifier.weight(1f)
+                    )
                     BrownActivityMinorMetric("Invested", totals.investedMinor, Modifier.weight(1f))
                 }
             }

@@ -1,7 +1,18 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import com.kedevjimmy.pesatrack.data.local.PaydayAccountSnapshot
+import com.kedevjimmy.pesatrack.data.local.PaydaySpendability
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
+
+data class ActivityRecordedBalance(val amountMinor: Long, val partial: Boolean)
+
+internal fun activityRecordedBalance(snapshots: List<PaydayAccountSnapshot>): ActivityRecordedBalance? =
+    activityRecordedSpendableBalance(snapshots)?.let { amount ->
+        ActivityRecordedBalance(amount, partial = snapshots.any {
+            it.spendability == PaydaySpendability.SPENDABLE &&
+                VerifiedAccountBalancePolicy.trustedAmount(it) == null
+        })
+    }
 
 /** Activity's account balance is held at tracked bank/wallet accounts, not loose cash. */
 internal fun activityRecordedBalanceAccounts(

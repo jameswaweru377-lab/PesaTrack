@@ -1,5 +1,18 @@
 # PesaTrack Current State
 
+_Partial recorded balances and Home account notice (11 November 2026):_
+Home and Plan show spendable money from usable recorded account balances after
+unpaid bills and identify partial coverage. They retain the 14-day freshness
+limit. Activity shows the recorded subtotal at the selected period boundary
+and labels partial coverage. Estimates and accounts without evidence add no
+amount. With no usable balance, the amount stays unavailable.
+
+Home offers Add balance and a menu to dismiss the notice or archive an
+individual account from current balance totals. Accounts provides Restore.
+The archive is a local presentation preference and leaves account ownership,
+transactions, transfer review decisions and past Activity calendar months intact.
+Physical-phone acceptance remains pending.
+
 _Smart financial foreground refresh (10 November 2026; CI and phone acceptance pending):_
 The first app foreground after an APK version change invalidates cached
 financial screen reads. Returning after at least five minutes also triggers a
@@ -42,9 +55,9 @@ layout, screen-reader behavior and APK upgrade compatibility remain unverified.
 _Plan spendable balance and compact pages (10 November 2026; CI and phone acceptance pending):_
 Plan now requests the same confirmed-owned account balance evidence as Accounts.
 Its Spendable estimate adds known liquid balances once, excludes savings-account
-balances, and reserves outstanding scheduled bills due this month. Missing or
-inconsistent liquid balances withhold the amount; outdated or reconstructed
-balance evidence shows an attention icon with a short explanation on tap. It is
+balances, and reserves outstanding scheduled bills due this month. Missing,
+outdated or reconstructed liquid balances are omitted from the labeled
+partial amount. Conflicting balances withhold the spendable figure. It is
 not a live bank balance and is not the salary-cycle estimate. Budget and goal
 progress remain monthly against their own targets. The Month / Pay cycle choice
 is presented in Activity using its existing period reads; Plan has a compact
@@ -89,9 +102,8 @@ uses its latest explicit balance observation (or a directly entered opening
 balance), never a ledger sum added after that anchor or a future backcast.
 Missing evidence stays unavailable. The Accounts hero excludes reconstructed
 estimates from recorded totals, and Account rows label such figures "Est.";
-Activity's Balance metric uses confirmed bank/wallet accounts (not unverified
-loose cash) and withholds the total if any spendable account is only
-reconstructed. No schema, permission, backup, account identity,
+Activity's Balance metric uses confirmed bank/wallet accounts and labels
+its subtotal as partial when an eligible account lacks verified evidence. No schema, permission, backup, account identity,
 debt/Fuliza handling, statement-posting or signing change is included.
 Physical phone accuracy and data retention are owner-tested, not asserted.
 
@@ -99,8 +111,8 @@ _Activity recorded-balance card and generic Kenyan message wording (9 November 2
 The brown Activity monthly card retains Expenses, Money in and Invested, but
 replaces Transfers with the sum of recorded spendable, confirmed-owned account
 balances at the selected month-end (or now for the current month). It displays
-Unavailable when a spendable balance is missing, unverified or overflows; it
-does not present monthly net flow, expected pay or commitments as cash balance.
+Unavailable when no verified balances are present, the evidence conflicts, or
+the sum overflows. Monthly cash flow and account balances remain distinct.
 The upper Activity title is removed while the month picker remains, and the
 small ledger filters keep All, Money In, Money Out, Transfers and Review (not
 Invested). Generic deterministic message language now handles completed bank-

@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.AccountStore
+import com.kedevjimmy.pesatrack.data.local.BalanceAccountVisibility
 import com.kedevjimmy.pesatrack.data.local.InvestmentStore
 import com.kedevjimmy.pesatrack.data.local.ObservedInvestmentPosition
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
@@ -62,6 +63,7 @@ import com.kedevjimmy.pesatrack.data.local.PaydayAccountSnapshot
 import com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality
 import com.kedevjimmy.pesatrack.data.local.PaydaySnapshotStore
 import com.kedevjimmy.pesatrack.domain.model.AccountType
+import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
 import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
 import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
@@ -104,6 +106,8 @@ internal data class AccountBalancePresentation(
 
 class AccountsScreenCache {
     internal var presentations: List<AccountBalancePresentation> = emptyList()
+    internal var archivedAccounts: List<MoneyAccount> = emptyList()
+    internal var balanceSummary = VerifiedAccountBalanceSummary(null, 0, 0)
     internal var debts: List<DebtAccountSnapshot> = emptyList()
     internal var revision: Long = -1L
 }
@@ -185,6 +189,11 @@ fun AccountsScreen(
             mutableStateOf(initialCache?.presentations ?: emptyList())
         }
 
+    var archivedAccounts by remember { mutableStateOf(initialCache?.archivedAccounts.orEmpty()) }
+    var balanceSummary by remember {
+        mutableStateOf(initialCache?.balanceSummary ?: VerifiedAccountBalanceSummary(null, 0, 0))
+    }
+
     var accountsLoading by remember { mutableStateOf(initialCache == null) }
     var accountsLoaded by remember { mutableStateOf(initialCache != null) }
     var accountsError by remember { mutableStateOf(false) }
@@ -204,7 +213,7 @@ fun AccountsScreen(
         accountsError = false
         val refreshStarted = android.os.SystemClock.elapsedRealtime()
         try {
-        val loadedPresentations =
+        val (loadedPresentations, loadedArchived, loadedSummary) =
             withContext(Dispatchers.IO) {
                 val accounts = traceFinancialRead("accounts.accountList") {
                     accountStore.listAccounts(enabledOnly = true)
@@ -212,7 +221,12 @@ fun AccountsScreen(
                 val confirmedAccountIds = traceFinancialRead("accounts.ownership") {
                     understandingStore.confirmedAccountIds()
                 }
-                val groups = AccountDisplayPolicy.groups(accounts, includeCash = true)
+                val archived = BalanceAccountVisibility(context).archivedAccountIds()
+                val hidden = VerifiedAccountBalancePolicy.eligibleAccounts(accounts, confirmedAccountIds)
+                    .filter { it.id in archived }
+                val groups = AccountDisplayPolicy.groups(
+                    accounts.filterNot { it.id in archived }, includeCash = true
+                )
                     .mapNotNull { group ->
                         val ownedMembers = group.accounts.filter {
                             AccountDisplayPolicy.isConfirmedOwned(it, confirmedAccountIds, includeCash = true)
@@ -227,7 +241,7 @@ fun AccountsScreen(
                         nowEpochMs = referenceEpochMs
                     ).associateBy { it.accountId }
                 }
-                groups.map { group ->
+                val accountPresentations = groups.map { group ->
                     accountBalancePresentation(
                         group = group,
                         snapshots =
@@ -240,10 +254,15 @@ fun AccountsScreen(
                                 }
                     )
                 }
+                Triple(accountPresentations, hidden, accountVerifiedBalanceSummary(allSnapshots.values))
             }
         presentations = loadedPresentations
+        archivedAccounts = loadedArchived
+        balanceSummary = loadedSummary
         accountsLoaded = true
         stateCache?.presentations = loadedPresentations
+        stateCache?.archivedAccounts = loadedArchived
+        stateCache?.balanceSummary = loadedSummary
         stateCache?.revision = revision
         val elapsed = android.os.SystemClock.elapsedRealtime() - refreshStarted
         if (elapsed > 400L) android.util.Log.i("PesaTrackPerf", "Accounts refresh took ${elapsed}ms")
@@ -271,8 +290,8 @@ fun AccountsScreen(
     val savings = visible.filter {
         it.group.type == AccountType.SAVINGS || it.group.displayName.contains("M-Shwari", true)
     }
-    val accountNames = remember(presentations) {
-        presentations.flatMap { it.group.accounts }.associate { it.id to it.name }
+    val accountNames = remember(presentations, archivedAccounts) {
+        (presentations.flatMap { it.group.accounts } + archivedAccounts).associate { it.id to it.name }
     }
     LazyColumn(modifier = Modifier.padding(scaffoldPadding).background(BrownHomePalette.canvas),
         contentPadding = PaddingValues(vertical = 8.dp),
@@ -284,7 +303,7 @@ fun AccountsScreen(
                 FinancialReadBanner("Accounts", false, true) { accountsRetry++ }
             }
         }
-        item { ApprovedBalanceHero(accountDisplayLines(visible), visible.size, amountsHidden) {
+        item { ApprovedBalanceHero(balanceSummary, amountsHidden) {
             amountsHidden = !amountsHidden
         } }
         if (visible.isEmpty()) item {
@@ -299,6 +318,11 @@ fun AccountsScreen(
                 ApprovedAccountsList(accountDisplayLines(everyday), accountDisplayLines(savings),
                     amountsHidden, onAccountClick, onManageInstitutions,
                     onBalanceClick = { balanceDialogAccountId = it })
+            }
+        }
+        if (archivedAccounts.isNotEmpty()) item(key = "archived-balance-accounts") {
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                ArchivedBalanceAccounts(archivedAccounts)
             }
         }
         item { Box(Modifier.padding(horizontal = 16.dp)) {
