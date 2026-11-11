@@ -39,15 +39,16 @@ import java.math.BigDecimal
 import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.max
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 
 // Paycheck dashboard visuals are derived only from saved, user-reviewed payroll records.
 // Never use synthetic chart points or count a payslip as cash received.
-private val DashPurple = Color(0xFF9D72FF)
-private val DashLilac = Color(0xFFC5ADFF)
-private val DashPink = Color(0xFFFF6D99)
-private val DashTeal = Color(0xFF48DCC3)
-private val DashBlue = Color(0xFF508FFF)
-private val DashGold = Color(0xFFFFBD66)
+private val DashPurple = PremiumVisualTokens.coffee
+private val DashLilac = Color(0xFF996243)
+private val DashPink = Color(0xFFC43C52)
+private val DashTeal = PremiumVisualTokens.leafReadable
+private val DashBlue = Color(0xFF80502B)
+private val DashGold = Color(0xFF895B13)
 
 private fun paycheckMoney(amount: Long): String {
     val formatted = NumberFormat.getNumberInstance(Locale.US).apply {

@@ -39,6 +39,7 @@ import com.kedevjimmy.pesatrack.ui.components.MainTab
 import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
 import com.kedevjimmy.pesatrack.ui.components.PesaBrandName
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -53,8 +54,8 @@ internal object HomeReferencePalette {
     val canvas = HomeMonochromePalette.canvas
     val ink = HomeMonochromePalette.ink
     val muted = HomeMonochromePalette.muted
-    val purple = Color(0xFF5D00EB)
-    val violet = Color(0xFF6B18FF)
+    val purple = PremiumVisualTokens.coffee
+    val violet = PremiumVisualTokens.coffee
     val green = HomeMonochromePalette.green
     val red = Color(0xFFDC1551)
     val blue = Color(0xFF003BCD)
@@ -100,7 +101,7 @@ internal fun ReferenceHomeHeader(
 
 @Composable
 internal fun ReferenceHomeBottomBar(currentTab: MainTab, onSelected: (MainTab) -> Unit) {
-    val activeTint = if (currentTab == MainTab.MORE) Color.White else HomeMonochromePalette.green
+    val activeTint = PremiumVisualTokens.leaf
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp),
         shape = RoundedCornerShape(25.dp),
@@ -136,10 +137,10 @@ internal fun ReferenceHomeBottomBar(currentTab: MainTab, onSelected: (MainTab) -
                         verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
                     ) {
                         Icon(icon, title, Modifier.size(22.dp),
-                            tint = if (active) activeTint else Color.White)
+                            tint = if (active) activeTint else PremiumVisualTokens.card)
                         Text(title, fontSize = 11.sp, maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            color = Color.White,
+                            color = PremiumVisualTokens.card,
                             fontWeight = if (active) FontWeight.Medium else FontWeight.Normal)
                         Box(Modifier.width(20.dp).height(3.dp).clip(CircleShape)
                             .background(if (active) activeTint else Color.Transparent))

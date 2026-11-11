@@ -1,6 +1,6 @@
 # PesaTrack unified premium UI — coordinated implementation plan
 
-Status: **Proposed; implementation awaits acceptance of the design specification**
+Status: **Owner-approved; implementation underway in isolated worktree**
 
 Design: `docs/superpowers/specs/2026-11-11-unified-premium-ui-design.md`
 
@@ -204,4 +204,6 @@ be made safe by skipping these gates.
    rolling signed APK.
 5. Physical Redmi acceptance remains the last user verification step.
 
-No production code is changed by this plan itself.
+This plan records the approved coordination approach. Production UI changes
+are tracked separately on the isolated implementation branch; no merge occurs
+until the full coverage and CI gates pass.

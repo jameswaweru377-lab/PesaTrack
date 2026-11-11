@@ -20,13 +20,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.domain.everyday.StatementHistoryReport
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import java.math.BigDecimal
 import java.text.NumberFormat
 import java.util.Locale
 
 internal val statementPalette = listOf(
-    Color(0xFF5B55E7), Color(0xFF786FF0), Color(0xFF9188F4),
-    Color(0xFFA69CFF), Color(0xFFB7AEFF), Color(0xFFC9C2FF)
+    PremiumVisualTokens.coffee, Color(0xFF8D5838), Color(0xFFB17A57),
+    PremiumVisualTokens.leafReadable, Color(0xFF947D65), Color(0xFFB69C77)
 )
 
 internal fun statementMoney(minor: Long): String =

@@ -1,6 +1,6 @@
 # PesaTrack unified premium UI — design specification
 
-Status: **Proposed for owner approval** (11 November 2026)
+Status: **Owner-approved on 11 November 2026; implementation in progress**
 
 ## Intent
 
@@ -180,6 +180,6 @@ Accept only when:
 Freeze this specification, inventory the exact latest routes, extract theme
 tokens and reusable primitives, migrate surfaces in dependency order, validate
 each area, then integrate/review/publish one APK. See the companion
-implementation plan for work packets and verification checkpoints. This is a
-proposal until the owner approves this exact specification; no app source
-changes are authorized by the design document alone.
+implementation plan for work packets and verification checkpoints. The owner
+approved implementation on 11 November 2026. A single release still requires
+every acceptance and verification gate above.

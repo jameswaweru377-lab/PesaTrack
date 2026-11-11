@@ -37,6 +37,7 @@ import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -59,8 +60,8 @@ internal fun activityKesLabel(minor: Long, showCents: Boolean = false): String {
 internal data class ActivityReferenceSegment(val label: String, val minor: Long, val color: Color)
 
 private val chartColors = listOf(
-    Color(0xFF7220FF), Color(0xFF2586FF), Color(0xFF19CE9D),
-    Color(0xFFFF934F), Color(0xFFF758A5)
+    PremiumVisualTokens.coffee, Color(0xFFB17A57), PremiumVisualTokens.leafReadable,
+    Color(0xFFB69C77), Color(0xFF9C5A50)
 )
 
 internal fun activityReferenceSegments(
@@ -186,8 +187,8 @@ internal fun ActivityReferenceSummary(
                         onClick = onAnalytics,
                         modifier = Modifier.size(PesaDesignTokens.minimumTouchTarget),
                         shape = RoundedCornerShape(16.dp),
-                        color = Color(0xFFF8F5FF),
-                        border = BorderStroke(1.dp, Color(0xFFE1D7FF))
+                        color = PremiumVisualTokens.card,
+                        border = BorderStroke(1.dp, PremiumVisualTokens.sandBorder)
                     ) {
                         Icon(Icons.Rounded.BarChart, "Detailed Activity breakdown",
                             modifier = Modifier.padding(14.dp).size(20.dp),
@@ -218,7 +219,7 @@ internal fun ActivityReferenceSummary(
                             val inset = strokeWidth / 2f + 3.dp.toPx()
                             val diameter = Size(size.width - inset * 2, size.height - inset * 2)
                             if (total <= 0.0 || segments.isEmpty()) {
-                                drawArc(Color(0xFFE9E9F5), -90f, 360f, false,
+                                drawArc(PremiumVisualTokens.sandBorder, -90f, 360f, false,
                                     Offset(inset, inset), diameter,
                                     style = Stroke(width = strokeWidth, cap = StrokeCap.Butt))
                             } else {

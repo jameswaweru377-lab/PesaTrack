@@ -55,12 +55,13 @@ import com.kedevjimmy.pesatrack.data.local.DebtAccountSnapshot
 import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
 import com.kedevjimmy.pesatrack.domain.model.checkedMoneySumOf
 import kotlinx.coroutines.launch
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 
 /** The selected Accounts concept uses black controls, with mint only as a quiet background. */
-internal val AccountBlack = Color(0xFF151716)
-internal val AccountMint = Color(0xFFE7F5E9)
-internal val AccountCream = Color(0xFFFAF7F0)
-private val AccountLine = Color(0xFFE4E6E2)
+internal val AccountBlack = PremiumVisualTokens.ink
+internal val AccountMint = Color(0xFFE7EFD9)
+internal val AccountCream = PremiumVisualTokens.cream
+private val AccountLine = PremiumVisualTokens.sandBorder
 
 @Composable
 internal fun SelectedAccountsCompass(

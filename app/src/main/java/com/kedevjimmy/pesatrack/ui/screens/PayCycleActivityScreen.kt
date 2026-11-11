@@ -351,7 +351,7 @@ private fun VibrantCycleHero(
     ) {
         Column(
             Modifier.fillMaxWidth().background(Brush.linearGradient(
-                listOf(Color(0xFF7D1CF5), Color(0xFF3710C6), Color(0xFF1256E5))
+                listOf(Color(0xFF845236), PlanVibrant.violet, Color(0xFF402010))
             )).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(13.dp)
         ) {

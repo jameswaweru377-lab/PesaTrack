@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -87,9 +89,9 @@ fun AppLockScreen(
                 .background(
                     Brush.verticalGradient(
                         listOf(
-                            Color(0xFF24213F),
-                            Color(0xFF111827),
-                            Color(0xFF090D18)
+                            PremiumVisualTokens.darkSurface,
+                            PremiumVisualTokens.darkCard,
+                            PremiumVisualTokens.darkCanvas
                         )
                     )
                 )
@@ -126,7 +128,7 @@ fun AppLockScreen(
                     contentDescription =
                         null,
                     tint =
-                        Color(0xFFA69CFF),
+                        PremiumVisualTokens.darkCoffee,
                     modifier =
                         Modifier.size(
                             30.dp

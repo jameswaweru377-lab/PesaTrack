@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,6 +34,7 @@ import com.kedevjimmy.pesatrack.domain.statements.SharedAccountingViewPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementOverviewCardsPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementSavedAccountVisibility
 import com.kedevjimmy.pesatrack.domain.statements.StatementUnifiedOverviewPolicy
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import java.text.DateFormatSymbols
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
@@ -114,7 +116,7 @@ internal fun StatementUnifiedOverviewPage(
                         letterSpacing = (-0.6).sp, color = p.ink)
                     Text("Explore your imported history.", color = p.muted, fontSize = 14.sp)
                 }
-                Surface(shape = CircleShape, color = Color(0xFFEDEBFF)) {
+                Surface(shape = CircleShape, color = PremiumVisualTokens.sand) {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Rounded.Close, "Close Statements", tint = p.ink)
                     }
@@ -242,7 +244,7 @@ internal fun StatementUnifiedOverviewPage(
                     Column(Modifier.fillMaxWidth().padding(23.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Surface(shape = CircleShape, color = Color(0xFFEEE7FF)) {
+                        Surface(shape = CircleShape, color = PremiumVisualTokens.sand) {
                             Icon(Icons.Rounded.Description, null, tint = p.purple,
                                 modifier = Modifier.padding(17.dp).size(31.dp))
                         }
@@ -263,12 +265,12 @@ internal fun StatementUnifiedOverviewPage(
             item {
                 Surface(shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth()) {
                     Box(Modifier.fillMaxWidth().background(Brush.linearGradient(
-                        listOf(Color(0xFF8B43FF), Color(0xFF5014DF), Color(0xFF2941CA))))) {
+                        listOf(Color(0xFF845236), PremiumVisualTokens.coffee, Color(0xFF402010))))) {
                         Canvas(Modifier.fillMaxWidth().height(218.dp)) {
-                            drawCircle(Color(0xFFBC98FF).copy(alpha = .28f),
+                            drawCircle(PremiumVisualTokens.sandBorder.copy(alpha = .28f),
                                 radius = size.width * .28f,
                                 center = Offset(size.width * .96f, size.height * .06f))
-                            drawCircle(Color(0xFF63E3FF).copy(alpha = .18f),
+                            drawCircle(PremiumVisualTokens.leaf.copy(alpha = .18f),
                                 radius = size.width * .22f,
                                 center = Offset(size.width * .8f, size.height * 1.1f))
                         }
@@ -476,7 +478,8 @@ private fun StatementUnifiedCashMetric(label: String, amount: Long?, modifier: M
 
 @Composable
 private fun StatementUnifiedWhiteCard(content: @Composable () -> Unit) {
-    Surface(shape = RoundedCornerShape(19.dp), color = Color.White,
+    Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()) { content() }
 }
 
@@ -489,7 +492,8 @@ private fun StatementUnifiedMetricCard(
 ) {
     Surface(modifier = modifier.then(if (onClick != null) Modifier.clickable(onClick = onClick)
         else Modifier),
-        color = Color.White, shape = RoundedCornerShape(17.dp)) {
+        color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(shape = RoundedCornerShape(11.dp), color = iconBackground) {

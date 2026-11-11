@@ -40,6 +40,7 @@ import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.planning.VoicePlanKind
 import com.kedevjimmy.pesatrack.ui.components.*
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
@@ -351,7 +352,7 @@ private fun GoalSummaryBars() {
                     .clip(RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp))
                     .background(
                         Brush.verticalGradient(
-                            listOf(Color(0xFF55E6D1), Color(0xFF3933A8))
+                            listOf(PremiumVisualTokens.leaf, PremiumVisualTokens.coffee)
                         )
                     )
             )
@@ -365,7 +366,7 @@ private fun GoalHeroMetric(
     value: String,
     label: String,
     modifier: Modifier = Modifier,
-    tone: Color = Color(0xFFC5BCFF)
+    tone: Color = PremiumVisualTokens.sandBorder
 ) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Surface(
@@ -439,7 +440,7 @@ private fun GoalFilterChip(
     Surface(
         modifier = Modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(50.dp),
-        color = if (selected) Color(0xFFEDE6FF)
+        color = if (selected) PremiumVisualTokens.sand
         else MaterialTheme.colorScheme.surfaceVariant,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,

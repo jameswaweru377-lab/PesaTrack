@@ -75,16 +75,12 @@ fun AppScaffold(
         }
     ) {
     Scaffold(
-        containerColor = when {
-            useBrownHome || currentTab == MainTab.ACCOUNTS -> BrownHomePalette.canvas
-            currentTab == MainTab.ACTIVITY || useHomeHeader -> HomeReferencePalette.canvas
-            else -> MaterialTheme.colorScheme.background
-        },
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             if (showTopBar && currentTab != null) {
                 Box(
                     modifier = Modifier
-                        .background(BrownHomePalette.canvas)
+                        .background(MaterialTheme.colorScheme.background)
                         .statusBarsPadding()
                 ) {
                     BrownHomeHeader(onMenu = { scope.launch { drawer.open() } },
@@ -100,7 +96,7 @@ fun AppScaffold(
             if (currentTab != null) {
                 Surface(
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-                    color = BrownHomePalette.canvas
+                    color = MaterialTheme.colorScheme.background
                 ) {
                     BrownHomeBottomBar(currentTab, onTabSelected, onProfileClick)
                 }

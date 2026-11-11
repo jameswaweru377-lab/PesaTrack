@@ -46,26 +46,27 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 
-/** Screen-local tokens matching the approved premium Plan reference. */
+/** Legacy Plan names now resolve to the unified editorial palette. */
 internal object PlanVibrant {
-    val ink = Color(0xFF10113C)
-    val muted = Color(0xFF666D95)
-    val violet = Color(0xFF6416F5)
-    val violetDeep = Color(0xFF3900C3)
-    val mint = Color(0xFF10AC82)
-    val blue = Color(0xFF187DFF)
-    val pink = Color(0xFFEC337D)
-    val orange = Color(0xFFFF7137)
-    val canvas = Color(0xFFF6F5FF)
-    val outline = Color(0xFFE7E4F6)
+    val ink = PremiumVisualTokens.ink
+    val muted = PremiumVisualTokens.muted
+    val violet = PremiumVisualTokens.coffee
+    val violetDeep = PremiumVisualTokens.ink
+    val mint = PremiumVisualTokens.leafReadable
+    val blue = PremiumVisualTokens.coffee
+    val pink = Color(0xFFC43C52)
+    val orange = Color(0xFF895B13)
+    val canvas = PremiumVisualTokens.cream
+    val outline = PremiumVisualTokens.sandBorder
 }
 internal fun planVibrantTone(tone: String): Pair<Color, Color> = when (tone) {
-    "mint" -> Color(0xFFDEFAEF) to Color(0xFF058B68)
-    "blue" -> Color(0xFFE4EFFF) to PlanVibrant.blue
-    "pink" -> Color(0xFFFFE5EE) to PlanVibrant.pink
-    "orange" -> Color(0xFFFFEDDF) to PlanVibrant.orange
-    else -> Color(0xFFEDE6FF) to PlanVibrant.violet
+    "mint" -> Color(0xFFE7EFD9) to PlanVibrant.mint
+    "blue" -> PremiumVisualTokens.sand to PlanVibrant.blue
+    "pink" -> Color(0xFFFFE9EE) to PlanVibrant.pink
+    "orange" -> Color(0xFFFFF2CF) to PlanVibrant.orange
+    else -> PremiumVisualTokens.sand to PlanVibrant.violet
 }
 
 @Composable
@@ -94,7 +95,7 @@ internal fun VibrantPlanDateRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 Icon(Icons.Rounded.CalendarMonth, contentDescription = null,
-                    tint = Color(0xFF34428D), modifier = Modifier.size(20.dp))
+                    tint = PremiumVisualTokens.coffee, modifier = Modifier.size(20.dp))
                 Text(period, Modifier.weight(1f), color = PlanVibrant.ink,
                     fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1,
                     overflow = TextOverflow.Ellipsis)
@@ -161,23 +162,23 @@ private fun PlanCalendarCoinsIllustration(modifier: Modifier = Modifier) {
             drawRoundRect(color = c, topLeft = point(x, y),
                 size = Size(w * sx, h * sy), cornerRadius = CornerRadius(radius * sx))
         }
-        // Floating calendar and its pale-blue header.
-        box(15f, 12f, 82f, 82f, Color(0xFFDED7FF).copy(alpha = .24f), 14f)
-        box(18f, 10f, 79f, 78f, Color(0xFFFCFAFF), 12f)
-        box(18f, 10f, 79f, 19f, Color(0xFFB1A5FF), 11f)
+        // Floating calendar and warm coffee header.
+        box(15f, 12f, 82f, 82f, PremiumVisualTokens.sand.copy(alpha = .45f), 14f)
+        box(18f, 10f, 79f, 78f, PremiumVisualTokens.card, 12f)
+        box(18f, 10f, 79f, 19f, PremiumVisualTokens.sandBorder, 11f)
         listOf(34f, 79f).forEach { x ->
-            drawLine(Color(0xFF2B36AD), point(x, 6f), point(x, 17f),
+            drawLine(PremiumVisualTokens.coffee, point(x, 6f), point(x, 17f),
                 strokeWidth = 5f * sx, cap = StrokeCap.Round)
         }
         val cells = listOf(37f to 41f, 65f to 41f, 37f to 65f, 65f to 65f)
         cells.forEachIndexed { index, (x, y) ->
-            box(x, y, 15f, 12f, if (index == 1) Color(0xFFE4E0FF)
-                else Color(0xFFC7BEFC), 3f)
+            box(x, y, 15f, 12f, if (index == 1) PremiumVisualTokens.cream
+                else PremiumVisualTokens.sand, 3f)
         }
         listOf(37f to 41f, 65f to 41f, 65f to 65f).forEach { (x,y) ->
-            drawLine(Color(0xFF3E53E7), point(x+2f,y+6f), point(x+6f,y+9f),
+            drawLine(PremiumVisualTokens.leafReadable, point(x+2f,y+6f), point(x+6f,y+9f),
                 2.4f*sx, cap=StrokeCap.Round)
-            drawLine(Color(0xFF3E53E7), point(x+6f,y+9f), point(x+14f,y+2f),
+            drawLine(PremiumVisualTokens.leafReadable, point(x+6f,y+9f), point(x+14f,y+2f),
                 2.4f*sx, cap=StrokeCap.Round)
         }
         // Three glossy coin stacks, separated so they remain legible on small displays.
@@ -203,7 +204,7 @@ internal fun VibrantPlanHero(
         Modifier.fillMaxWidth().height(176.dp)
             .clip(RoundedCornerShape(22.dp))
             .background(Brush.linearGradient(listOf(
-                Color(0xFF790FFF), Color(0xFF3B0FD0), Color(0xFF1157E5)
+                Color(0xFF794527), PremiumVisualTokens.coffee, Color(0xFF422211)
             )))
             .semantics {
                 contentDescription = "This pay cycle: $period. $available available after commitments. " +
@@ -213,12 +214,12 @@ internal fun VibrantPlanHero(
         Box(
             Modifier.align(Alignment.TopEnd).offset(x = 24.dp, y = (-76).dp).size(155.dp)
                 .background(Brush.linearGradient(listOf(
-                    Color(0xFF13E5FF), Color(0xFF118DFF), Color(0xFF5144FF)
+                    Color(0xFFC5A282), Color(0xFF885433), PremiumVisualTokens.coffee
                 )), CircleShape)
         )
         Box(
             Modifier.align(Alignment.BottomEnd).offset(x = 75.dp, y = 90.dp).size(200.dp)
-                .background(Color(0xFF9C40FF).copy(alpha = .30f), CircleShape)
+                .background(PremiumVisualTokens.leaf.copy(alpha = .16f), CircleShape)
         )
         // Illustration lives above the button; no overlaying or clipping the CTA.
         PlanCalendarCoinsIllustration(
@@ -255,7 +256,7 @@ internal fun VibrantPlanHero(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Surface(
-                    color = if (safeTodayPositive) Color(0xFFE1FFF0) else Color(0xFFF3E9FF),
+                    color = if (safeTodayPositive) Color(0xFFE7EFD9) else PremiumVisualTokens.sand,
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier.weight(1f, fill = false)
                 ) {
@@ -268,8 +269,8 @@ internal fun VibrantPlanHero(
                             if (safeTodayPositive) Icons.Rounded.CheckCircle else Icons.Rounded.Info,
                             contentDescription = null,
                             modifier = Modifier.size(15.dp),
-                            tint = if (safeTodayPositive) Color(0xFF009A6F)
-                                else Color(0xFF6422BF)
+                            tint = if (safeTodayPositive) PremiumVisualTokens.leafReadable
+                                else PremiumVisualTokens.coffee
                         )
                         Text(
                             if (safeToday == null) "Daily guide unavailable"
@@ -331,7 +332,7 @@ internal fun VibrantPlanSourceWarning(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    message, color = Color(0xFF6E6B77),
+                    message, color = PremiumVisualTokens.muted,
                     fontSize = 11.sp, lineHeight = 15.sp
                 )
             }
@@ -339,7 +340,7 @@ internal fun VibrantPlanSourceWarning(
                 if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
                 contentDescription = if (expanded) "Collapse explanation" else "Explain missing source",
                 modifier = Modifier.size(20.dp),
-                tint = Color(0xFF4D5286)
+                tint = PremiumVisualTokens.coffee
             )
         }
     }
@@ -352,7 +353,7 @@ internal fun VibrantDestinationTile(
 ) {
     Surface(modifier = modifier.heightIn(min = 62.dp)
         .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        color = Color.White, shape = RoundedCornerShape(17.dp), shadowElevation = 3.dp,
+        color = PremiumVisualTokens.card, shape = RoundedCornerShape(17.dp), shadowElevation = 3.dp,
         border = BorderStroke(1.dp, PlanVibrant.outline)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -365,7 +366,7 @@ internal fun VibrantDestinationTile(
                     color = PlanVibrant.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Icon(Icons.Rounded.ChevronRight, null, Modifier.size(15.dp),
-                tint = Color(0xFF686D9C))
+                tint = PremiumVisualTokens.coffee)
         }
     }
 }
@@ -387,7 +388,7 @@ internal fun VibrantPlanListRow(icon: ImageVector, tone: String, label: String,
         Text(amount, color = PlanVibrant.ink,
             fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
         if (onClick != null) Icon(Icons.Rounded.ChevronRight, null, Modifier.size(17.dp),
-            tint = Color(0xFF68729C))
+            tint = PremiumVisualTokens.coffee)
     }
 }
 
@@ -416,7 +417,7 @@ internal fun VibrantPlanMeter(
         Box(
             Modifier.weight(1f).height(7.dp)
                 .clip(RoundedCornerShape(7.dp))
-                .background(Color(0xFFEAE7F8))
+                .background(PremiumVisualTokens.sand)
         ) {
             if (hasData && progress > 0f) {
                 Box(
@@ -428,7 +429,7 @@ internal fun VibrantPlanMeter(
         }
         Text(
             detail, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF3F457C), maxLines = 1
+            color = PremiumVisualTokens.muted, maxLines = 1
         )
     }
 }
@@ -452,7 +453,7 @@ internal fun VibrantPlanProgressCard(
             Text("Plan progress", Modifier.weight(1f), fontSize = 16.sp,
                 fontWeight = FontWeight.ExtraBold, color = PlanVibrant.ink)
             Icon(Icons.Rounded.Info, contentDescription = "Progress reflects recorded data",
-                tint = Color(0xFF3A4C9E), modifier = Modifier.size(16.dp))
+                tint = PremiumVisualTokens.coffee, modifier = Modifier.size(16.dp))
             Spacer(Modifier.weight(.15f))
             TextButton(onClick = onPeriodClick,
                 contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)) {
@@ -490,9 +491,8 @@ internal fun VibrantActionButton(label: String, onClick: () -> Unit,
     Surface(modifier = modifier.fillMaxWidth().heightIn(min = 50.dp)
         .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp), color = PlanVibrant.violet) {
-        Box(Modifier.background(Brush.horizontalGradient(listOf(
-            Color(0xFF792CFF), Color(0xFF5600DB))))
-            .padding(horizontal = 14.dp, vertical = 14.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+            contentAlignment = Alignment.Center) {
             Text(label, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
     }
@@ -507,10 +507,11 @@ internal fun VibrantRing(percent: Float, modifier: Modifier = Modifier,
             val width = 12.dp.toPx()
             val inset = width / 2 + 1.dp.toPx()
             val arcSize = Size(size.width - inset * 2, size.height - inset * 2)
-            drawArc(Color(0xFFE6DCFC), -90f, 360f, false, Offset(inset,inset),
+            drawArc(PremiumVisualTokens.sandBorder, -90f, 360f, false, Offset(inset,inset),
                 arcSize, style=Stroke(width, cap=StrokeCap.Round))
             if (p > 0f) drawArc(Brush.sweepGradient(listOf(
-                Color(0xFF6920EF), Color(0xFF2724FF), Color(0xFFA062FF), Color(0xFF6920EF))),
+                PremiumVisualTokens.coffee, Color(0xFF885433), PremiumVisualTokens.leafReadable,
+                PremiumVisualTokens.coffee)),
                 -90f, 360f*p, false, Offset(inset,inset),
                 arcSize, style=Stroke(width, cap=StrokeCap.Round))
         }
@@ -542,13 +543,13 @@ internal fun VibrantPlanMoneyBreakdown(
     committed: String,
     available: String
 ) {
-    val ink = Color(0xFF11123F)
-    val muted = Color(0xFF686B9C)
+    val ink = PremiumVisualTokens.ink
+    val muted = PremiumVisualTokens.muted
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(25.dp),
-        color = Color(0xFFFDFDFF),
-        border = BorderStroke(1.dp, Color(0xFFEAE5F8)),
+        shape = RoundedCornerShape(16.dp),
+        color = PremiumVisualTokens.card,
+        border = BorderStroke(1.dp, PremiumVisualTokens.sandBorder),
         shadowElevation = 4.dp
     ) {
         Column(
@@ -571,14 +572,14 @@ internal fun VibrantPlanMoneyBreakdown(
             ) {
                 Surface(
                     modifier = Modifier.size(56.dp),
-                    color = Color(0xFFE3DFFF),
-                    shape = CircleShape
+                    color = PremiumVisualTokens.sand,
+                    shape = RoundedCornerShape(14.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Rounded.Calculate,
                             contentDescription = null,
-                            tint = Color(0xFF5B10E7),
+                            tint = PremiumVisualTokens.coffee,
                             modifier = Modifier.size(30.dp)
                         )
                     }
@@ -598,39 +599,39 @@ internal fun VibrantPlanMoneyBreakdown(
                     imageVector = if (expanded) Icons.Rounded.ExpandLess
                         else Icons.Rounded.ExpandMore,
                     contentDescription = null,
-                    tint = Color(0xFF594E9B),
+                    tint = PremiumVisualTokens.coffee,
                     modifier = Modifier.size(25.dp)
                 )
             }
             if (expanded) {
                 Spacer(Modifier.height(15.dp))
                 VibrantBreakdownRow(
-                    Icons.Rounded.Toll, Color(0xFFDEF8ED), Color(0xFF008D63),
-                    "Starting funds", startingFunds, Color(0xFF075D41)
+                    Icons.Rounded.Toll, Color(0xFFE7EFD9), PremiumVisualTokens.leafReadable,
+                    "Starting funds", startingFunds, PremiumVisualTokens.ink
                 )
-                HorizontalDivider(color = Color(0xFFE9E5F8), thickness = 1.dp)
+                HorizontalDivider(color = PremiumVisualTokens.sandBorder, thickness = 1.dp)
                 VibrantBreakdownRow(
-                    Icons.Rounded.Download, Color(0xFFDEFAEB), Color(0xFF00A474),
-                    "Other money received", received, Color(0xFF075D41)
+                    Icons.Rounded.Download, Color(0xFFE7EFD9), PremiumVisualTokens.leafReadable,
+                    "Other money received", received, PremiumVisualTokens.ink
                 )
-                HorizontalDivider(color = Color(0xFFE9E5F8), thickness = 1.dp)
+                HorizontalDivider(color = PremiumVisualTokens.sandBorder, thickness = 1.dp)
                 VibrantBreakdownRow(
                     Icons.Rounded.Upload, Color(0xFFFFE3EC), Color(0xFFE8397A),
                     "Cash paid", cashPaid, ink
                 )
-                HorizontalDivider(color = Color(0xFFE9E5F8), thickness = 1.dp)
+                HorizontalDivider(color = PremiumVisualTokens.sandBorder, thickness = 1.dp)
                 VibrantBreakdownRow(
                     Icons.Rounded.ReceiptLong, Color(0xFFFFEBDD), Color(0xFFF07A43),
                     "Fees", fees, ink
                 )
-                HorizontalDivider(color = Color(0xFFE9E5F8), thickness = 1.dp)
+                HorizontalDivider(color = PremiumVisualTokens.sandBorder, thickness = 1.dp)
                 VibrantBreakdownRow(
-                    Icons.Rounded.Savings, Color(0xFFE1EFFF), Color(0xFF137EDB),
+                    Icons.Rounded.Savings, PremiumVisualTokens.sand, PremiumVisualTokens.coffee,
                     "Moved to savings", saved, ink
                 )
-                HorizontalDivider(color = Color(0xFFE9E5F8), thickness = 1.dp)
+                HorizontalDivider(color = PremiumVisualTokens.sandBorder, thickness = 1.dp)
                 VibrantBreakdownRow(
-                    Icons.Rounded.EventAvailable, Color(0xFFEEE5FF), Color(0xFF6D20E9),
+                    Icons.Rounded.EventAvailable, PremiumVisualTokens.sand, PremiumVisualTokens.coffee,
                     "Still committed", committed, ink
                 )
                 Spacer(Modifier.height(11.dp))
@@ -644,7 +645,7 @@ internal fun VibrantPlanMoneyBreakdown(
                     Icon(
                         Icons.Rounded.Info,
                         contentDescription = null,
-                        tint = Color(0xFF746BAD),
+                        tint = PremiumVisualTokens.coffee,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
@@ -692,7 +693,7 @@ private fun VibrantBreakdownRow(
             label, modifier = Modifier.weight(1f),
             fontSize = 13.sp, lineHeight = 17.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF10123C)
+            color = PremiumVisualTokens.ink
         )
         Text(
             value,
@@ -709,13 +710,13 @@ private fun VibrantBreakdownRow(
 private fun VibrantBreakdownResult(available: String) {
     Box(
         modifier = Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(21.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(
                 Brush.linearGradient(
                     listOf(
-                        Color(0xFFF0E9FF),
-                        Color(0xFFE5D6FF),
-                        Color(0xFFC79CFA)
+                        PremiumVisualTokens.sand,
+                        PremiumVisualTokens.cream,
+                        PremiumVisualTokens.sandBorder
                     )
                 )
             )
@@ -724,7 +725,7 @@ private fun VibrantBreakdownResult(available: String) {
             modifier = Modifier.align(Alignment.BottomEnd)
                 .offset(x = 88.dp, y = 83.dp)
                 .size(175.dp)
-                .background(Color(0xFFAA75F5).copy(alpha = .22f), CircleShape)
+                .background(PremiumVisualTokens.leaf.copy(alpha = .20f), CircleShape)
         )
         Column(
             modifier = Modifier.fillMaxWidth()
@@ -733,18 +734,18 @@ private fun VibrantBreakdownResult(available: String) {
         ) {
             Text(
                 "Available after commitments",
-                color = Color(0xFF2A1177),
+                color = PremiumVisualTokens.coffee,
                 fontSize = 14.sp, lineHeight = 19.sp,
                 fontWeight = FontWeight.ExtraBold
             )
             Text(
-                available, color = Color(0xFF241071),
+                available, color = PremiumVisualTokens.ink,
                 fontSize = 31.sp, lineHeight = 37.sp,
                 fontWeight = FontWeight.ExtraBold
             )
             Text(
                 "Planning amount, not your account balance.",
-                color = Color(0xFF585393),
+                color = PremiumVisualTokens.muted,
                 fontSize = 11.sp, lineHeight = 15.sp
             )
         }

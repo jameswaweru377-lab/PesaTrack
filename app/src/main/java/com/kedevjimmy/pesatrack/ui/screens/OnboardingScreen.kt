@@ -21,6 +21,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.ui.components.ConceptBrandLockup
 import com.kedevjimmy.pesatrack.ui.components.ConceptWalletIllustration
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 
 @Composable
 fun OnboardingScreen(
@@ -32,9 +33,9 @@ fun OnboardingScreen(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF3933A8),
-                        Color(0xFF24213F),
-                        Color(0xFF111827)
+                        Color(0xFF845236),
+                        PremiumVisualTokens.coffee,
+                        Color(0xFF402010)
                     )
                 )
             )
@@ -80,8 +81,8 @@ fun OnboardingScreen(
                 .heightIn(min = 58.dp),
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFF6F7FB),
-                contentColor = Color(0xFF202B42)
+                containerColor = PremiumVisualTokens.card,
+                contentColor = PremiumVisualTokens.coffee
             )
         ) {
             Text("Get started", fontWeight = FontWeight.Bold)

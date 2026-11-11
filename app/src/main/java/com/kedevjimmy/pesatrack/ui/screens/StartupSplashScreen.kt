@@ -14,24 +14,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import com.kedevjimmy.pesatrack.ui.components.ConceptBrandLockup
 import com.kedevjimmy.pesatrack.ui.components.ConceptWalletIllustration
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 
 @Composable
 fun StartupSplashScreen(darkTheme: Boolean = false) {
-    val foreground = if (darkTheme) Color.White else Color(0xFF0B103A)
-    val secondary = if (darkTheme) Color.White.copy(alpha = .78f) else Color(0xFF626B98)
+    val foreground = if (darkTheme) PremiumVisualTokens.darkText else PremiumVisualTokens.ink
+    val secondary = if (darkTheme) PremiumVisualTokens.darkMuted else PremiumVisualTokens.muted
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
                     if (darkTheme) listOf(
-                        Color(0xFF3933A8),
-                        Color(0xFF24213F),
-                        Color(0xFF111827)
+                        PremiumVisualTokens.darkSurface,
+                        PremiumVisualTokens.darkCard,
+                        PremiumVisualTokens.darkCanvas
                     ) else listOf(
-                        Color(0xFFF8F7FF),
-                        Color(0xFFEAF3FF),
-                        Color(0xFFF7F7FF)
+                        PremiumVisualTokens.cream,
+                        PremiumVisualTokens.sand,
+                        PremiumVisualTokens.card
                     )
                 )
             )

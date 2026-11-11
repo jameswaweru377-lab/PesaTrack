@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import com.kedevjimmy.pesatrack.data.local.ObservedInvestmentPosition
 import com.kedevjimmy.pesatrack.data.local.ObservedInvestmentEvent
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
@@ -50,10 +51,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val coffee = Color(0xFF552510)
-private val mutedCoffee = Color(0xFF846554)
-private val thinBorder = Color(0xFFF0DCCE)
-private val ivory = Color(0xFFFCF6F0)
+private val coffee = PremiumVisualTokens.coffee
+private val mutedCoffee = PremiumVisualTokens.muted
+private val thinBorder = PremiumVisualTokens.sandBorder
+private val ivory = PremiumVisualTokens.card
 
 /** Short screen label only; the full identifier is never shown in this list. */
 internal fun compactAccountLabel(raw: String): String = raw
