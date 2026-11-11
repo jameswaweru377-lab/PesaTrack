@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,7 +30,6 @@ import com.kedevjimmy.pesatrack.data.local.ObservedInvestmentPosition
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 
 private val brown = Color(0xFF552510)
 private val secondaryBrown = Color(0xFF846554)
@@ -188,6 +188,7 @@ private fun InvestmentBrandMark(label: String) {
 
 @Composable
 private fun InvestmentEventRow(event: ObservedInvestmentEvent) {
+    val locale = LocalConfiguration.current.locales[0]
     Surface(color = Color.White, shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, goldOutline)) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -195,7 +196,7 @@ private fun InvestmentEventRow(event: ObservedInvestmentEvent) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(investmentEventTitle(event), color = brown, fontWeight = FontWeight.SemiBold)
-                Text("${event.instrumentLabel} • ${SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(event.occurredAtEpochMs))}",
+                Text("${event.instrumentLabel} • ${SimpleDateFormat("d MMM yyyy", locale).format(Date(event.occurredAtEpochMs))}",
                     color = secondaryBrown, style = MaterialTheme.typography.bodySmall)
             }
             Text(event.valueMinor?.let(::formatKesAmount) ?: "Amount unknown",
