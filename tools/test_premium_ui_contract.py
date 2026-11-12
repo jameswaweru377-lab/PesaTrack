@@ -114,6 +114,26 @@ class PremiumUiContractTest(unittest.TestCase):
         self.assertIn("PremiumVisualTokens.coffee", appearance)
         self.assertNotIn(".background(Color(0xFF101310))", appearance)
 
+    def test_onboarding_welcome_is_short_and_uncluttered(self):
+        welcome = source(SCREENS / "PesaTrackWelcomePage.kt")
+        self.assertIn("Understand balances and transfers", welcome)
+        self.assertIn("Track money in and out", welcome)
+        self.assertNotIn("ApprovedReferenceHero(", welcome)
+        self.assertNotIn("Understand spending and debts", welcome)
+
+    def test_onboarding_drops_old_step_dots_and_import_choices(self):
+        setup = source(SCREENS / "SmartOnboardingSetupScreen.kt")
+        self.assertIn("OnboardingPremiumHeader()", setup)
+        self.assertNotIn("StageProgress(stage)", setup)
+        self.assertIn("Import your money history", setup)
+        self.assertIn("Skip import for now", setup)
+
+    def test_sms_disclosure_preserves_explicit_consent(self):
+        privacy = source(SCREENS / "ApprovedPrivacyConsentPage.kt")
+        self.assertIn("accepted && !busy", privacy)
+        self.assertIn("onContinueWithout", privacy)
+        self.assertNotIn("ApprovedReferenceHero(privacy = true)", privacy)
+
     def test_core_text_colours_reach_wcag_aa_contrast(self):
         palette = source(THEME / "PremiumVisualTokens.kt")
         values = dict(re.findall(r"val (\w+) = Color\(0xFF([0-9A-F]{6})\)", palette))

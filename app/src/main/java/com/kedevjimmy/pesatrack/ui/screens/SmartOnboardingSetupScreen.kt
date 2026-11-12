@@ -517,7 +517,7 @@ fun SmartOnboardingSetupScreen(
             }
             MessageAccessAction.CONTINUE -> {
                 accessStarted = false
-                stage = SmartSetupStage.ANALYZE
+                stage = SmartSetupStage.IMPORT
             }
         }
     }
@@ -1627,7 +1627,7 @@ fun SmartOnboardingSetupScreen(
             when (stage) {
                 SmartSetupStage
                     .SMS_PERMISSION ->
-                    SmartSetupStage.SMS_PERMISSION
+                    SmartSetupStage.WELCOME
 
                 SmartSetupStage
                     .ANALYZE -> {
@@ -1677,7 +1677,7 @@ fun SmartOnboardingSetupScreen(
                     SmartSetupStage.ACCOUNT_DETAILS
 
                 SmartSetupStage.IMPORT ->
-                    SmartSetupStage.WELCOME
+                    SmartSetupStage.SMS_PERMISSION
 
                 SmartSetupStage.WELCOME ->
                     SmartSetupStage.WELCOME
@@ -1693,8 +1693,7 @@ fun SmartOnboardingSetupScreen(
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
             .windowInsetsPadding(WindowInsets.safeDrawing).padding(scaffoldPadding).padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            BrandWordmark(compact = true)
-            StageProgress(stage)
+            OnboardingPremiumHeader()
             Box(Modifier.fillMaxWidth().weight(1f)) {
             SmartSmsPermissionPage(
                 accepted = disclosureAccepted, busy = accessStarted, denied = smsDenied, consentError = consentError,
@@ -1772,21 +1771,13 @@ fun SmartOnboardingSetupScreen(
         verticalArrangement =
             Arrangement.spacedBy(16.dp)
     ) {
-        item {
-            BrandWordmark(
-                compact = true
-            )
-        }
-
-        item {
-            StageProgress(stage)
-        }
+        item { OnboardingPremiumHeader() }
 
         when (stage) {
             SmartSetupStage.WELCOME -> {
                 item {
                     PesaTrackWelcomePage(
-                        onGetStarted = { stage = SmartSetupStage.IMPORT },
+                        onGetStarted = { stage = SmartSetupStage.SMS_PERMISSION },
                         onSkip = {
                             importMonths = 0
                             stage = SmartSetupStage.ANALYZE
@@ -1894,8 +1885,9 @@ fun SmartOnboardingSetupScreen(
                                 completedInstitutionKeys = selectedOwnedKeys
                                 completionInstitutionCount = selectedOwnedKeys.size
                                 applySelectedAccountOwnership()
-                                stage = if (wantsMpesa) SmartSetupStage.MPESA_SERVICES
-                                else nextAfterIdentitySetup()
+                                // Essentials are complete once account ownership is confirmed.
+                                // Optional M-Pesa services, payday and account labels are in the app.
+                                stage = SmartSetupStage.COMPLETE
                             }
                         }
                     )
@@ -2357,51 +2349,6 @@ fun SmartOnboardingSetupScreen(
 }
 
 @Composable
-private fun StageProgress(
-    stage: SmartSetupStage
-) {
-    val steps = listOf(
-        "Welcome", "Scan messages", "Understanding your money", "Choose institutions",
-        "M-Pesa services", "Account details", "Ready"
-    )
-    val visibleIndex = when (stage) {
-        SmartSetupStage.WELCOME -> 0
-        SmartSetupStage.IMPORT, SmartSetupStage.SMS_PERMISSION -> 1
-        SmartSetupStage.ANALYZE -> 2
-        SmartSetupStage.REVIEW -> 3
-        SmartSetupStage.MPESA_SERVICES -> 4
-        SmartSetupStage.MPESA_CONFIRM, SmartSetupStage.ACCOUNT_DETAILS -> 5
-        SmartSetupStage.SALARY_OPTIONAL, SmartSetupStage.SALARY_MANUAL, SmartSetupStage.LIVE_CAPTURE -> 5
-        SmartSetupStage.COMPLETE -> 6
-    }
-    Text(
-        text = "${visibleIndex + 1} of ${steps.size} • ${steps[visibleIndex]}",
-        modifier = Modifier.fillMaxWidth(),
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center
-    )
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center
-    ) {
-        repeat(steps.size) { index ->
-            Surface(
-                modifier = Modifier
-                    .padding(horizontal = 3.dp)
-                    .size(width = if (index == visibleIndex) 25.dp else 7.dp, height = 7.dp),
-                shape = CircleShape,
-                color = if (index == visibleIndex) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.outlineVariant
-                }
-            ) {}
-        }
-    }
-}
-
-@Composable
 private fun ImportChoicePage(
     selectedMonths: Int,
     customStartDateEpochMs: Long,
@@ -2415,141 +2362,63 @@ private fun ImportChoicePage(
 ) {
     val context = LocalContext.current
     val today = startOfLocalDayEpochMs(System.currentTimeMillis())
-    val customRange = OnboardingHistoryWindow.customRange(
-        customStartDateEpochMs, customEndDateEpochMs
-    )
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text(
-            "Choose your SMS history",
-            style = MaterialTheme.typography.headlineSmall.copy(fontSize = 26.sp, lineHeight = 31.sp),
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            "Select how far back to find financial activity in your messages.",
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp, lineHeight = 21.sp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        PremiumHistoryTimeline()
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shape = RoundedCornerShape(14.dp)
-        ) {
-            Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Lock, null, tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(20.dp))
-                Text(
-                    "Scanning runs on this phone. Your full messages stay private.",
-                    modifier = Modifier.padding(start = 10.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-        }
-        Text(
-            "How far back should we check?",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Bold
-        )
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Import your money history", style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold)
+        Text("Start with recent financial messages. Older history can be added later.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium)
         PremiumRangeOption(
-            "1 month", "1 completed previous month + this month to date",
-            selectedMonths == 1, { onSelected(1) }
-        )
-        PremiumRangeOption(
-            "2 months", "2 completed previous months + this month to date",
+            "Recent messages", "Recommended · two completed months and this month",
             selectedMonths == 2, { onSelected(2) }
         )
         PremiumRangeOption(
-            "Custom dates", "Choose a specific date range",
+            "Older history", "Choose an earlier start and end date",
             selectedMonths == CUSTOM_IMPORT_SELECTION, { onSelected(CUSTOM_IMPORT_SELECTION) }
         )
-        if (selectedMonths == CUSTOM_IMPORT_SELECTION) {
-            Text("Choose your dates", modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
-                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = {
-                        val selected = Calendar.getInstance().apply {
-                            timeInMillis = customStartDateEpochMs
-                        }
-                        DatePickerDialog(
-                            context,
-                            { _, year, month, day ->
-                                onCustomStartDateSelected(pickerDateEpochMs(year, month, day))
-                            },
-                            selected.get(Calendar.YEAR),
-                            selected.get(Calendar.MONTH),
-                            selected.get(Calendar.DAY_OF_MONTH)
-                        ).apply {
-                            datePicker.maxDate = minOf(
-                                endOfLocalDayEpochMs(customEndDateEpochMs),
-                                endOfLocalDayEpochMs(today)
-                            )
-                        }.show()
-                    },
-                    modifier = Modifier.weight(1f).heightIn(min = 52.dp)
-                ) {
-                    Text("From\n${formatOnboardingDate(customStartDateEpochMs)}",
-                        textAlign = TextAlign.Center)
-                }
-                OutlinedButton(
-                    onClick = {
-                        val selected = Calendar.getInstance().apply {
-                            timeInMillis = customEndDateEpochMs
-                        }
-                        DatePickerDialog(
-                            context,
-                            { _, year, month, day ->
-                                onCustomEndDateSelected(pickerDateEpochMs(year, month, day))
-                            },
-                            selected.get(Calendar.YEAR),
-                            selected.get(Calendar.MONTH),
-                            selected.get(Calendar.DAY_OF_MONTH)
-                        ).apply {
-                            datePicker.minDate = startOfLocalDayEpochMs(customStartDateEpochMs)
-                            datePicker.maxDate = endOfLocalDayEpochMs(today)
-                        }.show()
-                    },
-                    modifier = Modifier.weight(1f).heightIn(min = 52.dp)
-                ) {
-                    Text("To\n${formatOnboardingDate(customEndDateEpochMs)}",
-                        textAlign = TextAlign.Center)
-                }
-            }
-            Text(
-                if (customRange != null) "Any past date range can be selected, including five or six months."
-                else "Choose a valid past date range. Future dates aren't available.",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (customRange == null) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            Text(
-                "Includes completed previous months and this month to date. You can change the range later.",
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 15.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        Text(
-            "You can change your import range later in settings.",
+        if (selectedMonths == CUSTOM_IMPORT_SELECTION) {
+            val range = OnboardingHistoryWindow.customRange(
+                customStartDateEpochMs, customEndDateEpochMs)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = {
+                    val selected = Calendar.getInstance().apply { timeInMillis = customStartDateEpochMs }
+                    DatePickerDialog(context, { _, year, month, day ->
+                        onCustomStartDateSelected(pickerDateEpochMs(year, month, day))
+                    }, selected.get(Calendar.YEAR), selected.get(Calendar.MONTH),
+                        selected.get(Calendar.DAY_OF_MONTH)).apply {
+                        datePicker.maxDate = minOf(endOfLocalDayEpochMs(customEndDateEpochMs),
+                            endOfLocalDayEpochMs(today))
+                    }.show()
+                }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                    Text("From " + formatOnboardingDate(customStartDateEpochMs))
+                }
+                OutlinedButton(onClick = {
+                    val selected = Calendar.getInstance().apply { timeInMillis = customEndDateEpochMs }
+                    DatePickerDialog(context, { _, year, month, day ->
+                        onCustomEndDateSelected(pickerDateEpochMs(year, month, day))
+                    }, selected.get(Calendar.YEAR), selected.get(Calendar.MONTH),
+                        selected.get(Calendar.DAY_OF_MONTH)).apply {
+                        datePicker.minDate = startOfLocalDayEpochMs(customStartDateEpochMs)
+                        datePicker.maxDate = endOfLocalDayEpochMs(today)
+                    }.show()
+                }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                    Text("To " + formatOnboardingDate(customEndDateEpochMs))
+                }
+            }
+            if (range == null) Text("Choose a valid past date range.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall)
+        }
+        Text("Duplicates are skipped and original transaction dates are preserved.",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Button(
-            onClick = onContinue, enabled = canContinue,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Text("Continue  →", fontWeight = FontWeight.Bold)
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Button(onClick = onContinue, enabled = canContinue,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            shape = RoundedCornerShape(16.dp)) {
+            Text("Import messages", fontWeight = FontWeight.SemiBold)
         }
         TextButton(onClick = onLater, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text("Maybe later", fontWeight = FontWeight.SemiBold)
+            Text("Skip import for now")
         }
     }
 }
@@ -3447,37 +3316,33 @@ private fun SetupCompletePage(
     onHome: () -> Unit,
     onReview: () -> Unit
 ) {
-    Column(Modifier.fillMaxWidth().padding(top = 1.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(7.dp)) {
-        Box(Modifier.fillMaxWidth().height(170.dp), contentAlignment = Alignment.Center) {
-            Surface(Modifier.align(Alignment.TopStart).padding(start = 60.dp, top = 28.dp).size(12.dp, 19.dp).rotate(25f), shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.tertiary) {}
-            Surface(Modifier.align(Alignment.TopEnd).padding(end = 61.dp, top = 41.dp).size(12.dp, 19.dp).rotate(-22f), shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.secondary) {}
-            Surface(Modifier.align(Alignment.BottomStart).padding(start = 83.dp, bottom = 18.dp).size(12.dp, 19.dp).rotate(-34f), shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.error) {}
-            Surface(Modifier.align(Alignment.BottomEnd).padding(end = 76.dp, bottom = 19.dp).size(12.dp, 19.dp).rotate(22f), shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.primary) {}
-            Surface(Modifier.size(106.dp), shape = RoundedCornerShape(36.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(55.dp))
-                }
+    Column(
+        Modifier.fillMaxWidth().padding(top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("You're ready to start", style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold)
+        Text("Your choices are saved on this phone. Older messages, payday and other accounts can be added anytime.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium)
+        PesaCard {
+            Column(Modifier.fillMaxWidth().padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                CompletionSummaryRow("Accounts selected", "$institutionCount")
+                CompletionSummaryRow("M-Pesa services", "$serviceCount")
+                CompletionSummaryRow("Payday", "Optional · set up in Plan")
             }
         }
-        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-            Text("You’re in control", Modifier.padding(horizontal = 10.dp, vertical = 6.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+        Button(onClick = onHome, enabled = !navigating,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            shape = RoundedCornerShape(16.dp)) {
+            Text(if (navigating) "Opening…" else "Open PesaTrack",
+                fontWeight = FontWeight.SemiBold)
         }
-        Text("Your money picture is ready", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
-        Text("PesaTrack has a clearer starting point. Review your activity and update your accounts whenever you need.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
-        PesaCard(Modifier.padding(top = 5.dp)) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                CompletionSummaryRow("Institutions to review", "$institutionCount selected")
-                CompletionSummaryRow("Safaricom services", "$serviceCount selected")
-                CompletionSummaryRow("Account details", "Optional · editable")
-            }
+        TextButton(onClick = onReview, enabled = !navigating,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Text("Review accounts")
         }
-        Surface(shape = RoundedCornerShape(13.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .55f), modifier = Modifier.padding(top = 3.dp)) {
-            Text("Want to add your salary later? Find salary setup in Plan. Your dashboard is ready now.", Modifier.fillMaxWidth().padding(12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Button(onClick = onHome, enabled = !navigating, modifier = Modifier.fillMaxWidth().padding(top = 6.dp).heightIn(min = 50.dp), shape = RoundedCornerShape(15.dp)) {
-            Text(if (navigating) "Opening…" else "Open my dashboard")
-        }
-        TextButton(onClick = onReview, enabled = !navigating, modifier = Modifier.fillMaxWidth()) { Text("Review my choices") }
     }
 }
 
