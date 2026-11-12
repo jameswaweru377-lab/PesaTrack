@@ -509,11 +509,10 @@ fun SmartOnboardingSetupScreen(
                 }
             }
             MessageAccessAction.OPEN_NOTIFICATIONS -> {
-                if (!notificationSettingsVisited) {
-                    notificationSettingsVisited = true
-                    runCatching { settingsLauncher.launch(smartNotificationAccessIntent(context)) }
-                        .onFailure { notificationsHandled = true }
-                }
+                // Notification listening is optional and can be enabled later in More.
+                // Do not interrupt the first-run SMS import with a second permission.
+                accessStarted = false
+                stage = SmartSetupStage.IMPORT
             }
             MessageAccessAction.CONTINUE -> {
                 accessStarted = false

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
-import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -18,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 
-/** First-run welcome: one action, three plain-language benefits, no decorative charts. */
+/** First-run welcome: one action, two plain-language benefits, no decorative charts. */
 @Composable
 internal fun PesaTrackWelcomePage(onGetStarted: () -> Unit, onSkip: () -> Unit) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -32,7 +31,6 @@ internal fun PesaTrackWelcomePage(onGetStarted: () -> Unit, onSkip: () -> Unit) 
         Spacer(Modifier.height(8.dp))
         OnboardingBenefit(Icons.Rounded.TrendingUp, "Track money in and out")
         OnboardingBenefit(Icons.Rounded.AccountBalanceWallet, "Understand balances and transfers")
-        OnboardingBenefit(Icons.Rounded.CalendarMonth, "Plan with confidence")
         Spacer(Modifier.height(8.dp))
         Button(onClick = onGetStarted, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
             shape = RoundedCornerShape(PesaDesignTokens.controlRadius)) {
