@@ -67,30 +67,25 @@ internal fun ApprovedPrivacyConsentPage(
                 }
             }
             Text(
-                "Your messages. Your choice.",
+                "Connect your messages",
                 Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.headlineSmall.copy(fontSize = 23.sp, lineHeight = 27.sp),
                 fontWeight = FontWeight.Bold, textAlign = TextAlign.Center
             )
             Text(
-                "Give access only if you want PesaTrack to organize your financial SMS.",
+                "With your permission, PesaTrack reads financial SMS on this phone.",
                 Modifier.fillMaxWidth().padding(horizontal = 6.dp),
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 18.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center
             )
-            ApprovedReferenceHero(privacy = true)
             ApprovedPrivacyCard(
-                Icons.AutoMirrored.Rounded.Message,
-                "Checks M-Pesa and bank transaction messages",
-                "Looks for financial activity like income, spending, transfers and account activity."
+                Icons.AutoMirrored.Rounded.Message, "M-Pesa and bank transactions", ""
             )
             ApprovedPrivacyCard(
-                Icons.Rounded.Shield, "Processes full SMS text on this device",
-                "Your messages stay on this phone and aren't uploaded."
+                Icons.Rounded.Shield, "Your messages stay on this phone", ""
             )
             ApprovedPrivacyCard(
-                Icons.Rounded.AccountBalance, "Optional business-name lookup is separate",
-                "Used to identify merchant names. You can keep this off."
+                Icons.Rounded.AccountBalance, "You choose which accounts are yours", ""
             )
             Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant,
                 shape = RoundedCornerShape(12.dp)) {
@@ -120,7 +115,7 @@ internal fun ApprovedPrivacyConsentPage(
         }
         TextButton(onClick = { details = true },
             modifier = Modifier.fillMaxWidth().heightIn(min = 34.dp)) {
-            Text("Learn how my data is used  ›", style = MaterialTheme.typography.labelMedium)
+            Text("How SMS is used  ›", style = MaterialTheme.typography.labelMedium)
         }
         Button(onClick = onContinue, enabled = accepted && !busy,
             modifier = Modifier.fillMaxWidth().heightIn(min = 54.dp),
@@ -129,7 +124,7 @@ internal fun ApprovedPrivacyConsentPage(
         }
         TextButton(onClick = onContinueWithout, enabled = !busy,
             modifier = Modifier.fillMaxWidth().heightIn(min = 43.dp)) {
-            Text("Continue without SMS access", fontWeight = FontWeight.SemiBold)
+            Text("Not now", fontWeight = FontWeight.SemiBold)
         }
     }
     if (details) {
@@ -155,8 +150,8 @@ internal fun ApprovedPrivacyConsentPage(
                             ". Unrelated messages are not added as transactions.")
                     ApprovedPrivacyDetails("What stays private",
                         "Full message text is processed on this phone. It is not uploaded to an online service for financial activity detection.")
-                    ApprovedPrivacyDetails("Optional merchant lookup",
-                        "Online business-name lookup is separate and optional. It sends only a sanitized business descriptor, never full messages, amounts, balances, account numbers or transaction codes.")
+                    ApprovedPrivacyDetails("Merchant names",
+                        "Financial message interpretation and merchant-name suggestions work locally. No full SMS content is uploaded.")
                     ApprovedPrivacyDetails("You stay in control",
                         "You can deny or revoke SMS permission through Android settings and continue without importing history. Notification access is a different permission requested separately later.")
                     ApprovedPrivacyDetails("After scanning",
@@ -188,8 +183,8 @@ private fun ApprovedPrivacyCard(icon: androidx.compose.ui.graphics.vector.ImageV
                 Text(title,
                     style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, lineHeight = 15.sp),
                     fontWeight = FontWeight.Bold)
-                Text(body,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp, lineHeight = 13.sp),
+                if (body.isNotBlank()) Text(body,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
