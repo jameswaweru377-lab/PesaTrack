@@ -54,7 +54,7 @@ private fun OnboardingBenefit(icon: ImageVector, title: String) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
         color = PremiumVisualTokens.card,
-        border = BorderStroke(1.dp, PremiumVisualTokens.border)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(
             Modifier.padding(12.dp).heightIn(min = 48.dp),
