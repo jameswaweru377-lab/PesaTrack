@@ -31,6 +31,7 @@ import com.kedevjimmy.pesatrack.domain.statements.SharedAccountingReportScopePol
 import com.kedevjimmy.pesatrack.domain.statements.SharedAccountingViewPolicy
 import com.kedevjimmy.pesatrack.ui.components.*
 import com.kedevjimmy.pesatrack.ui.components.ConceptLoadError
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.NumberFormat
@@ -48,12 +49,12 @@ private fun conceptDate(epoch: Long): String =
 
 
 private val SpendingPalette = listOf(
-        Color(0xFF5B55E7),
-        Color(0xFF6F63F2),
-        Color(0xFF55E6D1),
-        Color(0xFFA69CFF),
-        Color(0xFFE2DFFF),
-        Color(0xFF14B8A6)
+        PremiumVisualTokens.coffee,
+        Color(0xFFAF7651),
+        PremiumVisualTokens.leafReadable,
+        Color(0xFFB69C77),
+        Color(0xFF9E6B5D),
+        Color(0xFF697C4F)
     )
 
 @Composable

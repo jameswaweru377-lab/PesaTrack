@@ -26,13 +26,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 
-private val ConceptEmerald = Color(0xFF5B55E7)
-private val ConceptEmeraldDeep = Color(0xFF24213F)
-private val ConceptEmeraldDarker = Color(0xFF121725)
-private val ConceptMint = Color(0xFF55E6D1)
-private val ConceptMintSoft = Color(0xFFF0EFFF)
-private val ConceptCream = Color(0xFFF6F7FB)
+private val ConceptEmerald = PremiumVisualTokens.coffee
+private val ConceptEmeraldDeep = Color(0xFF482411)
+private val ConceptEmeraldDarker = PremiumVisualTokens.ink
+private val ConceptMint = PremiumVisualTokens.leaf
+private val ConceptMintSoft = PremiumVisualTokens.sand
+private val ConceptCream = PremiumVisualTokens.cream
 
 @Composable
 fun ConceptWalletIllustration(
@@ -63,7 +64,7 @@ fun ConceptMessagesIllustration(
                 .height(166.dp)
                 .rotate(-7f),
             shape = RoundedCornerShape(28.dp),
-            color = Color(0xFFF0EFFF),
+            color = ConceptMintSoft,
             tonalElevation = 4.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -80,7 +81,7 @@ fun ConceptMessagesIllustration(
                         .width(72.dp)
                         .height(30.dp),
                     shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFF7C6FF2)
+                    color = PremiumVisualTokens.coffee
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -111,7 +112,7 @@ fun ConceptMessagesIllustration(
         Icon(
             Icons.Rounded.Eco,
             contentDescription = null,
-            tint = Color(0xFF14B8A6),
+            tint = PremiumVisualTokens.leafReadable,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .offset(x = 86.dp, y = 10.dp)
@@ -163,9 +164,9 @@ fun ConceptEmeraldHero(
                 .background(
                     Brush.linearGradient(
                         listOf(
-                            Color(0xFF4F46D8),
-                            Color(0xFF3933A8),
-                            Color(0xFF14B8A6)
+                            Color(0xFF845236),
+                            PremiumVisualTokens.coffee,
+                            ConceptEmeraldDeep
                         )
                     )
                 )
@@ -239,13 +240,13 @@ fun ConceptMetricTile(
     val dark = MaterialTheme.colorScheme.background.luminance() < .45f
     val soft =
         if (positive) {
-            if (dark) Color(0xFF252243) else Color(0xFFF0EFFF)
+            if (dark) Color(0xFF2F3926) else Color(0xFFE7EFD9)
         } else {
             if (dark) Color(0xFF3A2330) else Color(0xFFFFE9EE)
         }
     val accent =
         if (positive) {
-            if (dark) Color(0xFFA69CFF) else Color(0xFF5B55E7)
+            if (dark) Color(0xFFC0DCA0) else PremiumVisualTokens.leafReadable
         } else {
             if (dark) Color(0xFFFF92A3) else Color(0xFFEF5F78)
         }

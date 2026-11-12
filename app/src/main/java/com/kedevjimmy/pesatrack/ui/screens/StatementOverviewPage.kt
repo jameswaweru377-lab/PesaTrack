@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -64,7 +66,7 @@ internal fun StatementOverviewPage(
             Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
-                    color = Color(0xFFE9E7FE),
+                    color = PremiumVisualTokens.sand,
                     modifier = Modifier.padding(top = 3.dp)
                 ) {
                     IconButton(onClick = onBack) {
@@ -171,12 +173,12 @@ internal fun StatementOverviewPage(
             Surface(shape = RoundedCornerShape(23.dp), color = p.purple,
                 modifier = Modifier.fillMaxWidth()) {
                 Box(Modifier.fillMaxWidth().background(Brush.linearGradient(
-                    listOf(Color(0xFF6515F6), Color(0xFF2712B0), Color(0xFF003BCD))))) {
+                    listOf(Color(0xFF845236), PremiumVisualTokens.coffee, Color(0xFF402010))))) {
                     androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(150.dp)) {
-                        drawCircle(Color(0xFF00CFF5).copy(alpha = .37f),
+                        drawCircle(PremiumVisualTokens.leaf.copy(alpha = .37f),
                             radius = size.width * .28f,
                             center = androidx.compose.ui.geometry.Offset(size.width * .93f, 0f))
-                        drawCircle(Color(0xFF845AFF).copy(alpha = .30f),
+                        drawCircle(PremiumVisualTokens.sand.copy(alpha = .30f),
                             radius = size.width * .25f,
                             center = androidx.compose.ui.geometry.Offset(size.width * .82f, size.height * .98f))
                     }
@@ -251,7 +253,8 @@ internal fun StatementOverviewPage(
                         Text("Review unclassified entries")
                     }
                 } else model.categories.take(3).forEachIndexed { index, (category, amount) ->
-                    val tint = listOf(Color(0xFFFF9E58), Color(0xFF269EFF), Color(0xFFAA6DFB))[index]
+                    val tint = listOf(Color(0xFFB16F38), PremiumVisualTokens.leafReadable,
+                        PremiumVisualTokens.coffee)[index]
                     Row(Modifier.fillMaxWidth().clickable { onOpenCategory(category) }
                         .padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -268,7 +271,7 @@ internal fun StatementOverviewPage(
                                 overflow = TextOverflow.Ellipsis)
                             LinearProgressIndicator(
                                 progress = { (amount.toDouble() / total).toFloat().coerceIn(0f, 1f) },
-                                color = tint, trackColor = Color(0xFFEEEDFC),
+                                color = tint, trackColor = PremiumVisualTokens.sand,
                                 modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)))
                         }
                         Text(statementMoney(amount), color = p.ink,
@@ -297,7 +300,7 @@ internal fun StatementOverviewPage(
                 else displayedMonths.take(3).forEach { entry ->
                     Row(Modifier.fillMaxWidth().clickable { onOpenMonth(entry.key) }
                         .padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Surface(color = Color(0xFFEDE6FF), shape = RoundedCornerShape(11.dp)) {
+                        Surface(color = PremiumVisualTokens.sand, shape = RoundedCornerShape(11.dp)) {
                             Icon(Icons.Rounded.Description, null, tint = p.purple,
                                 modifier = Modifier.padding(10.dp).size(20.dp))
                         }
@@ -329,7 +332,7 @@ internal fun StatementOverviewPage(
 
 @Composable
 internal fun StatementInsightCard(content: @Composable ColumnScope.() -> Unit) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White,
+    Surface(modifier = Modifier.fillMaxWidth(), color = PremiumVisualTokens.card,
         shape = RoundedCornerShape(22.dp), shadowElevation = 2.dp) {
         Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp),
             content = content)
@@ -343,7 +346,7 @@ private fun StatementOverviewCashTile(
 ) {
     val p = HomeReferencePalette
     val tint = if (incoming) p.green else p.red
-    Surface(modifier = modifier.clickable(onClick = onClick), color = Color.White,
+    Surface(modifier = modifier.clickable(onClick = onClick), color = PremiumVisualTokens.card,
         shape = RoundedCornerShape(19.dp), shadowElevation = 1.dp) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

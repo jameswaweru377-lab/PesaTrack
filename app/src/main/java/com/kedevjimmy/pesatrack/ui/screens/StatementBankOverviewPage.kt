@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -152,7 +154,7 @@ internal fun StatementBankOverviewPage(
         verticalArrangement = Arrangement.spacedBy(13.dp)) {
         item {
             Row(verticalAlignment=Alignment.Top) {
-                Surface(shape=RoundedCornerShape(16.dp),color=Color(0xFFE9E7FE)) {
+                Surface(shape=RoundedCornerShape(16.dp),color=PremiumVisualTokens.sand) {
                     IconButton(onClick=if(chosenMonth==null) onBack else ({chosenMonth=null})) {
                         Icon(Icons.Rounded.ArrowBack,"Back",tint=p.ink)
                     }

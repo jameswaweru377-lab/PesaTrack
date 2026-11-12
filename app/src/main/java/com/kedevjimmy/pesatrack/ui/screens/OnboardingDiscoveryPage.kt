@@ -72,26 +72,22 @@ internal fun ReviewDiscoveryPage(
             .distinctBy { it.reference.entityKey }.take(10)
     }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.fillMaxWidth().heightIn(min = 92.dp), contentAlignment = Alignment.Center) {
-                Surface(Modifier.size(66.dp), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.primaryContainer) {
-                    Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.AccountBalance, null, Modifier.size(34.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer) }
-                }
-            }
-            Text("Which accounts are yours?", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
-            Text(
-                "These are the five institutions with the most financial activity in your selected messages. A mention alone doesn’t mean you own an account.",
-                Modifier.padding(top = 7.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center
-            )
-        }
+        Text("Which accounts are yours?",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold)
+        Text("Select only the services you personally use.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it.take(60) },
+            modifier = Modifier.fillMaxWidth().testTag("onboarding-institution-search"),
+            leadingIcon = { Icon(Icons.Rounded.Search, null) },
+            placeholder = { Text("Search banks and money services") },
+            singleLine = true,
+            enabled = !applying
+        )
         if (ranked.isNotEmpty()) {
-            Row(Modifier.fillMaxWidth().padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Most active in your messages", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-                    Text("Top 5", Modifier.padding(horizontal = 9.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer, fontWeight = FontWeight.Bold)
-                }
-            }
             ranked.forEach { source ->
                 val isMpesa = source.reference.providerKey == "SAFARICOM_MPESA"
                 DetectedInstitutionCard(
@@ -115,15 +111,6 @@ internal fun ReviewDiscoveryPage(
             }
         }
         Text("${selectedOwnedKeys.size} selected · Select only accounts you use", modifier = Modifier.padding(start = 1.dp).testTag("onboarding-selected-institution-count"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it.take(60) },
-            modifier = Modifier.fillMaxWidth().testTag("onboarding-institution-search"),
-            leadingIcon = { Icon(Icons.Rounded.Search, null) },
-            placeholder = { Text("Search all banks and money services") },
-            singleLine = true,
-            enabled = !applying
-        )
         moreDetected.forEach { source ->
             DetectedInstitutionCard(source.name, "${source.type} · detected from messages", source.reference.entityKey, source.messageCount, null, source.reference.entityKey in selectedOwnedKeys, !applying) { onToggleAccount(source.reference.entityKey, it) }
         }
@@ -139,7 +126,6 @@ internal fun ReviewDiscoveryPage(
         if (query.isNotBlank() && moreDetected.isEmpty() && directoryResults.isEmpty()) {
             Text("No matches in your supported institution list. Try another name.", modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall)
         }
-        Text("Suggestions are ranked by transaction-message count. Search to add an institution that wasn’t detected.", modifier = Modifier.padding(horizontal = 8.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
         Button(onClick = onContinue, enabled = !applying, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(15.dp)) {
             Text(if (applying) "Saving choices…" else "Continue with selected")
         }
@@ -191,8 +177,9 @@ private fun DetectedInstitutionCard(
         }
         Column(Modifier.weight(1f).padding(start = 9.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                if (messageCount != null) Text("$messageCount messages", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(onboardingShortBankName(name), modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold)
             }
             val details = listOfNotNull(type, identifierHint).joinToString(" · ")
             Text(details, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -200,3 +187,10 @@ private fun DetectedInstitutionCard(
         Checkbox(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }
+
+/** Display-only shortening; institution identity and ownership keys remain unchanged. */
+private fun onboardingShortBankName(name: String): String =
+    name.removeSuffix(" Bank Kenya").let { shortened ->
+        if (shortened != name) "$shortened Bank"
+        else name.removeSuffix(" of Kenya").removeSuffix(" Kenya")
+    }

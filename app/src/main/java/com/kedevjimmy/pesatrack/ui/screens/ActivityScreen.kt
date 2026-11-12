@@ -1196,12 +1196,6 @@ fun ActivityScreen(
                     }
                 }
 
-                item {
-                    TextButton(onClick = { showEvidenceLinks = !showEvidenceLinks }) {
-                        Text(if (showEvidenceLinks) "Hide optional repayment links" else "Show optional repayment links")
-                    }
-                    if (showEvidenceLinks) Text("These repayments are already recorded. Linking their supporting messages is optional.")
-                }
                 val displayedRelationshipReviews = relationshipReviews + optionalEvidenceLinks
                 if (
                     displayedRelationshipReviews
@@ -1481,7 +1475,7 @@ fun ActivityScreen(
                                 }
                         }
                     } else if (filtered.isEmpty()) {
-                        item(
+                        if (selectedFilter != "Needs Review") item(
                             key =
                                 "empty-" +
                                     bucket
@@ -1781,16 +1775,15 @@ private fun FinancialAccountDiscoveryCard(
             accountsById = accountsById
         )
 
-    val dark = androidx.compose.foundation.isSystemInDarkTheme()
-    val surfaceColor = if (dark) MaterialTheme.colorScheme.surfaceContainer else Color.White
-    val titleColor = if (dark) MaterialTheme.colorScheme.onSurface else HomeReferencePalette.ink
-    val supportingColor = if (dark) MaterialTheme.colorScheme.onSurfaceVariant else HomeReferencePalette.muted
+    val surfaceColor = MaterialTheme.colorScheme.surface
+    val titleColor = MaterialTheme.colorScheme.onSurface
+    val supportingColor = MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
         modifier = Modifier.fillMaxWidth().padding(bottom = 9.dp),
         shape = RoundedCornerShape(21.dp),
         color = surfaceColor,
-        border = BorderStroke(1.dp, if (dark) MaterialTheme.colorScheme.outlineVariant else Color(0xFFE9E2FF)),
-        shadowElevation = if (dark) 0.dp else 1.dp
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shadowElevation = 1.dp
     ) {
         Column(
             modifier =
@@ -1803,10 +1796,10 @@ private fun FinancialAccountDiscoveryCard(
                     Alignment.CenterVertically
             ) {
                 Surface(modifier = Modifier.size(44.dp), shape = RoundedCornerShape(14.dp),
-                    color = if (dark) MaterialTheme.colorScheme.primaryContainer else Color(0xFFEDE6FF)) {
+                    color = MaterialTheme.colorScheme.primaryContainer) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.AccountBalance, null, Modifier.size(23.dp),
-                            tint = if (dark) MaterialTheme.colorScheme.onPrimaryContainer else HomeReferencePalette.purple)
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 }
                 Column(
@@ -1827,10 +1820,10 @@ private fun FinancialAccountDiscoveryCard(
                     )
                 }
                 Surface(shape = RoundedCornerShape(15.dp),
-                    color = if (dark) MaterialTheme.colorScheme.primaryContainer else Color(0xFFF2EAFF)) {
+                    color = MaterialTheme.colorScheme.primaryContainer) {
                     Text("Review", Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (dark) MaterialTheme.colorScheme.onPrimaryContainer else HomeReferencePalette.purple)
+                        color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
             }
 
@@ -1878,7 +1871,7 @@ private fun FinancialAccountDiscoveryCard(
                 onClick = onReview,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(15.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = if (dark) MaterialTheme.colorScheme.primary else HomeReferencePalette.purple)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text("Review account")
             }

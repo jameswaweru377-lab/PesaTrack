@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
+
 import android.content.Intent
 import com.kedevjimmy.pesatrack.ingestion.TransactionMessageEvidenceReader
 import com.kedevjimmy.pesatrack.ingestion.TransactionMessageEvidenceResult
@@ -1286,7 +1288,7 @@ private fun TransactionCounterpartyBadge(
             Modifier.size(size),
         shape = CircleShape,
         color =
-            Color(0xFF4F46D8)
+            PremiumVisualTokens.coffee
     ) {
         Box(
             contentAlignment =
@@ -1302,7 +1304,7 @@ private fun TransactionCounterpartyBadge(
                     fontWeight =
                         FontWeight.ExtraBold,
                     color =
-                        Color(0xFF55E6D1)
+                        PremiumVisualTokens.card
                 )
             } else {
                 Icon(
@@ -1314,7 +1316,7 @@ private fun TransactionCounterpartyBadge(
                             size * .62f
                         ),
                     tint =
-                        Color(0xFF55E6D1)
+                        PremiumVisualTokens.card
                 )
             }
         }

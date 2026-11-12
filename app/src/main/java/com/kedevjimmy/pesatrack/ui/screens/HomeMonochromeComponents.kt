@@ -29,19 +29,20 @@ import com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality
 import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import java.text.SimpleDateFormat
 import java.util.Date
 
 /** Approved November 2026 Home: flat sections and one gently contrasting balance surface. */
 internal object HomeMonochromePalette {
-    val canvas = Color(0xFFF5F6F4)
-    val surface = Color.White
-    val ink = Color(0xFF101311)
-    val muted = Color(0xFF777D7A)
-    val line = Color(0xFFDEE2DE)
-    val green = Color(0xFF08A967)
-    val softGreen = Color(0xFFEAF4EF)
-    val dark = Color(0xFF101310)
+    val canvas = PremiumVisualTokens.cream
+    val surface = PremiumVisualTokens.card
+    val ink = PremiumVisualTokens.ink
+    val muted = PremiumVisualTokens.muted
+    val line = PremiumVisualTokens.sandBorder
+    val green = PremiumVisualTokens.leafReadable
+    val softGreen = Color(0xFFE7EFD9)
+    val dark = PremiumVisualTokens.coffee
 }
 
 @Composable

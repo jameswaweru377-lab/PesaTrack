@@ -70,6 +70,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kedevjimmy.pesatrack.data.profile.ProfilePhotoStore
 import com.kedevjimmy.pesatrack.ui.theme.MoreVisualTokens as M
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 
 /**
  * Approved More page (November 2026).
@@ -315,7 +316,7 @@ private fun MoreHeroAvatar(name: String, avatar: String, photo: Bitmap?) {
 
 @Composable
 private fun MorePremiumBadge() {
-    Surface(color = Color.White, shape = RoundedCornerShape(M.space20),
+    Surface(color = PremiumVisualTokens.card, shape = RoundedCornerShape(M.space20),
         border = androidx.compose.foundation.BorderStroke(
             M.space1, Color.White.copy(alpha = .72f)
         )) {
@@ -331,7 +332,7 @@ private fun MorePremiumBadge() {
 
 @Composable
 private fun MoreViewProfileAction(onClick: () -> Unit) {
-    Surface(color = Color.White, shape = RoundedCornerShape(M.space18),
+    Surface(color = PremiumVisualTokens.card, shape = RoundedCornerShape(M.space18),
         modifier = Modifier.clickable(onClick = onClick)) {
         Row(Modifier.padding(horizontal = M.space12, vertical = M.space6),
             horizontalArrangement = Arrangement.spacedBy(M.space5),
@@ -356,13 +357,13 @@ private fun MoreWorkspaceTile(
 ) {
     Surface(
         modifier = modifier.heightIn(min = M.workspaceTileHeight).clickable(onClick = onClick),
-        color = Color.White,
+        color = PremiumVisualTokens.card,
         shape = RoundedCornerShape(M.space17),
         shadowElevation = M.space1,
         border = androidx.compose.foundation.BorderStroke(M.space1, M.workspaceBorder)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = M.space4, vertical = M.space8),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = M.space8, vertical = M.space6),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(M.space4)
         ) {
@@ -390,7 +391,7 @@ private fun MoreWorkspaceTile(
 private fun MoreSettingsGroup(content: @Composable ColumnScope.() -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color.White,
+        color = PremiumVisualTokens.card,
         shape = RoundedCornerShape(M.space20),
         shadowElevation = M.space1,
         border = androidx.compose.foundation.BorderStroke(M.space1, M.groupBorder)

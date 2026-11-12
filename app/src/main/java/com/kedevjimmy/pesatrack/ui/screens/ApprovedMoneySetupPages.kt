@@ -63,122 +63,48 @@ internal fun ApprovedAnalysisPage(
     reviewMode: Boolean,
     onContinue: () -> Unit
 ) {
-    val completed = progressStep.coerceAtLeast(0)
-    val progress = when {
-        reviewMode -> 1f
-        completed >= 4 -> .92f
-        completed == 3 -> .76f
-        completed == 2 -> .58f
-        completed == 1 -> .36f
-        else -> .18f
+    val phase = when {
+        reviewMode -> "Ready to review"
+        importing -> "Reading financial messages"
+        else -> "Preparing your setup"
     }
     Column(
-        modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(11.dp),
+        Modifier.fillMaxWidth().padding(top = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // The artwork is a standalone transparent asset, not a flattened screen capture.
-        // Preserve its intrinsic 800:474 ratio while the progress UI below stays interactive.
-        Box(
-            modifier = Modifier.fillMaxWidth().height(176.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(R.drawable.onboarding_analysis_hero),
-                contentDescription = "Financial SMS and bank accounts being analyzed on a phone",
-                modifier = Modifier.fillMaxHeight().aspectRatio(800f / 474f),
-                contentScale = ContentScale.Fit
-            )
-        }
-        Text(
-            "Building your money picture",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
-        )
-        Text(
-            "We're turning your selected financial messages into a clear starting picture. Your messages stay on this phone.",
-            modifier = Modifier.padding(horizontal = 6.dp),
+        Text("Understanding your money", style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Text("PesaTrack is checking the records on this phone.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodyMedium
-        )
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center)
         Surface(
-            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.surface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier.fillMaxWidth()
+            shape = RoundedCornerShape(16.dp),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
-            Column(
-                Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "Analyzing your messages",
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-                        Text(
-                            if (reviewMode) "Ready" else if (importing) "Scanning…" else "Preparing…",
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold
-                        )
-                    }
+            Row(Modifier.fillMaxWidth().padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                if (reviewMode) {
+                    Icon(Icons.Rounded.CheckCircle, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(24.dp))
+                } else {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                 }
-                Box(
-                    Modifier.fillMaxWidth().height(7.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                ) {
-                    Box(
-                        Modifier.fillMaxWidth(progress).height(7.dp)
-                            .background(MaterialTheme.colorScheme.primary, CircleShape)
-                    )
-                }
-                ApprovedAnalysisRow(
-                    "Reading selected messages",
-                    complete = progressStep > 0 || reviewMode,
-                    active = progressStep == 0 && !reviewMode
-                )
-                ApprovedAnalysisRow(
-                    "Finding banks and wallets",
-                    complete = reviewMode || progressStep >= 3,
-                    active = progressStep in 1..2 && !reviewMode
-                )
-                ApprovedAnalysisRow(
-                    "Preparing your review",
-                    complete = reviewMode,
-                    active = progressStep >= 3 && !reviewMode
-                )
+                Text(phase, style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold)
             }
         }
-        Text(
-            "This can take a little while. Review every suggested account before adding it.",
-            modifier = Modifier.padding(horizontal = 10.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodySmall
-        )
-        Spacer(Modifier.height(5.dp))
-        Button(
-            onClick = onContinue,
-            enabled = reviewMode,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Text("Review detected institutions", fontWeight = FontWeight.Bold)
+        Button(onClick = onContinue, enabled = reviewMode,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            shape = RoundedCornerShape(16.dp)) {
+            Text("Choose my accounts")
         }
-        Text(
-            if (reviewMode) "Analysis complete — ready for your review"
-            else "Stay on this screen while scanning",
-            color = MaterialTheme.colorScheme.primary,
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold
-        )
     }
 }
 

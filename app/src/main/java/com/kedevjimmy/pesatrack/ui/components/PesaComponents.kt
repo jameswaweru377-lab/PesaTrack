@@ -55,6 +55,7 @@ import com.kedevjimmy.pesatrack.ui.theme.NightRoseText
 import com.kedevjimmy.pesatrack.ui.theme.NightVioletSurface
 import com.kedevjimmy.pesatrack.ui.theme.NightVioletText
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import com.kedevjimmy.pesatrack.ui.theme.MintSoft
 import com.kedevjimmy.pesatrack.ui.theme.SkySoft
 import com.kedevjimmy.pesatrack.ui.theme.VioletSoft
@@ -81,10 +82,11 @@ fun PesaBrandName(
     fontSize: TextUnit = 21.sp,
     baseColor: Color = MaterialTheme.colorScheme.onBackground
 ) {
+    val accentColor = MaterialTheme.colorScheme.secondary
     Text(
         text = buildAnnotatedString {
             withStyle(SpanStyle(color = baseColor)) { append("Pesa") }
-            withStyle(SpanStyle(color = Color(0xFF08A967))) { append("Track") }
+            withStyle(SpanStyle(color = accentColor)) { append("Track") }
         },
         modifier = modifier,
         fontSize = fontSize,
@@ -181,8 +183,9 @@ fun IconBubble(
 ) {
     Surface(
         modifier = Modifier.size(size),
-        shape = CircleShape,
-        color = background
+        shape = RoundedCornerShape(12.dp),
+        color = background,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(size * 0.48f))
@@ -218,11 +221,11 @@ fun LandscapeBackdrop(
     content: @Composable () -> Unit
 ) {
     val useDark = dark ?: isPesaDarkTheme()
-    val base = if (useDark) Color(0xFF17162C) else Color(0xFFF0EFFF)
-    val hill1 = if (useDark) Color(0xFF25214B) else Color(0xFFDED9FF)
-    val hill2 = if (useDark) Color(0xFF332B68) else Color(0xFFC8C0FF)
-    val hill3 = if (useDark) Color(0xFF1A3150) else Color(0xFFA9DDF2)
-    val sun = if (useDark) Color(0xFF55E6D1).copy(alpha = .18f) else Color(0xFFFFE6B0)
+    val base = if (useDark) PremiumVisualTokens.darkSurface else PremiumVisualTokens.cream
+    val hill1 = if (useDark) PremiumVisualTokens.darkCard else PremiumVisualTokens.sand
+    val hill2 = if (useDark) PremiumVisualTokens.darkBorder else PremiumVisualTokens.sandBorder
+    val hill3 = if (useDark) PremiumVisualTokens.darkCoffee else PremiumVisualTokens.coffee.copy(alpha = .46f)
+    val sun = if (useDark) PremiumVisualTokens.leaf.copy(alpha = .2f) else PremiumVisualTokens.leaf.copy(alpha = .45f)
 
     Box(
         modifier = modifier
@@ -348,7 +351,7 @@ fun pesaToneContent(tone: String): Color {
         when (tone) {
             "amber" -> Color(0xFF8B590B)
             "blue" -> Color(0xFF176A99)
-            "violet" -> Color(0xFF60459F)
+            "violet" -> PremiumVisualTokens.coffee
             "red" -> Color(0xFFB33B49)
             else -> MaterialTheme.colorScheme.primary
         }

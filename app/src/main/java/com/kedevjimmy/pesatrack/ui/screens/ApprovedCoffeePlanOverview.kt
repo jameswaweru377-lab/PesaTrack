@@ -77,14 +77,17 @@ internal fun ApprovedCoffeePlanOverview(
             fontWeight = FontWeight.Bold, fontSize = 19.sp, color = p.ink,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
         ApprovedPlanWeek(data.week)
-        Surface(shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-            color = Color.White, border = BorderStroke(1.dp, p.outline),
-            modifier = Modifier.heightIn(min = 48.dp).clickable(onClickLabel = "Other months", onClick = onOtherMonths)) {
-            Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Text(data.month, color = p.ink, fontSize = 15.sp)
-                Spacer(Modifier.width(8.dp))
-                Icon(Icons.Rounded.KeyboardArrowDown, null, tint = p.ink)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Surface(shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
+                color = Color.White, border = BorderStroke(1.dp, p.outline),
+                modifier = Modifier.heightIn(min = 48.dp)
+                    .clickable(onClickLabel = "Other months", onClick = onOtherMonths)) {
+                Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(data.month, color = p.ink, fontSize = 14.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Icon(Icons.Rounded.KeyboardArrowDown, null, tint = p.ink)
+                }
             }
         }
         ApprovedPlanMoneyCard(data, onDetails)

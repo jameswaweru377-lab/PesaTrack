@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -121,7 +123,7 @@ internal fun StatementPeriodPage(
             }
         }
         item {
-            Surface(color = Color(0xFFEDE7FF), shape = RoundedCornerShape(15.dp)) {
+            Surface(color = PremiumVisualTokens.sand, shape = RoundedCornerShape(15.dp)) {
                 Column(Modifier.fillMaxWidth().padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(if (month.source.independentlyVerified) "Checked imported PDF"
@@ -212,7 +214,7 @@ internal fun StatementCoveragePage(
                                 modifier = Modifier.weight(1f).clickable(enabled = source != null) {
                                     source?.let { onOpenMonth(it.key) }
                                 },
-                                color = if (source == null) Color(0xFFF4F2F8)
+                                color = if (source == null) PremiumVisualTokens.sand
                                     else if (overlap?.status == StatementSourceCoveragePolicy.Status.NEEDS_REVIEW)
                                         Color(0xFFFFF3E8)
                                     else Color(0xFFE7F8EE),
@@ -319,7 +321,7 @@ internal fun StatementEvidenceDetailPage(
             }
         }
         item {
-            Surface(color = Color(0xFFF0ECFF), shape = RoundedCornerShape(14.dp)) {
+            Surface(color = PremiumVisualTokens.sand, shape = RoundedCornerShape(14.dp)) {
                 Text(if (linkedActivityId != null)
                     "A unique matching receipt was confirmed in Activity. Category sharing still follows your reviewed decisions."
                 else "No unique Activity match is available. This source entry remains independently reviewable.",

@@ -22,15 +22,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.ui.components.MainTab
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 
 /** Shared navigation palette, first approved on Home. */
 internal object BrownHomePalette {
-    val canvas = Color(0xFFFCF8F4)
-    val ink = Color(0xFF201610)
-    val coffee = Color(0xFF652F10)
-    val muted = Color(0xFF766C64)
-    val cream = Color(0xFFF8EBDE)
-    val outline = Color(0xFFE3BE92)
+    val canvas = PremiumVisualTokens.cream
+    val ink = PremiumVisualTokens.ink
+    val coffee = PremiumVisualTokens.coffee
+    val muted = PremiumVisualTokens.muted
+    val cream = PremiumVisualTokens.sand
+    val outline = PremiumVisualTokens.sandBorder
     val attention = Color(0xFF925B10)
     val white = Color.White
 }
@@ -39,17 +40,17 @@ internal object BrownHomePalette {
 internal fun BrownHomeDrawerContent(
     currentTab: MainTab?, onTab: (MainTab) -> Unit, onProfile: () -> Unit
 ) {
-    ModalDrawerSheet(drawerContainerColor = BrownHomePalette.canvas) {
+    ModalDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.background) {
         Text("PesaTrack", Modifier.padding(24.dp),
-            style = MaterialTheme.typography.headlineSmall, color = BrownHomePalette.coffee)
+            style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
         MainTab.entries.forEach { tab ->
             NavigationDrawerItem(label = { Text(tab.label) }, selected = tab == currentTab,
                 icon = { Icon(tab.icon, contentDescription = null) },
                 onClick = { onTab(tab) }, modifier = Modifier.padding(horizontal = 12.dp),
                 colors = NavigationDrawerItemDefaults.colors(
-                    selectedContainerColor = BrownHomePalette.cream,
-                    selectedTextColor = BrownHomePalette.coffee,
-                    selectedIconColor = BrownHomePalette.coffee))
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer))
         }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         NavigationDrawerItem(label = { Text("Profile") }, selected = false,
@@ -63,30 +64,30 @@ internal fun BrownHomeHeader(
     onMenu: () -> Unit,
     onNotifications: () -> Unit
 ) {
-    val p = BrownHomePalette
-    Box(Modifier.fillMaxWidth().height(76.dp).background(p.canvas)
+    val p = MaterialTheme.colorScheme
+    Box(Modifier.fillMaxWidth().height(76.dp).background(p.background)
         .padding(horizontal = 12.dp)) {
         Box(Modifier.align(Alignment.CenterStart).size(48.dp)
             .clickable(onClickLabel = "Open More", onClick = onMenu),
             contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Menu, "More menu", Modifier.size(28.dp), tint = p.ink)
+            Icon(Icons.Rounded.Menu, "More menu", Modifier.size(28.dp), tint = p.onBackground)
         }
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(0.dp)) {
-            Box(Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(p.cream),
+            Box(Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(p.primaryContainer),
                 contentAlignment = Alignment.Center) {
                 Image(painter = painterResource(R.drawable.ic_pesatrack_home_mark),
                     contentDescription = null, modifier = Modifier.size(36.dp))
             }
-            Text("PesaTrack", color = p.ink, fontFamily = FontFamily.Serif,
+            Text("PesaTrack", color = p.onBackground, fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold, fontSize = 21.sp, lineHeight = 23.sp)
-            Text("YOUR MONEY, YOUR PLANS", color = p.coffee, fontWeight = FontWeight.Bold,
+            Text("YOUR MONEY, YOUR PLANS", color = p.primary, fontWeight = FontWeight.Bold,
                 letterSpacing = 1.2.sp, fontSize = 8.sp, lineHeight = 12.sp)
         }
         Box(Modifier.align(Alignment.CenterEnd).size(48.dp)
             .clickable(onClickLabel = "Notifications", onClick = onNotifications),
             contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.NotificationsNone, "Notifications", Modifier.size(26.dp), tint = p.ink)
+            Icon(Icons.Rounded.NotificationsNone, "Notifications", Modifier.size(26.dp), tint = p.onBackground)
         }
     }
 }
@@ -97,8 +98,8 @@ internal fun BrownHomeBottomBar(
     onSelected: (MainTab) -> Unit,
     onProfile: () -> Unit
 ) {
-    val p = BrownHomePalette
-    Surface(color = p.canvas, shadowElevation = 4.dp,
+    val p = MaterialTheme.colorScheme
+    Surface(color = p.background, shadowElevation = 4.dp,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)) {
         Row(Modifier.fillMaxWidth().height(76.dp).padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically) {
@@ -126,17 +127,17 @@ private fun BrownNavTab(
     onClick: () -> Unit
 ) {
     val selected = current == tab
-    val p = BrownHomePalette
+    val p = MaterialTheme.colorScheme
     Column(modifier.fillMaxHeight().selectable(selected, role = Role.Tab, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center) {
         Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
-            .background(if (selected) p.coffee else Color.Transparent),
+            .background(if (selected) p.primary else Color.Transparent),
             contentAlignment = Alignment.Center) {
             Icon(icon, label, Modifier.size(23.dp),
-                tint = if (selected) p.white else p.ink)
+                tint = if (selected) p.onPrimary else p.onBackground)
         }
-        Text(label, color = if (selected) p.coffee else p.ink, fontSize = 11.sp,
+        Text(label, color = if (selected) p.primary else p.onBackground, fontSize = 11.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
     }
 }

@@ -39,15 +39,16 @@ import java.math.BigDecimal
 import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.max
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 
 // Paycheck dashboard visuals are derived only from saved, user-reviewed payroll records.
 // Never use synthetic chart points or count a payslip as cash received.
-private val DashPurple = Color(0xFF9D72FF)
-private val DashLilac = Color(0xFFC5ADFF)
-private val DashPink = Color(0xFFFF6D99)
-private val DashTeal = Color(0xFF48DCC3)
-private val DashBlue = Color(0xFF508FFF)
-private val DashGold = Color(0xFFFFBD66)
+private val DashPurple = PremiumVisualTokens.coffee
+private val DashLilac = Color(0xFF996243)
+private val DashPink = Color(0xFFC43C52)
+private val DashTeal = PremiumVisualTokens.leafReadable
+private val DashBlue = Color(0xFF80502B)
+private val DashGold = Color(0xFF895B13)
 
 private fun paycheckMoney(amount: Long): String {
     val formatted = NumberFormat.getNumberInstance(Locale.US).apply {
@@ -383,14 +384,13 @@ private fun PaycheckImportAction(
 ) {
     val shape=RoundedCornerShape(20.dp)
     val onDark=Color.White
-    val darkTheme=MaterialTheme.colorScheme.background.luminance()<.5f
     val foreground=if(manual) MaterialTheme.colorScheme.primary else onDark
     val background=if(manual) MaterialTheme.colorScheme.surfaceContainerLow else DashPurple
     Row(
         Modifier.fillMaxWidth().heightIn(min=68.dp)
             .clip(shape)
             .background(if(manual) Brush.linearGradient(listOf(background,background))
-            else Brush.horizontalGradient(listOf(Color(0xFF6833DB), Color(0xFF4B319C))))
+            else Brush.horizontalGradient(listOf(Color(0xFF845236), PremiumVisualTokens.coffee)))
             .border(1.dp,if(manual) MaterialTheme.colorScheme.outlineVariant
                 else DashPurple.copy(alpha=.7f),shape)
             .clickable(enabled=enabled,onClick=onClick)
@@ -408,7 +408,7 @@ private fun PaycheckImportAction(
             if(!manual) Text(if(Build.VERSION.SDK_INT>=35)
                 "Read locally · private payroll review" else "Requires Android 15+",
                 style=MaterialTheme.typography.labelSmall,
-                color=if(darkTheme)Color(0xFFEEE5FF) else Color.White.copy(alpha=.9f))
+                color=Color.White.copy(alpha=.9f))
         }
         Icon(Icons.Rounded.ChevronRight,null,tint=foreground)
     }

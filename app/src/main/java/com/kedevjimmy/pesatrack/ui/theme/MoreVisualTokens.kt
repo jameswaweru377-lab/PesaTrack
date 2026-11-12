@@ -9,46 +9,46 @@ import androidx.compose.ui.unit.dp
  * Numeric values are confined to theme tokens; screens consume the tokens only.
  */
 object MoreVisualTokens {
-    // The More workspace uses a neutral palette; other app tabs retain their colours.
-    val ink = Color.Black
-    val muted = Color(0xFF626262)
-    val purple = Color.Black
-    val lavender = Color(0xFFF4F4F4)
-    val blue = Color.Black
-    val mint = Color.Black
-    val orange = Color.Black
+    // Keep legacy names for call sites; all identity colours share the app tokens.
+    val ink = PremiumVisualTokens.ink
+    val muted = PremiumVisualTokens.muted
+    val purple = PremiumVisualTokens.coffee
+    val lavender = PremiumVisualTokens.sand
+    val blue = PremiumVisualTokens.coffee
+    val mint = PremiumVisualTokens.leafReadable
+    val orange = PremiumVisualTokens.coffee
 
-    val canvasTop = Color.White
-    val canvasMiddle = Color.White
-    val canvasBottom = Color.White
-    val iconStatement = Color.Black
-    val iconPurpleSoft = Color(0xFFF2F2F2)
-    val iconBlueSoft = Color(0xFFF2F2F2)
-    val iconMintSoft = Color(0xFFF2F2F2)
+    val canvasTop = PremiumVisualTokens.cream
+    val canvasMiddle = PremiumVisualTokens.cream
+    val canvasBottom = PremiumVisualTokens.cream
+    val iconStatement = PremiumVisualTokens.coffee
+    val iconPurpleSoft = PremiumVisualTokens.sand
+    val iconBlueSoft = PremiumVisualTokens.sand
+    val iconMintSoft = PremiumVisualTokens.sand
 
-    val heroBase = Color.Black
-    val heroBright = Color.Black
-    val heroDeep = Color.Black
-    val heroBlue = Color.Black
-    val wavePurple = Color.Black
-    val wavePink = Color.Black
-    val waveCyan = Color.Black
-    val avatarBackground = Color.White
-    val avatarInk = Color.Black
-    val actionInk = Color.Black
-    val workspaceBorder = Color(0xFFD8D8D8)
-    val groupBorder = Color(0xFFD8D8D8)
-    val greenSoft = Color(0xFFF2F2F2)
-    val green = Color.Black
-    val orangeSoft = Color(0xFFF2F2F2)
-    val orangeBright = Color.Black
-    val blueSoft = Color(0xFFF2F2F2)
-    val blueBright = Color.Black
-    val purpleSoft = Color(0xFFF2F2F2)
-    val purpleBright = Color.Black
-    val arrowInk = Color.Black
-    val rowDivider = Color(0xFFE0E0E0)
-    val crownGold = Color.Black
+    val heroBase = PremiumVisualTokens.coffee
+    val heroBright = Color(0xFF845236)
+    val heroDeep = Color(0xFF482411)
+    val heroBlue = PremiumVisualTokens.coffee
+    val wavePurple = PremiumVisualTokens.sand
+    val wavePink = PremiumVisualTokens.leaf
+    val waveCyan = PremiumVisualTokens.card
+    val avatarBackground = PremiumVisualTokens.card
+    val avatarInk = PremiumVisualTokens.coffee
+    val actionInk = PremiumVisualTokens.coffee
+    val workspaceBorder = PremiumVisualTokens.sandBorder
+    val groupBorder = PremiumVisualTokens.sandBorder
+    val greenSoft = PremiumVisualTokens.sand
+    val green = PremiumVisualTokens.leafReadable
+    val orangeSoft = PremiumVisualTokens.sand
+    val orangeBright = PremiumVisualTokens.coffee
+    val blueSoft = PremiumVisualTokens.sand
+    val blueBright = PremiumVisualTokens.coffee
+    val purpleSoft = PremiumVisualTokens.sand
+    val purpleBright = PremiumVisualTokens.coffee
+    val arrowInk = PremiumVisualTokens.coffee
+    val rowDivider = PremiumVisualTokens.sandBorder
+    val crownGold = PremiumVisualTokens.leaf
 
     val dividerStroke = .7.dp
     val space1 = 1.dp
