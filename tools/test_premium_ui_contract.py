@@ -134,6 +134,18 @@ class PremiumUiContractTest(unittest.TestCase):
         self.assertIn("onContinueWithout", privacy)
         self.assertNotIn("ApprovedReferenceHero(privacy = true)", privacy)
 
+    def test_import_analysis_no_longer_shows_three_dimensional_hero(self):
+        analysis = source(SCREENS / "ApprovedMoneySetupPages.kt")
+        self.assertIn("Understanding your money", analysis)
+        self.assertNotIn("R.drawable.onboarding_analysis_hero", analysis)
+
+    def test_account_ownership_search_comes_first(self):
+        review = source(SCREENS / "OnboardingDiscoveryPage.kt")
+        self.assertIn("Select only the services you personally use.", review)
+        self.assertNotIn('Text("Top 5"', review)
+        self.assertLess(review.index("Search banks and money services"),
+                        review.index("ranked.forEach"))
+
     def test_core_text_colours_reach_wcag_aa_contrast(self):
         palette = source(THEME / "PremiumVisualTokens.kt")
         values = dict(re.findall(r"val (\w+) = Color\(0xFF([0-9A-F]{6})\)", palette))
