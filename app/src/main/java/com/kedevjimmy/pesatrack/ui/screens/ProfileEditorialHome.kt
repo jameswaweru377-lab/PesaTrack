@@ -4,6 +4,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -49,25 +51,22 @@ internal fun ProfileEditorialHome(
     privacy: () -> Unit,
     onMoneyHabits: () -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().background(C.cream).padding(padding),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(bottom = 24.dp)
-    ) {
-        item { ProfileCoverHeader(name, avatar, back, personal) }
-        item { ProfileQuickActions(personal, accounts, payCycle, goals, privacy) }
-        item { ProfileShortcutRow(personal, accounts, payCycle, goals) }
-        item {
+    Column(Modifier.fillMaxSize().background(C.cream).padding(padding)) {
+        Column(
+            modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            ProfileCoverHeader(name, avatar, back, personal)
             Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 ProfileNairobiWellnessFeature(moneyHabits, onMoneyHabits)
             }
+            ProfileShortcutRow(personal, payCycle)
+            Spacer(Modifier.height(12.dp))
         }
-        item {
-            Box(Modifier.padding(horizontal = 16.dp)) {
-                ProfileDevicePrivacy(privacy)
-            }
+        Box(Modifier.padding(horizontal = 16.dp)) {
+            ProfileDevicePrivacy(privacy)
         }
-        item { ProfileEditorialFooter() }
+        ProfileEditorialFooter()
     }
 }
 
@@ -79,60 +78,11 @@ private data class ProfileShortcut(
     val action: () -> Unit
 )
 
-private data class ProfileQuickAction(
-    val id: String,
-    val label: String,
-    val icon: ImageVector,
-    val action: () -> Unit
-)
-
 @Composable
-private fun ProfileQuickActions(
-    personal: () -> Unit,
-    accounts: () -> Unit,
-    payCycle: () -> Unit,
-    goals: () -> Unit,
-    privacy: () -> Unit
-) {
-    val actions = listOf(
-        ProfileQuickAction("personal", "Personal information", Icons.Outlined.PersonOutline, personal),
-        ProfileQuickAction("accounts", "My accounts", Icons.Outlined.AccountBalance, accounts),
-        ProfileQuickAction("pay_cycle", "Pay cycle", Icons.Outlined.CalendarMonth, payCycle),
-        ProfileQuickAction("goals", "Your goals", Icons.Outlined.TrackChanges, goals),
-        ProfileQuickAction("privacy", "Privacy", Icons.Outlined.VerifiedUser, privacy)
-    )
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Row(Modifier.widthIn(max = 264.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween) {
-            actions.forEach { item ->
-                Box(Modifier.size(48.dp).testTag("profile_quick_${item.id}")
-                    .clickable(role = Role.Button, onClick = item.action),
-                    contentAlignment = Alignment.Center) {
-                    Surface(modifier = Modifier.size(32.dp), shape = CircleShape,
-                        color = C.card.copy(alpha = .68f)) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(item.icon, item.label,
-                                tint = C.coffee.copy(alpha = .84f), modifier = Modifier.size(20.dp))
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProfileShortcutRow(
-    personal: () -> Unit,
-    accounts: () -> Unit,
-    payCycle: () -> Unit,
-    goals: () -> Unit
-) {
+private fun ProfileShortcutRow(personal: () -> Unit, payCycle: () -> Unit) {
     val shortcuts = listOf(
         ProfileShortcut("personal", "Personal info", "Name & photo", Icons.Outlined.PersonOutline, personal),
-        ProfileShortcut("accounts", "My accounts", "Linked balances", Icons.Outlined.AccountBalance, accounts),
-        ProfileShortcut("pay_cycle", "Pay cycle", "Salary dates", Icons.Outlined.CalendarMonth, payCycle),
-        ProfileShortcut("goals", "Your goals", "Plans ahead", Icons.Outlined.TrackChanges, goals)
+        ProfileShortcut("pay_cycle", "Pay cycle", "Salary dates", Icons.Outlined.CalendarMonth, payCycle)
     )
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),

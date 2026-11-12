@@ -1196,12 +1196,6 @@ fun ActivityScreen(
                     }
                 }
 
-                item {
-                    TextButton(onClick = { showEvidenceLinks = !showEvidenceLinks }) {
-                        Text(if (showEvidenceLinks) "Hide optional repayment links" else "Show optional repayment links")
-                    }
-                    if (showEvidenceLinks) Text("These repayments are already recorded. Linking their supporting messages is optional.")
-                }
                 val displayedRelationshipReviews = relationshipReviews + optionalEvidenceLinks
                 if (
                     displayedRelationshipReviews
@@ -1481,7 +1475,7 @@ fun ActivityScreen(
                                 }
                         }
                     } else if (filtered.isEmpty()) {
-                        item(
+                        if (selectedFilter != "Needs Review") item(
                             key =
                                 "empty-" +
                                     bucket
