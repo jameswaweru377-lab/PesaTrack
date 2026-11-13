@@ -7,14 +7,14 @@ enum class PhoneAlertType(
     val previewTitle: String,
     val previewBody: String
 ) {
-    BILL("Upcoming bill", "bills", "Rent due soon", "Sample property manager • Due in 3 days"),
-    SALARY("Salary check", "salary", "Salary received", "Example Bank • KES 45,000"),
-    BUDGET("Budget warning", "budgets", "Food budget almost full", "KES 9,500 of KES 10,000 used"),
-    REVIEW("Activity review", "activity-attention", "2 transactions need review", "Suggested categories need confirmation"),
-    GOAL("Savings goal", "saving-goals", "Savings goal 75% complete", "KES 15,000 saved of KES 20,000"),
-    DEBT("Money owed", "debts", "Money owed needs review", "A payment might be connected to money owed"),
-    DATA("Data review", "data-health", "Balance needs attention", "Sample Bank balance not yet confirmed"),
-    BACKUP("Backup reminder", "backup-reminder", "Keep your records safe", "Your local backup is due for a review")
+    BILL("Upcoming bill", "bills", "Test: Rent due soon", "Sample property manager • Due in 3 days"),
+    SALARY("Salary check", "salary", "Test: Salary received", "Example bank • Confirmed income sample"),
+    BUDGET("Budget warning", "budgets", "Test: Food budget almost full", "A sample food budget is close to its limit"),
+    REVIEW("Activity review", "activity-attention", "Test: 2 transactions need review", "Suggested categories need confirmation"),
+    GOAL("Savings goal", "saving-goals", "Test: Savings goal progress", "An example goal is getting close to its target"),
+    DEBT("Money owed", "debts", "Test: Money owed needs review", "A payment might be connected to money owed"),
+    DATA("Data review", "data-health", "Test: Balance needs attention", "Example bank balance not yet confirmed"),
+    BACKUP("Backup reminder", "backup-reminder", "Test: Keep your records safe", "Your local backup is due for a review")
 }
 
 object PhoneAlertPolicy {
