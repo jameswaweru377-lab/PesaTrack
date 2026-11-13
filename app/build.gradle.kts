@@ -196,10 +196,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.4")
     implementation("androidx.work:work-runtime:2.12.0")
     implementation("com.google.code.gson:gson:2.13.1")
-    // Bundled Latin OCR model (~4 MB): shopping photos remain readable offline without a model download.
-    implementation("com.google.mlkit:text-recognition:16.0.1")
-    // Nano runs in Android AICore where supported; OCR remains the offline fallback.
-    implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
 
     testImplementation("junit:junit:4.13.2")
     // Exercise reconciliation persistence against isolated Android databases on the host.

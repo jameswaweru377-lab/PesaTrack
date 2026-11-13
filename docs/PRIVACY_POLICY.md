@@ -12,7 +12,6 @@ Depending on the features you choose to enable, PesaTrack can process:
 - imported statement cash rows and statement-only archives you explicitly review and save;
 - transaction, account, debt, salary, budget, bill and saving-goal information derived from that evidence;
 - manual corrections, categories and settings you enter;
-- optional monthly shopping lists, item quantities, checked items and estimated prices;
 - optional financial-health context that you enter yourself, including accessible
   emergency savings, essential monthly costs and required debt repayments;
 - app-lock and encrypted-backup settings;
@@ -28,24 +27,9 @@ user-entered amounts need reconfirmation after 30 days to influence an assessmen
 PesaTrack's financial-health guidance is an indicative local calculation, not
 a credit score or a standardized assessment.
 
-Shopping lists are stored in app-private preferences and are included in
-user-created encrypted backups. They stay on the device and never become
-recorded financial transactions merely by adding or checking an item. The
-optional photo-scanning feature uses Android's photo picker and bundled on-device
-text recognition, without requiring photo-library or camera permission from
-PesaTrack. The original photo is not copied into PesaTrack's storage or uploaded
-by PesaTrack; raw recognized text stays in the temporary review screen. Only
-items you explicitly approve are saved to the local shopping list and covered
-by your encrypted backups. A photo in cloud-backed device storage may be fetched
-by Android's chosen photo provider when you select it. Historical shopping
-summaries and automatic suggestions are calculated locally from those lists;
-they are planning estimates, not proof of payment or spending.
-Where supported and already installed by Android, Gemini Nano may interpret
-recognized shopping text through the on-device AICore system service. PesaTrack
-does not automatically download that model, submit the text to cloud AI, or
-save AI drafts without your explicit review; unsupported devices use only
-offline text recognition. The Android operating system manages any separate
-model installation or updates, and PesaTrack never requires Gemini Nano.
+Older versions may have stored shopping-list preferences locally or in encrypted
+backups. This version no longer reads or updates that retired feature. Updating
+the app does not silently erase existing device preferences or backup files.
 
 ## SMS permission
 

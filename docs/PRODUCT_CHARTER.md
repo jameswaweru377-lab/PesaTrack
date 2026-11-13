@@ -211,12 +211,8 @@ Compatibility redirects for restored navigation state are allowed, but these ret
 
 The owner explicitly approved the 20-screen concept implementation, including real savings targets and bill reminders. This deliberately revises the retired-goals restriction only for goals backed by stored savings rules and trusted recorded transfers. Fabricated preview balances and unrelated trading/social features remain prohibited. Reminder schedules and profile preferences are local metadata; they never insert payments or change ledger balances. Savings goal progress is per matching rule and net of identified returns, with internal savings-to-lock movements excluded from new saving.
 
-## Approved shopping planning (9 November 2026)
+## Retired shopping planning (13 November 2026)
 
-Monthly shopping lists are **non-authoritative planning metadata**: user-confirmed
-item quantities, optional estimated unit prices and explicit reuse of earlier
-lists. They do not generate Activity transactions, paid-bill records, commitments,
-budgets or account balances. Incomplete prices must be labelled as estimates of
-known items, never complete or verified spending. Local-only list data is eligible
-for the encrypted preference backup. Photo recognition and automatic suggestions
-need separate assurance before activation.
+The owner withdrew approval for monthly shopping lists, shopping photo OCR,
+Gemini Nano interpretation, suggestions and shopping history. These are not
+active product features. Do not reintroduce them without fresh approval.

@@ -90,7 +90,6 @@ fun PlanScreen(
     scaffoldPadding: PaddingValues,
     onBudgetClick: (() -> Unit)? = null,
     onGoalsClick: (() -> Unit)? = null,
-    onShoppingClick: (() -> Unit)? = null,
     onSalaryClick: (() -> Unit)? = null,
     onBillsClick: (() -> Unit)? = null,
     onPayCycleClick: (() -> Unit)? = null,
@@ -377,7 +376,6 @@ fun PlanScreen(
                     onBudget = { onBudgetClick?.invoke() },
                     onGoals = { onGoalsClick?.invoke() },
                     onBills = { onBillsClick?.invoke() },
-                    onShopping = onShoppingClick,
                     onDetails = { showPlanDetails = true },
                     onSalary = { onSalaryClick?.invoke() }
                 )
