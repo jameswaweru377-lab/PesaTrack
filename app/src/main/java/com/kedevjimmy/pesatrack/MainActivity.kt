@@ -36,6 +36,7 @@ import com.kedevjimmy.pesatrack.ui.PesaTrackApp
 import com.kedevjimmy.pesatrack.ui.screens.StartupSplashScreen
 import com.kedevjimmy.pesatrack.ui.screens.AppLockScreen
 import com.kedevjimmy.pesatrack.ui.screens.MandatoryAppLockSetupScreen
+import com.kedevjimmy.pesatrack.ui.screens.SecureAppLockDialog
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 import kotlinx.coroutines.delay
@@ -272,7 +273,8 @@ class MainActivity : ComponentActivity() {
                 )
                         }
                         if (pinRecoveryAuthorized) {
-                            MandatoryAppLockSetupScreen(
+                            SecureAppLockDialog {
+                                MandatoryAppLockSetupScreen(
                                 recoveringExistingPin = true,
                                 onSecured = {
                                     pinRecoveryAuthorized = false
@@ -280,7 +282,9 @@ class MainActivity : ComponentActivity() {
                                     appLocked = false
                                 }
                             )
+                            }
                         } else if (appLocked && appLockManager.isEnabled()) {
+                            SecureAppLockDialog {
                     AppLockScreen(
                         biometricAvailable =
                             canUseBiometrics(),
@@ -306,6 +310,7 @@ class MainActivity : ComponentActivity() {
                         deviceCredentialRecoveryAvailable = canRecoverPinWithDeviceCredential(),
                         onRecoverWithDeviceCredential = { requestPinRecovery() }
                     )
+                            }
                         }
                     }
                 }
