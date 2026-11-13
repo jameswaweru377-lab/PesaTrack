@@ -50,16 +50,27 @@ object PhoneNotificationPreview {
         val (illustration, action) = when (alert) {
             PhoneAlertType.BILL -> PhoneNoticeDesign.Illustration.HOME to "View bills"
             PhoneAlertType.SALARY -> PhoneNoticeDesign.Illustration.WALLET to "View salary"
-            PhoneAlertType.BUDGET -> PhoneNoticeDesign.Illustration.WALLET to "View budget"
+            PhoneAlertType.BUDGET -> PhoneNoticeDesign.Illustration.BUDGET to "Check budget"
             PhoneAlertType.REVIEW -> PhoneNoticeDesign.Illustration.REVIEW to "Review activity"
             PhoneAlertType.GOAL -> PhoneNoticeDesign.Illustration.TARGET to "View goal"
             PhoneAlertType.DEBT -> PhoneNoticeDesign.Illustration.PEOPLE to "View money owed"
             PhoneAlertType.DATA -> PhoneNoticeDesign.Illustration.SHIELD to "Review data"
             PhoneAlertType.BACKUP -> PhoneNoticeDesign.Illustration.CLOUD to "Open backup"
         }
+        val badge = when (alert) {
+            PhoneAlertType.BILL -> "TEST • RENT"
+            PhoneAlertType.SALARY -> "TEST • INCOME"
+            PhoneAlertType.BUDGET -> "TEST • BUDGET"
+            PhoneAlertType.REVIEW -> "TEST • REVIEW"
+            PhoneAlertType.GOAL -> "TEST • GOAL"
+            PhoneAlertType.DEBT -> "TEST • DEBT"
+            PhoneAlertType.DATA -> "TEST • CHECK"
+            PhoneAlertType.BACKUP -> "TEST • BACKUP"
+        }
         val notice = PhoneNoticeDesign.apply(
             NotificationCompat.Builder(context, CHANNEL), context,
-            "TEST ${alert.name}", alert.previewTitle, alert.previewBody, action, illustration, open
+            badge, alert.previewTitle, alert.previewBody, action, illustration, open,
+            supportingText = "Preview only. No financial record has been created or changed."
         )
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
