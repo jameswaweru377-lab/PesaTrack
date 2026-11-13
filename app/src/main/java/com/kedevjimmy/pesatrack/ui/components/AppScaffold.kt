@@ -19,7 +19,6 @@ import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.ui.screens.ActivityMoneyActions
 import com.kedevjimmy.pesatrack.ui.screens.BrownHomeHeader
 import com.kedevjimmy.pesatrack.ui.screens.BrownHomeBottomBar
-import com.kedevjimmy.pesatrack.ui.screens.BrownHomeDrawerContent
 import com.kedevjimmy.pesatrack.ui.screens.BrownHomePalette
 import com.kedevjimmy.pesatrack.ui.screens.HomeReferencePalette
 import kotlinx.coroutines.launch
@@ -59,36 +58,21 @@ fun AppScaffold(
     content: @Composable (PaddingValues) -> Unit
 ) {
     var toolsOpen by remember { mutableStateOf(false) }
-    val drawer = rememberDrawerState(DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
     val sharedNotifications = LocalAppNotificationsDestination.current
-    val chooseTab: (MainTab) -> Unit = { tab ->
-        scope.launch { drawer.close(); onTabSelected(tab) }
-    }
-    ModalNavigationDrawer(
-        drawerState = drawer,
-        gesturesEnabled = currentTab != null,
-        drawerContent = {
-            BrownHomeDrawerContent(currentTab, chooseTab) {
-                scope.launch { drawer.close(); onProfileClick() }
-            }
-        }
-    ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             if (showTopBar && currentTab != null) {
-                Box(
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.background)
-                        .statusBarsPadding()
-                ) {
-                    BrownHomeHeader(onMenu = { scope.launch { drawer.open() } },
+                Box(Modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
+                    BrownHomeHeader(
                         onNotifications = {
-                            if (onNotificationsClick != null) onNotificationsClick()
-                            else if (sharedNotifications != null) sharedNotifications()
-                            else onTabSelected(MainTab.ACTIVITY)
-                        })
+                            when {
+                                onNotificationsClick != null -> onNotificationsClick()
+                                sharedNotifications != null -> sharedNotifications()
+                                else -> onTabSelected(MainTab.ACTIVITY)
+                            }
+                        }
+                    )
                 }
             }
         },
@@ -104,7 +88,6 @@ fun AppScaffold(
         },
         content = content
     )
-    }
     if (toolsOpen) {
         ModalBottomSheet(onDismissRequest = { toolsOpen = false }) {
             Column(

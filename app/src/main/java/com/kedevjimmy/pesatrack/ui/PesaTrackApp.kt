@@ -549,57 +549,13 @@ fun PesaTrackApp(
             }
         }
 
+        // Old More deep links now lead to the Profile workspace.
         composable(MainTab.MORE.route) {
-            AppScaffold(
-                onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
-                onNotificationsClick = {
-                    navController.navigate("profile?section=notifications") { launchSingleTop = true }
-                },
-                onPaycheckClick = {
-                    navController.navigate("paycheck-analysis") { launchSingleTop = true }
-                },
-                currentTab = MainTab.MORE,
-                useHomeHeader = true,
-                onTabSelected = ::navigateToTab,
-                onStatementsClick = {
-                    navController.navigate("statement-activity") { launchSingleTop = true }
+            LaunchedEffect(Unit) {
+                navController.navigate("profile") {
+                    popUpTo(MainTab.MORE.route) { inclusive = true }
+                    launchSingleTop = true
                 }
-            ) { padding ->
-                MoreMonochromeTheme { MoreScreen(
-                    scaffoldPadding = padding,
-                    onAccountsClick = { navigateToTab(MainTab.ACCOUNTS) },
-                    onProfileClick = {
-                        navController.navigate("profile") { launchSingleTop = true }
-                    },
-                    onProfileSectionClick = { section ->
-                        // Strict section allowlist: these are real Profile destinations.
-                        if (section in setOf(
-                                "notifications", "security", "appearance", "privacy", "support", "about", "terms"
-                            )
-                        ) {
-                            navController.navigate("profile?section=$section") { launchSingleTop = true }
-                        }
-                    },
-                    onImportClick = {
-                        navController.navigate("historical-import") { launchSingleTop = true }
-                    },
-                    onPastTransactionsClick = { navigateToTab(MainTab.ACTIVITY) },
-                    onStatementActivityClick = {
-                        navController.navigate("statement-activity") { launchSingleTop = true }
-                    },
-                    onStatementImportClick = {
-                        navController.navigate("statement-import") { launchSingleTop = true }
-                    },
-                    onDataHealthClick = {
-                        navController.navigate("data-health") { launchSingleTop = true }
-                    },
-                    onSettingsClick = {
-                        navController.navigate("settings") { launchSingleTop = true }
-                    },
-                    onReportsClick = {
-                        navController.navigate("reports") { launchSingleTop = true }
-                    }
-                ) }
             }
         }
 
@@ -786,6 +742,9 @@ fun PesaTrackApp(
                     onPlanClick = { navigateToTab(MainTab.PLAN) },
                     onPayCycleClick = { navController.navigate("pay-cycle") },
                     onActivityClick = { navigateToTab(MainTab.ACTIVITY) },
+                    onStatementsClick = { navController.navigate("statement-activity") { launchSingleTop = true } },
+                    onStatementImportClick = { navController.navigate("statement-import") { launchSingleTop = true } },
+                    onReportsClick = { navController.navigate("reports") { launchSingleTop = true } },
                     initialPage = initialSection
                 ) }
             }
