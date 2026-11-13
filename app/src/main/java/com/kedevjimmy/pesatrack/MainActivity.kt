@@ -1,6 +1,8 @@
 package com.kedevjimmy.pesatrack
 
 import android.os.Bundle
+import android.app.Activity
+import androidx.activity.result.contract.ActivityResultContracts
 import android.os.Build
 import android.os.CancellationSignal
 import android.hardware.biometrics.BiometricPrompt
@@ -50,6 +52,34 @@ class MainActivity : ComponentActivity() {
     private lateinit var appLockManager:
         AppLockManager
     private var appLocked by mutableStateOf(false)
+    /** Ephemeral: device credential authorization is lost when leaving the activity. */
+    private var pinRecoveryAuthorized by mutableStateOf(false)
+    private val pinRecoveryLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK &&
+            ::appLockManager.isInitialized && appLockManager.isEnabled()
+        ) {
+            pinRecoveryAuthorized = true
+            updateSecureWindowState()
+        }
+    }
+
+    private fun canRecoverPinWithDeviceCredential(): Boolean =
+        getSystemService(KeyguardManager::class.java)?.isDeviceSecure == true
+
+    private fun requestPinRecovery() {
+        if (!appLocked || !appLockManager.isEnabled() || !canRecoverPinWithDeviceCredential()) {
+            return
+        }
+        val keyguard = getSystemService(KeyguardManager::class.java) ?: return
+        @Suppress("DEPRECATION")
+        val challenge = keyguard.createConfirmDeviceCredentialIntent(
+            "Recover PesaTrack PIN",
+            "Confirm your phone lock to set a new app PIN without erasing your records."
+        ) ?: return
+        pinRecoveryLauncher.launch(challenge)
+    }
     private var captureForeground = false
     private fun readSmartIntent(intent: Intent) {
         intent.getStringExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_KEY)?.let {
@@ -179,6 +209,15 @@ class MainActivity : ComponentActivity() {
             PesaTrackTheme(darkTheme = useDark) {
                 if (showLaunchSplash) {
                     StartupSplashScreen(darkTheme = useDark)
+                } else if (pinRecoveryAuthorized) {
+                    MandatoryAppLockSetupScreen(
+                        recoveringExistingPin = true,
+                        onSecured = {
+                            pinRecoveryAuthorized = false
+                            securityConfigured = appLockManager.isEnabled()
+                            appLocked = false
+                        }
+                    )
                 } else if (
                     appLocked &&
                     appLockManager.isEnabled()
@@ -204,7 +243,9 @@ class MainActivity : ComponentActivity() {
                         },
                         onBiometricUnlock = {
                             requestBiometricUnlock()
-                        }
+                        },
+                        deviceCredentialRecoveryAvailable = canRecoverPinWithDeviceCredential(),
+                        onRecoverWithDeviceCredential = { requestPinRecovery() }
                     )
                 } else if (setupComplete && !securityConfigured) {
                     MandatoryAppLockSetupScreen(onSecured = {
@@ -286,6 +327,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        pinRecoveryAuthorized = false
         if (
             ::appLockManager
                 .isInitialized &&
@@ -318,7 +360,11 @@ class MainActivity : ComponentActivity() {
         ) {
             return
         }
-        if (ScreenCapturePolicy.shouldBlockCapture(
+        if (pinRecoveryAuthorized ||
+            (!appLockManager.isEnabled() &&
+                getSharedPreferences("pesatrack_preferences", MODE_PRIVATE)
+                    .getBoolean("setup_complete", false)) ||
+            ScreenCapturePolicy.shouldBlockCapture(
                 appLockEnabled = appLockManager.isEnabled(),
                 appLocked = lockedForCapture,
                 foreground = captureForeground,
