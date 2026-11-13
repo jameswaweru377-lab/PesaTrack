@@ -1,5 +1,13 @@
 # PesaTrack Current State
 
+_Premium first-launch visual refresh (13 November 2026; GitHub CI pending):_
+The splash and welcome screens now share the approved cream/coffee/subtle-green
+visual language and reuse locally packaged Nairobi and wallet imagery. The
+welcome presents two short benefits with real Compose buttons and preserves the
+existing permission and setup flow. No sample account balances are displayed
+as live data. This is an offline UI change; no new permissions, dependencies,
+ledger, backups or signing changes. Physical Redmi visual acceptance is pending.
+
 _Shopping Lists retirement (13 November 2026; CI pending):_
 The owner requested complete removal of monthly shopping lists, image OCR, Gemini
 Nano, item suggestions and shopping history. The feature's Plan route, code,

@@ -121,6 +121,20 @@ class PremiumUiContractTest(unittest.TestCase):
         self.assertNotIn("ApprovedReferenceHero(", welcome)
         self.assertNotIn("Understand spending and debts", welcome)
 
+    def test_premium_splash_and_welcome_use_bundled_visuals(self):
+        splash = source(SCREENS / "StartupSplashScreen.kt")
+        hero = source(SCREENS / "PremiumWelcomeHero.kt")
+        welcome = source(SCREENS / "PesaTrackWelcomePage.kt")
+        for file in (splash, hero):
+            self.assertIn("R.drawable.profile_default_nairobi_cover", file)
+            self.assertIn("R.drawable.wallet_welcome", file)
+        self.assertIn("PesaLogoMark(size = 72.dp)", splash)
+        self.assertIn("PremiumWelcomeHero()", welcome)
+        self.assertIn("colors = ButtonDefaults.buttonColors(", welcome)
+        self.assertIn("onGetStarted", welcome)
+        self.assertIn("onSkip", welcome)
+        self.assertNotIn("R.drawable.onboarding_welcome_hero", welcome + hero)
+
     def test_onboarding_drops_old_step_dots_and_import_choices(self):
         setup = source(SCREENS / "SmartOnboardingSetupScreen.kt")
         self.assertIn("OnboardingPremiumHeader()", setup)
