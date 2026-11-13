@@ -24,7 +24,8 @@ class AppLockTimingPolicyTest {
                 backgroundedAtElapsedMs = 100_000L,
                 backgroundBootCount = 12,
                 nowElapsedMs = 129_999L,
-                currentBootCount = 12
+                currentBootCount = 12,
+                graceMs = 30_000L
             )
         )
         assertTrue(
