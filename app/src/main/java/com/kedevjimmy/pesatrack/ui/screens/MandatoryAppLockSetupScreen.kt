@@ -2,6 +2,9 @@ package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,12 +35,18 @@ fun MandatoryAppLockSetupScreen(onSecured: () -> Unit, recoveringExistingPin: Bo
     BackHandler { /* Never reveal the financial UI without an app PIN. */ }
     val context = LocalContext.current
     val manager = remember(context) { AppLockManager(context) }
+    val blockerInteraction = remember { MutableInteractionSource() }
     var pin by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier.fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .clickable(interactionSource = blockerInteraction, indication = null) {
+                /* Prevent taps from reaching financial controls behind this screen. */
+            }
+            .padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
