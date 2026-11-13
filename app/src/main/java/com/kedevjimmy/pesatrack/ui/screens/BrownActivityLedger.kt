@@ -137,7 +137,7 @@ internal fun BrownActivityRow(
                 Text(amountLabel(item, direction)
                     .replace("+ KES", "+KES").replace("- KES", "−KES"),
                     modifier = Modifier.widthIn(max = 124.dp),
-                    color = if (isCredit) p.coffee else p.ink,
+                    color = moneyMovementColor(direction, refund),
                     fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
