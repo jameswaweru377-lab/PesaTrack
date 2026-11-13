@@ -4,13 +4,19 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -30,11 +36,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.BalanceAccountVisibility
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.domain.rules.PlanSpendableAccount
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -66,35 +74,84 @@ private fun BalanceNoticeCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        color = palette.cream,
-        border = BorderStroke(1.dp, palette.outline)
+        color = PremiumVisualTokens.card,
+        border = BorderStroke(PesaDesignTokens.cardOutlineWidth, palette.outline)
     ) {
-        Row(Modifier.padding(start = 16.dp, top = 8.dp, end = 8.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(if (missing) "No recorded balance for $name" else "Check the balance for $name",
-                    style = MaterialTheme.typography.titleSmall, color = palette.coffee)
-                Text("Available money uses the account balances PesaTrack can verify.",
-                    style = MaterialTheme.typography.bodySmall, color = palette.ink)
-                TextButton(onClick = { showBalance = true }) {
-                    Text(if (missing) "Add balance" else "Update balance", color = palette.coffee)
+        Column(
+            Modifier.padding(PesaDesignTokens.cardContentPadding),
+            verticalArrangement = Arrangement.spacedBy(PesaDesignTokens.compactGap)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    color = PremiumVisualTokens.leaf.copy(alpha = 0.22f),
+                    shape = RoundedCornerShape(PesaDesignTokens.controlRadius)
+                ) {
+                    Text(
+                        "BALANCE CHECK",
+                        Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = PremiumVisualTokens.leafReadable
+                    )
+                }
+                Box(Modifier.weight(1f))
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Rounded.MoreVert, contentDescription = "Balance options for $name",
+                            tint = palette.coffee)
+                    }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        DropdownMenuItem(text = { Text("Archive account") }, onClick = {
+                            showMenu = false
+                            showArchive = true
+                        })
+                        DropdownMenuItem(text = { Text("Dismiss") }, onClick = {
+                            showMenu = false
+                            onDismiss()
+                        })
+                    }
                 }
             }
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Rounded.MoreVert, contentDescription = "Balance options for $name",
-                        tint = palette.coffee)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        if (missing) "Balance needs attention" else "Check account balance",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = palette.coffee
+                    )
+                    Text(
+                        if (missing) "$name has no recorded balance."
+                        else "The recorded balance for $name needs checking.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = palette.ink
+                    )
+                    Text(
+                        "Available money uses only balances PesaTrack can verify.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = PremiumVisualTokens.muted
+                    )
                 }
-                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    DropdownMenuItem(text = { Text("Archive account") }, onClick = {
-                        showMenu = false
-                        showArchive = true
-                    })
-                    DropdownMenuItem(text = { Text("Dismiss") }, onClick = {
-                        showMenu = false
-                        onDismiss()
-                    })
+                Surface(
+                    modifier = Modifier.padding(start = 8.dp),
+                    shape = CircleShape,
+                    color = PremiumVisualTokens.leaf.copy(alpha = 0.20f)
+                ) {
+                    Icon(
+                        Icons.Rounded.AccountBalanceWallet,
+                        contentDescription = null,
+                        tint = palette.coffee,
+                        modifier = Modifier.padding(12.dp).size(24.dp)
+                    )
                 }
+            }
+            Button(
+                onClick = { showBalance = true },
+                modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget),
+                shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
+                colors = ButtonDefaults.buttonColors(containerColor = palette.coffee)
+            ) {
+                Text(if (missing) "Add balance  →" else "Update balance  →")
             }
         }
     }
