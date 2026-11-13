@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,12 +44,55 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun HomeBalanceNotice(accounts: List<MoneyAccount>, balances: List<PlanSpendableAccount>) {
     var dismissed by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
-    val balance = balances.firstOrNull {
+    val visible = balances.filter {
         !it.isProtected && it.provisional && it.id !in dismissed
-    } ?: return
-    val account = accounts.firstOrNull { it.id == balance.id } ?: return
-    key(account.id) {
-        BalanceNoticeCard(account, balance) { dismissed = ArrayList(dismissed + account.id) }
+    }.mapNotNull { balance ->
+        accounts.firstOrNull { it.id == balance.id }?.let { it to balance }
+    }
+    if (visible.isEmpty()) return
+    if (visible.size == 1) {
+        val (account, balance) = visible.first()
+        key(account.id) {
+            BalanceNoticeCard(account, balance) {
+                dismissed = ArrayList(dismissed + account.id)
+            }
+        }
+        return
+    }
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val palette = BrownHomePalette
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Surface(
+            color = palette.cream,
+            shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
+            border = BorderStroke(1.dp, palette.outline)
+        ) {
+            Row(
+                Modifier.fillMaxWidth().clickable { expanded = !expanded }
+                    .heightIn(min = PesaDesignTokens.minimumTouchTarget)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("${visible.size} accounts need balance review",
+                        color = palette.coffee, style = MaterialTheme.typography.titleSmall)
+                    Text("Tap to review the missing or uncertain balances",
+                        color = palette.muted, style = MaterialTheme.typography.bodySmall)
+                }
+                Icon(
+                    Icons.Rounded.ExpandMore,
+                    contentDescription = if (expanded) "Hide account notices" else "Review account notices",
+                    tint = palette.coffee
+                )
+            }
+        }
+        if (expanded) visible.forEach { (account, balance) ->
+            key(account.id) {
+                BalanceNoticeCard(account, balance) {
+                    dismissed = ArrayList(dismissed + account.id)
+                }
+            }
+        }
     }
 }
 
