@@ -37,6 +37,7 @@ class AppLockManager(
         prefs.getLong(KEY_BACKGROUND_LOCK_GRACE_MS, 0L)
     ) {
         0L -> 0L
+        30_000L -> 30_000L
         60_000L -> 60_000L
         else -> 0L
     }
@@ -88,7 +89,8 @@ class AppLockManager(
             )
             .remove(KEY_LOCKOUT_UNTIL_ELAPSED_MS)
             .remove(KEY_LOCKOUT_BOOT_COUNT)
-            .apply()
+            .commit()
+            .let { check(it) { "PIN could not be saved." } }
     }
 
     fun verifyPin(
@@ -97,7 +99,7 @@ class AppLockManager(
             SystemClock.elapsedRealtime()
     ): Boolean {
         if (!isEnabled()) {
-            return true
+            return false
         }
         if (
             remainingLockoutMs(
