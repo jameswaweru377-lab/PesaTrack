@@ -2,6 +2,9 @@ package com.kedevjimmy.pesatrack
 
 import android.os.Bundle
 import android.app.Activity
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.invisibleToUser
 import androidx.activity.result.contract.ActivityResultContracts
 import android.os.Build
 import android.os.CancellationSignal
@@ -209,51 +212,25 @@ class MainActivity : ComponentActivity() {
             PesaTrackTheme(darkTheme = useDark) {
                 if (showLaunchSplash) {
                     StartupSplashScreen(darkTheme = useDark)
-                } else if (pinRecoveryAuthorized) {
-                    MandatoryAppLockSetupScreen(
-                        recoveringExistingPin = true,
-                        onSecured = {
-                            pinRecoveryAuthorized = false
-                            securityConfigured = appLockManager.isEnabled()
-                            appLocked = false
-                        }
-                    )
-                } else if (
-                    appLocked &&
-                    appLockManager.isEnabled()
-                ) {
-                    AppLockScreen(
-                        biometricAvailable =
-                            canUseBiometrics(),
-                        onPinUnlock = { pin ->
-                            val unlocked =
-                                appLockManager
-                                    .verifyPin(pin)
-                            if (unlocked) {
-                                appLockManager
-                                    .markUnlocked()
-                                appLocked =
-                                    false
-                            }
-                            unlocked
-                        },
-                        pinLockoutRemainingMs = {
-                            appLockManager
-                                .remainingLockoutMs()
-                        },
-                        onBiometricUnlock = {
-                            requestBiometricUnlock()
-                        },
-                        deviceCredentialRecoveryAvailable = canRecoverPinWithDeviceCredential(),
-                        onRecoverWithDeviceCredential = { requestPinRecovery() }
-                    )
                 } else if (setupComplete && !securityConfigured) {
                     MandatoryAppLockSetupScreen(onSecured = {
                         securityConfigured = appLockManager.isEnabled()
                         appLocked = false
                     })
                 } else {
-                    PesaTrackApp(
+                    androidx.compose.foundation.layout.Box(
+                        modifier = androidx.compose.ui.Modifier.fillMaxSize()
+                    ) {
+                        androidx.compose.foundation.layout.Box(
+                            modifier = androidx.compose.ui.Modifier.fillMaxSize().then(
+                                if (appLocked || pinRecoveryAuthorized)
+                                    androidx.compose.ui.Modifier.semantics {
+                                        invisibleToUser()
+                                    }
+                                else androidx.compose.ui.Modifier
+                            )
+                        ) {
+                            PesaTrackApp(
                     salaryOpenRequest = salaryOpenRequest,
                     billsOpenRequest = billsOpenRequest,
                     reviewOpenRequest = reviewOpenRequest,
@@ -293,6 +270,44 @@ class MainActivity : ComponentActivity() {
                         AutomaticHistoryRepair.scheduleIfAllowed(this)
                     }
                 )
+                        }
+                        if (pinRecoveryAuthorized) {
+                            MandatoryAppLockSetupScreen(
+                                recoveringExistingPin = true,
+                                onSecured = {
+                                    pinRecoveryAuthorized = false
+                                    securityConfigured = appLockManager.isEnabled()
+                                    appLocked = false
+                                }
+                            )
+                        } else if (appLocked && appLockManager.isEnabled()) {
+                    AppLockScreen(
+                        biometricAvailable =
+                            canUseBiometrics(),
+                        onPinUnlock = { pin ->
+                            val unlocked =
+                                appLockManager
+                                    .verifyPin(pin)
+                            if (unlocked) {
+                                appLockManager
+                                    .markUnlocked()
+                                appLocked =
+                                    false
+                            }
+                            unlocked
+                        },
+                        pinLockoutRemainingMs = {
+                            appLockManager
+                                .remainingLockoutMs()
+                        },
+                        onBiometricUnlock = {
+                            requestBiometricUnlock()
+                        },
+                        deviceCredentialRecoveryAvailable = canRecoverPinWithDeviceCredential(),
+                        onRecoverWithDeviceCredential = { requestPinRecovery() }
+                    )
+                        }
+                    }
                 }
             }
         }
