@@ -17,7 +17,7 @@ physical Redmi review has not happened.
 | Entry | `onboarding`, `smart-onboarding-setup` | Foundation; onboarding gradient migrated; setup needs review |
 | Home | `home` | Foundation; approved coffee art and finance evidence retained |
 | Activity | `activity`, `activity-attention`, `transaction-detail/{transactionId}`, `smart-review/{key}?action={action}&revision={revision}` | Foundation; chart and account review palette updated; overlays need review |
-| Plan | `plan`, `salary`, `paycheck-analysis`, `budgets`, `bills`, `saving-goals`, `shopping-lists`, `pay-cycle` | Foundation; hero, progress, breakdown, pay-cycle gradient updated; scanner and forms need review |
+| Plan | `plan`, `salary`, `paycheck-analysis`, `budgets`, `bills`, `saving-goals`, `pay-cycle` | Foundation; hero, progress, breakdown, pay-cycle gradient updated; forms need review |
 | Accounts | `accounts`, `account-detail/{accountId}`, `financial-institutions`, `debts` | Foundation; card palette adapters updated; investment PR integration pending |
 | More and Profile | `more`, `profile?section={section}`, `settings`, `smart-rules`, `data-health`, `identity-review` | Foundation; More/Profile palette adapters updated; nested preferences need review |
 | Statements | `statement-activity`, `statement-import`, `reports`, `historical-import` | Foundation; Statements overview/deep dive palette updated; import/export states need review |
@@ -26,7 +26,7 @@ physical Redmi review has not happened.
 
 Additional non-route surfaces to verify: splash and app lock; Profile
 notifications, security, appearance, privacy, support, about and terms;
-account selection/add/edit; goals, bills and shopping scanner bottom sheets;
+account selection/add/edit; goals and bills bottom sheets;
 transaction note/receipt/filter/category; statement evidence/detail/export;
 all dialogs, keyboard states, empty/error/partial/review-required states.
 

@@ -1,5 +1,12 @@
 # PesaTrack Current State
 
+_Shopping Lists retirement (13 November 2026; CI pending):_
+The owner requested complete removal of monthly shopping lists, image OCR, Gemini
+Nano, item suggestions and shopping history. The feature's Plan route, code,
+tests and dedicated dependencies have been removed. Existing on-device legacy
+preferences and old encrypted backups are not erased by the update. No ledger,
+account, bill or goal data is changed. Android CI and phone acceptance pending.
+
 _Investment review corrections (11 November 2026; CI pending):_
 Investment replay now recognises the legacy `instrument:OF_SCOM` identity from older "bought 55 of SCOM shares" parsing as equivalent to `instrument:SCOM`, including reference-based matches and message-fingerprint event keys. Existing position rows for those aliases are grouped for display without deleting or rewriting historical events. The submitted-order metric reads a full-table count, rather than counting only the 30 most recent history entries. Added pure unit regressions for identity aliases and labels. Android CI and installed-phone replay remain unverified.
 
@@ -70,35 +77,9 @@ not a live bank balance and is not the salary-cycle estimate. Budget and goal
 progress remain monthly against their own targets. The Month / Pay cycle choice
 is presented in Activity using its existing period reads; Plan has a compact
 week, month label and notebook card, with Coming up after Planning status.
-Bills keeps one calendar week and a concise zero state; Bills and Shopping use
-compact inner-page headers and Shopping keeps estimates separate from expenses.
-No transaction, account observation, bill, goal or shopping entry is written by
-these presentation changes. Real-device layout and accounting acceptance are
+Bills keeps one calendar week and a concise zero state. No transaction, account
+observation, bill or goal entry is written by these presentation changes. Real-device layout and accounting acceptance are
 not yet verified.
-
-_Shopping photo recognition and planning insights (10 November 2026; CI and phone acceptance pending):_
-Monthly shopping lists now offer a system photo picker and bundled offline Latin
-text recognition. The user edits recognized text and explicitly approves items
-before they enter the existing local list; neither the source photo nor the raw
-OCR transcript is saved by PesaTrack. Simple quantity and explicitly marked
-unit-price formats are proposed, while ambiguous prices remain unknown. The
-screen also suggests repeat items from previous saved lists (without reusing an
-old price as today's price) and displays grouped monthly counts and known/partial
-planning estimates. This does not record purchases, update budgets, Accounts or
-Activity, add permissions/network calls, or change the shopping-list storage or
-encrypted-backup format. The bundled OCR model adds approximately 4 MB to the
-app; measure the actual signed APK impact in CI. Handwriting/complex receipts,
-OCR recognition quality and real-device layout remain unverified.
-
-_Optional Gemini Nano shopping interpretation (10 November 2026; PR CI and phone acceptance pending):_
-After bundled offline OCR, shopping-photo review may use Android AICore's Gemini Nano
-to propose editable product lines on supported phones with the model already available.
-Untrusted Nano suggestions are restricted to items, quantities and prices present in
-the recognized text. If unavailable, not downloaded, slow, or unsuccessful, the
-original OCR transcript remains the review draft. PesaTrack does not download a
-Nano model automatically, send a receipt off-device, write to the financial ledger,
-or bypass explicit user approval. Gemini Nano support on the owner's Redmi Note 14
-and real-world extraction quality remain unverified.
 
 _M-Pesa reported-balance authority and manual account balance entry (10 November 2026; CI and phone acceptance pending):_
 The Accounts list and individual account details now expose an Add/Update
@@ -150,18 +131,6 @@ to use one canonical Activity ledger, and the N2 #537 statement-posting hold
 remains. Only synthetic JVM/CI checks are requested; no Android/emulator,
 upgrade, data-retention or physical-phone test is claimed.
 
-_Plan shopping lists first release (9 November 2026; Android CI and phone review pending):_
-Plan now links to a local shopping-list page. Users can create and rename monthly
-lists, add/edit/check/remove items with optional KSh unit prices, see explicitly
-partial estimates where prices are missing, delete lists with confirmation, and
-copy a previous list into the current month with bought flags reset. Planning
-metadata is kept in app-private preferences, included by the existing encrypted
-preferences backup export; no ledger, balance, expense, permission, network,
-database schema or APK-signing change is intended. Photo OCR and automatic item
-suggestions remain later, separately reviewed work. Focused JVM/Robolectric
-tests are provided; local Gradle could not execute because the distribution
-download was blocked. Exact-head CI, backup restore and Redmi UI acceptance
-remain unverified until run.
 
 _Shared brown navigation and Accounts visual polish (9 November 2026; CI and phone review pending):_
 The Home/Activity brown PesaTrack logo, tagline, notification bell and five-place

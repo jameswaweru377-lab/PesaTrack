@@ -101,12 +101,11 @@ internal fun PlanJourneyOverview(
     onBudget: () -> Unit,
     onGoals: () -> Unit,
     onBills: () -> Unit,
-    onShopping: (() -> Unit)?,
     onDetails: () -> Unit,
     onSalary: () -> Unit
 ) {
     ApprovedCoffeePlanOverview(data, selectedPeriod, onPeriod, onOtherMonths,
-        onBudget, onGoals, onBills, onShopping, onDetails, onSalary)
+        onBudget, onGoals, onBills, onDetails, onSalary)
 }
 
 @Composable

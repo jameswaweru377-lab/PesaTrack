@@ -23,7 +23,6 @@ import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.ShoppingBag
 import androidx.compose.material.icons.rounded.Wallet
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -67,7 +66,6 @@ internal fun ApprovedCoffeePlanOverview(
     onBudget: () -> Unit,
     onGoals: () -> Unit,
     onBills: () -> Unit,
-    onShopping: (() -> Unit)?,
     onDetails: () -> Unit,
     onSalary: () -> Unit
 ) {
@@ -99,7 +97,6 @@ internal fun ApprovedCoffeePlanOverview(
             ApprovedPlanProgress("Goals", data.goalPercent, Icons.Rounded.Flag,
                 onGoals, Modifier.weight(1f))
         }
-        if (onShopping != null) ShoppingListsPlanEntry(onShopping)
         ApprovedPlanLink("Bills", when (data.bills.size) {
             0 -> "No upcoming payments"
             1 -> "1 upcoming"

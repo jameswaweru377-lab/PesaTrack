@@ -97,11 +97,11 @@ values and trigger the same handlers as the baseline.
 ## Work packet 4 — Plan and planning subpages
 
 **Targets:** Plan overview/details, pay cycle, salary, budgets, bills,
-savings goals, shopping lists/scanner and every related modal.
+savings goals and every related modal.
 
 - Unify spacing, cards, calendar chips, progress visuals, fields and CTA styles.
 - Keep all budget calculations, saved goals, salary dates, recurring reminders,
-  forecasts and the Nano/OCR shopping scanner functionality untouched.
+  forecasts untouched.
 - Preserve available/unavailable/partial financial states verbatim; styling may
   explain them, but must not replace uncertainty with estimated numbers.
 

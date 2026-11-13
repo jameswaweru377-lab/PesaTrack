@@ -117,7 +117,7 @@ route-and-surface manifest, not only files named `*Screen.kt`:
 3. Activity: list, day groups, filters, search, attention/review, category
    selection, transaction details, note/receipt and evidence drawers.
 4. Plan: overview, Details, pay cycle/salary, budgets, bills, reminders,
-   savings goals and shopping lists/scanner flows.
+   savings goals flows.
 5. Accounts: account list, carousel, detail, add/select institution, bank and
    M-Pesa connection, investments, debts and personal receivables.
 6. More: Profile and nested identity pages, Statements and imports, Reports,

@@ -56,7 +56,6 @@ import com.kedevjimmy.pesatrack.ui.screens.MpesaConnectionScreen
 import com.kedevjimmy.pesatrack.ui.screens.OnboardingScreen
 import com.kedevjimmy.pesatrack.ui.screens.PayCycleActivityScreen
 import com.kedevjimmy.pesatrack.ui.screens.PlanScreen
-import com.kedevjimmy.pesatrack.ui.screens.ShoppingListsScreen
 import com.kedevjimmy.pesatrack.ui.screens.ProfileScreen
 import com.kedevjimmy.pesatrack.ui.screens.PrivacyPage
 import com.kedevjimmy.pesatrack.ui.screens.ReportsInsightsScreen
@@ -521,7 +520,6 @@ fun PesaTrackApp(
                             "saving-goals"
                         )
                     },
-                    onShoppingClick = { navController.navigate("shopping-lists") },
                     onSalaryClick = {
                         navController.navigate(
                             "salary"
@@ -531,19 +529,6 @@ fun PesaTrackApp(
                     onPayCycleClick = { navController.navigate("pay-cycle") },
                     onInsightsClick = { navController.navigate("reports") }
                 )
-            }
-        }
-
-        composable("shopping-lists") {
-            AppScaffold(
-                onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
-                onNotificationsClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
-                currentTab = MainTab.PLAN,
-                useBrownHome = true,
-                showTopBar = false,
-                onTabSelected = ::navigateToTab
-            ) { padding ->
-                ShoppingListsScreen(padding, onBack = { navController.popBackStack() })
             }
         }
 
