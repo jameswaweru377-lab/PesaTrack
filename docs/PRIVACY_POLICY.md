@@ -69,7 +69,7 @@ Removing an exported file or encrypted backup must be done from the storage loca
 
 ## Security
 
-PesaTrack provides an optional app lock and passphrase-encrypted backup/restore. **App lock does not encrypt the ordinary local SQLite transaction and statement databases**, which rely on Android app-private storage and device protections. No software can guarantee absolute security, so keep your device and Android security updates current and protect exported files and backup passphrases.
+After onboarding, PesaTrack requires a local 6–8 digit app-lock PIN before showing financial screens, including for existing installations that have not configured a PIN. Supported device biometrics may be used to unlock the app. PesaTrack also provides passphrase-encrypted backup/restore. **App lock does not encrypt the ordinary local SQLite transaction and statement databases**, which rely on Android app-private storage and device protections. If you forget the app PIN, there is no email or server-based PIN reset; preserve your independently encrypted backup and its passphrase before relying on local data recovery. No software can guarantee absolute security, so keep your device and Android security updates current and protect exported files and backup passphrases.
 
 ## Data subject rights and contact readiness
 

@@ -32,13 +32,14 @@ class AppLockManager(
         prefs.edit().putBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, enabled).apply()
     }
 
-    /** Existing installations continue to use the previous 30-second grace by default. */
+    /** Mandatory lock defaults to immediate protection when the app leaves the foreground. */
     fun backgroundLockGraceMs(): Long = when (
-        prefs.getLong(KEY_BACKGROUND_LOCK_GRACE_MS, AppLockTimingPolicy.LOCK_GRACE_MS)
+        prefs.getLong(KEY_BACKGROUND_LOCK_GRACE_MS, 0L)
     ) {
         0L -> 0L
+        30_000L -> 30_000L
         60_000L -> 60_000L
-        else -> AppLockTimingPolicy.LOCK_GRACE_MS
+        else -> 0L
     }
 
     fun setBackgroundLockGraceMs(graceMs: Long) {
@@ -88,7 +89,8 @@ class AppLockManager(
             )
             .remove(KEY_LOCKOUT_UNTIL_ELAPSED_MS)
             .remove(KEY_LOCKOUT_BOOT_COUNT)
-            .apply()
+            .commit()
+            .let { check(it) { "PIN could not be saved." } }
     }
 
     fun verifyPin(
@@ -97,7 +99,7 @@ class AppLockManager(
             SystemClock.elapsedRealtime()
     ): Boolean {
         if (!isEnabled()) {
-            return true
+            return false
         }
         if (
             remainingLockoutMs(
@@ -222,14 +224,13 @@ class AppLockManager(
         return remaining
     }
 
+    /** App lock is mandatory; never clear credentials through Settings. */
+    @Deprecated("Mandatory app lock cannot be disabled")
     fun disable(pin: String): Boolean {
         if (!verifyPin(pin)) {
             return false
         }
-        prefs.edit()
-            .clear()
-            .apply()
-        return true
+        return false
     }
 
     fun markBackgrounded(

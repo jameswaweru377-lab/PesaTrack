@@ -4,7 +4,7 @@ import kotlin.math.max
 
 /** Monotonic, boot-scoped durations for the optional app lock. */
 internal object AppLockTimingPolicy {
-    const val LOCK_GRACE_MS = 30_000L
+    const val LOCK_GRACE_MS = 0L
     const val REBOOT_LOCKOUT_MS = 60_000L
 
     data class LockoutWindow(
