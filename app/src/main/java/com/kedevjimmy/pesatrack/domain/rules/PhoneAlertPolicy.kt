@@ -7,14 +7,14 @@ enum class PhoneAlertType(
     val previewTitle: String,
     val previewBody: String
 ) {
-    BILL("Upcoming bill", "bills", "Test: Bill coming up", "A scheduled bill is approaching. Tap to review your bills."),
-    SALARY("Salary check", "salary", "Test: Salary check", "Your expected payday has passed. Tap to check your salary."),
-    BUDGET("Budget warning", "budgets", "Test: Budget warning", "You're approaching a budget limit. Tap to review your plan."),
-    REVIEW("Activity review", "activity-attention", "Test: Activity needs review", "Some transactions may need your attention. Tap to review."),
-    GOAL("Savings goal", "saving-goals", "Test: Savings reminder", "It's time to check progress on a savings goal."),
-    DEBT("Money owed", "debts", "Test: Money owed", "A payment may need your review. Tap to check money owed."),
-    DATA("Data review", "data-health", "Test: Data review", "Something may need confirmation. Tap to check data health."),
-    BACKUP("Backup reminder", "backup-reminder", "Test: Backup reminder", "It's a good time to save a private backup of your records.")
+    BILL("Upcoming bill", "bills", "Rent due soon", "Sample property manager • Due in 3 days"),
+    SALARY("Salary check", "salary", "Salary received", "Example Bank • KES 45,000"),
+    BUDGET("Budget warning", "budgets", "Food budget almost full", "KES 9,500 of KES 10,000 used"),
+    REVIEW("Activity review", "activity-attention", "2 transactions need review", "Suggested categories need confirmation"),
+    GOAL("Savings goal", "saving-goals", "Savings goal 75% complete", "KES 15,000 saved of KES 20,000"),
+    DEBT("Money owed", "debts", "Money owed needs review", "A payment might be connected to money owed"),
+    DATA("Data review", "data-health", "Balance needs attention", "Sample Bank balance not yet confirmed"),
+    BACKUP("Backup reminder", "backup-reminder", "Keep your records safe", "Your local backup is due for a review")
 }
 
 object PhoneAlertPolicy {
