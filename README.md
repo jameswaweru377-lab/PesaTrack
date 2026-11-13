@@ -45,7 +45,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 
 ### Five places to find what matters
 
-**Home** for the overview · **Activity** for your ledger · **Plan** for commitments and goals · **Accounts** for your money sources · **Profile** for local personal details, chosen cover/photo, four compact rectangular shortcuts and money-wellness insights. Profile blends a bundled Nairobi cover into a warm identity header until you choose your own private replacement, with a grouped icon row and a shorter Nairobi wellness card. The shared top-left menu also opens **More**, including statements, reports and settings.
+**Home** for your available money and accounts · **Activity** for transactions and reviews · **Plan** for spendable money, budgets and bills · **Accounts** for banks and wallets · **Profile** for Money Wellness, a vertical Statements / Import statements / Reports / Pay cycle workspace and a dedicated Settings page. Profile's three-dot menu provides personal information, photo and background options. The separate More landing and hamburger drawer have been retired; older More links redirect safely to Profile.
 
 > **Screenshots:** A gallery of real, privacy-safe screens will be added after device capture and review. Unlocked screens can temporarily be captured for private UI feedback, so redact personal transactions, account numbers, and statement details before sharing. No private records will be published as examples.
 
