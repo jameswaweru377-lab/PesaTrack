@@ -1,6 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="notice_purple">#6200D9</color>
-    <color name="notice_lavender">#EEE3FF</color>
-    <color name="notice_text">#18171D</color>
-    <color name="notice_secondary">#5D5B66</color>
+    <!-- Aligned to PremiumVisualTokens: cream, coffee and subtle readable green. -->
+    <color name="notice_coffee">#6B381A</color>
+    <color name="notice_card">#FFF8F3</color>
+    <color name="notice_outline">#E3D0C0</color>
+    <color name="notice_green">#436225</color>
+    <!-- Legacy resource names retained for existing category vectors. -->
+    <color name="notice_purple">#6B381A</color>
+    <color name="notice_lavender">#E8EFD9</color>
+    <color name="notice_text">#35251C</color>
+    <color name="notice_secondary">#625B55</color>
 </resources>
