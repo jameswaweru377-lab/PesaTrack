@@ -15,6 +15,7 @@ import com.kedevjimmy.pesatrack.MainActivity
 import com.kedevjimmy.pesatrack.data.local.*
 import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
 import com.kedevjimmy.pesatrack.domain.rules.PlanningReminderPolicy
+import com.kedevjimmy.pesatrack.domain.rules.PlanningNotificationCopy
 import com.kedevjimmy.pesatrack.domain.rules.PhoneAlertPolicy
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
@@ -48,9 +49,8 @@ object PlanningReminders {
         if(enabled(c,"budgets")) progress.budgets.forEach { budget ->
             val level=PlanningReminderPolicy.budgetLevel(budget.saved,budget.target) ?: return@forEach
             post(c,"budgets", "budget:${budget.id}:${budget.periodKey.ifBlank { month }}:${budget.target}:$level",
-                budget.name.ifBlank { "Your budget" },
-                if (level == "over") "Limit reached: ${PlanningReminderPolicy.share(budget.saved,budget.target)} used."
-                else "You've used ${PlanningReminderPolicy.share(budget.saved,budget.target)} of your budget.","budgets")
+                PlanningNotificationCopy.budgetHeadline(budget.name, level),
+                PlanningNotificationCopy.budgetUsage(budget.saved, budget.target),"budgets")
         }
         if(enabled(c,"goals")) {
             val store=TransactionStore.get(c)
@@ -78,7 +78,8 @@ object PlanningReminders {
             NotificationCompat.Builder(c, PhoneAlertPolicy.PLAN_CHANNEL), c,
             if (budget) "BUDGET" else "SAVINGS", title, text,
             if (budget) "View budget" else "View goal",
-            if (budget) PhoneNoticeDesign.Illustration.WALLET else PhoneNoticeDesign.Illustration.TARGET, open
+            if (budget) PhoneNoticeDesign.Illustration.BUDGET else PhoneNoticeDesign.Illustration.TARGET, open,
+            supportingText = if (budget) "Review your spending in Plan." else "Review your saved goal in Plan."
         ).setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(PhoneNotificationChannels.privatePublicVersion(c,PhoneAlertPolicy.PLAN_CHANNEL)).build()
