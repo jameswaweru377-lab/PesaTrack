@@ -2,6 +2,7 @@ package com.kedevjimmy.pesatrack.planning
 
 import android.app.PendingIntent
 import android.content.Context
+import android.view.View
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -12,6 +13,7 @@ object PhoneNoticeDesign {
     enum class Illustration(val drawable: Int) {
         HOME(R.drawable.ic_notice_home),
         WALLET(R.drawable.ic_notice_wallet),
+        BUDGET(R.drawable.ic_notice_budget),
         TARGET(R.drawable.ic_notice_target),
         REVIEW(R.drawable.ic_notice_review),
         PEOPLE(R.drawable.ic_notice_people),
@@ -29,10 +31,15 @@ object PhoneNoticeDesign {
         description: String,
         action: String,
         art: Illustration,
-        open: PendingIntent
+        open: PendingIntent,
+        supportingText: String? = null
     ): NotificationCompat.Builder {
         val compact = content(context, R.layout.notice_pesatrack_compact, badge, title, description, art)
         val expanded = content(context, R.layout.notice_pesatrack_expanded, badge, title, description, art)
+        if (!supportingText.isNullOrBlank()) {
+            expanded.setTextViewText(R.id.notice_supporting, supportingText)
+            expanded.setViewVisibility(R.id.notice_supporting, View.VISIBLE)
+        }
         // A single rounded action is easier to see than an underlined link.
         expanded.setTextViewText(R.id.notice_action, "$action  →")
         expanded.setOnClickPendingIntent(R.id.notice_action, open)
