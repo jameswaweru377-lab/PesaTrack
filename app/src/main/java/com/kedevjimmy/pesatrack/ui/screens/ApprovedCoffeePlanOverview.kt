@@ -71,24 +71,29 @@ internal fun ApprovedCoffeePlanOverview(
 ) {
     val p = BrownHomePalette
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Plan your money", fontFamily = FontFamily.Serif,
-            fontWeight = FontWeight.Bold, fontSize = 19.sp, color = p.ink,
-            maxLines = 1, overflow = TextOverflow.Ellipsis)
-        ApprovedPlanWeek(data.week)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Surface(shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-                color = Color.White, border = BorderStroke(1.dp, p.outline),
-                modifier = Modifier.heightIn(min = 48.dp)
-                    .clickable(onClickLabel = "Other months", onClick = onOtherMonths)) {
-                Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text(data.month, color = p.ink, fontSize = 14.sp)
-                    Spacer(Modifier.width(8.dp))
-                    Icon(Icons.Rounded.KeyboardArrowDown, null, tint = p.ink)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Plan your money", fontFamily = FontFamily.Serif,
+                fontWeight = FontWeight.Bold, fontSize = 19.sp, color = p.ink,
+                modifier = Modifier.weight(1f), maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
+            Surface(
+                onClick = onOtherMonths,
+                color = Color.Transparent,
+                modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)
+            ) {
+                Row(Modifier.padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(data.month, color = p.coffee, fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold)
+                    Icon(Icons.Rounded.KeyboardArrowDown,
+                        contentDescription = "Choose Plan month", tint = p.coffee)
                 }
             }
         }
         ApprovedPlanMoneyCard(data, onDetails)
+        ApprovedPlanWeek(data.week)
         Text("Your plans", color = p.ink, fontFamily = FontFamily.Serif,
             fontWeight = FontWeight.Bold, fontSize = 22.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -18,6 +18,11 @@ object PremiumVisualTokens {
     val ink = Color(0xFF161310)
     val muted = Color(0xFF625B55)
 
+    // Semantic movement colors, shared across Home, Activity and Accounts.
+    val moneyIn = leafReadable
+    val moneyOut = Color(0xFFB4233D)
+    val transfer = Color(0xFF285C90)
+
     val darkCanvas = Color(0xFF1C1714)
     val darkCard = Color(0xFF2A221D)
     val darkSurface = Color(0xFF352B25)

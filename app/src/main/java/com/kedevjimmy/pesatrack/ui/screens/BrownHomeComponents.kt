@@ -5,8 +5,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -39,72 +37,39 @@ import com.kedevjimmy.pesatrack.domain.rules.TrackedAccountGroup
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
-import kotlinx.coroutines.launch
 
 /** Reference photography is decorative; all displayed financial figures remain ledger-backed. */
+/** Single ledger-backed Home balance hero; no pager or second promotional slide. */
 @Composable
 internal fun BrownHomeHero(available: String, onAccounts: () -> Unit, partial: Boolean = false) {
     val p = BrownHomePalette
-    val context = LocalContext.current
-    val name = remember(context) {
-        context.getSharedPreferences("pesatrack_preferences", android.content.Context.MODE_PRIVATE)
-            .getString("profile_name", "").orEmpty().trim().substringBefore(" ")
-                .takeIf(String::isNotBlank) ?: "there"
-    }
-    val greeting = when (Calendar.getInstance().get(Calendar.HOUR_OF_DAY)) {
-        in 5..11 -> "Good morning,"
-        in 12..16 -> "Good afternoon,"
-        else -> "Good evening,"
-    }
-    val pager = rememberPagerState(pageCount = { 2 })
-    val scope = rememberCoroutineScope()
-    Box(Modifier.fillMaxWidth().height(176.dp).clip(RoundedCornerShape(24.dp))) {
-        Image(painterResource(R.drawable.home_brown_money_hero), null,
-            Modifier.matchParentSize(), contentScale = ContentScale.Crop)
+    Box(
+        Modifier.fillMaxWidth().height(176.dp)
+            .clip(RoundedCornerShape(24.dp))
+    ) {
+        Image(painterResource(R.drawable.home_brown_money_hero),
+            contentDescription = null,
+            modifier = Modifier.matchParentSize(), contentScale = ContentScale.Crop)
         Box(Modifier.matchParentSize().background(Brush.horizontalGradient(
-            0f to Color(0xCC1C0903), .52f to Color(0x551C0903), 1f to Color.Transparent)))
-        HorizontalPager(pager, modifier = Modifier.fillMaxSize()) { page ->
-            Column(Modifier.fillMaxSize().padding(start = 16.dp, end = 12.dp,
-                top = 8.dp, bottom = 16.dp), verticalArrangement = Arrangement.Center) {
-                Text(if (page == 0) greeting else "Your available money",
-                    color = p.white, fontFamily = FontFamily.Cursive,
-                    fontStyle = FontStyle.Italic, fontSize = if (page == 0) 22.sp else 20.sp,
-                    lineHeight = 26.sp)
-                Text(if (page == 0) "$name." else available, color = p.white,
-                    fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold,
-                    fontSize = if (page == 0) 28.sp else 24.sp, lineHeight = 30.sp,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(4.dp))
-                val caption = when {
-                    page == 0 -> "Your money, your plans.\nAll in one place."
-                    partial -> "Partial balance · after unpaid bills"
-                    else -> "After unpaid bills · check Accounts for balance"
-                }
-                Text(caption,
-                    color = p.white, fontSize = 11.sp, lineHeight = 16.sp,
-                    maxLines = 2)
-                Spacer(Modifier.height(4.dp))
-                Box(Modifier.heightIn(min = 48.dp).clickable {
-                        if (page == 0) scope.launch { pager.animateScrollToPage(1) }
-                        else onAccounts()
-                    }, contentAlignment = Alignment.CenterStart) {
-                    Row(Modifier.height(40.dp).clip(CircleShape)
-                        .background(p.coffee).padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(if (page == 0) "VIEW MY MONEY" else "YOUR ACCOUNTS",
-                            color = p.white, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Icon(Icons.Rounded.ArrowForward, null, Modifier.size(18.dp), tint = p.white)
-                    }
-                }
-            }
-        }
-        Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            repeat(2) { index ->
-                Box(Modifier.size(8.dp).clip(CircleShape)
-                    .background(if (pager.currentPage == index) p.white else p.white.copy(alpha = .5f)))
-            }
+            0f to Color(0xCC1C0903), .52f to Color(0x551C0903),
+            1f to Color.Transparent)))
+        Column(
+            Modifier.align(Alignment.CenterStart)
+                .fillMaxWidth(.80f).padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Your available money", color = p.white,
+                fontFamily = FontFamily.Cursive, fontStyle = FontStyle.Italic,
+                fontSize = 21.sp)
+            Text(available, color = p.white,
+                fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold,
+                fontSize = 27.sp, lineHeight = 30.sp,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                if (partial) "Partial balance · after unpaid bills"
+                else "After unpaid bills",
+                color = p.white, fontSize = 12.sp, maxLines = 2
+            )
         }
     }
 }
@@ -329,7 +294,11 @@ internal fun BrownHomeRecent(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
                     .background(p.cream), contentAlignment = Alignment.Center) {
-                    Icon(icon, null, Modifier.size(21.dp), tint = p.ink)
+                    Icon(icon, null, Modifier.size(21.dp),
+                        tint = moneyMovementColor(
+                            runCatching { MoneyDirection.valueOf(row.direction) }
+                                .getOrDefault(MoneyDirection.NEUTRAL)
+                        ))
                 }
                 Column(Modifier.weight(1f)) {
                     Text(title, fontSize = 13.sp, color = p.ink,
@@ -339,7 +308,10 @@ internal fun BrownHomeRecent(
                         color = p.muted, fontSize = 11.sp, maxLines = 1)
                 }
                 Text((if (income) "+" else if (expense) "−" else "") + money(row.amountMinor),
-                    color = p.ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    color = moneyMovementColor(
+                        runCatching { MoneyDirection.valueOf(row.direction) }
+                            .getOrDefault(MoneyDirection.NEUTRAL)
+                    ), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
             HorizontalDivider(color = p.outline.copy(alpha = .35f))
         }

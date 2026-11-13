@@ -37,41 +37,10 @@ internal object BrownHomePalette {
 }
 
 @Composable
-internal fun BrownHomeDrawerContent(
-    currentTab: MainTab?, onTab: (MainTab) -> Unit, onProfile: () -> Unit
-) {
-    ModalDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.background) {
-        Text("PesaTrack", Modifier.padding(24.dp),
-            style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
-        MainTab.entries.forEach { tab ->
-            NavigationDrawerItem(label = { Text(tab.label) }, selected = tab == currentTab,
-                icon = { Icon(tab.icon, contentDescription = null) },
-                onClick = { onTab(tab) }, modifier = Modifier.padding(horizontal = 12.dp),
-                colors = NavigationDrawerItemDefaults.colors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer))
-        }
-        HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        NavigationDrawerItem(label = { Text("Profile") }, selected = false,
-            icon = { Icon(Icons.Rounded.PersonOutline, null) },
-            onClick = onProfile, modifier = Modifier.padding(horizontal = 12.dp))
-    }
-}
-
-@Composable
-internal fun BrownHomeHeader(
-    onMenu: () -> Unit,
-    onNotifications: () -> Unit
-) {
+internal fun BrownHomeHeader(onNotifications: () -> Unit) {
     val p = MaterialTheme.colorScheme
     Box(Modifier.fillMaxWidth().height(76.dp).background(p.background)
         .padding(horizontal = 12.dp)) {
-        Box(Modifier.align(Alignment.CenterStart).size(48.dp)
-            .clickable(onClickLabel = "Open More", onClick = onMenu),
-            contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Menu, "More menu", Modifier.size(28.dp), tint = p.onBackground)
-        }
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(0.dp)) {
             Box(Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(p.primaryContainer),

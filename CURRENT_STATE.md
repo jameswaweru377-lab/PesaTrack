@@ -1,5 +1,19 @@
 # PesaTrack Current State
 
+_Profile workspace and compact finance UI update (13 November 2026; CI and phone acceptance pending):_
+The approved Profile landing now places Money Wellness above a vertical workspace
+for Statements, Import statements, Reports and Pay cycle, followed by a Settings
+entry. The old More landing navigates to Profile and the app shell no longer
+opens a hamburger drawer. Profile's cover overflow menu edits personal details
+and images. Plan shows the spendable hero ahead of the week strip with a
+plain month selector. Home uses one available-money hero without a carousel or
+accounts CTA. Home account-balance notices are derived from all provisional
+accounts rather than only the first one. Income/outgoings/transfers have
+consistent green/red/blue semantic tints on the relevant recent activity rows.
+No ledger, balance authority, import, database, backup or signing changes are
+intended. Physical Redmi acceptance is still required.
+
+
 _Premium first-launch visual refresh (13 November 2026; GitHub CI pending):_
 The splash and welcome screens now share the approved cream/coffee/subtle-green
 visual language and reuse locally packaged Nairobi and wallet imagery. The

@@ -257,10 +257,12 @@ internal fun ApprovedAccountActivity(rows: List<StoredTransaction>, accountNames
                     Row(Modifier.fillMaxWidth().heightIn(min = 67.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(43.dp).background(
-                            if (salary) Color(0xFFEAF1D9) else Color(0xFFFFEADA), CircleShape),
+                            if (salary) PremiumVisualTokens.moneyIn.copy(alpha = .13f)
+                            else PremiumVisualTokens.transfer.copy(alpha = .13f), CircleShape),
                             contentAlignment = Alignment.Center) {
                             Icon(if (salary) Icons.Rounded.ArrowDownward else Icons.Rounded.SwapHoriz,
-                                null, tint = if (salary) Color(0xFF2D501C) else Color(0xFFA04E23))
+                                null, tint = if (salary) PremiumVisualTokens.moneyIn
+                                    else PremiumVisualTokens.transfer)
                         }
                         Column(Modifier.weight(1f).padding(start = 12.dp)) {
                             Text(label, color = coffee, fontWeight = FontWeight.SemiBold,
@@ -270,7 +272,9 @@ internal fun ApprovedAccountActivity(rows: List<StoredTransaction>, accountNames
                                 color = mutedCoffee, style = MaterialTheme.typography.bodySmall)
                         }
                         Text(if (hidden) "••••" else formatKesAmount(transaction.amountMinor),
-                            color = coffee, fontWeight = FontWeight.SemiBold,
+                            color = if (salary) PremiumVisualTokens.moneyIn
+                                else PremiumVisualTokens.transfer,
+                            fontWeight = FontWeight.SemiBold,
                             style = MaterialTheme.typography.bodyMedium)
                     }
                 }

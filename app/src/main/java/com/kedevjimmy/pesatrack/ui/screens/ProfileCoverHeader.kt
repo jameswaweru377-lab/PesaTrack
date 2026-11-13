@@ -66,7 +66,6 @@ internal fun ProfileCoverHeader(
     val photoStore = remember(context) { ProfilePhotoStore(context) }
     val avatarPhoto = remember(context) { photoStore.load() }
     var coverPhoto by remember(context) { mutableStateOf(coverStore.load()) }
-    var coverMenu by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -87,25 +86,22 @@ internal fun ProfileCoverHeader(
         picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
-    if (coverMenu) AlertDialog(
-        onDismissRequest = { coverMenu = false },
-        title = { Text("Cover photo") },
-        text = { Text("Choose an image from this phone or restore the default Nairobi cover.") },
-        confirmButton = { TextButton(onClick = { coverMenu = false; chooseCover() }) { Text("Choose photo") } },
-        dismissButton = { TextButton(onClick = {
-            coverMenu = false
-            scope.launch {
-                val success = withContext(Dispatchers.IO) { coverStore.clear() }
-                if (success) coverPhoto = null
-                snackbar.showSnackbar(if (success) "Default cover restored" else "Couldn't remove the cover")
-            }
-        }) { Text("Restore default") } }
-    )
-
     Box(Modifier.fillMaxWidth().background(C.cream)) {
-        ProfileCoverArtwork(coverPhoto, busy, onBack, onEdit = {
-            if (coverPhoto == null) chooseCover() else coverMenu = true
-        })
+        ProfileCoverArtwork(
+            cover = coverPhoto, busy = busy, onBack = onBack,
+            onPersonal = onAvatarEdit,
+            onAvatar = onAvatarEdit,
+            onEditCover = chooseCover,
+            onResetCover = {
+                scope.launch {
+                    val success = withContext(Dispatchers.IO) { coverStore.clear() }
+                    if (success) coverPhoto = null
+                    snackbar.showSnackbar(
+                        if (success) "Default cover restored" else "Couldn't remove the cover"
+                    )
+                }
+            }
+        )
         Column(Modifier.fillMaxWidth()) {
             Box(Modifier.fillMaxWidth().height(168.dp)) {
                 Column(
@@ -128,8 +124,11 @@ internal fun ProfileCoverHeader(
 
 @Composable
 private fun ProfileCoverArtwork(
-    cover: Bitmap?, busy: Boolean, onBack: () -> Unit, onEdit: () -> Unit
+    cover: Bitmap?, busy: Boolean, onBack: () -> Unit,
+    onPersonal: () -> Unit, onAvatar: () -> Unit,
+    onEditCover: () -> Unit, onResetCover: () -> Unit
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxWidth().height(264.dp).background(C.sand)) {
         if (cover == null) {
             Image(painterResource(R.drawable.profile_default_nairobi_cover),
@@ -152,12 +151,33 @@ private fun ProfileCoverArtwork(
                 .clip(CircleShape).background(Color.Black.copy(alpha = .32f))) {
             Icon(Icons.Rounded.ChevronLeft, "Back", Modifier.size(32.dp), tint = Color.White)
         }
-        IconButton(onClick = onEdit, enabled = !busy,
-            modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).size(48.dp)
-                .clip(CircleShape).background(Color.Black.copy(alpha = .32f))) {
-            if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White,
-                strokeWidth = 2.dp)
-            else Icon(Icons.Rounded.MoreHoriz, "Change cover photo", Modifier.size(24.dp), tint = Color.White)
+        Box(Modifier.align(Alignment.TopEnd).padding(8.dp)) {
+            IconButton(onClick = { menuOpen = true }, enabled = !busy,
+                modifier = Modifier.size(48.dp).clip(CircleShape)
+                    .background(Color.Black.copy(alpha = .32f))) {
+                if (busy) CircularProgressIndicator(Modifier.size(20.dp),
+                    color = Color.White, strokeWidth = 2.dp)
+                else Icon(Icons.Rounded.MoreHoriz, "Profile options",
+                    Modifier.size(24.dp), tint = Color.White)
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("Personal information") },
+                    onClick = { menuOpen = false; onPersonal() }
+                )
+                DropdownMenuItem(
+                    text = { Text("Edit profile photo") },
+                    onClick = { menuOpen = false; onAvatar() }
+                )
+                DropdownMenuItem(
+                    text = { Text("Change background image") },
+                    onClick = { menuOpen = false; onEditCover() }
+                )
+                DropdownMenuItem(
+                    text = { Text("Restore default background") },
+                    onClick = { menuOpen = false; onResetCover() }
+                )
+            }
         }
     }
 }

@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 
 internal data class BrownActivityFilter(val label: String, val key: String)
 
@@ -67,7 +68,8 @@ internal fun BrownActivityHeading(
     onCycle: () -> Unit
 ) {
     val p = BrownHomePalette
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp),
+    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp)
+        .heightIn(min = PesaDesignTokens.minimumTouchTarget),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -77,7 +79,7 @@ internal fun BrownActivityHeading(
                     color = if (active) p.coffee else p.cream,
                     shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
                     modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)) {
-                    Box(Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+                    Box(Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         contentAlignment = Alignment.Center) {
                         Text(mode, fontSize = 12.sp,
                             color = if (active) Color.White else p.coffee,
@@ -136,7 +138,8 @@ internal fun BrownActivityMonthlyHero(
                 HorizontalDivider(color = p.coffee.copy(alpha = .24f), thickness = .5.dp)
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    BrownActivityMinorMetric("Money in", totals.incomeMinor, Modifier.weight(1f))
+                    BrownActivityMinorMetric("Money in", totals.incomeMinor,
+                        Modifier.weight(1f), PremiumVisualTokens.moneyIn)
                     BrownActivityMinorMetric(
                         if (balance?.partial == true) "Partial balance" else "Balance",
                         balance?.amountMinor, Modifier.weight(1f)
@@ -149,12 +152,15 @@ internal fun BrownActivityMonthlyHero(
 }
 
 @Composable
-private fun BrownActivityMinorMetric(label: String, minor: Long?, modifier: Modifier) {
+private fun BrownActivityMinorMetric(
+    label: String, minor: Long?, modifier: Modifier,
+    valueColor: Color = BrownHomePalette.ink
+) {
     val p = BrownHomePalette
     Column(modifier.padding(horizontal = 4.dp),
         verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Text(label, color = p.ink, fontSize = 10.sp, maxLines = 1)
-        Text(minor?.let(::activityKesLabel) ?: "Unavailable", color = p.ink,
+        Text(minor?.let(::activityKesLabel) ?: "Unavailable", color = valueColor,
             fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1,
             overflow = TextOverflow.Ellipsis)
     }

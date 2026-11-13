@@ -160,6 +160,54 @@ class PremiumUiContractTest(unittest.TestCase):
         self.assertLess(review.index("Search banks and money services"),
                         review.index("ranked.forEach"))
 
+    def test_profile_replaces_more_with_workspaces_and_settings(self):
+        profile = source(SCREENS / "ProfileEditorialHome.kt")
+        workspace = source(SCREENS / "ProfileWorkspaceAndSettings.kt")
+        navigation = source(SCREENS / "BrownHomeNavigation.kt")
+        scaffold = source(COMPONENTS / "AppScaffold.kt")
+        app = source(ROOT / "app/src/main/java/com/kedevjimmy/pesatrack/ui/PesaTrackApp.kt")
+        self.assertIn("ProfileMoneyWorkspace(statements, imports, reports, payCycle)", profile)
+        self.assertIn("ProfileSettingsEntry(settings)", profile)
+        self.assertNotIn("ProfileShortcutRow(personal, payCycle)", profile)
+        for label in ("Statements", "Import statements", "Reports", "Pay cycle"):
+            self.assertIn('"' + label + '"', workspace)
+        self.assertIn('Text("Settings"', workspace)
+        self.assertNotIn("ModalNavigationDrawer(", scaffold)
+        self.assertNotIn("BrownHomeDrawerContent(", navigation)
+        self.assertIn('navController.navigate("profile")', app)
+
+    def test_plan_spendable_above_week_and_compact_month(self):
+        plan = source(SCREENS / "ApprovedCoffeePlanOverview.kt")
+        self.assertLess(plan.index("ApprovedPlanMoneyCard(data, onDetails)"),
+                        plan.index("ApprovedPlanWeek(data.week)"))
+        self.assertIn("color = Color.Transparent", plan)
+        self.assertIn("onClick = onOtherMonths", plan)
+
+    def test_home_no_swipe_hero_and_balance_notices_cover_all_accounts(self):
+        home = source(SCREENS / "BrownHomeComponents.kt")
+        hero = home.split("private data class BrownShortcut(")[0]
+        self.assertIn('"Your available money"', hero)
+        self.assertNotIn("HorizontalPager(", hero)
+        self.assertNotIn("pager.currentPage", hero)
+        self.assertNotIn('"YOUR ACCOUNTS"', hero)
+        notices = source(SCREENS / "BalanceAccountNotice.kt")
+        self.assertIn("balances.filter", notices)
+        self.assertNotIn("balances.firstOrNull", notices)
+        self.assertIn("visible.forEach", notices)
+
+    def test_income_outgoing_transfer_visuals_share_one_palette(self):
+        tokens = source(THEME / "PremiumVisualTokens.kt")
+        palette = source(SCREENS / "MoneyMovementColors.kt")
+        home = source(SCREENS / "BrownHomeComponents.kt")
+        ledger = source(SCREENS / "BrownActivityLedger.kt")
+        accounts = source(SCREENS / "ApprovedAccountsSurface.kt")
+        for key in ("moneyIn", "moneyOut", "transfer"):
+            self.assertIn("val " + key, tokens)
+            self.assertIn("PremiumVisualTokens." + key, palette)
+        self.assertIn("moneyMovementColor(", home)
+        self.assertIn("moneyMovementColor(direction, refund)", ledger)
+        self.assertIn("PremiumVisualTokens.transfer", accounts)
+
     def test_core_text_colours_reach_wcag_aa_contrast(self):
         palette = source(THEME / "PremiumVisualTokens.kt")
         values = dict(re.findall(r"val (\w+) = Color\(0xFF([0-9A-F]{6})\)", palette))
