@@ -450,32 +450,6 @@ fun AppLockSettingsSheet(
                 )
             }
 
-            if (enabled) {
-                OutlinedButton(
-                    onClick = {
-                        if (
-                            manager.disable(
-                                currentPin
-                            )
-                        ) {
-                            onChanged()
-                            onDismiss()
-                        } else {
-                            error =
-                                lockoutError(
-                                    manager =
-                                        manager,
-                                    fallback =
-                                        "Enter the current PIN before disabling app lock."
-                                )
-                        }
-                    },
-                    modifier =
-                        Modifier.fillMaxWidth()
-                ) {
-                    Text("Disable app lock")
-                }
-            }
 
             Button(
                 onClick = {
