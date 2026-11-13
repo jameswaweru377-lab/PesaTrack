@@ -14,6 +14,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.work.*
 import com.kedevjimmy.pesatrack.MainActivity
+import com.kedevjimmy.pesatrack.data.local.AccountStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.RuleStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
@@ -21,6 +22,9 @@ import com.kedevjimmy.pesatrack.domain.rules.SalaryReminderPolicy
 import com.kedevjimmy.pesatrack.domain.rules.PhoneAlertPolicy
 import com.kedevjimmy.pesatrack.planning.PhoneNotificationChannels
 import com.kedevjimmy.pesatrack.planning.PhoneNoticeDesign
+import java.math.BigDecimal
+import java.text.NumberFormat
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 object SalaryReminders {
@@ -58,6 +62,53 @@ object SalaryReminders {
     fun receiptRecorded(context: Context) {
         preferences(context).edit().remove("salary_prompt_deferred_until").apply()
         NotificationManagerCompat.from(context).cancel(910)
+        // Only confirmed ledger salary, never an expected payday or unverified SMS.
+        try {
+            postConfirmedReceipt(context)
+        } catch (_: RuntimeException) {
+            android.util.Log.w("PesaTrackSalary", "Salary confirmation notification unavailable")
+        }
+    }
+
+    private fun postConfirmedReceipt(context: Context) {
+        val prefs = preferences(context)
+        if (!prefs.getBoolean("salary_reminders_enabled", false) ||
+            !PhoneNotificationChannels.canPost(context)) return
+        val latest = RuleStore.get(context).listRules(true)
+            .filter { it.startsPayCycle }
+            .mapNotNull { TransactionStore.get(context).latestSalaryReceipt(it.id) }
+            .maxByOrNull { it.occurredAtEpochMs } ?: return
+        val now = System.currentTimeMillis()
+        if (latest.occurredAtEpochMs > now ||
+            now - latest.occurredAtEpochMs > TimeUnit.DAYS.toMillis(2) ||
+            prefs.getLong("salary_notice_last_receipt_id", -1L) == latest.id) return
+        val bank = AccountStore.get(context).listAccounts(false)
+            .firstOrNull { it.id == latest.accountId }?.name ?: "Receiving account"
+        val amount = NumberFormat.getNumberInstance(Locale.UK).apply {
+            minimumFractionDigits = 0
+            maximumFractionDigits = 2
+        }.format(BigDecimal.valueOf(latest.amountMinor, 2))
+        PhoneNotificationChannels.ensure(context, CHANNEL, "Salary checks")
+        val open = PendingIntent.getActivity(
+            context, 912, Intent(context, MainActivity::class.java)
+                .putExtra(OPEN_SALARY, true)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = PhoneNoticeDesign.apply(
+            NotificationCompat.Builder(context, CHANNEL), context,
+            "INCOME", "Salary received", "$bank • KES $amount",
+            "Open income", PhoneNoticeDesign.Illustration.WALLET, open,
+            supportingText = "Your confirmed pay is recorded. Review your plan for this cycle."
+        ).setAutoCancel(true).setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(PhoneNotificationChannels.privatePublicVersion(context, CHANNEL)).build()
+        try {
+            NotificationManagerCompat.from(context).notify(912, notification)
+        } catch (_: SecurityException) {
+            return // Android permission was revoked while preparing the alert.
+        }
+        prefs.edit().putLong("salary_notice_last_receipt_id", latest.id).apply()
     }
     fun postIfDue(context: Context): Boolean {
         val prefs = preferences(context)

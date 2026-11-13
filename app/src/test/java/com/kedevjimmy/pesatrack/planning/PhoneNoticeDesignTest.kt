@@ -33,7 +33,7 @@ class PhoneNoticeDesignTest {
         for (id in listOf(R.layout.notice_pesatrack_compact, R.layout.notice_pesatrack_expanded)) {
             val root = LayoutInflater.from(context).inflate(id, null)
             val panel = root.background as GradientDrawable
-            assertEquals(Color.WHITE, panel.color?.defaultColor)
+            assertEquals(context.getColor(R.color.notice_card), panel.color?.defaultColor)
             val title = root.findViewById<TextView>(R.id.notice_title)
             val description = root.findViewById<TextView>(R.id.notice_description)
             assertEquals(context.getColor(R.color.notice_text), title.currentTextColor)

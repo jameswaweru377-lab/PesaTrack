@@ -385,12 +385,14 @@ class BillSchedules(private val context: Context) {
                                 NotificationCompat.Builder(context, PhoneAlertPolicy.BILL_CHANNEL),
                                 context,
                                 BillNotificationCopy.badge(category),
-                                BillNotificationCopy.merchant(bill.rule.displayLabel, bill.rule.name),
-                                BillNotificationCopy.description(category),
+                                BillNotificationCopy.headline(category),
+                                BillNotificationCopy.merchant(bill.rule.displayLabel, bill.rule.name) +
+                                    " • " + BillNotificationCopy.dueLabel(now.timeInMillis, dueEpochMs),
                                 "View bill",
                                 if (category == TransactionCategory.RENT) PhoneNoticeDesign.Illustration.HOME
                                 else PhoneNoticeDesign.Illustration.BELL,
-                                open
+                                open,
+                                supportingText = BillNotificationCopy.description(category)
                             ).setAutoCancel(true)
                                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                                 .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
