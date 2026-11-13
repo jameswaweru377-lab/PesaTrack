@@ -67,7 +67,8 @@ internal fun BrownActivityHeading(
     onCycle: () -> Unit
 ) {
     val p = BrownHomePalette
-    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp),
+    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp)
+        .heightIn(min = PesaDesignTokens.minimumTouchTarget),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -77,7 +78,7 @@ internal fun BrownActivityHeading(
                     color = if (active) p.coffee else p.cream,
                     shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
                     modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)) {
-                    Box(Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+                    Box(Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         contentAlignment = Alignment.Center) {
                         Text(mode, fontSize = 12.sp,
                             color = if (active) Color.White else p.coffee,
