@@ -4,6 +4,8 @@ import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -77,6 +79,8 @@ fun AppLockScreen(
     deviceCredentialRecoveryAvailable: Boolean,
     onRecoverWithDeviceCredential: () -> Unit
 ) {
+    BackHandler { /* Locked app never passes back navigation to the hidden app. */ }
+    val blockerInteraction = remember { MutableInteractionSource() }
     var pin by remember {
         mutableStateOf("")
     }
@@ -97,6 +101,9 @@ fun AppLockScreen(
                         )
                     )
                 )
+                .clickable(interactionSource = blockerInteraction, indication = null) {
+                    /* Consume taps outside lock controls rather than hitting hidden screens. */
+                }
                 .padding(
                     horizontal = 28.dp,
                     vertical = 36.dp
