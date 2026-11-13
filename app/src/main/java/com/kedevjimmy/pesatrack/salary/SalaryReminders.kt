@@ -65,8 +65,8 @@ object SalaryReminders {
         // Only confirmed ledger salary, never an expected payday or unverified SMS.
         try {
             postConfirmedReceipt(context)
-        } catch (error: RuntimeException) {
-            android.util.Log.w("PesaTrackSalary", "Salary confirmation notification unavailable", error)
+        } catch (_: RuntimeException) {
+            android.util.Log.w("PesaTrackSalary", "Salary confirmation notification unavailable")
         }
     }
 
