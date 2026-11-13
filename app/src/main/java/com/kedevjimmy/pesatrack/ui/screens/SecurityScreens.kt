@@ -73,7 +73,9 @@ fun AppLockScreen(
     biometricAvailable: Boolean,
     onPinUnlock: (String) -> Boolean,
     pinLockoutRemainingMs: () -> Long,
-    onBiometricUnlock: () -> Unit
+    onBiometricUnlock: () -> Unit,
+    deviceCredentialRecoveryAvailable: Boolean,
+    onRecoverWithDeviceCredential: () -> Unit
 ) {
     var pin by remember {
         mutableStateOf("")
@@ -287,6 +289,15 @@ fun AppLockScreen(
                     Modifier.width(8.dp)
                 )
                 Text("Use biometrics")
+            }
+        }
+
+        if (deviceCredentialRecoveryAvailable) {
+            OutlinedButton(
+                onClick = onRecoverWithDeviceCredential,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            ) {
+                Text("Forgot PIN? Verify phone lock")
             }
         }
 
