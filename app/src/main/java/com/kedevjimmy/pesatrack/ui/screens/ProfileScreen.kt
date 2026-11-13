@@ -37,6 +37,9 @@ fun ProfileScreen(
     onPlanClick: (() -> Unit)? = null,
     onPayCycleClick: (() -> Unit)? = null,
     onActivityClick: (() -> Unit)? = null,
+    onStatementsClick: (() -> Unit)? = null,
+    onStatementImportClick: (() -> Unit)? = null,
+    onReportsClick: (() -> Unit)? = null,
     onPageChanged: (String) -> Unit = {},
     initialPage: String = "home"
 ) {
@@ -48,6 +51,8 @@ fun ProfileScreen(
     var privacyReturnPage by rememberSaveable { mutableStateOf("security") }
     var accessReturnPage by rememberSaveable { mutableStateOf("security") }
     var legalReturnPage by rememberSaveable { mutableStateOf("about") }
+    var settingsSubpage by rememberSaveable { mutableStateOf(false) }
+    var backupOpen by rememberSaveable { mutableStateOf(false) }
     val ledgerRevision by LedgerUpdateBus.state.collectAsState()
     val financialSignals = remember(context, homeCache, ledgerRevision.revision, page) {
         profileFinancialSignals(context, homeCache, ledgerRevision.revision)
@@ -64,10 +69,17 @@ fun ProfileScreen(
     // A quick link opened from More should return to More on the first Back,
     // while nested Profile pages retain their existing internal back stack.
     val backFromDirectSection: () -> Unit = {
-        if (initialPage != "home" && page == initialPage) onBack() else page = "home"
+        if (settingsSubpage) {
+            settingsSubpage = false
+            page = "settings"
+        } else if (initialPage != "home" && page == initialPage) onBack()
+        else page = "home"
     }
     BackHandler(enabled = page != "home" && page != "personal") {
-        if (initialPage != "home" && page == initialPage) {
+        if (settingsSubpage) {
+            settingsSubpage = false
+            page = "settings"
+        } else if (initialPage != "home" && page == initialPage) {
             onBack()
         } else {
             page = when (page) {
@@ -87,6 +99,25 @@ fun ProfileScreen(
     }
 
     when (page) {
+        "settings" -> {
+            if (backupOpen) BackupRestoreSheet(onDismiss = { backupOpen = false })
+            ProfileSettingsHub(scaffoldPadding, back = { page = "home" }) { destination ->
+                when (destination) {
+                    "advanced" -> (onDataHealthClick ?: onSettingsClick).invoke()
+                    "legacy" -> onSettingsClick()
+                    "backup" -> backupOpen = true
+                    else -> {
+                        settingsSubpage = true
+                        when (destination) {
+                            "privacy" -> privacyReturnPage = "settings"
+                            "access" -> accessReturnPage = "settings"
+                            "terms" -> legalReturnPage = "settings"
+                        }
+                        page = destination
+                    }
+                }
+            }
+        }
         "habits" -> ProfileMoneyHabitsDetails(
             padding = scaffoldPadding,
             back = { page = "home" },
@@ -147,9 +178,11 @@ fun ProfileScreen(
             moneyHabits = financialPresentation,
             onMoneyHabits = { page = "habits" },
             personal = { page = "personal" },
-            accounts = onAccountsClick ?: onSettingsClick,
             payCycle = onPayCycleClick ?: onPlanClick ?: onSettingsClick,
-            goals = onGoalsClick ?: onPlanClick ?: onSettingsClick,
+            statements = onStatementsClick ?: onSettingsClick,
+            imports = onStatementImportClick ?: onHistoricalImportClick ?: onSettingsClick,
+            reports = onReportsClick ?: onSettingsClick,
+            settings = { page = "settings" },
             privacy = { privacyReturnPage = "home"; page = "privacy" }
         )
     }

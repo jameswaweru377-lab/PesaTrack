@@ -45,9 +45,11 @@ internal fun ProfileEditorialHome(
     avatar: String,
     moneyHabits: ProfileMoneyHabitsPresentation,
     personal: () -> Unit,
-    accounts: () -> Unit,
     payCycle: () -> Unit,
-    goals: () -> Unit,
+    statements: () -> Unit,
+    imports: () -> Unit,
+    reports: () -> Unit,
+    settings: () -> Unit,
     privacy: () -> Unit,
     onMoneyHabits: () -> Unit
 ) {
@@ -60,59 +62,14 @@ internal fun ProfileEditorialHome(
             Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                 ProfileNairobiWellnessFeature(moneyHabits, onMoneyHabits)
             }
-            ProfileShortcutRow(personal, payCycle)
-            Spacer(Modifier.height(12.dp))
+            ProfileMoneyWorkspace(statements, imports, reports, payCycle)
+            ProfileSettingsEntry(settings)
+            Spacer(Modifier.height(8.dp))
         }
         Box(Modifier.padding(horizontal = 16.dp)) {
             ProfileDevicePrivacy(privacy)
         }
         ProfileEditorialFooter()
-    }
-}
-
-private data class ProfileShortcut(
-    val id: String,
-    val title: String,
-    val subtitle: String,
-    val icon: ImageVector,
-    val action: () -> Unit
-)
-
-@Composable
-private fun ProfileShortcutRow(personal: () -> Unit, payCycle: () -> Unit) {
-    val shortcuts = listOf(
-        ProfileShortcut("personal", "Personal info", "Name & photo", Icons.Outlined.PersonOutline, personal),
-        ProfileShortcut("pay_cycle", "Pay cycle", "Salary dates", Icons.Outlined.CalendarMonth, payCycle)
-    )
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        shortcuts.forEach { shortcut ->
-            Surface(
-                modifier = Modifier.weight(1f).heightIn(min = 60.dp)
-                    .testTag("profile_shortcut_${shortcut.id}")
-                    .clickable(role = Role.Button, onClick = shortcut.action),
-                shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-                color = C.card,
-                shadowElevation = 1.dp,
-                border = BorderStroke(1.dp, C.sandBorder)
-            ) {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Icon(shortcut.icon, null, tint = C.coffee, modifier = Modifier.size(18.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(shortcut.title, modifier = Modifier.weight(1f), fontSize = 11.sp,
-                            lineHeight = 13.sp, fontWeight = FontWeight.Bold, color = C.ink,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Icon(Icons.Rounded.ChevronRight, null, tint = C.coffee,
-                            modifier = Modifier.size(12.dp))
-                    }
-                    Text(shortcut.subtitle, fontSize = 9.sp, lineHeight = 11.sp, color = C.muted,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-        }
     }
 }
 
