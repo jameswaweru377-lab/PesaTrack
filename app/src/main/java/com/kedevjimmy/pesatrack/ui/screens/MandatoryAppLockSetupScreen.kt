@@ -28,7 +28,7 @@ import com.kedevjimmy.pesatrack.security.AppLockManager
 
 /** Required after initial financial-source onboarding, or on upgrade for unprotected installs. */
 @Composable
-fun MandatoryAppLockSetupScreen(onSecured: () -> Unit) {
+fun MandatoryAppLockSetupScreen(onSecured: () -> Unit, recoveringExistingPin: Boolean = false) {
     BackHandler { /* Never reveal the financial UI without an app PIN. */ }
     val context = LocalContext.current
     val manager = remember(context) { AppLockManager(context) }
@@ -41,10 +41,10 @@ fun MandatoryAppLockSetupScreen(onSecured: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Secure your PesaTrack", style = MaterialTheme.typography.headlineMedium)
+        Text(if (recoveringExistingPin) "Set a new app PIN" else "Secure your PesaTrack", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(16.dp))
         Text(
-            "Protect your personal financial information with an app PIN. " +
+            (if (recoveringExistingPin) "Your phone lock confirmed your identity. Choose a new PesaTrack PIN; your money records will not be erased. " else "Protect your personal financial information with an app PIN. ") +
                 "Biometric unlock is available later on supported devices.",
             style = MaterialTheme.typography.bodyMedium
         )
