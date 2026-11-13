@@ -262,12 +262,12 @@ class MainActivity : ComponentActivity() {
                                 true
                             )
                             .apply()
-                        SalaryReminders.schedule(this)
-        BillSchedules.schedule(this)
-        com.kedevjimmy.pesatrack.planning.PlanningReminders.schedule(this)
-        ReviewAttentionReminders.schedule(this)
-        com.kedevjimmy.pesatrack.planning.BackupReminders.schedule(this)
-                        AutomaticHistoryRepair.scheduleIfAllowed(this)
+                        SalaryReminders.schedule(this@MainActivity)
+        BillSchedules.schedule(this@MainActivity)
+        com.kedevjimmy.pesatrack.planning.PlanningReminders.schedule(this@MainActivity)
+        ReviewAttentionReminders.schedule(this@MainActivity)
+        com.kedevjimmy.pesatrack.planning.BackupReminders.schedule(this@MainActivity)
+                        AutomaticHistoryRepair.scheduleIfAllowed(this@MainActivity)
                     }
                 )
                         }
