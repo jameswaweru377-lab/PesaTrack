@@ -34,11 +34,11 @@ object PhoneNoticeDesign {
         val compact = content(context, R.layout.notice_pesatrack_compact, badge, title, description, art)
         val expanded = content(context, R.layout.notice_pesatrack_expanded, badge, title, description, art)
         // A single rounded action is easier to see than an underlined link.
-        expanded.setTextViewText(R.id.notice_action, action)
+        expanded.setTextViewText(R.id.notice_action, "$action  →")
         expanded.setOnClickPendingIntent(R.id.notice_action, open)
         return builder
             .setSmallIcon(R.drawable.ic_pesatrack_notification)
-            .setColor(ContextCompat.getColor(context, R.color.notice_purple))
+            .setColor(ContextCompat.getColor(context, R.color.notice_coffee))
             // Android already displays our small app icon in the notification header.
             // A large app icon creates an unwanted duplicate on the right.
             // Accessible fallbacks if the device chooses the standard collapsed template.
