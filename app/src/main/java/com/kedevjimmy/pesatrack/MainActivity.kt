@@ -30,6 +30,7 @@ import com.kedevjimmy.pesatrack.ingestion.RecentSmsCatchUp
 import com.kedevjimmy.pesatrack.ui.PesaTrackApp
 import com.kedevjimmy.pesatrack.ui.screens.StartupSplashScreen
 import com.kedevjimmy.pesatrack.ui.screens.AppLockScreen
+import com.kedevjimmy.pesatrack.ui.screens.MandatoryAppLockSetupScreen
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 import kotlinx.coroutines.delay
@@ -156,6 +157,7 @@ class MainActivity : ComponentActivity() {
             var setupComplete by remember {
                 mutableStateOf(preferences.getBoolean("setup_complete", false))
             }
+            var securityConfigured by remember { mutableStateOf(appLockManager.isEnabled()) }
             var welcomeVisible by remember { mutableStateOf(!setupComplete) }
             var showLaunchSplash by remember {
                 mutableStateOf(true)
@@ -204,6 +206,11 @@ class MainActivity : ComponentActivity() {
                             requestBiometricUnlock()
                         }
                     )
+                } else if (setupComplete && !securityConfigured) {
+                    MandatoryAppLockSetupScreen(onSecured = {
+                        securityConfigured = appLockManager.isEnabled()
+                        appLocked = false
+                    })
                 } else {
                     PesaTrackApp(
                     salaryOpenRequest = salaryOpenRequest,
