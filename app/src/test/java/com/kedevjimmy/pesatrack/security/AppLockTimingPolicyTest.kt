@@ -7,9 +7,10 @@ import org.junit.Test
 
 class AppLockTimingPolicyTest {
     @Test
-    fun configurableLockGraceDefaultsToThirtySecondsAndSupportsImmediateLock() {
-        assertFalse(AppLockTimingPolicy.shouldRequireUnlock(100L, 1, 29_999L, 1))
-        assertTrue(AppLockTimingPolicy.shouldRequireUnlock(100L, 1, 30_100L, 1))
+    fun configurableLockGraceDefaultsToImmediateAndSupportsThirtySeconds() {
+        assertTrue(AppLockTimingPolicy.shouldRequireUnlock(100L, 1, 100L, 1))
+        assertFalse(AppLockTimingPolicy.shouldRequireUnlock(100L, 1, 29_999L, 1, graceMs = 30_000L))
+        assertTrue(AppLockTimingPolicy.shouldRequireUnlock(100L, 1, 30_100L, 1, graceMs = 30_000L))
         assertTrue(AppLockTimingPolicy.shouldRequireUnlock(100L, 1, 100L, 1, graceMs = 0L))
         assertFalse(AppLockTimingPolicy.shouldRequireUnlock(100L, 1, 30_100L, 1, graceMs = 60_000L))
         assertTrue(AppLockTimingPolicy.shouldRequireUnlock(100L, 1, 60_100L, 1, graceMs = 60_000L))
