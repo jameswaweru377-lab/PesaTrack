@@ -7,13 +7,15 @@ import android.graphics.Paint
 import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import com.kedevjimmy.pesatrack.MainActivity
 import com.kedevjimmy.pesatrack.R
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -38,7 +40,6 @@ class PhoneNoticeDesignTest {
             val description = root.findViewById<TextView>(R.id.notice_description)
             assertEquals(context.getColor(R.color.notice_text), title.currentTextColor)
             assertEquals(context.getColor(R.color.notice_secondary), description.currentTextColor)
-            assertNull(root.findViewById<View>(R.id.notice_category_icon))
         }
     }
 
@@ -46,7 +47,7 @@ class PhoneNoticeDesignTest {
     fun notificationTemplatesHaveNoLargeIconOrAccentStripe() {
         for (id in listOf(R.layout.notice_pesatrack_compact, R.layout.notice_pesatrack_expanded)) {
             val root = LayoutInflater.from(context).inflate(id, null) as LinearLayout
-            assertNull("The category icon is no longer shown on the right", root.findViewById<View>(R.id.notice_category_icon))
+            assertFalse("No category artwork in the template", hasImageView(root))
             assertEquals("No decorative edge stripe", 1, root.childCount)
         }
     }
@@ -78,4 +79,10 @@ class PhoneNoticeDesignTest {
         ).build()
         assertNull("The OS already shows the small PesaTrack icon", notification.getLargeIcon())
     }
+    private fun hasImageView(view: View): Boolean = when (view) {
+        is ImageView -> true
+        is ViewGroup -> (0 until view.childCount).any { hasImageView(view.getChildAt(it)) }
+        else -> false
+    }
+
 }
