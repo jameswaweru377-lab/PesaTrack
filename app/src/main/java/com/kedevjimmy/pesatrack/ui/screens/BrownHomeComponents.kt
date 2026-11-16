@@ -42,7 +42,7 @@ import java.util.Date
 /** Single ledger-backed Home balance hero; no pager or second promotional slide. */
 @Composable
 internal fun BrownHomeHero(available: String, onAccounts: () -> Unit, partial: Boolean = false) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Box(
         Modifier.fillMaxWidth().height(176.dp)
             .clip(RoundedCornerShape(24.dp))
@@ -81,7 +81,7 @@ internal fun BrownHomeShortcuts(
     onActivity: () -> Unit, onAccounts: () -> Unit, onBudgets: () -> Unit,
     onGoals: () -> Unit, onDebts: () -> Unit, onReports: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val shortcuts = listOf(
         BrownShortcut("Activity", Icons.Rounded.BarChart),
         BrownShortcut("Accounts", Icons.Rounded.AccountBalanceWallet),
@@ -112,7 +112,7 @@ internal fun BrownHomeShortcuts(
 
 @Composable
 internal fun BrownHomeSectionTitle(title: String, action: String, onAction: () -> Unit) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Text(title, Modifier.weight(1f), color = p.ink, fontSize = 20.sp,
@@ -136,7 +136,7 @@ internal fun BrownHomeAccounts(
     groups: List<TrackedAccountGroup>, balances: List<PaydayAccountSnapshot>,
     money: (Long) -> String, onAccounts: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         BrownHomeSectionTitle("Your accounts", "View all", onAccounts)
         if (groups.isEmpty()) {
@@ -162,7 +162,7 @@ internal fun BrownHomeAccounts(
 private fun BrownAccountTile(name: String, balance: String,
     modifier: Modifier, onClick: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Surface(modifier.heightIn(min = 76.dp).clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp), color = p.white,
         border = androidx.compose.foundation.BorderStroke(1.dp, p.outline)) {
@@ -185,7 +185,7 @@ internal fun BrownHomeUpcoming(
     items: List<ReferenceUpcomingEntry>, onPlan: () -> Unit,
     onBills: () -> Unit, onSalary: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         BrownHomeSectionTitle("Coming up", "View plan", onPlan)
         Surface(color = p.cream, shape = RoundedCornerShape(16.dp)) {
@@ -226,7 +226,7 @@ internal fun BrownHomeUpcoming(
 internal fun BrownHomeMonthlySnapshot(
     month: String, spending: String, onReports: () -> Unit, onMonth: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Box(Modifier.fillMaxWidth().height(124.dp).clip(RoundedCornerShape(20.dp))) {
         Image(painterResource(R.drawable.home_brown_monthly_coins), null,
             Modifier.matchParentSize(), contentScale = ContentScale.Crop)
@@ -268,7 +268,7 @@ internal fun BrownHomeRecent(
     rows: List<StoredTransaction>, money: (Long) -> String,
     onOpen: (Long) -> Unit, onSeeAll: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val locale = LocalConfiguration.current.locales[0]
     val timeFormat = remember(locale) { SimpleDateFormat("d MMM · h:mm a", locale) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -320,7 +320,7 @@ internal fun BrownHomeRecent(
 
 @Composable
 internal fun BrownHomeReviewStatus(pending: Int?, onReview: () -> Unit) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
         .clip(RoundedCornerShape(12.dp)).background(p.cream)
         .clickable(onClick = onReview).padding(horizontal = 12.dp, vertical = 8.dp),
@@ -344,7 +344,7 @@ internal fun BrownHomeFinancialInsight(
     trustedRowCount: Int,
     onOpenReports: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val (headline, description) = homeInsightCardText(guidance, trustedRowCount)
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
         .background(p.cream).clickable(onClick = onOpenReports)
