@@ -23,11 +23,11 @@ object PremiumVisualTokens {
     val moneyOut = Color(0xFFB4233D)
     val transfer = Color(0xFF285C90)
 
-    val darkCanvas = Color(0xFF1C1714)
-    val darkCard = Color(0xFF2A221D)
-    val darkSurface = Color(0xFF352B25)
-    val darkBorder = Color(0xFF594739)
-    val darkText = Color(0xFFF9F0E9)
-    val darkMuted = Color(0xFFD4C4B8)
-    val darkCoffee = Color(0xFFE8BBA0)
+    val darkCanvas = Color(0xFF080706)
+    val darkCard = Color(0xFF242120)
+    val darkSurface = Color(0xFF2D2927)
+    val darkBorder = Color(0xFF51433B)
+    val darkText = Color(0xFFF8EEE7)
+    val darkMuted = Color(0xFFD5C8C0)
+    val darkCoffee = Color(0xFFE6AD82)
 }

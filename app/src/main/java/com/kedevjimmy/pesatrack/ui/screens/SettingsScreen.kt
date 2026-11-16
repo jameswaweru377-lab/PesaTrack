@@ -62,6 +62,20 @@ fun SettingsScreen(scaffoldPadding: PaddingValues, themeMode: ThemeMode, onTheme
             financialNotice = { legalReturnPage = "about"; page = "financial_notice" })
         else -> EverydayPage("Settings", scaffoldPadding, onBack) {
             item {
+                Text("Appearance", style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold)
+            }
+            item {
+                SettingsGroup {
+                    SettingsCompactRow(Icons.Rounded.Palette, "Theme",
+                        when (themeMode) {
+                            ThemeMode.SYSTEM -> "System default · follows your phone"
+                            ThemeMode.LIGHT -> "Light · always use the cream theme"
+                            ThemeMode.DARK -> "Dark · coffee and charcoal"
+                        }, tone = "brown") { page = "appearance" }
+                }
+            }
+            item {
                 Text("Automation & message access",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold)
