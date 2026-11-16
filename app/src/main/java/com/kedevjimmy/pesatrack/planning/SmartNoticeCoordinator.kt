@@ -124,7 +124,7 @@ object SmartNoticeCoordinator {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val (badge, icon, link) = when (selected.kind) {
             SmartNoticeKind.ACCOUNT -> Triple("ACCOUNT", PhoneNoticeDesign.Illustration.SHIELD, "Review account")
-            SmartNoticeKind.ACTIVITY -> Triple("ACTIVITY", PhoneNoticeDesign.Illustration.REVIEW, "Review activity")
+            SmartNoticeKind.ACTIVITY -> Triple("ACTIVITY", PhoneNoticeDesign.Illustration.REVIEW, "Review now")
             SmartNoticeKind.PAYMENT -> Triple("DEBT", PhoneNoticeDesign.Illustration.PEOPLE, "Review payment")
             SmartNoticeKind.DISCOVERY -> Triple("DEBT", PhoneNoticeDesign.Illustration.PEOPLE, "View money owed")
         }
