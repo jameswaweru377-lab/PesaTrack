@@ -233,11 +233,11 @@ class MainActivity : ComponentActivity() {
                             )
                         ) {
                             PesaTrackApp(
-                    salaryOpenRequest = salaryOpenRequest,
-                    billsOpenRequest = billsOpenRequest,
-                    reviewOpenRequest = reviewOpenRequest,
-                    smartOpenRequest = smartOpenRequest, smartKey = smartKey, smartAction = smartAction, smartRevision = smartRevision,
-                    phonePageRequest = phonePageRequest, phonePageRoute = phonePageRoute,
+                    salaryOpenRequest = if (appLocked || pinRecoveryAuthorized) 0 else salaryOpenRequest,
+                    billsOpenRequest = if (appLocked || pinRecoveryAuthorized) 0 else billsOpenRequest,
+                    reviewOpenRequest = if (appLocked || pinRecoveryAuthorized) 0 else reviewOpenRequest,
+                    smartOpenRequest = if (appLocked || pinRecoveryAuthorized) 0 else smartOpenRequest, smartKey = smartKey, smartAction = smartAction, smartRevision = smartRevision,
+                    phonePageRequest = if (appLocked || pinRecoveryAuthorized) 0 else phonePageRequest, phonePageRoute = phonePageRoute,
                     onPhoneRequestHandled = {
                         phonePageRequest = 0
                         intent.removeExtra(com.kedevjimmy.pesatrack.planning.PhoneNotificationPreview.OPEN_PAGE)
@@ -248,7 +248,7 @@ class MainActivity : ComponentActivity() {
                         intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_ACTION)
                         intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_REVISION)
                     },
-                            planningOpenRequest = planningOpenRequest, planningRoute = planningRoute,
+                            planningOpenRequest = if (appLocked || pinRecoveryAuthorized) 0 else planningOpenRequest, planningRoute = planningRoute,
                     themeMode = themeMode,
                     onThemeModeChange = { newMode ->
                         themeMode = newMode
