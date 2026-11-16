@@ -802,9 +802,7 @@ fun ActivityScreen(
         .toSet()
     // Match Money In rows to the same trusted ledger used by the headline total.
     // Uncertain receipts remain in Needs Review, never silently counted as income.
-    val trustedIncomeIds = (displaySnapshot ?: snapshot).trustedTransactions
-        .asSequence().filter { it.direction == MoneyDirection.INCOME.name }
-        .map { it.id }.toSet()
+    val trustedIncomeIds = activityTrustedIncomeIds(displaySnapshot ?: snapshot)
     val filtered = (if (payCycleMode && !periodReady) emptyList() else (displaySnapshot ?: snapshot).transactions).filter { item ->
         if (item.reviewState == ReviewState.EXCLUDED.name) {
             return@filter false
