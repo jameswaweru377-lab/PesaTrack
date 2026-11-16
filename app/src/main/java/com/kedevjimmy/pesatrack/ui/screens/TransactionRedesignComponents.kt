@@ -355,44 +355,6 @@ private fun BrownSpecialClassification(
  * Page-like modal intentionally preserves the original Activity navigation state.
  * "Money lent" and "Shared bill" are distinct ledger flows, never ordinary categories.
  */
-private data class CategoryIconVisual(val icon: ImageVector, val tint: Color, val backing: Color)
-
-private fun categoryIconVisual(label: String): CategoryIconVisual {
-    val v = BrownHomePalette.coffee; val green = v
-    val pink = v; val blue = v; val orange = v
-    return when {
-        label.contains("phone", true) || label.contains("airtime", true) ||
-            label.contains("data", true) || label.contains("internet", true) ->
-            CategoryIconVisual(Icons.Rounded.Smartphone, v, Color(0xFFECE5FF))
-        label.contains("food", true) || label.contains("dining", true) ||
-            label.contains("eat", true) ->
-            CategoryIconVisual(Icons.Rounded.Restaurant, orange, Color(0xFFFFEBDD))
-        label.contains("elect", true) || label.contains("utilit", true) ->
-            CategoryIconVisual(Icons.Rounded.Bolt, blue, Color(0xFFE2EFFF))
-        label.contains("grocer", true) || label.contains("shop", true) ->
-            CategoryIconVisual(Icons.Rounded.ShoppingCart, pink, Color(0xFFFDE6F0))
-        label.contains("hous", true) || label.contains("rent", true) ->
-            CategoryIconVisual(Icons.Rounded.Home, green, Color(0xFFDDF9EF))
-        label.contains("transport", true) || label.contains("travel", true) ->
-            CategoryIconVisual(Icons.Rounded.DirectionsCar, blue, Color(0xFFE2EFFF))
-        label.contains("health", true) || label.contains("medic", true) ->
-            CategoryIconVisual(Icons.Rounded.Favorite, pink, Color(0xFFFCE8F1))
-        label.contains("educat", true) || label.contains("school", true) ->
-            CategoryIconVisual(Icons.Rounded.School, v, Color(0xFFECE5FF))
-        label.contains("entertain", true) || label.contains("game", true) ->
-            CategoryIconVisual(Icons.Rounded.SportsEsports, pink, Color(0xFFFDE6F0))
-        label.contains("personal", true) || label.contains("beaut", true) ->
-            CategoryIconVisual(Icons.Rounded.Spa, pink, Color(0xFFFDE6F0))
-        label.contains("income", true) || label.contains("salary", true) ->
-            CategoryIconVisual(Icons.Rounded.Work, green, Color(0xFFDDF9EF))
-        label.contains("transf", true) ->
-            CategoryIconVisual(Icons.Rounded.SwapHoriz, v, Color(0xFFECE5FF))
-        label.contains("bank", true) || label.contains("financial", true) ->
-            CategoryIconVisual(Icons.Rounded.AccountBalance, blue, Color(0xFFE2EFFF))
-        else -> CategoryIconVisual(Icons.Rounded.Label, v, Color(0xFFECE5FF))
-    }
-}
-
 @Composable
 private fun CategoryReferenceTile(
     category: PesaCategory,
@@ -419,7 +381,7 @@ private fun CategoryReferenceTile(
                 verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Icon(v.icon, null, Modifier.size(if (compact) 25.dp else 27.dp),
-                    tint = p.coffee)
+                    tint = v.tint)
                 Text(category.label, fontSize = if (compact) 12.sp else 13.sp,
                     color = if (selected) p.coffee else p.ink,
                     fontFamily = FontFamily.Serif,

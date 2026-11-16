@@ -1,5 +1,14 @@
 # PesaTrack Current State
 
+_Category icon colour and menu spacing refresh (16 November 2026; Android CI and device review pending):_
+Category selection and Activity now share one icon/colour mapping, including distinct
+Wi-Fi, family, fees, debt, savings and investment symbols. Activity retains its
+neutral cream icon tiles and transaction layout; only the pictogram is coloured.
+Profile's workspace/Settings entry and the Settings hub use roomier list rows
+and existing cream/coffee design tokens. This is a visual-only change: no
+financial rules, transaction meanings, permissions, dependencies or navigation
+are changed. No instrumentation tests are requested; Redmi approval remains manual.
+
 _Profile workspace and compact finance UI update (13 November 2026; CI and phone acceptance pending):_
 The approved Profile landing now places Money Wellness above a vertical workspace
 for Statements, Import statements, Reports and Pay cycle, followed by a Settings
