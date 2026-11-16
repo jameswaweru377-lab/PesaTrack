@@ -97,7 +97,8 @@ internal fun BrownHomeShortcuts(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Surface(Modifier.size(48.dp), shape = CircleShape,
-                    color = if (index == 0) p.coffee else p.white,
+                    color = if (index == 0 && p.canvas == Color(0xFF080706)) BrownHomePalette.coffee
+                            else if (index == 0) p.coffee else p.white,
                     shadowElevation = 2.dp) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(shortcut.icon, shortcut.label, Modifier.size(24.dp),
