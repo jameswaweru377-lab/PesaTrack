@@ -5,6 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Calendar
+import java.util.Locale
 import java.util.TimeZone
 
 class ReportPeriodPolicyTest {
@@ -35,6 +36,14 @@ class ReportPeriodPolicyTest {
         assertTrue(week.startEpochMs < epoch(2026, 11, 4))
         assertEquals(7L * 24 * 60 * 60 * 1000, week.endExclusiveEpochMs - week.startEpochMs)
         assertEquals(7L * 24 * 60 * 60 * 1000, week.startEpochMs - week.previousStartEpochMs)
+    }
+
+    @Test fun `trend scale retains fractional thousands and rounds small values`() {
+        assertEquals("1.67K", reportsTrendAxisLabel(5_000.0 / 3.0, Locale.US))
+        assertEquals("3.33K", reportsTrendAxisLabel(10_000.0 / 3.0, Locale.US))
+        assertEquals("5.00K", reportsTrendAxisLabel(5_000.0, Locale.US))
+        assertEquals("667", reportsTrendAxisLabel(2_000.0 / 3.0, Locale.US))
+        assertEquals("1.50M", reportsTrendAxisLabel(1_500_000.0, Locale.US))
     }
 
     private fun epoch(year: Int, month: Int, day: Int): Long = Calendar.getInstance(zone).apply {
