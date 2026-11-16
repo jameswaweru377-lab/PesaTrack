@@ -800,47 +800,19 @@ fun ActivityScreen(
     val possibleDuplicateIds = (displaySnapshot ?: snapshot).possibleDuplicates
         .flatMap { listOf(it.first.id, it.second.id) }
         .toSet()
-    val filtered = (if (payCycleMode && !periodReady) emptyList() else (displaySnapshot ?: snapshot).transactions).filter { item ->
-        if (item.reviewState == ReviewState.EXCLUDED.name) {
-            return@filter false
-        }
-        if (item.id in possibleDuplicateIds && selectedFilter != "Needs Review") {
-            return@filter false
-        }
-
-        val matchesFilter =
-            when (selectedFilter) {
-                "Owed to me" -> receivableLinks[item.id]?.let { it.active && it.kind == "LENT" } == true
-                "Repayments" -> receivableLinks[item.id]?.let { it.active && it.kind == "REPAID" } == true
-                "Needs Review" ->
-                    item.reviewState == ReviewState.NEEDS_REVIEW.name ||
-                        item.id in possibleDuplicateIds
-                "Pending" ->
-                    item.reviewState == ReviewState.NEEDS_REVIEW.name &&
-                        item.direction == MoneyDirection.TRANSFER.name
-                "Money Out" ->
-                    item.direction == MoneyDirection.EXPENSE.name
-                "Invested" -> isActivityConfirmedInvestmentBuy(item)
-                "Money In" ->
-                    item.direction == MoneyDirection.INCOME.name
-                "Transfers" ->
-                    item.direction == MoneyDirection.TRANSFER.name &&
-                        item.relationType !=
-                            TransactionStore.RELATION_REFUND
-                else -> true
-            }
-
-        val query = searchQuery.trim()
-        val matchesSearch =
-            query.isBlank() ||
-                item.counterparty?.contains(query, ignoreCase = true) == true ||
-                item.evidenceLabel?.contains(query, ignoreCase = true) == true ||
-                categoryStore.labelFor(item.category)
-                    .contains(query, ignoreCase = true) ||
-                receivableLinks[item.id]?.description?.contains(query,ignoreCase = true) == true
-
-        matchesFilter && matchesSearch
-    }
+    // Match Money In rows to the same trusted ledger used by the headline total.
+    // Uncertain receipts remain in Needs Review, never silently counted as income.
+    val trustedIncomeIds = activityTrustedIncomeIds(displaySnapshot ?: snapshot)
+    val filtered = activityFilteredRows(
+        transactions = if (payCycleMode && !periodReady) emptyList()
+            else (displaySnapshot ?: snapshot).transactions,
+        selectedFilter = selectedFilter,
+        searchQuery = searchQuery,
+        possibleDuplicateIds = possibleDuplicateIds,
+        trustedIncomeIds = trustedIncomeIds,
+        receivableLinks = receivableLinks,
+        categoryLabel = categoryStore::labelFor
+    )
 
     // Progressive UI materialization. The complete monthly ledger still owns
     // money totals, classification, reviews and duplicate exclusion.

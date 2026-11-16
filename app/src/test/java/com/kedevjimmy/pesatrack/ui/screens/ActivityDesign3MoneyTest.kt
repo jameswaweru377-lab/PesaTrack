@@ -9,6 +9,27 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ActivityDesign3MoneyTest {
+    @Test fun moneyInExcludesAllOwnedTransferHopsAndUnreviewedReceipts() {
+        val outsideReceipt = row(1, "INCOME", 10_000_00)
+        val equityToWallet = row(2, "TRANSFER", 10_000_00)
+        val walletToSecondBank = row(3, "TRANSFER", 10_000_00)
+        val secondBankToWallet = row(4, "TRANSFER", 10_000_00)
+        val walletToEquity = row(5, "TRANSFER", 10_000_00)
+        val uncertainIncoming = row(6, "INCOME", 10_000_00)
+        val all = listOf(outsideReceipt, equityToWallet, walletToSecondBank,
+            secondBankToWallet, walletToEquity, uncertainIncoming)
+        val trusted = all - uncertainIncoming
+        val snapshot = ledger(trusted).copy(transactions = all)
+
+        assertEquals(setOf(1L), activityTrustedIncomeIds(snapshot))
+        assertEquals(6, snapshot.transactions.size)
+    }
+
+    @Test fun salaryReceivingBankIsNotRequiredForMoneyInClassification() {
+        val externalBankReceipt = row(7, "INCOME", 52_000_00)
+        assertEquals(setOf(7L), activityTrustedIncomeIds(ledger(listOf(externalBankReceipt))))
+    }
+
     @Test fun investedFilterShowsOnlyConfirmedInvestmentPurchases() {
         val boughtShares = row(1, "EXPENSE", 2_500_00,
             category = "INVESTMENT", relation = TransactionStore.RELATION_INVESTMENT_BUY)

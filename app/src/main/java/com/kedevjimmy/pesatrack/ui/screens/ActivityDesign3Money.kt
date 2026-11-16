@@ -15,6 +15,12 @@ internal data class ActivityDesign3Totals(
     val investedMinor: Long?
 )
 
+/** Money In must show exactly the income rows accepted by the canonical ledger. */
+internal fun activityTrustedIncomeIds(snapshot: ActivityLedgerSnapshot): Set<Long> =
+    snapshot.trustedTransactions.asSequence()
+        .filter { it.direction == MoneyDirection.INCOME.name }
+        .map { it.id }.toSet()
+
 /** A broker transfer or investment label alone is not a confirmed purchase. */
 internal fun isActivityConfirmedInvestmentBuy(item: StoredTransaction): Boolean =
     item.direction == MoneyDirection.EXPENSE.name &&
