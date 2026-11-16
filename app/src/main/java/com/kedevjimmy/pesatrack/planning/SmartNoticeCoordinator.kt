@@ -142,7 +142,9 @@ object SmartNoticeCoordinator {
                 if (notice.incoming) "Review repayment" else "Add as loan",open("entry"))
             builder.addAction(0,"Gift",open("gift")).addAction(0,
                 if (notice.incoming) "Not repayment" else "Not a loan",open("other"))
-        } else builder.addAction(0,if (selected.kind == SmartNoticeKind.ACCOUNT) "Review account" else "Open",open("review"))
+        }
+        // The full notification and the unboxed text action already open review.
+        // Preserve native debt-decision actions above; avoid a second generic button.
         if (foreground || LedgerUpdateBus.state.value.isProcessing || !prefs.importReady()) return@synchronized
         try { manager.notify(ID,builder.build()) } catch (_: SecurityException) { return@synchronized }
         prefs.shown(selected,now)
