@@ -1,5 +1,14 @@
 # PesaTrack Current State
 
+_Reports & Insights cream redesign (16 November 2026; CI/device acceptance pending):_
+The Reports page now uses a centred title and stemless back chevron, plain
+date selector, compact single spending summary, contextual comparison and
+an axis-labelled trend chart. A high-Other-category prompt opens the existing
+read-only review flow. Annual accounting, category totals, Paycheck Analysis
+and offline PDF export remain connected. This is UI-only: trusted Activity
+financial projections, source isolation, database and permissions are unchanged.
+Emulator/instrumentation were not run; Redmi visual acceptance is outstanding.
+
 _Category icon colour and menu spacing refresh (16 November 2026; Android CI and device review pending):_
 Category selection and Activity now share one icon/colour mapping, including distinct
 Wi-Fi, family, fees, debt, savings and investment symbols. Activity retains its
