@@ -48,7 +48,7 @@ internal fun homeColors(): HomeColors {
     return if (dark) HomeColors(
         canvas = PremiumVisualTokens.darkCanvas,
         ink = PremiumVisualTokens.darkText,
-        coffee = Color(0xFF874923),
+        coffee = PremiumVisualTokens.darkCoffee,
         muted = PremiumVisualTokens.darkMuted,
         cream = PremiumVisualTokens.darkSurface,
         outline = PremiumVisualTokens.darkBorder,
