@@ -61,14 +61,14 @@ internal fun BrownHomeHero(available: String, onAccounts: () -> Unit, partial: B
             Text("Your available money", color = p.white,
                 fontFamily = FontFamily.Cursive, fontStyle = FontStyle.Italic,
                 fontSize = 21.sp)
-            Text(available, color = p.white,
+            Text(available, color = Color.White,
                 fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold,
                 fontSize = 27.sp, lineHeight = 30.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 if (partial) "Partial balance · after unpaid bills"
                 else "After unpaid bills",
-                color = p.white, fontSize = 12.sp, maxLines = 2
+                color = Color.White, fontSize = 12.sp, maxLines = 2
             )
         }
     }
@@ -101,7 +101,7 @@ internal fun BrownHomeShortcuts(
                     shadowElevation = 2.dp) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(shortcut.icon, shortcut.label, Modifier.size(24.dp),
-                            tint = if (index == 0) p.white else p.coffee)
+                            tint = if (index == 0) Color.White else if (p.canvas == Color(0xFF080706)) Color(0xFFE6AD82) else p.coffee)
                     }
                 }
                 Text(shortcut.label, color = p.ink, fontSize = 10.sp, maxLines = 1)
@@ -246,9 +246,9 @@ internal fun BrownHomeMonthlySnapshot(
                 Row(Modifier.height(40.dp).clip(CircleShape).background(p.coffee)
                     .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("VIEW REPORT", color = p.white, fontSize = 10.sp,
+                    Text("VIEW REPORT", color = Color.White, fontSize = 10.sp,
                         fontWeight = FontWeight.Bold)
-                    Icon(Icons.Rounded.ArrowForward, null, Modifier.size(17.dp), tint = p.white)
+                    Icon(Icons.Rounded.ArrowForward, null, Modifier.size(17.dp), tint = Color.White)
                 }
             }
         }
@@ -257,7 +257,7 @@ internal fun BrownHomeMonthlySnapshot(
             Box(Modifier.size(40.dp).clip(CircleShape).background(p.coffee),
                 contentAlignment = Alignment.Center) {
                 Text(month.take(3).uppercase(), fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold, color = p.white)
+                    fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
     }
