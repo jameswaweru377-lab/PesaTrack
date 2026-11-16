@@ -56,13 +56,14 @@ class MainActivity : ComponentActivity() {
     private lateinit var appLockManager:
         AppLockManager
     private var appLocked by mutableStateOf(false)
+    private var biometricCancellation: CancellationSignal? = null
     /** Ephemeral: device credential authorization is lost when leaving the activity. */
     private var pinRecoveryAuthorized by mutableStateOf(false)
     private val pinRecoveryLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK &&
-            ::appLockManager.isInitialized && appLockManager.isEnabled()
+            appLocked && ::appLockManager.isInitialized && appLockManager.isEnabled()
         ) {
             pinRecoveryAuthorized = true
             updateSecureWindowState()
@@ -347,6 +348,9 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        // A prompt started before backgrounding must never unlock a later foreground session.
+        biometricCancellation?.cancel()
+        biometricCancellation = null
         pinRecoveryAuthorized = false
         if (
             ::appLockManager
@@ -442,6 +446,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestBiometricUnlock() {
+        if (!captureForeground || !appLocked || !::appLockManager.isInitialized ||
+            !appLockManager.isEnabled() || !canUseBiometrics()
+        ) return
         if (
             Build.VERSION.SDK_INT <
             Build.VERSION_CODES.P
@@ -463,8 +470,11 @@ class MainActivity : ComponentActivity() {
                 ) { _, _ -> }
                 .build()
 
+        biometricCancellation?.cancel()
+        val signal = CancellationSignal()
+        biometricCancellation = signal
         prompt.authenticate(
-            CancellationSignal(),
+            signal,
             mainExecutor,
             object :
                 BiometricPrompt
@@ -478,8 +488,11 @@ class MainActivity : ComponentActivity() {
                         .onAuthenticationSucceeded(
                             result
                         )
-                    appLockManager
-                        .markUnlocked()
+                    if (biometricCancellation !== signal || signal.isCanceled ||
+                        !captureForeground || !appLocked || !appLockManager.isEnabled()
+                    ) return
+                    biometricCancellation = null
+                    appLockManager.markUnlocked()
                     appLocked = false
                 }
             }
