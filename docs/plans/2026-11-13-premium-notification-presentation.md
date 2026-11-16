@@ -15,6 +15,6 @@ The approved 13 November mockups use the existing cream, coffee-brown and subtle
 
 ## Release evidence and limits
 
-Android system rules and HyperOS notification settings determine actual banners. The app's custom expanded layout can show the badge, title, details, icon and brown action. Compact heads-up alerts have less space and may be truncated. Lock-screen details are redacted. Device appearance and permission behaviour need a real Redmi test. No emulator or instrumentation run is requested.
+Android system rules and HyperOS notification settings determine actual banners. Following the 16 November simplification, native notification cards show the badge, title and details without a large right-side icon, coloured edge stripe, outline or filled action button. Expanded cards show one tappable coffee-brown text action such as “Review now” with no arrow or underline. Compact heads-up alerts have less space and may be truncated. Core Android header and expansion chevron remain system-owned. Lock-screen details are redacted. Device appearance and permission behaviour need a real Redmi test. No emulator or instrumentation run is requested.
 
 The design changes introduce no new financial calculations, database migrations, dependencies or network transmission.
