@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +21,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.ui.components.IconBubble
@@ -31,8 +31,12 @@ import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import java.text.SimpleDateFormat
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.ceil
 
 /** Approved Reports & Insights Design 2; data stays owned by the existing Activity ledger. */
 @Composable
@@ -118,9 +122,10 @@ fun ReportsInsightsScreen(
                     }
                 }
             }
-            item { ReportsTopMetrics(current) }
-            item { ReportsTrendCard(current.trend, period) }
-            item { ReportsWhatChanged(current, period) }
+            item { ReportsTopMetrics(current, period) }
+            item { ReportsTrendCard(current.trend, period, current.spending,
+                hasReviewCandidates = broad.isNotEmpty(),
+                onReviewCategories = { reviewType = ReportReviewType.BROAD }) }
             item {
                 ReportsCategoryCard(current.spending, expandedCategories,
                     toggleExpanded = { expandedCategories = !expandedCategories },
@@ -151,12 +156,22 @@ fun ReportsInsightsScreen(
 
 @Composable
 private fun ReportsPageTitle(onBack: () -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+    Box(Modifier.fillMaxWidth().heightIn(min = 48.dp), contentAlignment = Alignment.Center) {
+        Text(
+            "Reports & insights",
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 48.dp),
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier.align(Alignment.CenterStart).size(48.dp)
+        ) {
+            Icon(Icons.Rounded.ChevronLeft, contentDescription = "Back",
+                modifier = Modifier.size(28.dp))
         }
-        Text("Reports & insights", style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold)
     }
 }
 
@@ -170,20 +185,28 @@ private fun ReportsPeriodSelector(
 ) {
     val context = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = {
-            val cal = Calendar.getInstance().apply { timeInMillis = selectedEpochMs }
-            DatePickerDialog(context, { _, year, month, day ->
-                onDate(Calendar.getInstance().apply {
-                    clear(); set(year, month, day)
-                }.timeInMillis)
-            }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
-                .apply { datePicker.maxDate = System.currentTimeMillis() }.show()
-        }, modifier = Modifier.heightIn(min = 48.dp)) {
-            Icon(Icons.Rounded.CalendarMonth, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text(label ?: "Choose reporting period")
-            Spacer(Modifier.width(8.dp))
-            Icon(Icons.Rounded.ExpandMore, contentDescription = null)
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable {
+                val cal = Calendar.getInstance().apply { timeInMillis = selectedEpochMs }
+                DatePickerDialog(context, { _, year, month, day ->
+                    onDate(Calendar.getInstance().apply {
+                        clear()
+                        set(year, month, day)
+                    }.timeInMillis)
+                }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
+                    .apply { datePicker.maxDate = System.currentTimeMillis() }.show()
+            }.padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(Icons.Rounded.CalendarMonth, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp))
+            Text(label ?: "Choose reporting period",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface)
+            Icon(Icons.Rounded.ExpandMore, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             ReportPeriod.entries.forEachIndexed { index, candidate ->
@@ -200,59 +223,83 @@ private fun ReportsPeriodSelector(
 }
 
 @Composable
-private fun ReportsTopMetrics(data: ReportsInsightData) {
+private fun ReportsTopMetrics(data: ReportsInsightData, period: ReportPeriod) {
     var showCashContext by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Card(
-            modifier = Modifier.weight(1.25f).heightIn(min = 112.dp),
-            shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
-        ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Money spent", color = MaterialTheme.colorScheme.onPrimary,
-                    style = MaterialTheme.typography.labelLarge)
-                Text(formatKesAmount(data.currentSpent),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleLarge)
+    PesaCard {
+        Column(Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Money spent", style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold)
+            Text(formatKesAmount(data.currentSpent),
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            val change = data.spendingChange
+            if (change != null) {
+                val colour = when {
+                    change < 0 -> MaterialTheme.colorScheme.secondaryContainer
+                    change > 0 -> MaterialTheme.colorScheme.errorContainer
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                }
+                val ink = when {
+                    change < 0 -> MaterialTheme.colorScheme.onSecondaryContainer
+                    change > 0 -> MaterialTheme.colorScheme.onErrorContainer
+                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                val previous = reportsPreviousPeriodLabel(data, period)
+                val comparison = when {
+                    change < 0 -> "${abs(change.toLong())}% lower than $previous"
+                    change > 0 -> "${abs(change.toLong())}% higher than $previous"
+                    else -> "Same as $previous"
+                }
+                Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
+                    color = colour) {
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(when {
+                            change < 0 -> Icons.Rounded.TrendingDown
+                            change > 0 -> Icons.Rounded.TrendingUp
+                            else -> Icons.Rounded.Remove
+                        }, contentDescription = null, tint = ink, modifier = Modifier.size(20.dp))
+                        Text(comparison, style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold, color = ink)
+                    }
+                }
+            } else {
+                Text("No previous spending to compare.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (data.range.endExclusiveEpochMs > System.currentTimeMillis()) {
+                Text("Period in progress",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            val fees = data.current.summary.feesMinor
+            if (fees != 0L) {
+                Text("${formatKesAmount(fees)} in fees tracked separately",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            TextButton(onClick = { showCashContext = !showCashContext },
+                modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(if (showCashContext) "Hide money in & transfers"
+                    else "Money in & transfers")
+                Icon(if (showCashContext) Icons.Rounded.ExpandLess
+                    else Icons.Rounded.ChevronRight, contentDescription = null)
             }
         }
-        Card(
-            modifier = Modifier.weight(1f).heightIn(min = 112.dp),
-            shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-        ) {
-            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("vs previous period", color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    style = MaterialTheme.typography.labelMedium)
-                val change = data.spendingChange
-                Text(if (change == null) "—" else "${abs(change.toLong())}%",
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-                Text(when { change == null -> "No comparison"
-                    change < 0 -> "Lower spending"
-                    change > 0 -> "Higher spending"
-                    else -> "Unchanged" },
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    style = MaterialTheme.typography.bodySmall)
-            }
-        }
-    }
-    val fees = data.current.summary.feesMinor
-    if (fees != 0L) Text("${formatKesAmount(fees)} in fees tracked separately",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant)
-    TextButton(onClick = { showCashContext = !showCashContext },
-        modifier = Modifier.heightIn(min = 48.dp)) {
-        Text(if (showCashContext) "Hide other cash movements" else "See money in & transfers")
     }
     if (showCashContext) {
         PesaCard {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Other recorded cash movements", style = MaterialTheme.typography.titleSmall)
+                Text("Other recorded cash movements",
+                    style = MaterialTheme.typography.titleSmall)
                 Text("Money in ${formatKesAmount(data.current.summary.incomeMinor)}")
                 Text("Transfers ${formatKesAmount(data.current.summary.transferMinor)}")
-                Text("Transfers are movements between accounts, not earned income or spending.",
+                Text("Transfers between your own accounts are not additional income or spending.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -260,26 +307,79 @@ private fun ReportsTopMetrics(data: ReportsInsightData) {
     }
 }
 
+private fun reportsPreviousPeriodLabel(data: ReportsInsightData, period: ReportPeriod): String =
+    when (period) {
+        ReportPeriod.MONTH -> SimpleDateFormat("MMMM", Locale.getDefault())
+            .format(Date(data.range.previousStartEpochMs))
+        ReportPeriod.WEEK -> "previous week"
+        ReportPeriod.SIX_MONTHS -> "previous 6 months"
+        ReportPeriod.YEAR -> "last year"
+    }
+
 @Composable
-private fun ReportsTrendCard(values: List<ReportTrendValue>, period: ReportPeriod) {
+private fun ReportsTrendCard(
+    values: List<ReportTrendValue>,
+    period: ReportPeriod,
+    spending: List<Pair<String, Long>>,
+    hasReviewCandidates: Boolean,
+    onReviewCategories: () -> Unit
+) {
     PesaCard {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconBubble(Icons.Rounded.ShowChart)
-                Text("Spending trend", Modifier.padding(start = 12.dp),
-                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Column(Modifier.padding(start = 12.dp)) {
+                    Text("Spending trend", style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold)
+                    Text(when (period) {
+                        ReportPeriod.WEEK -> "Daily spending this week"
+                        ReportPeriod.YEAR -> "Monthly spending this year"
+                        else -> "Last 6 months"
+                    }, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            Text(if (period == ReportPeriod.WEEK) "Daily spending this week"
-                else if (period == ReportPeriod.YEAR) "Monthly spending this year"
-                else "Monthly spending · last 6 months",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (values.isEmpty() || values.all { it.spentMinor == 0L }) {
                 Text("No recorded spending to chart yet.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 ReportsTrendPlot(values)
+            }
+
+            val categoryTotal = spending.fold(java.math.BigDecimal.ZERO) { sum, entry ->
+                sum.add(java.math.BigDecimal.valueOf(entry.second.coerceAtLeast(0L)))
+            }
+            val otherMinor = spending.firstOrNull {
+                it.first.equals("Other", ignoreCase = true)
+            }?.second?.coerceAtLeast(0L) ?: 0L
+            val otherShare = if (otherMinor > 0L && categoryTotal.signum() > 0)
+                java.math.BigDecimal.valueOf(otherMinor)
+                    .multiply(java.math.BigDecimal.valueOf(100L))
+                    .divide(categoryTotal, 0, java.math.RoundingMode.DOWN).toInt()
+            else 0
+
+            if (otherShare >= 50 && hasReviewCandidates) {
+                Surface(color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(PesaDesignTokens.innerRadius)) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Rounded.Label, contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Text("$otherShare% of category spending is labelled Other",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        }
+                        TextButton(onClick = onReviewCategories,
+                            modifier = Modifier.heightIn(min = 48.dp)) {
+                            Text("Review categories")
+                            Icon(Icons.Rounded.ChevronRight, contentDescription = null)
+                        }
+                    }
+                }
             }
         }
     }
@@ -289,83 +389,89 @@ private fun ReportsTrendCard(values: List<ReportTrendValue>, period: ReportPerio
 private fun ReportsTrendPlot(values: List<ReportTrendValue>) {
     val primary = MaterialTheme.colorScheme.primary
     val rule = MaterialTheme.colorScheme.outlineVariant
-    val largest = max(1L, values.maxOf { it.spentMinor.coerceAtLeast(0L) })
-    Column {
-        Text("Up to ${formatKesAmount(largest)}", style = MaterialTheme.typography.labelSmall,
+    val largestMinor = max(1L, values.maxOf { it.spentMinor.coerceAtLeast(0L) })
+    val largestKes = largestMinor.toDouble() / 100.0
+    val roundToKes = when {
+        largestKes < 1_000.0 -> 100.0
+        largestKes < 10_000.0 -> 1_000.0
+        largestKes < 1_000_000.0 -> 10_000.0
+        largestKes < 10_000_000.0 -> 100_000.0
+        else -> 1_000_000.0
+    }
+    val upperKes = ceil(largestKes / roundToKes) * roundToKes
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("KES", style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Canvas(Modifier.fillMaxWidth().height(136.dp).semantics {
-            contentDescription = "Spending trend: " + values.joinToString { "${it.label}, ${formatKesAmount(it.spentMinor)}" }
-        }) {
-            val left = 4.dp.toPx()
-            val right = size.width - 4.dp.toPx()
-            val top = 8.dp.toPx()
-            val bottom = size.height - 8.dp.toPx()
-            val step = if (values.size > 1) (right - left) / (values.size - 1) else 0f
-            val stroke = 3.dp.toPx()
-            val points = values.mapIndexed { index, value ->
-                androidx.compose.ui.geometry.Offset(
-                    left + step * index,
-                    bottom - (value.spentMinor.coerceAtLeast(0L).toDouble() / largest.toDouble() *
-                        (bottom - top)).toFloat()
-                )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.width(44.dp).height(160.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+                horizontalAlignment = Alignment.End) {
+                for (tick in 3 downTo 0) {
+                    Text(reportsTrendAxisLabel(upperKes * tick / 3.0),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            drawLine(rule, start = androidx.compose.ui.geometry.Offset(left, bottom),
-                end = androidx.compose.ui.geometry.Offset(right, bottom), strokeWidth = 1.dp.toPx())
-            val area = Path().apply {
-                moveTo(points.first().x, bottom)
-                points.forEach { lineTo(it.x, it.y) }
-                lineTo(points.last().x, bottom)
-                close()
+            Spacer(Modifier.width(8.dp))
+            Canvas(Modifier.weight(1f).height(160.dp).semantics {
+                contentDescription = "Spending trend: " +
+                    values.joinToString { "${it.label}, ${formatKesAmount(it.spentMinor)}" }
+            }) {
+                val left = 8.dp.toPx()
+                val right = size.width - 8.dp.toPx()
+                val top = 8.dp.toPx()
+                val bottom = size.height - 8.dp.toPx()
+                val step = if (values.size > 1) (right - left) / (values.size - 1) else 0f
+                val points = values.mapIndexed { index, value ->
+                    androidx.compose.ui.geometry.Offset(
+                        left + step * index,
+                        bottom - ((value.spentMinor.coerceAtLeast(0L).toDouble() /
+                            (upperKes * 100.0)) * (bottom - top)).toFloat()
+                    )
+                }
+                for (tick in 0..3) {
+                    val y = bottom - tick * (bottom - top) / 3f
+                    drawLine(rule,
+                        start = androidx.compose.ui.geometry.Offset(left, y),
+                        end = androidx.compose.ui.geometry.Offset(right, y),
+                        strokeWidth = 1.dp.toPx())
+                }
+                val area = Path().apply {
+                    moveTo(points.first().x, bottom)
+                    points.forEach { lineTo(it.x, it.y) }
+                    lineTo(points.last().x, bottom)
+                    close()
+                }
+                drawPath(area, primary.copy(alpha = 0.10f))
+                val line = Path().apply {
+                    moveTo(points.first().x, points.first().y)
+                    points.drop(1).forEach { lineTo(it.x, it.y) }
+                }
+                drawPath(line, primary, style = Stroke(width = 3.dp.toPx()))
+                points.forEach { drawCircle(primary, radius = 4.dp.toPx(), center = it) }
             }
-            drawPath(area, primary.copy(alpha = 0.10f))
-            val line = Path().apply {
-                moveTo(points.first().x, points.first().y)
-                points.drop(1).forEach { lineTo(it.x, it.y) }
-            }
-            drawPath(line, primary, style = Stroke(width = stroke))
-            points.forEach { point -> drawCircle(primary, radius = 4.dp.toPx(), center = point) }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth()) {
+            Spacer(Modifier.width(52.dp))
             values.forEachIndexed { index, value ->
-                if (values.size <= 7 || index % 2 == 0 || index == values.lastIndex) {
-                    Text(value.label, style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    if (values.size <= 7 || index % 2 == 0 || index == values.lastIndex) {
+                        Text(value.label, style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                    }
                 }
             }
         }
     }
 }
 
-@Composable
-private fun ReportsWhatChanged(data: ReportsInsightData, period: ReportPeriod) {
-    PesaCard {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("What changed", style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold)
-            val change = data.spendingChange
-            ReportsInsightLine(
-                icon = if (change != null && change > 0) Icons.Rounded.TrendingUp
-                    else Icons.Rounded.TrendingDown,
-                text = when {
-                    change == null -> "No comparable spending in the previous ${period.label.lowercase()}."
-                    change < 0 -> "Spending fell by ${abs(change.toLong())}%"
-                    change > 0 -> "Spending rose by ${abs(change.toLong())}%"
-                    else -> "Spending is unchanged from the previous period."
-                }
-            )
-            data.topCategory?.let { ReportsInsightLine(Icons.Rounded.BarChart,
-                "${it.first} is your largest category · ${formatKesAmount(it.second)}") }
-        }
-    }
-}
-
-@Composable
-private fun ReportsInsightLine(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        IconBubble(icon, size = 40.dp)
-        Text(text, Modifier.weight(1f).padding(start = 12.dp),
-            style = MaterialTheme.typography.bodyMedium)
-    }
+internal fun reportsTrendAxisLabel(
+    kes: Double,
+    locale: Locale = Locale.getDefault()
+): String = when {
+    kes >= 1_000_000.0 -> String.format(locale, "%.2fM", kes / 1_000_000.0)
+    kes >= 1_000.0 -> String.format(locale, "%.2fK", kes / 1_000.0)
+    else -> String.format(locale, "%.0f", kes)
 }
 
 @Composable
@@ -379,8 +485,12 @@ private fun ReportsCategoryCard(
     var showHelp by remember { mutableStateOf(false) }
     PesaCard {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Top spending categories", style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconBubble(Icons.Rounded.Category)
+                Text("Spending by category", Modifier.padding(start = 12.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold)
+            }
             if (spending.isEmpty()) {
                 Text("No categorized spending for this period.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -465,7 +575,7 @@ private fun ReportsReviewTile(
     count: Int? = null
 ) {
     PesaCard(modifier.clickable(onClick = onClick)) {
-        Column(Modifier.fillMaxWidth().heightIn(min = 80.dp).padding(12.dp),
+        Column(Modifier.fillMaxWidth().heightIn(min = 68.dp).padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(icon, contentDescription = null,
