@@ -1459,7 +1459,7 @@ fun HomeScreen(
     }.sortedWith(compareBy<ReferenceUpcomingEntry> { !it.isSalary })
     LazyColumn(
         modifier = Modifier.padding(scaffoldPadding)
-            .background(BrownHomePalette.canvas),
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
