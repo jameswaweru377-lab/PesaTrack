@@ -465,11 +465,13 @@ private fun ReportsTrendPlot(values: List<ReportTrendValue>) {
     }
 }
 
-private fun reportsTrendAxisLabel(kes: Double): String = when {
-    kes >= 1_000_000.0 ->
-        String.format(Locale.getDefault(), "%.1fM", kes / 1_000_000.0)
-    kes >= 1_000.0 -> "${(kes / 1_000.0).toInt()}K"
-    else -> kes.toLong().toString()
+internal fun reportsTrendAxisLabel(
+    kes: Double,
+    locale: Locale = Locale.getDefault()
+): String = when {
+    kes >= 1_000_000.0 -> String.format(locale, "%.2fM", kes / 1_000_000.0)
+    kes >= 1_000.0 -> String.format(locale, "%.2fK", kes / 1_000.0)
+    else -> String.format(locale, "%.0f", kes)
 }
 
 @Composable
