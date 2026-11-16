@@ -3,11 +3,11 @@ package com.kedevjimmy.pesatrack.planning
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
 import android.view.View
-import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import com.kedevjimmy.pesatrack.MainActivity
@@ -38,34 +38,28 @@ class PhoneNoticeDesignTest {
             val description = root.findViewById<TextView>(R.id.notice_description)
             assertEquals(context.getColor(R.color.notice_text), title.currentTextColor)
             assertEquals(context.getColor(R.color.notice_secondary), description.currentTextColor)
-            assertNotNull(root.findViewById<ImageView>(R.id.notice_category_icon))
+            assertNull(root.findViewById<View>(R.id.notice_category_icon))
         }
     }
 
     @Test
-    fun categoryIllustrationStaysWithinRightSideOfBothTemplates() {
+    fun notificationTemplatesHaveNoLargeIconOrAccentStripe() {
         for (id in listOf(R.layout.notice_pesatrack_compact, R.layout.notice_pesatrack_expanded)) {
-            val root = LayoutInflater.from(context).inflate(id, null)
-            root.findViewById<TextView>(R.id.notice_badge).text = "SALARY"
-            root.findViewById<TextView>(R.id.notice_title).text = "Has your salary arrived?"
-            root.findViewById<TextView>(R.id.notice_description).text =
-                "No salary entry found after your expected payday."
-            val width = (320 * context.resources.displayMetrics.density).toInt()
-            root.measure(
-                View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.AT_MOST)
-            )
-            root.layout(0, 0, root.measuredWidth, root.measuredHeight)
-            val icon = root.findViewById<ImageView>(R.id.notice_category_icon)
-            var position = icon.left
-            var parent = icon.parent
-            while (parent is View && parent !== root) {
-                position += parent.left
-                parent = parent.parent
-            }
-            assertTrue("Illustration should be on the right side", position > root.width / 2)
-            assertTrue("Illustration should not be clipped", position + icon.width <= root.width)
+            val root = LayoutInflater.from(context).inflate(id, null) as LinearLayout
+            assertNull("The category icon is no longer shown on the right", root.findViewById<View>(R.id.notice_category_icon))
+            assertEquals("No decorative edge stripe", 1, root.childCount)
         }
+    }
+
+    @Test
+    fun expandedActionIsPlainReadableTextWithoutButtonOrUnderline() {
+        val root = LayoutInflater.from(context).inflate(R.layout.notice_pesatrack_expanded, null)
+        val action = root.findViewById<TextView>(R.id.notice_action)
+        assertNull("Action should not have a filled button background", action.background)
+        assertEquals(context.getColor(R.color.notice_coffee), action.currentTextColor)
+        assertEquals(0, action.paintFlags and Paint.UNDERLINE_TEXT_FLAG)
+        assertTrue("Action is tall enough to tap", action.layoutParams.height >=
+            (48 * context.resources.displayMetrics.density).toInt())
     }
 
     @Test
