@@ -58,7 +58,7 @@ internal fun BrownHomeHero(available: String, onAccounts: () -> Unit, partial: B
                 .fillMaxWidth(.80f).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Your available money", color = p.white,
+            Text("Your available money", color = Color.White,
                 fontFamily = FontFamily.Cursive, fontStyle = FontStyle.Italic,
                 fontSize = 21.sp)
             Text(available, color = Color.White,
