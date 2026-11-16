@@ -23,6 +23,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,6 +38,7 @@ import com.kedevjimmy.pesatrack.ui.screens.StartupSplashScreen
 import com.kedevjimmy.pesatrack.ui.screens.AppLockScreen
 import com.kedevjimmy.pesatrack.ui.screens.MandatoryAppLockSetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.SecureAppLockDialog
+import com.kedevjimmy.pesatrack.ui.screens.LocalFinancialContentUnlocked
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 import kotlinx.coroutines.delay
@@ -232,6 +234,7 @@ class MainActivity : ComponentActivity() {
                                 else androidx.compose.ui.Modifier
                             )
                         ) {
+                            CompositionLocalProvider(LocalFinancialContentUnlocked provides (!appLocked && !pinRecoveryAuthorized)) {
                             PesaTrackApp(
                     salaryOpenRequest = if (appLocked || pinRecoveryAuthorized) 0 else salaryOpenRequest,
                     billsOpenRequest = if (appLocked || pinRecoveryAuthorized) 0 else billsOpenRequest,
@@ -272,6 +275,7 @@ class MainActivity : ComponentActivity() {
                         AutomaticHistoryRepair.scheduleIfAllowed(this@MainActivity)
                     }
                 )
+                            }
                         }
                         if (pinRecoveryAuthorized) {
                             SecureAppLockDialog {
