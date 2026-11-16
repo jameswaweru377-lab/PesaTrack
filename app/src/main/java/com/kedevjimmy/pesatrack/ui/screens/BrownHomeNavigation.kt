@@ -36,6 +36,32 @@ internal object BrownHomePalette {
     val white = Color.White
 }
 
+/** Dark variants reuse the same Home layout and ledger-backed values. */
+internal data class HomeColors(
+    val canvas: Color, val ink: Color, val coffee: Color, val muted: Color,
+    val cream: Color, val outline: Color, val attention: Color, val white: Color
+)
+
+@Composable
+internal fun homeColors(): HomeColors {
+    val dark = MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas
+    return if (dark) HomeColors(
+        canvas = PremiumVisualTokens.darkCanvas,
+        ink = PremiumVisualTokens.darkText,
+        coffee = Color(0xFF874923),
+        muted = PremiumVisualTokens.darkMuted,
+        cream = PremiumVisualTokens.darkSurface,
+        outline = PremiumVisualTokens.darkBorder,
+        attention = Color(0xFFE6AD82),
+        white = PremiumVisualTokens.darkCard
+    ) else HomeColors(
+        canvas = BrownHomePalette.canvas, ink = BrownHomePalette.ink,
+        coffee = BrownHomePalette.coffee, muted = BrownHomePalette.muted,
+        cream = BrownHomePalette.cream, outline = BrownHomePalette.outline,
+        attention = BrownHomePalette.attention, white = BrownHomePalette.white
+    )
+}
+
 @Composable
 internal fun BrownHomeHeader(onNotifications: () -> Unit) {
     val p = MaterialTheme.colorScheme
