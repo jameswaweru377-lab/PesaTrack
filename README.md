@@ -45,7 +45,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 
 ### Five places to find what matters
 
-**Home** for your available money and accounts · **Activity** for transactions and reviews · **Plan** for spendable money, budgets and bills · **Accounts** for banks and wallets · **Profile** for Money Wellness, a vertical Statements / Import statements / Reports / Pay cycle workspace and a dedicated Settings page. Profile's three-dot menu provides personal information, photo and background options. The separate More landing and hamburger drawer have been retired; older More links redirect safely to Profile.
+**Home** for your available money and accounts · **Activity** for transactions and reviews · **Plan** for spendable money, budgets and bills · **Accounts** for banks and wallets · **Profile** for Money Wellness, a vertical Statements / Import statements / Reports / Pay cycle workspace and a dedicated Settings page. Profile's three-dot menu provides personal information, photo and background options. The separate More landing and hamburger drawer have been retired; older More links redirect safely to Profile. Category icons use a shared colour-coded visual vocabulary in the category chooser and Activity, while Settings and Profile workspace rows have roomier spacing.
 
 > **Screenshots:** A gallery of real, privacy-safe screens will be added after device capture and review. Unlocked screens can temporarily be captured for private UI feedback, so redact personal transactions, account numbers, and statement details before sharing. No private records will be published as examples.
 

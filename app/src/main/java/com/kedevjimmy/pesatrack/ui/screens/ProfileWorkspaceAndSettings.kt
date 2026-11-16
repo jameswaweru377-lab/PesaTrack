@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -24,7 +25,7 @@ internal fun ProfileMoneyWorkspace(
     reports: () -> Unit, payCycle: () -> Unit
 ) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Money workspace", style = MaterialTheme.typography.titleLarge,
             color = P.ink, fontWeight = FontWeight.Bold)
         Surface(
@@ -50,8 +51,8 @@ internal fun ProfileMoneyWorkspace(
 
 @Composable
 internal fun ProfileSettingsEntry(onSettings: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Settings", style = MaterialTheme.typography.titleLarge,
             color = P.ink, fontWeight = FontWeight.Bold)
         Surface(
@@ -73,12 +74,17 @@ private fun ProfileWorkspaceRow(
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick)
             .heightIn(min = PesaDesignTokens.minimumTouchTarget)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = P.coffee,
-            modifier = Modifier.size(24.dp))
+        Surface(shape = RoundedCornerShape(PesaDesignTokens.iconRadius),
+            color = P.sand, modifier = Modifier.size(PesaDesignTokens.iconBubble)) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = P.coffee,
+                    modifier = Modifier.size(24.dp))
+            }
+        }
         Column(Modifier.weight(1f)) {
             Text(name, color = P.ink, style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold)
@@ -122,8 +128,8 @@ internal fun ProfileSettingsHub(
     )
     LazyColumn(
         Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -143,7 +149,7 @@ internal fun ProfileSettingsHub(
 private fun SettingsSection(
     title: String, entries: List<SettingsDestination>, onDestination: (String) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold, color = P.coffee)
         Surface(
