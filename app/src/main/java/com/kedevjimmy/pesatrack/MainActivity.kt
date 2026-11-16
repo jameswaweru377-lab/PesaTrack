@@ -147,10 +147,10 @@ class MainActivity : ComponentActivity() {
                 mutableStateOf(
                     runCatching {
                         ThemeMode.valueOf(
-                            preferences.getString("theme_mode", ThemeMode.LIGHT.name)
-                                ?: ThemeMode.LIGHT.name
+                            preferences.getString("theme_mode", ThemeMode.SYSTEM.name)
+                                ?: ThemeMode.SYSTEM.name
                         )
-                    }.getOrDefault(ThemeMode.LIGHT)
+                    }.getOrDefault(ThemeMode.SYSTEM)
                 )
             }
             var setupComplete by remember {
@@ -165,8 +165,13 @@ class MainActivity : ComponentActivity() {
                 showLaunchSplash = false
             }
 
-            // PesaTrack now uses the approved light visual system throughout.
-            val useDark = false
+            // Follow the phone by default; an explicit app choice overrides the system.
+            val systemDark = isSystemInDarkTheme()
+            val useDark = when (themeMode) {
+                ThemeMode.SYSTEM -> systemDark
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
 
             androidx.compose.runtime.SideEffect {
                 val darkSurface = useDark || (appLocked && appLockManager.isEnabled()) || (!showLaunchSplash && welcomeVisible)

@@ -42,7 +42,7 @@ import java.util.Date
 /** Single ledger-backed Home balance hero; no pager or second promotional slide. */
 @Composable
 internal fun BrownHomeHero(available: String, onAccounts: () -> Unit, partial: Boolean = false) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Box(
         Modifier.fillMaxWidth().height(176.dp)
             .clip(RoundedCornerShape(24.dp))
@@ -58,17 +58,17 @@ internal fun BrownHomeHero(available: String, onAccounts: () -> Unit, partial: B
                 .fillMaxWidth(.80f).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Your available money", color = p.white,
+            Text("Your available money", color = Color.White,
                 fontFamily = FontFamily.Cursive, fontStyle = FontStyle.Italic,
                 fontSize = 21.sp)
-            Text(available, color = p.white,
+            Text(available, color = Color.White,
                 fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold,
                 fontSize = 27.sp, lineHeight = 30.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 if (partial) "Partial balance · after unpaid bills"
                 else "After unpaid bills",
-                color = p.white, fontSize = 12.sp, maxLines = 2
+                color = Color.White, fontSize = 12.sp, maxLines = 2
             )
         }
     }
@@ -81,7 +81,7 @@ internal fun BrownHomeShortcuts(
     onActivity: () -> Unit, onAccounts: () -> Unit, onBudgets: () -> Unit,
     onGoals: () -> Unit, onDebts: () -> Unit, onReports: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val shortcuts = listOf(
         BrownShortcut("Activity", Icons.Rounded.BarChart),
         BrownShortcut("Accounts", Icons.Rounded.AccountBalanceWallet),
@@ -97,11 +97,12 @@ internal fun BrownHomeShortcuts(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Surface(Modifier.size(48.dp), shape = CircleShape,
-                    color = if (index == 0) p.coffee else p.white,
+                    color = if (index == 0 && p.canvas == Color(0xFF080706)) BrownHomePalette.coffee
+                            else if (index == 0) p.coffee else p.white,
                     shadowElevation = 2.dp) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(shortcut.icon, shortcut.label, Modifier.size(24.dp),
-                            tint = if (index == 0) p.white else p.coffee)
+                            tint = if (index == 0) Color.White else if (p.canvas == Color(0xFF080706)) Color(0xFFE6AD82) else p.coffee)
                     }
                 }
                 Text(shortcut.label, color = p.ink, fontSize = 10.sp, maxLines = 1)
@@ -112,7 +113,7 @@ internal fun BrownHomeShortcuts(
 
 @Composable
 internal fun BrownHomeSectionTitle(title: String, action: String, onAction: () -> Unit) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Text(title, Modifier.weight(1f), color = p.ink, fontSize = 20.sp,
@@ -136,7 +137,7 @@ internal fun BrownHomeAccounts(
     groups: List<TrackedAccountGroup>, balances: List<PaydayAccountSnapshot>,
     money: (Long) -> String, onAccounts: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         BrownHomeSectionTitle("Your accounts", "View all", onAccounts)
         if (groups.isEmpty()) {
@@ -162,7 +163,7 @@ internal fun BrownHomeAccounts(
 private fun BrownAccountTile(name: String, balance: String,
     modifier: Modifier, onClick: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Surface(modifier.heightIn(min = 76.dp).clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp), color = p.white,
         border = androidx.compose.foundation.BorderStroke(1.dp, p.outline)) {
@@ -185,7 +186,7 @@ internal fun BrownHomeUpcoming(
     items: List<ReferenceUpcomingEntry>, onPlan: () -> Unit,
     onBills: () -> Unit, onSalary: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         BrownHomeSectionTitle("Coming up", "View plan", onPlan)
         Surface(color = p.cream, shape = RoundedCornerShape(16.dp)) {
@@ -226,7 +227,7 @@ internal fun BrownHomeUpcoming(
 internal fun BrownHomeMonthlySnapshot(
     month: String, spending: String, onReports: () -> Unit, onMonth: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Box(Modifier.fillMaxWidth().height(124.dp).clip(RoundedCornerShape(20.dp))) {
         Image(painterResource(R.drawable.home_brown_monthly_coins), null,
             Modifier.matchParentSize(), contentScale = ContentScale.Crop)
@@ -234,41 +235,49 @@ internal fun BrownHomeMonthlySnapshot(
             0f to Color(0x88FFE8D1), .52f to Color(0x33FFE8D1), 1f to Color.Transparent)))
         Column(Modifier.align(Alignment.CenterStart).padding(start = 16.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("MONTHLY SNAPSHOT", color = p.coffee, fontSize = 10.sp,
+            Text("MONTHLY SNAPSHOT", color = BrownHomePalette.coffee, fontSize = 10.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = .4.sp)
-            Text("${month.substringBefore(' ')} spending", color = p.ink,
+            Text("${month.substringBefore(' ')} spending", color = BrownHomePalette.ink,
                 fontFamily = FontFamily.Serif, fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold, maxLines = 1)
-            Text("$spending recorded", color = p.ink, fontSize = 12.sp,
+            Text("$spending recorded", color = BrownHomePalette.ink, fontSize = 12.sp,
                 fontWeight = FontWeight.Medium)
             Box(Modifier.heightIn(min = 48.dp).clickable(onClick = onReports),
                 contentAlignment = Alignment.CenterStart) {
-                Row(Modifier.height(40.dp).clip(CircleShape).background(p.coffee)
+                Row(Modifier.height(40.dp).clip(CircleShape).background(if (p.canvas == Color(0xFF080706)) BrownHomePalette.coffee else p.coffee)
                     .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("VIEW REPORT", color = p.white, fontSize = 10.sp,
+                    Text("VIEW REPORT", color = Color.White, fontSize = 10.sp,
                         fontWeight = FontWeight.Bold)
-                    Icon(Icons.Rounded.ArrowForward, null, Modifier.size(17.dp), tint = p.white)
+                    Icon(Icons.Rounded.ArrowForward, null, Modifier.size(17.dp), tint = Color.White)
                 }
             }
         }
         Box(Modifier.align(Alignment.TopEnd).padding(4.dp).size(48.dp)
             .clickable(onClick = onMonth), contentAlignment = Alignment.Center) {
-            Box(Modifier.size(40.dp).clip(CircleShape).background(p.coffee),
+            Box(Modifier.size(40.dp).clip(CircleShape).background(if (p.canvas == Color(0xFF080706)) BrownHomePalette.coffee else p.coffee),
                 contentAlignment = Alignment.Center) {
                 Text(month.take(3).uppercase(), fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold, color = p.white)
+                    fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
     }
 }
+
+private fun homeReadableMovementColor(direction: MoneyDirection, dark: Boolean): Color =
+    if (!dark) moneyMovementColor(direction) else when (direction) {
+        MoneyDirection.INCOME -> Color(0xFFB5D58D)
+        MoneyDirection.EXPENSE -> Color(0xFFFF9CA6)
+        MoneyDirection.TRANSFER -> Color(0xFF9FCAFF)
+        else -> Color(0xFFD5C8C0)
+    }
 
 @Composable
 internal fun BrownHomeRecent(
     rows: List<StoredTransaction>, money: (Long) -> String,
     onOpen: (Long) -> Unit, onSeeAll: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val locale = LocalConfiguration.current.locales[0]
     val timeFormat = remember(locale) { SimpleDateFormat("d MMM · h:mm a", locale) }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -295,9 +304,10 @@ internal fun BrownHomeRecent(
                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
                     .background(p.cream), contentAlignment = Alignment.Center) {
                     Icon(icon, null, Modifier.size(21.dp),
-                        tint = moneyMovementColor(
+                        tint = homeReadableMovementColor(
                             runCatching { MoneyDirection.valueOf(row.direction) }
-                                .getOrDefault(MoneyDirection.NEUTRAL)
+                                .getOrDefault(MoneyDirection.NEUTRAL),
+                            p.canvas == Color(0xFF080706)
                         ))
                 }
                 Column(Modifier.weight(1f)) {
@@ -308,9 +318,10 @@ internal fun BrownHomeRecent(
                         color = p.muted, fontSize = 11.sp, maxLines = 1)
                 }
                 Text((if (income) "+" else if (expense) "−" else "") + money(row.amountMinor),
-                    color = moneyMovementColor(
+                    color = homeReadableMovementColor(
                         runCatching { MoneyDirection.valueOf(row.direction) }
-                            .getOrDefault(MoneyDirection.NEUTRAL)
+                            .getOrDefault(MoneyDirection.NEUTRAL),
+                        p.canvas == Color(0xFF080706)
                     ), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
             HorizontalDivider(color = p.outline.copy(alpha = .35f))
@@ -320,7 +331,7 @@ internal fun BrownHomeRecent(
 
 @Composable
 internal fun BrownHomeReviewStatus(pending: Int?, onReview: () -> Unit) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
         .clip(RoundedCornerShape(12.dp)).background(p.cream)
         .clickable(onClick = onReview).padding(horizontal = 12.dp, vertical = 8.dp),
@@ -344,7 +355,7 @@ internal fun BrownHomeFinancialInsight(
     trustedRowCount: Int,
     onOpenReports: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val (headline, description) = homeInsightCardText(guidance, trustedRowCount)
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
         .background(p.cream).clickable(onClick = onOpenReports)
