@@ -51,7 +51,7 @@ object PhoneNotificationPreview {
             PhoneAlertType.BILL -> PhoneNoticeDesign.Illustration.HOME to "View bills"
             PhoneAlertType.SALARY -> PhoneNoticeDesign.Illustration.WALLET to "View salary"
             PhoneAlertType.BUDGET -> PhoneNoticeDesign.Illustration.BUDGET to "Check budget"
-            PhoneAlertType.REVIEW -> PhoneNoticeDesign.Illustration.REVIEW to "Review activity"
+            PhoneAlertType.REVIEW -> PhoneNoticeDesign.Illustration.REVIEW to "Review now"
             PhoneAlertType.GOAL -> PhoneNoticeDesign.Illustration.TARGET to "View goal"
             PhoneAlertType.DEBT -> PhoneNoticeDesign.Illustration.PEOPLE to "View money owed"
             PhoneAlertType.DATA -> PhoneNoticeDesign.Illustration.SHIELD to "Review data"
