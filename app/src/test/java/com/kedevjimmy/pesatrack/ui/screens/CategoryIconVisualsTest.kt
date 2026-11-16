@@ -32,7 +32,7 @@ class CategoryIconVisualsTest {
             categoryIconVisual("Transfer"),
             activityCategoryIconVisual("Other", MoneyDirection.TRANSFER)
         )
-        for (label in listOf("Savings", "Investments")) {
+        for (label in listOf("Savings", "Investments", "Debt repayment")) {
             assertEquals(
                 categoryIconVisual(label),
                 activityCategoryIconVisual(label, MoneyDirection.TRANSFER)

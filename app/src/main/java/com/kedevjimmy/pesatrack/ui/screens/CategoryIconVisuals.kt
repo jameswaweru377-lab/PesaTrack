@@ -67,7 +67,10 @@ internal fun activityCategoryIconVisual(
 ): CategoryIconVisual = when {
     direction == MoneyDirection.TRANSFER &&
         !label.contains("saving", ignoreCase = true) &&
-        !label.contains("invest", ignoreCase = true) -> categoryIconVisual("Transfer")
+        !label.contains("invest", ignoreCase = true) &&
+        !label.contains("debt", ignoreCase = true) &&
+        !label.contains("loan", ignoreCase = true) &&
+        !label.contains("repayment", ignoreCase = true) -> categoryIconVisual("Transfer")
     direction == MoneyDirection.INCOME &&
         (label.equals("Other", ignoreCase = true) ||
             label.equals("Uncategorized", ignoreCase = true)) -> categoryIconVisual("Income")
