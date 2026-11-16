@@ -366,7 +366,7 @@ private fun ReportsTrendCard(
                         verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Rounded.LabelOutline, contentDescription = null,
+                            Icon(Icons.Rounded.Label, contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSecondaryContainer)
                             Text("$otherShare% of category spending is labelled Other",
                                 style = MaterialTheme.typography.bodyMedium,
