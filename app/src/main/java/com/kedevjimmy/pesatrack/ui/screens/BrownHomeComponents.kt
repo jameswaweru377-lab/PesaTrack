@@ -263,7 +263,6 @@ internal fun BrownHomeMonthlySnapshot(
     }
 }
 
-@Composable
 private fun homeReadableMovementColor(direction: MoneyDirection, dark: Boolean): Color =
     if (!dark) moneyMovementColor(direction) else when (direction) {
         MoneyDirection.INCOME -> Color(0xFFB5D58D)
@@ -272,6 +271,7 @@ private fun homeReadableMovementColor(direction: MoneyDirection, dark: Boolean):
         else -> Color(0xFFD5C8C0)
     }
 
+@Composable
 internal fun BrownHomeRecent(
     rows: List<StoredTransaction>, money: (Long) -> String,
     onOpen: (Long) -> Unit, onSeeAll: () -> Unit
