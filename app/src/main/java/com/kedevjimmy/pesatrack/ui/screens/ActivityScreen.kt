@@ -800,6 +800,11 @@ fun ActivityScreen(
     val possibleDuplicateIds = (displaySnapshot ?: snapshot).possibleDuplicates
         .flatMap { listOf(it.first.id, it.second.id) }
         .toSet()
+    // Match Money In rows to the same trusted ledger used by the headline total.
+    // Uncertain receipts remain in Needs Review, never silently counted as income.
+    val trustedIncomeIds = (displaySnapshot ?: snapshot).trustedTransactions
+        .asSequence().filter { it.direction == MoneyDirection.INCOME.name }
+        .map { it.id }.toSet()
     val filtered = (if (payCycleMode && !periodReady) emptyList() else (displaySnapshot ?: snapshot).transactions).filter { item ->
         if (item.reviewState == ReviewState.EXCLUDED.name) {
             return@filter false
@@ -822,7 +827,7 @@ fun ActivityScreen(
                     item.direction == MoneyDirection.EXPENSE.name
                 "Invested" -> isActivityConfirmedInvestmentBuy(item)
                 "Money In" ->
-                    item.direction == MoneyDirection.INCOME.name
+                    item.id in trustedIncomeIds
                 "Transfers" ->
                     item.direction == MoneyDirection.TRANSFER.name &&
                         item.relationType !=
