@@ -234,16 +234,16 @@ internal fun BrownHomeMonthlySnapshot(
             0f to Color(0x88FFE8D1), .52f to Color(0x33FFE8D1), 1f to Color.Transparent)))
         Column(Modifier.align(Alignment.CenterStart).padding(start = 16.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("MONTHLY SNAPSHOT", color = p.coffee, fontSize = 10.sp,
+            Text("MONTHLY SNAPSHOT", color = BrownHomePalette.coffee, fontSize = 10.sp,
                 fontWeight = FontWeight.Bold, letterSpacing = .4.sp)
-            Text("${month.substringBefore(' ')} spending", color = p.ink,
+            Text("${month.substringBefore(' ')} spending", color = BrownHomePalette.ink,
                 fontFamily = FontFamily.Serif, fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold, maxLines = 1)
-            Text("$spending recorded", color = p.ink, fontSize = 12.sp,
+            Text("$spending recorded", color = BrownHomePalette.ink, fontSize = 12.sp,
                 fontWeight = FontWeight.Medium)
             Box(Modifier.heightIn(min = 48.dp).clickable(onClick = onReports),
                 contentAlignment = Alignment.CenterStart) {
-                Row(Modifier.height(40.dp).clip(CircleShape).background(p.coffee)
+                Row(Modifier.height(40.dp).clip(CircleShape).background(if (p.canvas == Color(0xFF080706)) BrownHomePalette.coffee else p.coffee)
                     .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("VIEW REPORT", color = Color.White, fontSize = 10.sp,
@@ -254,7 +254,7 @@ internal fun BrownHomeMonthlySnapshot(
         }
         Box(Modifier.align(Alignment.TopEnd).padding(4.dp).size(48.dp)
             .clickable(onClick = onMonth), contentAlignment = Alignment.Center) {
-            Box(Modifier.size(40.dp).clip(CircleShape).background(p.coffee),
+            Box(Modifier.size(40.dp).clip(CircleShape).background(if (p.canvas == Color(0xFF080706)) BrownHomePalette.coffee else p.coffee),
                 contentAlignment = Alignment.Center) {
                 Text(month.take(3).uppercase(), fontSize = 12.sp,
                     fontWeight = FontWeight.Bold, color = Color.White)
