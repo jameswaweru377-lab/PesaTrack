@@ -264,6 +264,14 @@ internal fun BrownHomeMonthlySnapshot(
 }
 
 @Composable
+private fun homeReadableMovementColor(direction: MoneyDirection, dark: Boolean): Color =
+    if (!dark) moneyMovementColor(direction) else when (direction) {
+        MoneyDirection.INCOME -> Color(0xFFB5D58D)
+        MoneyDirection.EXPENSE -> Color(0xFFFF9CA6)
+        MoneyDirection.TRANSFER -> Color(0xFF9FCAFF)
+        else -> Color(0xFFD5C8C0)
+    }
+
 internal fun BrownHomeRecent(
     rows: List<StoredTransaction>, money: (Long) -> String,
     onOpen: (Long) -> Unit, onSeeAll: () -> Unit
@@ -295,9 +303,10 @@ internal fun BrownHomeRecent(
                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
                     .background(p.cream), contentAlignment = Alignment.Center) {
                     Icon(icon, null, Modifier.size(21.dp),
-                        tint = moneyMovementColor(
+                        tint = homeReadableMovementColor(
                             runCatching { MoneyDirection.valueOf(row.direction) }
-                                .getOrDefault(MoneyDirection.NEUTRAL)
+                                .getOrDefault(MoneyDirection.NEUTRAL),
+                            p.canvas == Color(0xFF080706)
                         ))
                 }
                 Column(Modifier.weight(1f)) {
@@ -308,9 +317,10 @@ internal fun BrownHomeRecent(
                         color = p.muted, fontSize = 11.sp, maxLines = 1)
                 }
                 Text((if (income) "+" else if (expense) "−" else "") + money(row.amountMinor),
-                    color = moneyMovementColor(
+                    color = homeReadableMovementColor(
                         runCatching { MoneyDirection.valueOf(row.direction) }
-                            .getOrDefault(MoneyDirection.NEUTRAL)
+                            .getOrDefault(MoneyDirection.NEUTRAL),
+                        p.canvas == Color(0xFF080706)
                     ), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
             HorizontalDivider(color = p.outline.copy(alpha = .35f))
