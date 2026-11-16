@@ -23,6 +23,7 @@ object PhoneNoticeDesign {
     }
 
     /** Android / Redmi decides the card corners, status header and expansion chevron. */
+    @Suppress("UNUSED_PARAMETER") // Keep the illustration argument for existing alert callers.
     fun apply(
         builder: NotificationCompat.Builder,
         context: Context,
@@ -34,14 +35,14 @@ object PhoneNoticeDesign {
         open: PendingIntent,
         supportingText: String? = null
     ): NotificationCompat.Builder {
-        val compact = content(context, R.layout.notice_pesatrack_compact, badge, title, description, art)
-        val expanded = content(context, R.layout.notice_pesatrack_expanded, badge, title, description, art)
+        val compact = content(context, R.layout.notice_pesatrack_compact, badge, title, description)
+        val expanded = content(context, R.layout.notice_pesatrack_expanded, badge, title, description)
         if (!supportingText.isNullOrBlank()) {
             expanded.setTextViewText(R.id.notice_supporting, supportingText)
             expanded.setViewVisibility(R.id.notice_supporting, View.VISIBLE)
         }
-        // A single rounded action is easier to see than an underlined link.
-        expanded.setTextViewText(R.id.notice_action, "$action  →")
+        // An unboxed text action is less visually noisy and remains tappable.
+        expanded.setTextViewText(R.id.notice_action, action)
         expanded.setOnClickPendingIntent(R.id.notice_action, open)
         return builder
             .setSmallIcon(R.drawable.ic_pesatrack_notification)
@@ -63,13 +64,11 @@ object PhoneNoticeDesign {
         layout: Int,
         badge: String,
         title: String,
-        description: String,
-        art: Illustration
+        description: String
     ): RemoteViews = RemoteViews(context.packageName, layout).apply {
         setTextViewText(R.id.notice_badge, badge)
         setTextViewText(R.id.notice_title, title)
         setTextViewText(R.id.notice_description, description)
-        setImageViewResource(R.id.notice_category_icon, art.drawable)
     }
 
 }

@@ -56,7 +56,7 @@ internal fun ProfileEditorialHome(
     Column(Modifier.fillMaxSize().background(C.cream).padding(padding)) {
         Column(
             modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ProfileCoverHeader(name, avatar, back, personal)
             Box(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {

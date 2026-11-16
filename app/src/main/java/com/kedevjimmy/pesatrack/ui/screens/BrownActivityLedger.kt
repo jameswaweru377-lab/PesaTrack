@@ -4,9 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.HelpOutline
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -15,8 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -105,8 +100,8 @@ internal fun BrownActivityRow(
                         color = p.cream) {
                         Box(Modifier.size(PesaDesignTokens.iconBubble),
                             contentAlignment = Alignment.Center) {
-                            Icon(brownActivityCategoryIcon(categoryId, direction), null,
-                                Modifier.size(21.dp), tint = p.ink)
+                            val visual = activityCategoryIconVisual(categories.labelFor(categoryId), direction)
+                            Icon(visual.icon, null, Modifier.size(21.dp), tint = visual.tint)
                         }
                     }
                     if (needsReview) {
@@ -149,17 +144,3 @@ internal fun BrownActivityRow(
         }
     }
 }
-
-private fun brownActivityCategoryIcon(category: String, direction: MoneyDirection): ImageVector =
-    when {
-        direction == MoneyDirection.TRANSFER -> Icons.Rounded.SyncAlt
-        direction == MoneyDirection.INCOME -> Icons.Rounded.Work
-        category.contains("GROCER", true) || category.contains("SHOP", true) ->
-            Icons.Rounded.Storefront
-        category.contains("RENT", true) || category.contains("HOUS", true) -> Icons.Rounded.Home
-        category.contains("FOOD", true) || category.contains("EAT", true) -> Icons.Rounded.Restaurant
-        category.contains("ELECT", true) -> Icons.Rounded.Bolt
-        category.contains("INTERNET", true) -> Icons.Rounded.Wifi
-        category.contains("PHONE", true) -> Icons.Rounded.PhoneAndroid
-        else -> Icons.AutoMirrored.Rounded.HelpOutline
-    }
