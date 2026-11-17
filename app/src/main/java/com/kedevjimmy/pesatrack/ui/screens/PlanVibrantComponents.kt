@@ -713,11 +713,19 @@ private fun VibrantBreakdownResult(available: String) {
             .clip(RoundedCornerShape(16.dp))
             .background(
                 Brush.linearGradient(
-                    listOf(
-                        PremiumVisualTokens.sand,
-                        PremiumVisualTokens.cream,
-                        PremiumVisualTokens.sandBorder
-                    )
+                    if (MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas) {
+                        listOf(
+                            PremiumVisualTokens.darkSurface,
+                            PremiumVisualTokens.darkCard,
+                            PremiumVisualTokens.darkSurface
+                        )
+                    } else {
+                        listOf(
+                            PremiumVisualTokens.sand,
+                            PremiumVisualTokens.cream,
+                            PremiumVisualTokens.sandBorder
+                        )
+                    }
                 )
             )
     ) {
@@ -734,7 +742,7 @@ private fun VibrantBreakdownResult(available: String) {
         ) {
             Text(
                 "Available after commitments",
-                color = PremiumVisualTokens.coffee,
+                color = MaterialTheme.colorScheme.primary,
                 fontSize = 14.sp, lineHeight = 19.sp,
                 fontWeight = FontWeight.ExtraBold
             )
