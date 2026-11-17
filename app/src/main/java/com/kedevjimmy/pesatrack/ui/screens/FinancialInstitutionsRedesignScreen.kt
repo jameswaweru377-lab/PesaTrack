@@ -138,7 +138,7 @@ fun FinancialInstitutionsRedesignScreen(scaffoldPadding: PaddingValues, onBack: 
     val chosen = options.filter { it.reference.providerKey in owned }
     val available = options.filterNot { it.reference.providerKey in owned }
 
-    LazyColumn(modifier = Modifier.padding(scaffoldPadding).background(BrownHomePalette.canvas),
+    LazyColumn(modifier = Modifier.padding(scaffoldPadding).background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(horizontal = PesaDesignTokens.screenHorizontalPadding,
             vertical = PesaDesignTokens.screenVerticalPadding),
         verticalArrangement = Arrangement.spacedBy(PesaDesignTokens.sectionGap)) {
@@ -146,7 +146,7 @@ fun FinancialInstitutionsRedesignScreen(scaffoldPadding: PaddingValues, onBack: 
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.CheckCircle, contentDescription = null,
-                    tint = BrownHomePalette.coffee)
+                    tint = MaterialTheme.colorScheme.primary)
                 Text("Selections save automatically", modifier = Modifier.padding(start = 10.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -158,8 +158,8 @@ fun FinancialInstitutionsRedesignScreen(scaffoldPadding: PaddingValues, onBack: 
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
                 shape = RoundedCornerShape(PesaDesignTokens.innerRadius), singleLine = true,
                 colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = BrownHomePalette.coffee,
-                    focusedLeadingIconColor = BrownHomePalette.coffee))
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedLeadingIconColor = MaterialTheme.colorScheme.primary))
         }
         item {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -168,8 +168,8 @@ fun FinancialInstitutionsRedesignScreen(scaffoldPadding: PaddingValues, onBack: 
                     FilterChip(selected = filter == label, onClick = { filter = label },
                         label = { Text(if (label == "Selected") "Selected (${owned.size})" else label) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = BrownHomePalette.cream,
-                            selectedLabelColor = BrownHomePalette.coffee))
+                            selectedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            selectedLabelColor = MaterialTheme.colorScheme.primary))
                 }
             }
         }
@@ -187,7 +187,7 @@ fun FinancialInstitutionsRedesignScreen(scaffoldPadding: PaddingValues, onBack: 
         if (!loading && chosen.isNotEmpty()) {
             item { Text("Selected accounts", style = MaterialTheme.typography.titleLarge,
                 fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold,
-                color = BrownHomePalette.coffee) }
+                color = MaterialTheme.colorScheme.primary) }
             item { InstitutionOptionGroup(chosen, owned, saving, identifiers,
                 onToggle = { option, next -> persist(option, next, identifiers[option.reference.providerKey]) },
                 onEdit = { editing = it }) }
@@ -195,7 +195,7 @@ fun FinancialInstitutionsRedesignScreen(scaffoldPadding: PaddingValues, onBack: 
         if (!loading && available.isNotEmpty()) {
             item { Text("More institutions", style = MaterialTheme.typography.titleLarge,
                 fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold,
-                color = BrownHomePalette.coffee) }
+                color = MaterialTheme.colorScheme.primary) }
             item { InstitutionOptionGroup(available, owned, saving, identifiers,
                 onToggle = { option, next -> persist(option, next, identifiers[option.reference.providerKey]) },
                 onEdit = { editing = it }) }
@@ -244,9 +244,9 @@ private fun InstitutionPickerHeader(busy: Boolean, onBack: () -> Unit) {
         }
         Text("Add account", modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Serif, color = BrownHomePalette.coffee)
+            fontFamily = FontFamily.Serif, color = MaterialTheme.colorScheme.primary)
         TextButton(onClick = onBack, enabled = !busy) {
-            Text("Done", color = BrownHomePalette.coffee)
+            Text("Done", color = MaterialTheme.colorScheme.primary)
         }
     }
 }
@@ -258,13 +258,13 @@ private fun InstitutionOptionGroup(
     onEdit: (FinancialInstitutionOption) -> Unit
 ) {
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        color = Color.White,
-        border = BorderStroke(PesaDesignTokens.cardOutlineWidth, BrownHomePalette.outline)) {
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(PesaDesignTokens.cardOutlineWidth, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.padding(horizontal = 12.dp)) {
             options.forEachIndexed { index, option ->
                 InstitutionOptionRow(option, option.reference.providerKey in owned, busy,
                     identifiers[option.reference.providerKey].orEmpty(), onToggle, onEdit)
-                if (index != options.lastIndex) HorizontalDivider(color = BrownHomePalette.outline.copy(alpha = .55f))
+                if (index != options.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f))
             }
         }
     }
@@ -283,7 +283,7 @@ private fun InstitutionOptionRow(
         AccountProviderMark(option.reference.displayName)
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
             Text(compactAccountLabel(option.reference.displayName), style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold, color = BrownHomePalette.ink)
+                fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             Text(when (option.reference.accountTypeHint) {
                 AccountType.BANK -> "Bank"
                 AccountType.SAVINGS -> "Savings"
@@ -296,7 +296,7 @@ private fun InstitutionOptionRow(
         if (selected && option.requiresIdentifier) IconButton(onClick = { onEdit(option) },
             enabled = !busy) { Icon(Icons.Rounded.Edit, contentDescription = "Edit account number") }
         Checkbox(checked = selected, colors = CheckboxDefaults.colors(
-            checkedColor = BrownHomePalette.coffee),
+            checkedColor = MaterialTheme.colorScheme.primary),
             onCheckedChange = if (busy || locked) null else {
             { onToggle(option, it) }
         })
