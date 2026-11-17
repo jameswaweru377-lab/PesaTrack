@@ -124,12 +124,12 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                 }
                 Column(Modifier.weight(1f)) {
                     Text("Pay cycle", style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold, color = HomeMonochromePalette.ink)
+                        fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     if (selected != null) Text(
                         salaryDisplayDate(selected.startEpochMs) + " – " +
                             (selected.endEpochMs?.let(::salaryDisplayDate) ?: "Now"),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = HomeMonochromePalette.muted)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 IconButton(onClick = { showHelp = true }) { Icon(Icons.Rounded.Info, "How pay cycles work") }
             }
@@ -194,7 +194,7 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                             shape = RoundedCornerShape(16.dp),
                             color = Color.White,
                             border = androidx.compose.foundation.BorderStroke(
-                                1.dp, PlanVibrant.outline
+                                1.dp, MaterialTheme.colorScheme.outlineVariant
                             )
                         ) {
                             Row(
@@ -202,21 +202,21 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(Icons.Rounded.Info, contentDescription = null,
-                                    tint = PlanVibrant.blue,
+                                    tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(21.dp))
                                 Column(
                                     Modifier.weight(1f).padding(start = 10.dp)
                                 ) {
                                     Text("Cycle breakdown", fontWeight = FontWeight.Bold,
-                                        color = PlanVibrant.ink)
+                                        color = MaterialTheme.colorScheme.onSurface)
                                     Text("Carryover, transfers, fees and accounting",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = PlanVibrant.muted)
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Icon(
                                     if (showCycleBreakdown) Icons.Rounded.ExpandLess
                                     else Icons.Rounded.ExpandMore,
-                                    contentDescription = null, tint = PlanVibrant.muted
+                                    contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -248,7 +248,7 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                                 )
                                 Text("A planning figure, not an account balance.",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = PlanVibrant.muted)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 previous?.let { prior ->
                                     Text(
                                         "Previous cycle spent " + salaryMoney(prior.summary.spentMinor),
