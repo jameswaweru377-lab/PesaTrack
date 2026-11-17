@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import com.kedevjimmy.pesatrack.data.local.PaydayAccountSnapshot
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
@@ -266,9 +267,9 @@ internal fun BrownHomeMonthlySnapshot(
 
 private fun homeReadableMovementColor(direction: MoneyDirection, dark: Boolean): Color =
     if (!dark) moneyMovementColor(direction) else when (direction) {
-        MoneyDirection.INCOME -> Color(0xFFB5D58D)
-        MoneyDirection.EXPENSE -> Color(0xFFFF9CA6)
-        MoneyDirection.TRANSFER -> Color(0xFF9FCAFF)
+        MoneyDirection.INCOME -> PremiumVisualTokens.darkMoneyIn
+        MoneyDirection.EXPENSE -> PremiumVisualTokens.darkMoneyOut
+        MoneyDirection.TRANSFER -> PremiumVisualTokens.darkTransfer
         else -> Color(0xFFD5C8C0)
     }
 

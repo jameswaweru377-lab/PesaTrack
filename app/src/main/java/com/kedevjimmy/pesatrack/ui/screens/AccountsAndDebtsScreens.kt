@@ -300,7 +300,7 @@ fun AccountsScreen(
     val accountNames = remember(presentations, archivedAccounts) {
         (presentations.flatMap { it.group.accounts } + archivedAccounts).associate { it.id to it.name }
     }
-    LazyColumn(modifier = Modifier.padding(scaffoldPadding).background(BrownHomePalette.canvas),
+    LazyColumn(modifier = Modifier.padding(scaffoldPadding).background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // An already-visible balance list must not jump down for an

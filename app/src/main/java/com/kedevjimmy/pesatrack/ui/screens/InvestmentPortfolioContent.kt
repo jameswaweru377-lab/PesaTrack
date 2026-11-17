@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.material3.MaterialTheme
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -59,20 +61,20 @@ internal fun InvestmentPortfolioContent(
     onBack: () -> Unit
 ) {
     LazyColumn(
-        modifier = Modifier.padding(padding).fillMaxSize().background(BrownHomePalette.canvas),
+        modifier = Modifier.padding(padding).fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = brown)
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = MaterialTheme.colorScheme.onSurface)
                 }
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Investments", style = MaterialTheme.typography.headlineMedium,
-                        fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = brown)
+                        fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                     Text("YOUR MONEY, YOUR PLANS", style = MaterialTheme.typography.labelSmall,
-                        color = secondaryBrown)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(Modifier.width(48.dp))
             }
@@ -87,7 +89,7 @@ internal fun InvestmentPortfolioContent(
         }
         item {
             Text("Your holdings", style = MaterialTheme.typography.headlineSmall,
-                fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = brown)
+                fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         }
         if (positions.isEmpty()) item {
             InvestmentNotice("No confirmed investment units found yet. Submitted orders and IPO applications are not holdings.")
@@ -97,7 +99,7 @@ internal fun InvestmentPortfolioContent(
         }
         item {
             Text("Investment history", style = MaterialTheme.typography.headlineSmall,
-                fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = brown)
+                fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         }
         if (events.isEmpty()) item {
             InvestmentNotice("Purchases and submitted orders will appear here when supported messages are recognised.")
@@ -107,10 +109,10 @@ internal fun InvestmentPortfolioContent(
         }
         item {
             Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.Top) {
-                Icon(Icons.Rounded.Info, null, tint = secondaryBrown, modifier = Modifier.size(20.dp))
+                Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Offline record only. Units reflect observed executions, not verified brokerage balances. Market values, dividends and IPO allotments remain unavailable until supported evidence is confirmed.",
-                    style = MaterialTheme.typography.bodySmall, color = secondaryBrown)
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -140,34 +142,34 @@ private fun InvestmentGrowthHero() {
 
 @Composable
 private fun InvestmentMetric(value: String, label: String, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, color = Color.White, shape = RoundedCornerShape(16.dp),
+    Surface(modifier = modifier, color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, goldOutline)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(value, color = brown, style = MaterialTheme.typography.titleLarge,
+            Text(value, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold)
-            Text(label, color = secondaryBrown, style = MaterialTheme.typography.labelSmall)
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
 
 @Composable
 private fun InvestmentHoldingRow(position: ObservedInvestmentPosition) {
-    Surface(color = Color.White, shape = RoundedCornerShape(16.dp),
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, goldOutline)) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             InvestmentBrandMark(position.label)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(investmentCompanyName(position.label), color = brown,
+                Text(investmentCompanyName(position.label), color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${investmentTicker(position.label)} • Observed units", color = secondaryBrown,
+                Text("${investmentTicker(position.label)} • Observed units", color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall)
-                Text("Cost unavailable", color = secondaryBrown,
+                Text("Cost unavailable", color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall)
             }
             Text(NumberFormat.getNumberInstance(Locale.US).format(
                 position.quantityMicrounits / 1_000_000.0),
-                color = brown, fontWeight = FontWeight.Bold)
+                color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -190,27 +192,27 @@ private fun InvestmentBrandMark(label: String) {
 @Composable
 private fun InvestmentEventRow(event: ObservedInvestmentEvent) {
     val locale = LocalConfiguration.current.locales[0]
-    Surface(color = Color.White, shape = RoundedCornerShape(16.dp),
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, goldOutline)) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             InvestmentBrandMark(event.instrumentLabel)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(investmentEventTitle(event), color = brown, fontWeight = FontWeight.SemiBold)
+                Text(investmentEventTitle(event), color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
                 Text("${event.instrumentLabel} • ${SimpleDateFormat("d MMM yyyy", locale).format(Date(event.occurredAtEpochMs))}",
-                    color = secondaryBrown, style = MaterialTheme.typography.bodySmall)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
             Text(event.valueMinor?.let(::formatKesAmount) ?: "Amount unknown",
-                color = brown, style = MaterialTheme.typography.bodySmall)
+                color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
 
 @Composable
 private fun InvestmentNotice(message: String) {
-    Surface(color = Color.White, shape = RoundedCornerShape(16.dp),
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, goldOutline)) {
-        Text(message, Modifier.padding(16.dp), color = secondaryBrown,
+        Text(message, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium)
     }
 }

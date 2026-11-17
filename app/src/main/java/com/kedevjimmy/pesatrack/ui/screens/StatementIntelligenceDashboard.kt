@@ -326,7 +326,7 @@ internal fun StatementIntelligenceDashboard(
     }
     BackHandler { back() }
 
-    Surface(modifier.fillMaxSize(), color = HomeReferencePalette.canvas) {
+    Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(Modifier.fillMaxSize()) {
                 if (!bankSelected && page in setOf(StatementPage.CATEGORIES, StatementPage.TRENDS,
                         StatementPage.TRANSACTIONS, StatementPage.DEBTS, StatementPage.BROWSE)) {
@@ -1066,7 +1066,7 @@ internal fun StatementIntelligenceDashboard(
                                         Row(Modifier.fillMaxWidth(),
                                             verticalAlignment = Alignment.CenterVertically) {
                                             Icon(Icons.Rounded.Description, null,
-                                                tint = HomeReferencePalette.purple)
+                                                tint = MaterialTheme.colorScheme.primary)
                                             Spacer(Modifier.width(9.dp))
                                             Column(Modifier.weight(1f)) {
                                                 Text("Imported ${statementDate(batch.recordedAt)}",
@@ -1075,7 +1075,7 @@ internal fun StatementIntelligenceDashboard(
                                                     (if (batch.totalsIndependentlyVerified)
                                                         "Checked" else "Saved"),
                                                     style = MaterialTheme.typography.bodySmall,
-                                                    color = HomeReferencePalette.muted)
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
                                             IconButton(onClick = {
                                                 deleteTarget = batch

@@ -45,6 +45,36 @@ internal object HomeMonochromePalette {
     val dark = PremiumVisualTokens.coffee
 }
 
+/** Theme-aware colours for shared compact Home and Plan widgets. */
+internal data class HomeMonochromeColors(
+    val canvas: Color, val surface: Color, val ink: Color, val muted: Color,
+    val line: Color, val green: Color, val softGreen: Color, val dark: Color
+)
+
+@Composable
+internal fun homeMonochromeColors(): HomeMonochromeColors {
+    val night = MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas
+    return if (night) HomeMonochromeColors(
+        canvas = PremiumVisualTokens.darkCanvas,
+        surface = PremiumVisualTokens.darkCard,
+        ink = PremiumVisualTokens.darkText,
+        muted = PremiumVisualTokens.darkMuted,
+        line = PremiumVisualTokens.darkBorder,
+        green = PremiumVisualTokens.darkMoneyIn,
+        softGreen = PremiumVisualTokens.darkSurface,
+        dark = PremiumVisualTokens.darkSurface
+    ) else HomeMonochromeColors(
+        canvas = HomeMonochromePalette.canvas,
+        surface = HomeMonochromePalette.surface,
+        ink = HomeMonochromePalette.ink,
+        muted = HomeMonochromePalette.muted,
+        line = HomeMonochromePalette.line,
+        green = HomeMonochromePalette.green,
+        softGreen = HomeMonochromePalette.softGreen,
+        dark = HomeMonochromePalette.dark
+    )
+}
+
 @Composable
 internal fun MonochromeAvailableMoney(
     available: String,
@@ -56,7 +86,7 @@ internal fun MonochromeAvailableMoney(
     month: String,
     onMonth: () -> Unit
 ) {
-    val p = HomeMonochromePalette
+    val p = homeMonochromeColors()
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
         color = p.surface) {
         Column(Modifier.padding(horizontal = 14.dp, vertical = 13.dp)) {
@@ -114,7 +144,7 @@ private fun MonochromeMoneyMetric(icon: ImageVector, label: String, amount: Stri
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.size(35.dp).background(Color.White, CircleShape),
             contentAlignment = Alignment.Center) {
-            Icon(icon, null, Modifier.size(21.dp), tint = HomeMonochromePalette.ink)
+            Icon(icon, null, Modifier.size(21.dp), tint = homeMonochromeColors().ink)
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(label, color = Color(0xFFC3C8C3), fontSize = 12.sp)
@@ -132,17 +162,18 @@ private fun MonochromeMoneyMetric(icon: ImageVector, label: String, amount: Stri
 private fun MonochromeSectionTitle(text: String, count: String? = null) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(text, fontSize = 18.sp, fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.4).sp, color = HomeMonochromePalette.ink,
+            letterSpacing = (-0.4).sp, color = homeMonochromeColors().ink,
             modifier = Modifier.weight(1f))
-        if (count != null) Text(count, fontSize = 13.sp, color = HomeMonochromePalette.muted)
+        if (count != null) Text(count, fontSize = 13.sp, color = homeMonochromeColors().muted)
     }
 }
 
 @Composable
-private fun MonochromeRowIcon(icon: ImageVector, iconColor: Color = HomeMonochromePalette.ink) {
+private fun MonochromeRowIcon(icon: ImageVector, iconColor: Color = Color.Unspecified) {
+    val resolvedIconColor = if (iconColor == Color.Unspecified) homeMonochromeColors().ink else iconColor
     Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp))
-        .background(HomeMonochromePalette.softGreen), contentAlignment = Alignment.Center) {
-        Icon(icon, null, Modifier.size(21.dp), tint = iconColor)
+        .background(homeMonochromeColors().softGreen), contentAlignment = Alignment.Center) {
+        Icon(icon, null, Modifier.size(21.dp), tint = resolvedIconColor)
     }
 }
 
@@ -157,18 +188,18 @@ internal fun MonochromeRadar(pending: Int?, onClick: () -> Unit) {
             MonochromeRowIcon(Icons.Rounded.ReceiptLong)
             Column(Modifier.weight(1f)) {
                 Text(if (count > 0) "Review a transaction" else "You're all caught up",
-                    color = HomeMonochromePalette.ink, fontSize = 14.sp,
+                    color = homeMonochromeColors().ink, fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold)
                 Text(if (pending == null) "Review status is unavailable"
                      else if (count > 0) "$count item${if (count == 1) "" else "s"} need your attention"
                      else "Nothing currently needs review",
-                    color = HomeMonochromePalette.muted, fontSize = 12.sp,
+                    color = homeMonochromeColors().muted, fontSize = 12.sp,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Icon(Icons.Rounded.ChevronRight, "Open review", Modifier.size(22.dp),
-                tint = HomeMonochromePalette.ink)
+                tint = homeMonochromeColors().ink)
         }
-        HorizontalDivider(color = HomeMonochromePalette.line)
+        HorizontalDivider(color = homeMonochromeColors().line)
     }
 }
 
@@ -187,7 +218,7 @@ internal fun MonochromeAccounts(
                 MonochromeRowIcon(Icons.Rounded.AccountBalanceWallet)
                 Spacer(Modifier.width(12.dp))
                 Text("Connect or confirm your accounts", Modifier.weight(1f),
-                    fontSize = 13.sp, color = HomeMonochromePalette.muted)
+                    fontSize = 13.sp, color = homeMonochromeColors().muted)
             } else {
                 groups.take(2).forEachIndexed { index, group ->
                     val snapshots = balances.filter { it.accountId in group.accountIds }
@@ -202,7 +233,7 @@ internal fun MonochromeAccounts(
                         }?.let(money) ?: "Balance unavailable"
                     }
                     if (index > 0) Box(Modifier.width(1.dp).height(40.dp)
-                        .background(HomeMonochromePalette.line))
+                        .background(homeMonochromeColors().line))
                     Row(Modifier.weight(1f).padding(end = 3.dp, start = if (index == 0) 0.dp else 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -214,18 +245,18 @@ internal fun MonochromeAccounts(
                                 else -> group.displayName
                             }
                             Text(shortName, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                                color = HomeMonochromePalette.ink, maxLines = 1,
+                                color = homeMonochromeColors().ink, maxLines = 1,
                                 overflow = TextOverflow.Ellipsis)
                             Text(displayBalance, fontSize = 11.sp,
-                                color = HomeMonochromePalette.muted)
+                                color = homeMonochromeColors().muted)
                         }
                     }
                 }
             }
             Icon(Icons.Rounded.ChevronRight, "Open accounts", Modifier.size(21.dp),
-                tint = HomeMonochromePalette.ink)
+                tint = homeMonochromeColors().ink)
         }
-        HorizontalDivider(color = HomeMonochromePalette.line)
+        HorizontalDivider(color = homeMonochromeColors().line)
     }
 }
 
@@ -236,7 +267,7 @@ internal fun MonochromeUpcoming(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         MonochromeSectionTitle("Coming up")
         if (items.isEmpty()) {
-            Text("Nothing scheduled yet", color = HomeMonochromePalette.muted,
+            Text("Nothing scheduled yet", color = homeMonochromeColors().muted,
                 modifier = Modifier.padding(vertical = 12.dp), fontSize = 13.sp)
         }
         items.take(2).forEach { item ->
@@ -248,7 +279,7 @@ internal fun MonochromeUpcoming(
                 onClick = if (item.isSalary) onSalary else onBills
             )
         }
-        HorizontalDivider(color = HomeMonochromePalette.line)
+        HorizontalDivider(color = homeMonochromeColors().line)
     }
 }
 
@@ -263,13 +294,13 @@ private fun MonochromeDetailRow(
         MonochromeRowIcon(icon)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(title, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                color = HomeMonochromePalette.ink, maxLines = 1,
+                color = homeMonochromeColors().ink, maxLines = 1,
                 overflow = TextOverflow.Ellipsis)
-            Text(subtitle, fontSize = 12.sp, color = HomeMonochromePalette.muted,
+            Text(subtitle, fontSize = 12.sp, color = homeMonochromeColors().muted,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Text(amount, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-            color = if (positive) HomeMonochromePalette.green else HomeMonochromePalette.ink,
+            color = if (positive) homeMonochromeColors().green else homeMonochromeColors().ink,
             maxLines = 2)
     }
 }
@@ -284,7 +315,7 @@ internal fun MonochromeRecent(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         MonochromeSectionTitle("Latest activity")
         if (rows.isEmpty()) {
-            Text("No recorded activity in this period", color = HomeMonochromePalette.muted,
+            Text("No recorded activity in this period", color = homeMonochromeColors().muted,
                 modifier = Modifier.fillMaxWidth().clickable(onClick = onSeeAll)
                     .padding(vertical = 14.dp), fontSize = 13.sp)
         }

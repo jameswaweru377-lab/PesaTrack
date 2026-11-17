@@ -748,7 +748,7 @@ fun TransactionDetailScreen(
     } ?: "Needs review"
 
     val detailBackground = Brush.verticalGradient(listOf(
-        BrownHomePalette.canvas, BrownHomePalette.canvas
+        MaterialTheme.colorScheme.background, MaterialTheme.colorScheme.background
     ))
     LazyColumn(
         modifier = Modifier.testTag("transaction-details-list")
@@ -801,7 +801,7 @@ fun TransactionDetailScreen(
                 if (availableSources.isEmpty()) {
                     Text("No additional transaction source has been matched.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = BrownHomePalette.muted)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else availableSources.forEach { source ->
                     val name = when(source.sourceKind) {
                         "STATEMENT" -> "Statement record"
@@ -813,15 +813,15 @@ fun TransactionDetailScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.Link, null, Modifier.size(18.dp),
-                            tint = BrownHomePalette.coffee)
+                            tint = MaterialTheme.colorScheme.primary)
                         Column {
                             Text(name, style = MaterialTheme.typography.bodyMedium,
-                                color = BrownHomePalette.ink)
+                                color = MaterialTheme.colorScheme.onSurface)
                             Text(if (source.needsReview) "Needs recheck after correction"
                                 else if (source.reason == "REFERENCE") "Matched by reference"
                                 else "Source evidence recorded",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = BrownHomePalette.muted)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -875,7 +875,7 @@ if (current.reviewState == ReviewState.USER_CLASSIFIED.name &&
                     Surface(
                         modifier = Modifier.fillMaxWidth()
                             .testTag("remember-category-action"),
-                        color = BrownHomePalette.coffee,
+                        color = MaterialTheme.colorScheme.primary,
                         shape = RoundedCornerShape(20.dp)
                     ) {
                         Row(
@@ -2286,7 +2286,7 @@ private fun TransactionAnnotationDialog(
     onRemoveReceipt: () -> Unit
 ) {
     val context = LocalContext.current
-    val p = BrownHomePalette
+    val p = homeColors()
     var note by remember(
         transaction.id,
         annotation.note

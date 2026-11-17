@@ -1,5 +1,18 @@
 # PesaTrack Current State
 
+_App-wide premium coffee-black dark-mode completion pass (17 November 2026; CI and real-phone acceptance pending):_
+The selected dark theme is being applied to reachable Home balance-review notices,
+Activity, Plan, budget and bill components, investment and account-detail cards,
+transaction details, Profile, Settings, Appearance, help and money-habits surfaces.
+The default continues to follow Android appearance with saved Light/Dark overrides.
+Shared surfaces now use the active Compose colour scheme; photo-backed money and
+Nairobi artwork remains intact. The approved cream/coffee light design is preserved.
+No financial calculation, ledger posting, message ingestion, permission, backup,
+accounting classification or navigation behavior is intentionally changed.
+Android CLI, lint, contrast review and device-wide visual acceptance are required
+before claiming every screen has passed, particularly rarely visited dialogs and
+screen-specific charts. Instrumentation and emulator tests are deliberately skipped.
+
 _Reports & Insights cream redesign (16 November 2026; CI/device acceptance pending):_
 The Reports page now uses a centred title and stemless back chevron, plain
 date selector, compact single spending summary, contextual comparison and

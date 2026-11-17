@@ -62,6 +62,30 @@ internal object HomeReferencePalette {
     val line = HomeMonochromePalette.line
 }
 
+/** Shared legacy reference palette, resolved against the actual light/dark theme. */
+internal data class HomeReferenceColors(
+    val canvas: Color, val ink: Color, val muted: Color,
+    val purple: Color, val violet: Color, val green: Color,
+    val red: Color, val blue: Color, val line: Color
+)
+
+@Composable
+internal fun homeReferenceColors(): HomeReferenceColors {
+    val mono = homeMonochromeColors()
+    val night = MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas
+    return HomeReferenceColors(
+        canvas = mono.canvas,
+        ink = mono.ink,
+        muted = mono.muted,
+        purple = if (night) PremiumVisualTokens.darkCoffee else HomeReferencePalette.purple,
+        violet = if (night) PremiumVisualTokens.darkCoffee else HomeReferencePalette.violet,
+        green = if (night) PremiumVisualTokens.darkMoneyIn else HomeReferencePalette.green,
+        red = if (night) PremiumVisualTokens.darkMoneyOut else HomeReferencePalette.red,
+        blue = if (night) PremiumVisualTokens.darkTransfer else HomeReferencePalette.blue,
+        line = mono.line
+    )
+}
+
 @Composable
 internal fun ReferenceHomeHeader(
     onNotifications: () -> Unit,
@@ -69,7 +93,7 @@ internal fun ReferenceHomeHeader(
     profileInitial: String,
     profilePhoto: ImageBitmap? = null
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     val locale = LocalConfiguration.current.locales[0]
     Row(
         Modifier.fillMaxWidth()
@@ -158,16 +182,16 @@ internal fun ReferenceHomeGreeting(name: String) {
     Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Text(greeting + name.takeIf { it.isNotBlank() }?.let { ", $it" }.orEmpty(),
             fontSize = 24.sp, letterSpacing = (-0.8).sp, lineHeight = 29.sp,
-            fontWeight = FontWeight.Bold, color = HomeReferencePalette.ink)
+            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         Text("Here’s your money at a glance.", fontSize = 14.sp,
-            color = HomeReferencePalette.muted, lineHeight = 20.sp)
+            color = MaterialTheme.colorScheme.onSurfaceVariant, lineHeight = 20.sp)
     }
 }
 
 @Composable
 internal fun ReferenceHomeHero(amount: String, month: String, onMonth: () -> Unit,
                                onPlan: () -> Unit, onAccounts: () -> Unit) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     var visible by rememberSaveable { mutableStateOf(true) }
     Box(
         Modifier.fillMaxWidth().height(154.dp).clip(RoundedCornerShape(21.dp))
@@ -252,7 +276,7 @@ internal fun ReferenceHomeMonth(
     budgetTotal: String, incomeVsPrior: String, spendingVsPrior: String,
     budgetProgress: Float?, onMonth: () -> Unit
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     ReferenceSurface {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("This month", fontWeight = FontWeight.Bold, fontSize = 17.sp,
@@ -317,7 +341,7 @@ internal fun ReferenceHomeMonth(
 
 @Composable
 internal fun ReferenceHomeAttention(count: Int, onClick: () -> Unit) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 55.dp),
         shape = RoundedCornerShape(16.dp), color = Color(0xFFFFF3E9)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
@@ -349,7 +373,7 @@ internal fun ReferenceHomeUpcoming(
     onSeeAll: () -> Unit,
     onSalary: () -> Unit = onSeeAll
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     ReferenceSurface {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Upcoming", fontSize = 16.sp, fontWeight = FontWeight.Bold,
@@ -419,7 +443,7 @@ internal fun ReferenceHomeRecent(
     rows: List<StoredTransaction>, money: (Long) -> String,
     onOpen: (Long) -> Unit, onSeeAll: () -> Unit
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     val now = remember { System.currentTimeMillis() }
     val locale = LocalConfiguration.current.locales[0]
     ReferenceSurface {

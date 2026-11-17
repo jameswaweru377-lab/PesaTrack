@@ -67,7 +67,7 @@ internal fun BrownActivityHeading(
     onMonth: () -> Unit,
     onCycle: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Row(Modifier.fillMaxWidth().padding(bottom = 12.dp)
         .heightIn(min = PesaDesignTokens.minimumTouchTarget),
         verticalAlignment = Alignment.CenterVertically,
@@ -82,7 +82,7 @@ internal fun BrownActivityHeading(
                     Box(Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         contentAlignment = Alignment.Center) {
                         Text(mode, fontSize = 12.sp,
-                            color = if (active) Color.White else p.coffee,
+                            color = if (active) MaterialTheme.colorScheme.onPrimary else p.coffee,
                             fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
                     }
                 }
@@ -109,7 +109,7 @@ internal fun BrownActivityMonthlyHero(
     payCycleMode: Boolean,
     balance: ActivityRecordedBalance?
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val totals = remember(snapshot) { activityDesign3Totals(snapshot) }
     Box(Modifier.fillMaxWidth().height(172.dp)
         .clip(RoundedCornerShape(PesaDesignTokens.cardRadius))) {
@@ -139,7 +139,9 @@ internal fun BrownActivityMonthlyHero(
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     BrownActivityMinorMetric("Money in", totals.incomeMinor,
-                        Modifier.weight(1f), PremiumVisualTokens.moneyIn)
+                        Modifier.weight(1f),
+                        if (p.canvas == PremiumVisualTokens.darkCanvas)
+                            PremiumVisualTokens.darkMoneyIn else PremiumVisualTokens.moneyIn)
                     BrownActivityMinorMetric(
                         if (balance?.partial == true) "Partial balance" else "Balance",
                         balance?.amountMinor, Modifier.weight(1f)
@@ -154,13 +156,13 @@ internal fun BrownActivityMonthlyHero(
 @Composable
 private fun BrownActivityMinorMetric(
     label: String, minor: Long?, modifier: Modifier,
-    valueColor: Color = BrownHomePalette.ink
+    valueColor: Color = Color.Unspecified
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Column(modifier.padding(horizontal = 4.dp),
         verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Text(label, color = p.ink, fontSize = 10.sp, maxLines = 1)
-        Text(minor?.let(::activityKesLabel) ?: "Unavailable", color = valueColor,
+        Text(minor?.let(::activityKesLabel) ?: "Unavailable", color = if (valueColor == Color.Unspecified) p.ink else valueColor,
             fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1,
             overflow = TextOverflow.Ellipsis)
     }
@@ -168,7 +170,7 @@ private fun BrownActivityMinorMetric(
 
 @Composable
 internal fun BrownActivityReview(count: Int, onReview: () -> Unit) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Surface(onClick = onReview, modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(PesaDesignTokens.innerRadius), color = p.cream) {
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
@@ -188,7 +190,7 @@ internal fun BrownActivityReview(count: Int, onReview: () -> Unit) {
 internal fun BrownActivitySearch(
     query: String, onQuery: (String) -> Unit, onFilters: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Surface(Modifier.weight(1f).heightIn(min = 48.dp),
@@ -221,7 +223,7 @@ internal fun BrownActivitySearch(
 
 @Composable
 internal fun BrownActivitySegmentedFilters(selected: String, onSelect: (String) -> Unit) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val state = rememberLazyListState()
     LaunchedEffect(selected) {
         brownActivityFilters.indexOfFirst { it.key == selected }.takeIf { it >= 0 }
@@ -241,7 +243,7 @@ internal fun BrownActivitySegmentedFilters(selected: String, onSelect: (String) 
                         contentAlignment = Alignment.Center) {
                         Text(tab.label, fontSize = 11.sp,
                             fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                            color = if (active) p.white else p.ink, maxLines = 1)
+                            color = if (active) MaterialTheme.colorScheme.onPrimary else p.ink, maxLines = 1)
                     }
                 }
             }
@@ -251,7 +253,7 @@ internal fun BrownActivitySegmentedFilters(selected: String, onSelect: (String) 
 
 @Composable
 internal fun BrownActivityRecentHeading(onSeeAll: () -> Unit) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Text("Recent activity", Modifier.weight(1f), color = p.ink,

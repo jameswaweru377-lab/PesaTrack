@@ -26,7 +26,7 @@ internal fun StatementMonthlyLineChart(
     months: List<StatementMonthSpend>,
     onMonthClick: (Int) -> Unit
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     val ordered = (1..12).map { month -> months.firstOrNull { it.month == month } }
     val max = ordered.mapNotNull { it?.spentMinor }.maxOrNull()?.coerceAtLeast(1L) ?: 1L
     val description = ordered.mapIndexed { index, value ->

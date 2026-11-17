@@ -376,7 +376,7 @@ pendingBudgetRemoval?.let { candidate ->
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(BrownHomePalette.canvas),
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -394,8 +394,8 @@ pendingBudgetRemoval?.let { candidate ->
 
         item {
             Surface(shape = RoundedCornerShape(16.dp),
-                color = BrownHomePalette.white,
-                border = androidx.compose.foundation.BorderStroke(1.dp, BrownHomePalette.outline),
+                color = MaterialTheme.colorScheme.surface,
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 13.dp),
                     verticalAlignment = Alignment.CenterVertically) {
@@ -439,7 +439,7 @@ pendingBudgetRemoval?.let { candidate ->
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
-                    color = BrownHomePalette.cream
+                    color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Text(
                         "No budgets yet. Add your first spending limit.",
@@ -498,7 +498,7 @@ pendingBudgetRemoval?.let { candidate ->
             Button(
                 onClick = { categoryExpanded = !categoryExpanded },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = BrownHomePalette.coffee),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Icon(Icons.Rounded.Add, contentDescription = null)

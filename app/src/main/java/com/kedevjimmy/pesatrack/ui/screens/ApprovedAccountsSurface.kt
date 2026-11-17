@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.material3.MaterialTheme
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -74,28 +76,32 @@ internal fun ApprovedBalanceHero(
     Box(Modifier.fillMaxWidth().height(204.dp)) {
         Image(painterResource(R.drawable.accounts_balance_building), null,
             modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        if (MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas) {
+            Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .70f)))
+        }
         Column(Modifier.align(Alignment.CenterStart).padding(start = 12.dp, end = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(if (complete) "TOTAL ACROSS ACCOUNTS" else "RECORDED ACCOUNT BALANCES",
-                color = coffee, style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium,
                 letterSpacing = androidx.compose.ui.unit.TextUnit.Unspecified,
                 fontWeight = FontWeight.SemiBold)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(if (hidden) "••••••" else total?.let(::formatKesAmount) ?: "Unavailable",
-                    color = coffee, fontFamily = FontFamily.Serif,
+                    color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Serif,
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold, maxLines = 1,
                     modifier = Modifier.weight(1f, fill = false))
                 IconButton(onClick = onToggleHidden,
                     modifier = Modifier.padding(start = 5.dp)
-                        .background(Color.White.copy(alpha = .86f), CircleShape)) {
+                        .background(if (MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas)
+                            PremiumVisualTokens.darkSurface else Color.White.copy(alpha = .86f), CircleShape)) {
                     Icon(if (hidden) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                        if (hidden) "Show balances" else "Hide balances", tint = coffee)
+                        if (hidden) "Show balances" else "Hide balances", tint = MaterialTheme.colorScheme.primary)
                 }
             }
             Text(if (complete) "Balances from ${summary.accountCount} accounts"
                 else "Recorded: ${summary.recordedCount} of ${summary.accountCount} accounts · estimates excluded",
-                color = mutedCoffee,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
                 fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
         }
@@ -113,12 +119,12 @@ internal fun ApprovedAccountsList(lines: List<AccountDisplayLine>, savings: List
             if (onAdd != null) OutlinedButton(onClick = onAdd,
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 border = BorderStroke(1.dp, coffee)) {
-                Text("Add account", color = coffee)
-                Icon(Icons.Rounded.Add, null, Modifier.padding(start = 4.dp).size(18.dp), tint = coffee)
+                Text("Add account", color = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Rounded.Add, null, Modifier.padding(start = 4.dp).size(18.dp), tint = MaterialTheme.colorScheme.primary)
             }
         }
-        Surface(shape = RoundedCornerShape(22.dp), color = Color.White,
-            border = BorderStroke(1.dp, thinBorder)) {
+        Surface(shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
             Column(Modifier.padding(horizontal = 12.dp, vertical = 5.dp)) {
                 val hasMpesa = lines.any { it.name.contains("M-Pesa", true) }
                 lines.forEachIndexed { index, line ->
@@ -157,9 +163,9 @@ private fun AccountMainRow(line: AccountDisplayLine, hidden: Boolean, expandable
         verticalAlignment = Alignment.CenterVertically) {
         AccountProviderMark(line.name, Modifier.size(40.dp))
         Box(Modifier.padding(horizontal = 8.dp).width(1.dp).height(30.dp)
-            .background(thinBorder))
+            .background(MaterialTheme.colorScheme.outlineVariant))
         Text(compactAccountLabel(line.name), Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium, color = coffee,
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold, maxLines = 1,
             overflow = TextOverflow.Ellipsis)
@@ -167,12 +173,12 @@ private fun AccountMainRow(line: AccountDisplayLine, hidden: Boolean, expandable
             if (line.quality == com.kedevjimmy.pesatrack.data.local.PaydayBalanceQuality.RECONSTRUCTED)
                 "Est. ${formatKesAmount(it)}" else formatKesAmount(it)
         } ?: "—",
-            style = MaterialTheme.typography.bodySmall, color = coffee,
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.SemiBold, maxLines = 1)
         if (onBalanceClick != null) IconButton(onClick = onBalanceClick,
             modifier = Modifier.size(48.dp)) {
             Icon(Icons.Rounded.Edit, contentDescription = "Enter ${line.name} balance",
-                modifier = Modifier.size(20.dp), tint = coffee)
+                modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
         }
         Icon(if (expandable) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
             null, Modifier.padding(start = 4.dp).size(22.dp), tint = mutedCoffee)
@@ -196,17 +202,17 @@ private fun AccountSavingsBranches(savings: List<AccountDisplayLine>, hidden: Bo
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             savings.forEach { child ->
                 Row(Modifier.fillMaxWidth().heightIn(min = 53.dp)
-                    .clip(RoundedCornerShape(12.dp)).background(ivory)
+                    .clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface)
                     .clickable { child.accountId?.let { onAccountClick?.invoke(it) } }
                     .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Icon(if (child.name.contains("lock", true)) Icons.Rounded.Lock else Icons.Rounded.Savings,
                         null, Modifier.size(21.dp), tint = Color(0xFF9C5629))
                     Text(child.name, Modifier.weight(1f).padding(start = 10.dp),
-                        style = MaterialTheme.typography.bodyMedium, color = coffee,
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(if (hidden) "••••" else child.balanceMinor?.let(::formatKesAmount) ?: "—",
-                        style = MaterialTheme.typography.bodyMedium, color = coffee)
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -217,20 +223,20 @@ private fun AccountSavingsBranches(savings: List<AccountDisplayLine>, hidden: Bo
 internal fun ApprovedInvestmentEntry(positions: List<ObservedInvestmentPosition>, onOpen: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
         AccountHeading("Investments")
-        Surface(onClick = onOpen, shape = RoundedCornerShape(19.dp), color = Color.White,
-            border = BorderStroke(1.dp, thinBorder)) {
+        Surface(onClick = onOpen, shape = RoundedCornerShape(19.dp), color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
             Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(43.dp).background(Color(0xFFE3E8E9), RoundedCornerShape(7.dp)),
                     contentAlignment = Alignment.Center) {
                     Text("NSE", color = Color(0xFF30444E), fontWeight = FontWeight.ExtraBold)
                 }
-                Box(Modifier.padding(horizontal = 12.dp).width(1.dp).height(30.dp).background(thinBorder))
+                Box(Modifier.padding(horizontal = 12.dp).width(1.dp).height(30.dp).background(MaterialTheme.colorScheme.outlineVariant))
                 Text(if (positions.isEmpty()) "Shares & investments" else "Investment portfolio",
-                    modifier = Modifier.weight(1f), color = coffee,
+                    modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text("View portfolio", color = mutedCoffee,
+                Text("View portfolio", color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium)
-                Icon(Icons.Rounded.ChevronRight, null, Modifier.size(22.dp), tint = coffee)
+                Icon(Icons.Rounded.ChevronRight, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -242,12 +248,12 @@ internal fun ApprovedAccountActivity(rows: List<StoredTransaction>, accountNames
     val locale = LocalConfiguration.current.locales[0]
     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
         AccountHeading("Recent account activity")
-        Surface(shape = RoundedCornerShape(19.dp), color = Color.White,
-            border = BorderStroke(1.dp, thinBorder)) {
+        Surface(shape = RoundedCornerShape(19.dp), color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 5.dp)) {
                 if (rows.isEmpty()) Text("No account transfers or salary receipts yet",
                     Modifier.padding(vertical = 14.dp),
-                    color = mutedCoffee, style = MaterialTheme.typography.bodyMedium)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                 rows.take(3).forEachIndexed { index, transaction ->
                     if (index > 0) HorizontalDivider(color = thinBorder)
                     val salary = transaction.direction == "INCOME"
@@ -265,11 +271,11 @@ internal fun ApprovedAccountActivity(rows: List<StoredTransaction>, accountNames
                                     else PremiumVisualTokens.transfer)
                         }
                         Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                            Text(label, color = coffee, fontWeight = FontWeight.SemiBold,
+                            Text(label, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text((if (salary) "Money in" else "Transfer") + " · " +
                                 SimpleDateFormat("d MMM yyyy", locale).format(Date(transaction.occurredAtEpochMs)),
-                                color = mutedCoffee, style = MaterialTheme.typography.bodySmall)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                         }
                         Text(if (hidden) "••••" else formatKesAmount(transaction.amountMinor),
                             color = if (salary) PremiumVisualTokens.moneyIn
@@ -309,6 +315,6 @@ internal fun investmentTicker(label: String): String = when {
 @Composable
 private fun AccountHeading(title: String, modifier: Modifier = Modifier) {
     Text(title, modifier = modifier, fontFamily = FontFamily.Serif,
-        fontWeight = FontWeight.Bold, color = coffee,
+        fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
         style = MaterialTheme.typography.headlineSmall)
 }

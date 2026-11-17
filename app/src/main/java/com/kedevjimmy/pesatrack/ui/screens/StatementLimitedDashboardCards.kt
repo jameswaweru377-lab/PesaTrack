@@ -22,7 +22,7 @@ internal fun StatementLimitedDashboardCards(
     report: StatementGrandTotalReconciledPolicy.Report,
     largestOutflows: List<StatementBankArchiveStore.Leg>
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Surface(color = p.purple, shape = MaterialTheme.shapes.large,
             modifier = Modifier.fillMaxWidth()) {
@@ -65,7 +65,7 @@ internal fun StatementLimitedDashboardCards(
 
 @Composable
 private fun MovementTile(label: String, amount: Long, modifier: Modifier) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     Surface(modifier = modifier, shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -78,7 +78,7 @@ private fun MovementTile(label: String, amount: Long, modifier: Modifier) {
 
 @Composable
 private fun MonthlyMovementCard(months: List<StatementGrandTotalReconciledPolicy.Month>) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     val shown = months.take(12).asReversed()
     val maximum = shown.maxOfOrNull { maxOf(it.moneyInMinor, it.moneyOutMinor) } ?: 0L
     StatementInsightCard {

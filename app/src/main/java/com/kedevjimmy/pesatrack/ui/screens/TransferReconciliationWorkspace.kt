@@ -116,7 +116,7 @@ private fun TransferReconciliationContent(year: Int, labels: Map<String, String>
                                           onConfirm: (TransferReconciliationPolicy.Pair) -> Unit,
                                           onReject: (TransferReconciliationPolicy.Pair) -> Unit,
                                           onUndo: (TransferReconciliationPolicy.Pair) -> Unit) {
-    LazyColumn(Modifier.fillMaxSize().background(HomeReferencePalette.canvas).testTag("transfer-reconciliation"),
+    LazyColumn(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("transfer-reconciliation"),
         contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {

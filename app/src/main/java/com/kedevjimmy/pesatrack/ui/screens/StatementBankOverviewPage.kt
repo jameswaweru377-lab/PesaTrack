@@ -50,7 +50,7 @@ internal fun StatementBankOverviewPage(
     initialYear: Int? = null
 ) {
     val context = LocalContext.current
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     val scope = rememberCoroutineScope()
     val bankCategories = remember(context) { CategoryStore.get(context).all() }
     val bankCategoryLabels = remember(bankCategories) { bankCategories.associate { it.id to it.label } }
@@ -154,7 +154,7 @@ internal fun StatementBankOverviewPage(
         verticalArrangement = Arrangement.spacedBy(13.dp)) {
         item {
             Row(verticalAlignment=Alignment.Top) {
-                Surface(shape=RoundedCornerShape(16.dp),color=PremiumVisualTokens.sand) {
+                Surface(shape=RoundedCornerShape(16.dp),color=MaterialTheme.colorScheme.surfaceVariant) {
                     IconButton(onClick=if(chosenMonth==null) onBack else ({chosenMonth=null})) {
                         Icon(Icons.Rounded.ArrowBack,"Back",tint=p.ink)
                     }
@@ -165,7 +165,7 @@ internal fun StatementBankOverviewPage(
                     Text(if(chosenMonth==null) "Statement insights" else "Source details",
                         style=MaterialTheme.typography.bodyMedium,color=p.muted)
                     Box {
-                        Surface(shape=RoundedCornerShape(13.dp),color=Color.White,
+                        Surface(shape=RoundedCornerShape(13.dp),color=MaterialTheme.colorScheme.surface,
                             modifier=Modifier.clickable(enabled=availableAccounts.size>1){accountMenu=true}) {
                             Row(Modifier.padding(horizontal=10.dp,vertical=7.dp),
                                 verticalAlignment=Alignment.CenterVertically) {

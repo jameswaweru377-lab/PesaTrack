@@ -57,7 +57,7 @@ internal fun StatementUnifiedOverviewPage(
     limitedSources: List<StatementBankArchiveStore.Source> = emptyList(),
     reportAccountIds: List<String>? = null
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     val shortMonths = remember { DateFormatSymbols(Locale.ENGLISH).shortMonths }
     var yearMenu by remember { mutableStateOf(false) }
     var accountMenu by remember { mutableStateOf(false) }
@@ -116,7 +116,7 @@ internal fun StatementUnifiedOverviewPage(
                         letterSpacing = (-0.6).sp, color = p.ink)
                     Text("Explore your imported history.", color = p.muted, fontSize = 14.sp)
                 }
-                Surface(shape = CircleShape, color = PremiumVisualTokens.sand) {
+                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Rounded.Close, "Close Statements", tint = p.ink)
                     }
@@ -133,7 +133,7 @@ internal fun StatementUnifiedOverviewPage(
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 Box(Modifier.weight(.42f)) {
-                    Surface(color = PremiumVisualTokens.card, shape = RoundedCornerShape(14.dp),
+                    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth().clickable { yearMenu = true }) {
                         Row(Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
                             verticalAlignment = Alignment.CenterVertically) {
@@ -155,7 +155,7 @@ internal fun StatementUnifiedOverviewPage(
                     }
                 }
                 Box(Modifier.weight(.58f)) {
-                    Surface(color = PremiumVisualTokens.card, shape = RoundedCornerShape(14.dp),
+                    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.fillMaxWidth().clickable(enabled = accountInventory.accountIds.isNotEmpty()) {
                             accountMenu = true
                         }) {
@@ -244,7 +244,7 @@ internal fun StatementUnifiedOverviewPage(
                     Column(Modifier.fillMaxWidth().padding(23.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Surface(shape = CircleShape, color = PremiumVisualTokens.sand) {
+                        Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant) {
                             Icon(Icons.Rounded.Description, null, tint = p.purple,
                                 modifier = Modifier.padding(17.dp).size(31.dp))
                         }
@@ -412,7 +412,8 @@ internal fun StatementUnifiedOverviewPage(
                                 .padding(vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
                                 Surface(shape = RoundedCornerShape(13.dp),
-                                    color = if (bank) Color(0xFFFFE9E8) else Color(0xFFDDF8EB)) {
+                                    color = if (MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas) MaterialTheme.colorScheme.surfaceVariant
+                    else if (bank) Color(0xFFFFE9E8) else Color(0xFFDDF8EB)) {
                                     Icon(if (bank) Icons.Rounded.AccountBalance else Icons.Rounded.Smartphone,
                                         null, tint = if (bank) Color(0xFFCE3B2D) else Color(0xFF069C63),
                                         modifier = Modifier.padding(13.dp).size(21.dp))
@@ -426,7 +427,7 @@ internal fun StatementUnifiedOverviewPage(
                                         color = p.muted, fontSize = 12.sp)
                                 }
                                 if (row.monthsNeedingReview > 0) {
-                                    Surface(color = Color(0xFFFFF0DF), shape = RoundedCornerShape(9.dp)) {
+                                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(9.dp)) {
                                         Text("${row.monthsNeedingReview} review", color = Color(0xFFB96008),
                                             fontSize = 10.sp, modifier = Modifier.padding(5.dp))
                                     }
@@ -440,7 +441,7 @@ internal fun StatementUnifiedOverviewPage(
                 }
             }
             if (overview.monthsNeedingReview > 0) item {
-                Surface(shape = RoundedCornerShape(16.dp), color = Color(0xFFFFF2E5),
+                Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenReview)) {
                     Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.Info, null, tint = Color(0xFFE27D0E))
@@ -501,13 +502,13 @@ private fun StatementUnifiedMetricCard(
                         modifier = Modifier.padding(7.dp).size(19.dp))
                 }
                 Spacer(Modifier.width(7.dp))
-                Text(title, color = HomeReferencePalette.ink, fontSize = 12.sp,
+                Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold, maxLines = 1)
             }
-            Text(value, color = HomeReferencePalette.ink, fontSize = 17.sp,
+            Text(value, color = MaterialTheme.colorScheme.onSurface, fontSize = 17.sp,
                 fontWeight = FontWeight.ExtraBold, maxLines = 1,
                 overflow = TextOverflow.Ellipsis)
-            Text(subtitle, color = HomeReferencePalette.muted, fontSize = 10.sp,
+            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp,
                 maxLines = 2)
         }
     }

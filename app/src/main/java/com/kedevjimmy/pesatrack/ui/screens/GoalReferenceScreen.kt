@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.material3.MaterialTheme
+
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.foundation.Image
@@ -419,11 +421,11 @@ private fun GoalHero(
         }
         LinearProgressIndicator(progress = { progress }, Modifier.fillMaxWidth().height(9.dp)
             .clip(RoundedCornerShape(50.dp)),
-            color = PlanVibrant.violet, trackColor = MaterialTheme.colorScheme.surfaceVariant)
+            color = MaterialTheme.colorScheme.primary, trackColor = MaterialTheme.colorScheme.surfaceVariant)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Goal progress  •  " + (progress * 100).roundToInt() + "%",
                 style = MaterialTheme.typography.labelSmall,
-                color = PlanVibrant.violet)
+                color = MaterialTheme.colorScheme.primary)
             Text("Saved this month  " + goalMoney(currentMonthMinor),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -444,7 +446,7 @@ private fun GoalFilterChip(
         else MaterialTheme.colorScheme.surfaceVariant,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (selected) PlanVibrant.violet
+            if (selected) MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.outline
         )
     ) {
@@ -456,14 +458,14 @@ private fun GoalFilterChip(
                 group.icon,
                 null,
                 Modifier.size(17.dp),
-                tint = if (selected) PlanVibrant.violet
+                tint = if (selected) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 group.label,
                 modifier = Modifier.padding(start = 6.dp),
                 style = MaterialTheme.typography.labelMedium,
-                color = if (selected) PlanVibrant.violet
+                color = if (selected) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -774,7 +776,7 @@ fun SavingGoalsScreen(
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(BrownHomePalette.canvas)
+            .background(MaterialTheme.colorScheme.background)
             .testTag("saving-goals-list"),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -787,7 +789,7 @@ fun SavingGoalsScreen(
                 }
                 Text("Your savings goals", modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold, color = BrownHomePalette.ink)
+                    fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 OutlinedButton(onClick = { editingGoal = null; goalEditor = true },
                     modifier = Modifier.heightIn(min = 48.dp)) {
                     Icon(Icons.Rounded.Add, contentDescription = null)
@@ -797,7 +799,7 @@ fun SavingGoalsScreen(
             }
         }
         if (featured == null && loadError == null) item {
-            Surface(color = BrownHomePalette.cream,
+            Surface(color = MaterialTheme.colorScheme.surfaceVariant,
                 shape = RoundedCornerShape(PesaDesignTokens.cardRadius)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -819,7 +821,7 @@ fun SavingGoalsScreen(
             SelectedOtherGoal(model.title, model.savedMinor, model.targetMinor,
                 model.hasTotalTarget,
                 ::goalMoney) { selectedGoal = model }
-            HorizontalDivider(color = BrownHomePalette.outline)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
         if (featured != null) item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

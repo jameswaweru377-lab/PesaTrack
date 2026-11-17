@@ -1,5 +1,8 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
+
+import androidx.compose.material3.MaterialTheme
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -47,10 +50,10 @@ internal fun ProfileDetailTopBar(back: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp).heightIn(min = 52.dp),
         verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = back) {
-            Icon(Icons.Rounded.ChevronLeft, "Back to More", tint = C.ink)
+            Icon(Icons.Rounded.ChevronLeft, "Back to More", tint = MaterialTheme.colorScheme.onBackground)
         }
         Text("Profile", style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold, color = C.ink)
+            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)
     }
 }
 
@@ -86,7 +89,7 @@ internal fun ProfileCoverHeader(
         picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
 
-    Box(Modifier.fillMaxWidth().background(C.cream)) {
+    Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
         ProfileCoverArtwork(
             cover = coverPhoto, busy = busy, onBack = onBack,
             onPersonal = onAvatarEdit,
@@ -108,7 +111,7 @@ internal fun ProfileCoverHeader(
                     Modifier.align(Alignment.TopStart).padding(start = 24.dp, top = 60.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("Pesa\nTrack", color = C.coffee, fontFamily = FontFamily.Cursive,
+                    Text("Pesa\nTrack", color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Cursive,
                         fontSize = 26.sp, lineHeight = 24.sp, textAlign = TextAlign.Center)
                     Box(Modifier.padding(top = 4.dp).width(42.dp).height(2.dp)
                         .background(C.leaf, CircleShape))
@@ -129,7 +132,7 @@ private fun ProfileCoverArtwork(
     onEditCover: () -> Unit, onResetCover: () -> Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    Box(Modifier.fillMaxWidth().height(264.dp).background(C.sand)) {
+    Box(Modifier.fillMaxWidth().height(264.dp).background(MaterialTheme.colorScheme.surfaceVariant)) {
         if (cover == null) {
             Image(painterResource(R.drawable.profile_default_nairobi_cover),
                 "Default Nairobi cover photo", Modifier.fillMaxSize(),
@@ -141,10 +144,10 @@ private fun ProfileCoverArtwork(
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(
             0f to Color.Transparent,
             .28f to Color.Transparent,
-            .49f to C.cream.copy(alpha = .36f),
-            .72f to C.cream.copy(alpha = .90f),
-            .95f to C.cream,
-            1f to C.cream
+            .49f to MaterialTheme.colorScheme.background.copy(alpha = .36f),
+            .72f to MaterialTheme.colorScheme.background.copy(alpha = .90f),
+            .95f to MaterialTheme.colorScheme.background,
+            1f to MaterialTheme.colorScheme.background
         )))
         IconButton(onClick = onBack,
             modifier = Modifier.align(Alignment.TopStart).padding(8.dp).size(48.dp)
@@ -190,12 +193,14 @@ private fun ProfileAvatarArtwork(
     Box(modifier.size(96.dp).clip(CircleShape)
         .clickable(onClick = onEdit, role = Role.Button)
         .semantics { contentDescription = "Change profile photo"; role = Role.Button }) {
+        val avatarBackground = if (MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas)
+            MaterialTheme.colorScheme.surfaceVariant else C.cream
         Surface(Modifier.fillMaxSize(), shape = CircleShape,
-            color = C.cream, border = BorderStroke(4.dp, C.cream)) {
+            color = avatarBackground, border = BorderStroke(4.dp, avatarBackground)) {
             Box(contentAlignment = Alignment.Center) {
                 if (avatarPhoto != null) Image(avatarPhoto.asImageBitmap(), "Profile photo",
                     Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                else Text(profileAvatarLabel(name, avatar), color = C.coffee,
+                else Text(profileAvatarLabel(name, avatar), color = MaterialTheme.colorScheme.primary,
                     fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold,
                     fontSize = 32.sp)
             }
@@ -214,15 +219,15 @@ internal fun ProfileIdentityDetails(name: String, modifier: Modifier = Modifier)
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(name.ifBlank { "Your profile" }, modifier = Modifier.widthIn(max = 248.dp),
                 fontSize = 24.sp,
-                color = C.ink, fontFamily = FontFamily.Serif,
+                color = MaterialTheme.colorScheme.onBackground, fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Icon(Icons.Outlined.VerifiedUser, "Profile stored on device",
                 modifier = Modifier.size(18.dp), tint = C.leaf)
         }
-        Text("PERSONAL • PRIVATE • ON DEVICE", color = C.coffee,
+        Text("PERSONAL • PRIVATE • ON DEVICE", color = MaterialTheme.colorScheme.primary,
             fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-        Text("Your money, your plans", color = C.ink, fontSize = 14.sp,
+        Text("Your money, your plans", color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp,
             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
         Box(Modifier.width(40.dp).height(2.dp).background(C.leaf, CircleShape))
     }

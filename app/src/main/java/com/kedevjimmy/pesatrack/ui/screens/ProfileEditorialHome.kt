@@ -53,7 +53,7 @@ internal fun ProfileEditorialHome(
     privacy: () -> Unit,
     onMoneyHabits: () -> Unit
 ) {
-    Column(Modifier.fillMaxSize().background(C.cream).padding(padding)) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(padding)) {
         Column(
             modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -136,25 +136,26 @@ internal fun ProfileNairobiWellnessFeature(
 
 @Composable
 private fun ProfileDevicePrivacy(onClick: () -> Unit) {
+    val night = MaterialTheme.colorScheme.background == com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens.darkCanvas
     Surface(
         shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = C.sand
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Outlined.VerifiedUser, null, tint = C.coffee,
+            Icon(Icons.Outlined.VerifiedUser, null, tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(28.dp))
             Box(Modifier.width(1.dp).height(32.dp)
-                .background(C.coffee.copy(alpha = .28f)))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = .28f)))
             Column(Modifier.weight(1f)) {
                 Text("Only on this device", fontSize = 16.sp,
-                    fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = C.ink)
+                    fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Text("Your personal details stay on this phone",
-                    fontSize = 11.sp, color = C.muted)
+                    fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Button(onClick = onClick, shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = C.ink,
-                    contentColor = Color.White), contentPadding = PaddingValues(horizontal = 12.dp)) {
+                colors = ButtonDefaults.buttonColors(containerColor = if (night) MaterialTheme.colorScheme.primary else C.ink,
+                    contentColor = if (night) MaterialTheme.colorScheme.onPrimary else Color.White), contentPadding = PaddingValues(horizontal = 12.dp)) {
                 Text("Privacy", fontSize = 12.sp)
                 Icon(Icons.Rounded.ChevronRight, null, modifier = Modifier.size(16.dp))
             }
@@ -165,15 +166,15 @@ private fun ProfileDevicePrivacy(onClick: () -> Unit) {
 @Composable
 private fun ProfileEditorialFooter(modifier: Modifier = Modifier) {
     Row(
-        modifier.fillMaxWidth().background(C.cream).padding(horizontal = 32.dp, vertical = 8.dp),
+        modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(horizontal = 32.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
     ) {
-        HorizontalDivider(Modifier.weight(1f), color = C.sandBorder)
+        HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
         Text("PesaTrack", modifier = Modifier.padding(start = 12.dp),
-            color = C.coffee, fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.primary, fontSize = 12.sp,
             fontWeight = FontWeight.Bold)
-        Text(" • Your money, your plans", color = C.muted, fontSize = 11.sp,
+        Text(" • Your money, your plans", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp,
             textAlign = TextAlign.Center)
-        HorizontalDivider(Modifier.weight(1f).padding(start = 12.dp), color = C.sandBorder)
+        HorizontalDivider(Modifier.weight(1f).padding(start = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
     }
 }

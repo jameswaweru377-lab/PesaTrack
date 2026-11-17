@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
@@ -35,7 +36,7 @@ internal fun BrownTransactionHeader(
     onBack: () -> Unit, onChooseCategory: () -> Unit, onAddNote: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
-    val p = BrownHomePalette
+    val p = homeColors()
     Box(Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
         IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart)) {
             Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = p.ink)
@@ -81,7 +82,7 @@ internal fun BrownTransactionHeader(
 
 @Composable
 private fun BrownTransactionPaymentCard(item: StoredTransaction, category: String, account: String) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val locale = LocalConfiguration.current.locales[0]
     val signed = when (item.direction) {
         MoneyDirection.EXPENSE.name -> "−"
@@ -96,7 +97,8 @@ private fun BrownTransactionPaymentCard(item: StoredTransaction, category: Strin
             Image(painter = painterResource(R.drawable.transaction_coin_receipt_brown),
                 contentDescription = null,
                 modifier = Modifier.fillMaxWidth().height(144.dp).align(Alignment.TopCenter),
-                contentScale = ContentScale.FillBounds, alpha = .54f)
+                contentScale = ContentScale.FillBounds,
+                alpha = if (p.canvas == PremiumVisualTokens.darkCanvas) .10f else .54f)
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -139,7 +141,7 @@ private fun BrownTransactionPaymentCard(item: StoredTransaction, category: Strin
 
 @Composable
 private fun BrownTransactionFunding(item: StoredTransaction, account: String) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val portions = transactionDetailFulizaPortions(item.amountMinor, item.fulizaFinancedMinor)
     Row(verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -173,7 +175,7 @@ private fun BrownTransactionFunding(item: StoredTransaction, account: String) {
 
 @Composable
 private fun BrownFundingPortion(title: String, minor: Long, modifier: Modifier) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(title, color = p.ink, fontFamily = FontFamily.Serif, fontSize = 13.sp)
         Text(formatTransactionDetailMoney(minor), color = p.ink,
@@ -183,7 +185,7 @@ private fun BrownFundingPortion(title: String, minor: Long, modifier: Modifier) 
 
 @Composable
 internal fun BrownAddReceipt(onClick: () -> Unit, hasReceipt: Boolean) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp),
         color = p.cream, shape = RoundedCornerShape(14.dp)) {
         Row(Modifier.padding(horizontal = 15.dp, vertical = 10.dp),
@@ -208,7 +210,7 @@ internal fun BrownMerchantHistory(
     categoryStore: CategoryStore,
     onTransactionClick: (Long) -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val locale = LocalConfiguration.current.locales[0]
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(merchant, color = p.coffee, fontWeight = FontWeight.SemiBold,

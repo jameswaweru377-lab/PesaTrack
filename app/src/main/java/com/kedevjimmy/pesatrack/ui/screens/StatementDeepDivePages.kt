@@ -33,7 +33,7 @@ internal fun StatementCategoryInsightPage(
     onOpenRow: (StatementClassified) -> Unit,
     onBack: () -> Unit
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     val matches = remember(rows, categoryLabel, categoryLabels) {
         StatementExpenseCatalog.matchingExpenseRows(rows, categoryLabel, categoryLabels)
     }
@@ -95,7 +95,7 @@ internal fun StatementPeriodPage(
     onBack: () -> Unit,
     sourceLabel: String = "M-Pesa"
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     val included = remember(month, rows) {
         rows.filter { StatementMonthlyUsage.monthKey(it.line.occurredAt) == month.key }
     }
@@ -123,7 +123,7 @@ internal fun StatementPeriodPage(
             }
         }
         item {
-            Surface(color = PremiumVisualTokens.sand, shape = RoundedCornerShape(15.dp)) {
+            Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(15.dp)) {
                 Column(Modifier.fillMaxWidth().padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(if (month.source.independentlyVerified) "Checked imported PDF"
@@ -180,14 +180,14 @@ internal fun StatementCoveragePage(
     checkingOverlap: Boolean = false,
     overlapUnavailable: Boolean = false
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     val yearMonths = months.filter { it.usage.year == year }.associateBy { it.usage.month }
     LazyColumn(modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { StatementDetailHeading("Statement coverage", "$year · $sourceLabel wallet", onBack) }
         item {
-            Surface(color = Color(0xFFFFF3E8), shape = RoundedCornerShape(15.dp)) {
+            Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(15.dp)) {
                 Column(Modifier.fillMaxWidth().padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("${yearMonths.size} of 12 months imported", color = p.ink,
@@ -284,7 +284,7 @@ internal fun StatementEvidenceDetailPage(
     onOpenActivity: (Long) -> Unit,
     onBack: () -> Unit
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     val outgoing = row.line.withdrawnMinor > 0L
     val masked = row.line.reference.take(4) + "••" + row.line.reference.takeLast(2)
     var expanded by remember(row.batchId, row.line.page, row.line.row) { mutableStateOf(false) }
@@ -321,7 +321,7 @@ internal fun StatementEvidenceDetailPage(
             }
         }
         item {
-            Surface(color = PremiumVisualTokens.sand, shape = RoundedCornerShape(14.dp)) {
+            Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(14.dp)) {
                 Text(if (linkedActivityId != null)
                     "A unique matching receipt was confirmed in Activity. Category sharing still follows your reviewed decisions."
                 else "No unique Activity match is available. This source entry remains independently reviewable.",
@@ -367,7 +367,7 @@ internal fun StatementEvidenceDetailPage(
 
 @Composable
 private fun StatementDetailHeading(title: String, subtitle: String, onBack: () -> Unit) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     Row(verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack,
             "Back", tint = p.ink) }
@@ -381,15 +381,15 @@ private fun StatementDetailHeading(title: String, subtitle: String, onBack: () -
 
 @Composable
 private fun StatementDetailHero(label: String, amount: Long, note: String) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     Surface(color = p.purple, shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.fillMaxWidth().heightIn(min = 115.dp)
             .padding(17.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Text(label, color = Color.White.copy(alpha = .9f))
-            Text(statementMoney(amount), color = Color.White, fontSize = 27.sp,
+            Text(label, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = .9f))
+            Text(statementMoney(amount), color = MaterialTheme.colorScheme.onPrimary, fontSize = 27.sp,
                 fontWeight = FontWeight.ExtraBold, maxLines = 1,
                 overflow = TextOverflow.Ellipsis)
-            Text(note, color = Color.White.copy(alpha = .85f),
+            Text(note, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = .85f),
                 style = MaterialTheme.typography.labelSmall)
         }
     }
@@ -397,8 +397,8 @@ private fun StatementDetailHero(label: String, amount: Long, note: String) {
 
 @Composable
 private fun StatementPeriodMoneyTile(title: String, amount: Long, modifier: Modifier = Modifier) {
-    val p = HomeReferencePalette
-    Surface(modifier = modifier, color = Color.White, shape = RoundedCornerShape(15.dp)) {
+    val p = homeReferenceColors()
+    Surface(modifier = modifier, color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(15.dp)) {
         Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(title, color = p.muted, style = MaterialTheme.typography.labelMedium)
             Text(statementMoney(amount), color = p.ink, fontWeight = FontWeight.Bold,
@@ -409,7 +409,7 @@ private fun StatementPeriodMoneyTile(title: String, amount: Long, modifier: Modi
 
 @Composable
 private fun StatementSourceRow(row: StatementClassified, onClick: () -> Unit) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick)
         .padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
         Surface(color = if (row.line.withdrawnMinor > 0L) Color(0xFFFFEBDC)
@@ -438,7 +438,7 @@ private fun StatementSourceRow(row: StatementClassified, onClick: () -> Unit) {
 
 @Composable
 private fun StatementEvidenceField(label: String, value: String) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     Row(Modifier.fillMaxWidth().padding(vertical = 7.dp),
         verticalAlignment = Alignment.Top) {
         Text(label, Modifier.weight(.9f), color = p.muted,

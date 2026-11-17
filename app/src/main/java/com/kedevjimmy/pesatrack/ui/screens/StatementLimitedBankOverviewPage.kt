@@ -32,7 +32,7 @@ internal fun StatementLimitedBankOverviewPage(
         return
     }
     BackHandler(onBack = onBack)
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     LazyColumn(Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.material3.MaterialTheme
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -28,7 +30,7 @@ import java.util.Date
 /** Selected Pay Cycle B. Estimates are explicitly labelled, never invented dates. */
 @Composable
 internal fun SelectedPayCycleTimeline(cycle: PayCycle, estimatedDays: Int?) {
-    val p = HomeMonochromePalette
+    val p = homeMonochromeColors()
     val locale = LocalConfiguration.current.locales[0]
     val active = cycle.endEpochMs == null
     val headline = when {
@@ -42,7 +44,7 @@ internal fun SelectedPayCycleTimeline(cycle: PayCycle, estimatedDays: Int?) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Surface(shape = RoundedCornerShape(PesaDesignTokens.iconRadius),
-                    color = Color.White) {
+                    color = MaterialTheme.colorScheme.surface) {
                     Box(Modifier.size(PesaDesignTokens.iconBubble), contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.CalendarMonth, contentDescription = null, tint = p.green)
                     }
@@ -74,21 +76,21 @@ internal fun SelectedPayCycleTimeline(cycle: PayCycle, estimatedDays: Int?) {
 @Composable
 private fun SelectedTimelineStop(title: String, detail: String,
     completed: Boolean, current: Boolean) {
-    val p = HomeMonochromePalette
+    val p = homeMonochromeColors()
     Row(Modifier.fillMaxWidth().heightIn(min = 64.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Surface(shape = CircleShape, color = if (current || completed) p.green else Color.White,
+        Surface(shape = CircleShape, color = if (current || completed) p.green else MaterialTheme.colorScheme.surface,
             border = BorderStroke(1.dp, p.green)) {
             Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
                 if (completed) Icon(Icons.Rounded.Check, contentDescription = null,
-                    tint = Color.White, modifier = Modifier.size(16.dp))
-                else if (current) Surface(shape = CircleShape, color = Color.White,
+                    tint = MaterialTheme.colorScheme.onSecondary, modifier = Modifier.size(16.dp))
+                else if (current) Surface(shape = CircleShape, color = MaterialTheme.colorScheme.onSecondary,
                     modifier = Modifier.size(8.dp)) {}
             }
         }
         Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-            color = if (current) Color(0xFFD8F2E2) else Color.White,
+            color = if (current) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
             modifier = Modifier.weight(1f)) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(title, fontWeight = FontWeight.Bold,
@@ -107,12 +109,12 @@ internal fun SelectedPayCycleSnapshot(
     available: String?,
     footnote: String
 ) {
-    val p = HomeMonochromePalette
+    val p = homeMonochromeColors()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Cycle snapshot", style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold, color = p.ink)
         Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-            border = BorderStroke(1.dp, p.line), color = Color.White) {
+            border = BorderStroke(1.dp, p.line), color = MaterialTheme.colorScheme.surface) {
             Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                 SelectedCycleMetric(Icons.Rounded.Wallet, "Income received", income)
                 HorizontalDivider(color = p.line)
@@ -137,7 +139,7 @@ internal fun SelectedPayCycleSnapshot(
 @Composable
 private fun SelectedCycleMetric(icon: ImageVector, label: String, value: String,
     important: Boolean = false) {
-    val p = HomeMonochromePalette
+    val p = homeMonochromeColors()
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)) {

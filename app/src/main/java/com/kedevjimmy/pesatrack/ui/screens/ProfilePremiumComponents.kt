@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
 
 internal enum class ProfileTone { VIOLET, GREEN, BLUE, PINK, AMBER, CORAL }
@@ -59,8 +60,10 @@ internal fun ProfilePremiumPage(
     back: () -> Unit,
     content: LazyListScope.() -> Unit
 ) {
-    Box(Modifier.fillMaxSize().background(C.canvas)) {
-        ProfileSoftWaves(Modifier.fillMaxWidth().height(280.dp))
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        if (MaterialTheme.colorScheme.background != PremiumVisualTokens.darkCanvas) {
+            ProfileSoftWaves(Modifier.fillMaxWidth().height(280.dp))
+        }
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
@@ -70,10 +73,10 @@ internal fun ProfilePremiumPage(
                 Row(Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = back) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = C.ink)
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onBackground)
                     }
                     Text(title, style = MaterialTheme.typography.headlineSmall,
-                        color = C.ink, fontWeight = FontWeight.Bold)
+                        color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold)
                 }
             }
             content()
@@ -130,9 +133,9 @@ internal data class ProfilePremiumItem(
 internal fun ProfilePremiumGroup(items: List<ProfilePremiumItem>) {
     Surface(
         shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, C.outline.copy(alpha = .35f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column {
             items.forEachIndexed { index, item ->
@@ -152,9 +155,9 @@ internal fun ProfilePremiumGroup(items: List<ProfilePremiumItem>) {
                 ) {
                     ProfileTile(item.icon, item.tone)
                     Column(Modifier.weight(1f).padding(start = 12.dp, end = 6.dp)) {
-                        Text(item.title, color = C.ink, fontWeight = FontWeight.Bold,
+                        Text(item.title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleSmall)
-                        Text(item.subtitle, color = C.muted, style = MaterialTheme.typography.bodySmall)
+                        Text(item.subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     }
                     if (item.selected) {
                         Surface(shape = CircleShape, color = C.violet) {
@@ -163,16 +166,16 @@ internal fun ProfilePremiumGroup(items: List<ProfilePremiumItem>) {
                         }
                     } else if (item.checked != null) {
                         Switch(checked = item.checked, onCheckedChange = null, enabled = item.enabled,
-                            colors = SwitchDefaults.colors(checkedTrackColor = C.violet,
-                                checkedThumbColor = Color.White, uncheckedTrackColor = C.outline,
+                            colors = SwitchDefaults.colors(checkedTrackColor = MaterialTheme.colorScheme.primary,
+                                checkedThumbColor = Color.White, uncheckedTrackColor = MaterialTheme.colorScheme.outlineVariant,
                                 uncheckedThumbColor = Color.White))
                     } else if (item.onClick != null) {
-                        Icon(Icons.Rounded.ChevronRight, null, tint = C.muted)
+                        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 if (index != items.lastIndex) HorizontalDivider(
                     modifier = Modifier.padding(start = 72.dp, end = 12.dp),
-                    thickness = 1.dp, color = C.outline)
+                    thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
     }
@@ -181,7 +184,7 @@ internal fun ProfilePremiumGroup(items: List<ProfilePremiumItem>) {
 @Composable
 internal fun ProfileSection(text: String) {
     Text(text.uppercase(), modifier = Modifier.padding(start = 12.dp, top = 4.dp),
-        color = C.muted, fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold,
         style = MaterialTheme.typography.labelLarge)
 }
 
@@ -194,21 +197,24 @@ internal fun ProfileBanner(
     art: ProfileHeroArt = ProfileHeroArt.GENERIC,
     modifier: Modifier = Modifier
 ) {
+    val night = MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas
+    val useDarkArt = dark || night
     Box(
         modifier.fillMaxWidth().heightIn(min = 156.dp)
             .clip(RoundedCornerShape(PesaDesignTokens.cardRadius))
-            .background(if (dark) Brush.linearGradient(listOf(C.violetBright, C.violetDeep))
+            .background(if (night) Brush.linearGradient(listOf(PremiumVisualTokens.darkSurface, PremiumVisualTokens.darkCard))
+                else if (dark) Brush.linearGradient(listOf(C.violetBright, C.violetDeep))
                 else Brush.linearGradient(listOf(C.lilac, C.blueSoft, C.lilac)))
     ) {
-        ProfileBannerWavesPublic(Modifier.matchParentSize(), dark)
+        if (!night) ProfileBannerWavesPublic(Modifier.matchParentSize(), dark)
         Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(headline, color = if (dark) Color.White else C.ink,
+                Text(headline, color = if (useDarkArt) Color.White else C.ink,
                     fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.headlineSmall)
-                Text(description, color = if (dark) Color.White.copy(alpha = .9f) else C.muted,
+                Text(description, color = if (useDarkArt) Color.White.copy(alpha = .9f) else C.muted,
                     style = MaterialTheme.typography.bodyMedium)
             }
-            ProfileHeroArtwork(illustration, dark, art)
+            ProfileHeroArtwork(illustration, useDarkArt, art)
         }
     }
 }
@@ -267,11 +273,11 @@ internal fun ProfileBannerWavesPublic(modifier: Modifier, dark: Boolean = true) 
 
 @Composable
 internal fun ProfileHint(message: String, icon: ImageVector = Icons.Rounded.Lock) {
-    Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius), color = C.lilac.copy(alpha = .85f)) {
+    Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius), color = MaterialTheme.colorScheme.surfaceVariant) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = C.muted, modifier = Modifier.size(20.dp))
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
             Text(message, modifier = Modifier.padding(start = 12.dp),
-                color = C.muted, style = MaterialTheme.typography.bodySmall)
+                color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

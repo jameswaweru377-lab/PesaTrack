@@ -47,7 +47,7 @@ internal fun SelectedReceivablesSummary(people: List<ReceivablePerson>, total: L
 
 @Composable
 internal fun SelectedReceivablePersonRow(person: ReceivablePerson, onOpen: () -> Unit) {
-    Surface(onClick = onOpen, color = Color.White, shape = RoundedCornerShape(15.dp)) {
+    Surface(onClick = onOpen, color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(15.dp)) {
         Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(54.dp).background(AccountMint, RoundedCornerShape(18.dp)),
                 contentAlignment = Alignment.Center) {

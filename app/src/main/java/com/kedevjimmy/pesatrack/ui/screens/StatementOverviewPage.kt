@@ -43,7 +43,7 @@ internal fun StatementOverviewPage(
     onOpenCashMovement: (Boolean) -> Unit = {},
     sourceLabel: String = "M-Pesa"
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     val selectedYear = model.chartYear
     val sourceYears = model.sourceMonths.map { it.usage.year }.distinct().sortedDescending()
     val displayedMonths = model.sourceMonths.filter { it.usage.year == selectedYear }
@@ -66,7 +66,7 @@ internal fun StatementOverviewPage(
             Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
                 Surface(
                     shape = RoundedCornerShape(16.dp),
-                    color = PremiumVisualTokens.sand,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier.padding(top = 3.dp)
                 ) {
                     IconButton(onClick = onBack) {
@@ -81,7 +81,7 @@ internal fun StatementOverviewPage(
                     Text("Statement insights", fontSize = 15.sp, color = p.muted)
                     Spacer(Modifier.height(8.dp))
                     Box {
-                        Surface(color = Color.White, shape = RoundedCornerShape(13.dp),
+                        Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(13.dp),
                             modifier = Modifier.clickable(enabled = availableAccounts.size > 1) {
                                 walletMenu = true
                             }) {
@@ -113,7 +113,7 @@ internal fun StatementOverviewPage(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Box {
-                    Surface(color = Color.White, shape = RoundedCornerShape(14.dp),
+                    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.clickable { dateMenu = true }) {
                         Row(Modifier.padding(horizontal = 10.dp, vertical = 13.dp),
                             verticalAlignment = Alignment.CenterVertically) {
@@ -142,7 +142,7 @@ internal fun StatementOverviewPage(
                         })
                     }
                 }
-                Surface(color = Color.White, shape = RoundedCornerShape(14.dp),
+                Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.weight(1f).clickable(onClick = onOpenCoverage)) {
                     Row(Modifier.padding(horizontal = 8.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically) {
@@ -156,7 +156,7 @@ internal fun StatementOverviewPage(
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                Surface(color = Color.White, shape = RoundedCornerShape(14.dp),
+                Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.clickable(onClick = onOpenArchive)) {
                     Row(Modifier.padding(horizontal = 10.dp, vertical = 13.dp),
                         verticalAlignment = Alignment.CenterVertically) {
@@ -271,7 +271,7 @@ internal fun StatementOverviewPage(
                                 overflow = TextOverflow.Ellipsis)
                             LinearProgressIndicator(
                                 progress = { (amount.toDouble() / total).toFloat().coerceIn(0f, 1f) },
-                                color = tint, trackColor = PremiumVisualTokens.sand,
+                                color = tint, trackColor = MaterialTheme.colorScheme.surfaceVariant,
                                 modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)))
                         }
                         Text(statementMoney(amount), color = p.ink,
@@ -300,7 +300,7 @@ internal fun StatementOverviewPage(
                 else displayedMonths.take(3).forEach { entry ->
                     Row(Modifier.fillMaxWidth().clickable { onOpenMonth(entry.key) }
                         .padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Surface(color = PremiumVisualTokens.sand, shape = RoundedCornerShape(11.dp)) {
+                        Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(11.dp)) {
                             Icon(Icons.Rounded.Description, null, tint = p.purple,
                                 modifier = Modifier.padding(10.dp).size(20.dp))
                         }
@@ -332,7 +332,7 @@ internal fun StatementOverviewPage(
 
 @Composable
 internal fun StatementInsightCard(content: @Composable ColumnScope.() -> Unit) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = PremiumVisualTokens.card,
+    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(22.dp), shadowElevation = 2.dp) {
         Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp),
             content = content)
@@ -344,9 +344,9 @@ private fun StatementOverviewCashTile(
     title: String, amount: Long, detail: String, incoming: Boolean,
     modifier: Modifier = Modifier, onClick: () -> Unit
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     val tint = if (incoming) p.green else p.red
-    Surface(modifier = modifier.clickable(onClick = onClick), color = PremiumVisualTokens.card,
+    Surface(modifier = modifier.clickable(onClick = onClick), color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(19.dp), shadowElevation = 1.dp) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
