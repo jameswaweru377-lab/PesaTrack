@@ -76,6 +76,9 @@ internal fun ApprovedBalanceHero(
     Box(Modifier.fillMaxWidth().height(204.dp)) {
         Image(painterResource(R.drawable.accounts_balance_building), null,
             modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        if (MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas) {
+            Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .70f)))
+        }
         Column(Modifier.align(Alignment.CenterStart).padding(start = 12.dp, end = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(if (complete) "TOTAL ACROSS ACCOUNTS" else "RECORDED ACCOUNT BALANCES",
@@ -90,7 +93,8 @@ internal fun ApprovedBalanceHero(
                     modifier = Modifier.weight(1f, fill = false))
                 IconButton(onClick = onToggleHidden,
                     modifier = Modifier.padding(start = 5.dp)
-                        .background(Color.White.copy(alpha = .86f), CircleShape)) {
+                        .background(if (MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas)
+                            PremiumVisualTokens.darkSurface else Color.White.copy(alpha = .86f), CircleShape)) {
                     Icon(if (hidden) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
                         if (hidden) "Show balances" else "Hide balances", tint = MaterialTheme.colorScheme.primary)
                 }
