@@ -873,7 +873,7 @@ fun ActivityScreen(
     Column(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(BrownHomePalette.canvas)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         LazyColumn(
             state = activityListState,
