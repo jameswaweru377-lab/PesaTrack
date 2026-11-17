@@ -35,7 +35,7 @@ internal fun SelectedBillsCalendar(
     locale: Locale,
     onOpenCalendar: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val days = selectedBillsFortnight(viewedMonthEpochMs, System.currentTimeMillis(),
         bills.filter { it.remainingMinor > 0L }.mapNotNull { it.nextDueEpochMs },
         locale, TimeZone.getDefault()).take(7)
@@ -61,7 +61,7 @@ internal fun SelectedBillsCalendar(
                                 Text(day.dayOfMonth,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (day.isToday) Color.White else p.ink)
+                                    color = if (day.isToday) MaterialTheme.colorScheme.onPrimary else p.ink)
                                 if (day.hasBill) {
                                     Surface(shape = CircleShape, color = Color(0xFFD7A33C),
                                         modifier = Modifier.size(8.dp)) {}
@@ -84,7 +84,7 @@ internal fun SelectedBillsSummary(bills: List<ScheduledBill>, money: (Long) -> S
         CheckedMoney.sum(pending.asSequence().map { it.remainingMinor })
     }
     Text("${pending.size} upcoming · ${outstandingTotal?.let(money) ?: "Total unavailable"}",
-        color = BrownHomePalette.coffee, fontWeight = FontWeight.SemiBold,
+        color = homeColors().coffee, fontWeight = FontWeight.SemiBold,
         style = MaterialTheme.typography.titleSmall)
 }
 
@@ -95,7 +95,7 @@ internal fun SelectedBillsUpcomingRow(
     money: (Long) -> String,
     onClick: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val title = bill.rule.displayLabel ?: bill.rule.name
     val icon = when {
         "rent" in title.lowercase(Locale.ROOT) -> Icons.Rounded.Home
