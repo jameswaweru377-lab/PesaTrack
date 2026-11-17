@@ -243,7 +243,8 @@ private fun ProfileTroubleshootingPage(
                 "Import messages or a statement", "Import history", ProfileTone.GREEN, onHistory)
         }
         item {
-            Surface(color = C.orangeSoft.copy(alpha = .65f), shape = RoundedCornerShape(16.dp)) {
+            Surface(color = if (MaterialTheme.colorScheme.background == com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens.darkCanvas)
+                MaterialTheme.colorScheme.surfaceVariant else C.orangeSoft.copy(alpha = .65f), shape = RoundedCornerShape(16.dp)) {
                 Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.Top) {
                     ProfileTile(Icons.Rounded.WarningAmber, ProfileTone.AMBER, 40.dp)
                     Column(Modifier.padding(start = 12.dp)) {
@@ -261,7 +262,8 @@ private fun ProfileTroubleshootingPage(
             }
         }
         if (checked) item {
-            Surface(color = C.greenSoft, shape = RoundedCornerShape(16.dp)) {
+            Surface(color = if (MaterialTheme.colorScheme.background == com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens.darkCanvas)
+                MaterialTheme.colorScheme.surfaceVariant else C.greenSoft, shape = RoundedCornerShape(16.dp)) {
                 Column(Modifier.padding(16.dp)) {
                     Text("What we found", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                     Text("Money messages: ${if (smsApproved) "Allowed" else "Permission needed"}", color = MaterialTheme.colorScheme.onSurfaceVariant)
