@@ -11,3 +11,20 @@ internal fun moneyMovementColor(direction: MoneyDirection, refund: Boolean = fal
         direction == MoneyDirection.TRANSFER -> PremiumVisualTokens.transfer
         else -> PremiumVisualTokens.muted
     }
+
+/** Readable movement colours on the active background, without changing ledger meaning. */
+@androidx.compose.runtime.Composable
+internal fun themeMoneyMovementColor(
+    direction: MoneyDirection,
+    refund: Boolean = false
+): Color {
+    val night = androidx.compose.material3.MaterialTheme.colorScheme.background ==
+        PremiumVisualTokens.darkCanvas
+    if (!night) return moneyMovementColor(direction, refund)
+    return when {
+        refund || direction == MoneyDirection.INCOME -> PremiumVisualTokens.darkMoneyIn
+        direction == MoneyDirection.EXPENSE -> PremiumVisualTokens.darkMoneyOut
+        direction == MoneyDirection.TRANSFER -> PremiumVisualTokens.darkTransfer
+        else -> PremiumVisualTokens.darkMuted
+    }
+}
