@@ -192,7 +192,7 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                                 showCycleBreakdown = !showCycleBreakdown
                             },
                             shape = RoundedCornerShape(16.dp),
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.surface,
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp, MaterialTheme.colorScheme.outlineVariant
                             )
