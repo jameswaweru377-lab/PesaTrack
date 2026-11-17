@@ -68,7 +68,7 @@ internal fun StatementGrandTotalReconciledSourceCardContent(
     checked: Boolean,
     onSelect: () -> Unit
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     StatementInsightCard {
         Row(Modifier.fillMaxWidth().clickable(onClick = onSelect),
             verticalAlignment = Alignment.CenterVertically) {
@@ -94,7 +94,7 @@ internal fun StatementGrandTotalReconciledSourceCardContent(
 internal fun StatementGrandTotalReconciledSummary(
     report: StatementGrandTotalReconciledPolicy.Report
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     StatementInsightCard {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Text("This PDF · ${report.rows} reconciled rows", fontWeight = FontWeight.SemiBold,
