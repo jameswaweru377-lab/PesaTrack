@@ -33,7 +33,7 @@ import java.util.Date
 /** A daily ledger section is visually one white inset surface, but rows stay individually lazy. */
 @Composable
 internal fun BrownActivityDateHeader(dayEpochMs: Long, netMinor: Long?) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val dayName = dayLabel(dayEpochMs)
     val shortDate = SimpleDateFormat("d MMM", LocalConfiguration.current.locales[0])
         .format(Date(dayEpochMs))
@@ -69,7 +69,7 @@ internal fun BrownActivityRow(
     accountName: String?,
     onClick: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val context = LocalContext.current
     val categories = remember { CategoryStore.get(context) }
     val categoryId = categories.canonicalId(item.category)
