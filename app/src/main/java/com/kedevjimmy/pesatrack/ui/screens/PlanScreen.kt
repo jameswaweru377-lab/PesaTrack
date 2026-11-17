@@ -346,7 +346,7 @@ fun PlanScreen(
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(BrownHomePalette.canvas),
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
