@@ -60,7 +60,7 @@ internal fun homeMonochromeColors(): HomeMonochromeColors {
         ink = PremiumVisualTokens.darkText,
         muted = PremiumVisualTokens.darkMuted,
         line = PremiumVisualTokens.darkBorder,
-        green = Color(0xFFB5D58D),
+        green = PremiumVisualTokens.darkMoneyIn,
         softGreen = PremiumVisualTokens.darkSurface,
         dark = PremiumVisualTokens.darkSurface
     ) else HomeMonochromeColors(
