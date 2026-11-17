@@ -169,20 +169,20 @@ private fun PlanJourneyMonthMenu(month: String, onOtherMonths: () -> Unit) {
 @Composable
 private fun PlanJourneyPeriodToggle(selected: String, onPeriod: (String) -> Unit) {
     Surface(shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-        border = BorderStroke(1.dp, HomeMonochromePalette.line),
-        color = HomeMonochromePalette.surface) {
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        color = MaterialTheme.colorScheme.surface) {
         Row {
             listOf("Month", "Pay cycle").forEach { mode ->
                 val active = selected == mode
                 Surface(shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-                    color = if (active) HomeMonochromePalette.green else Color.Transparent,
+                    color = if (active) MaterialTheme.colorScheme.secondary else Color.Transparent,
                     modifier = Modifier.heightIn(min = 48.dp).clickable(role = Role.Button) {
                         onPeriod(mode)
                     }) {
                     Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         contentAlignment = Alignment.Center) {
                         Text(mode, style = MaterialTheme.typography.labelSmall,
-                            color = if (active) Color.White else MaterialTheme.colorScheme.onSurface,
+                            color = if (active) MaterialTheme.colorScheme.onSecondary else MaterialTheme.colorScheme.onSurface,
                             fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
                     }
                 }
@@ -208,14 +208,14 @@ private fun PlanJourneyWeek(days: List<PlanCalendarDay>) {
                     Column(Modifier.padding(vertical = 8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        val textColor = if (selected) Color.White else p.ink
+                        val textColor = if (selected) MaterialTheme.colorScheme.onPrimary else p.ink
                         Text(day.weekday, style = MaterialTheme.typography.labelSmall,
                             color = textColor, maxLines = 1)
                         Text(day.dayOfMonth, style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold, color = textColor)
                         if (day.hasBill) {
                             Box(Modifier.size(8.dp).background(
-                                if (selected) Color.White else p.coffee,
+                                if (selected) MaterialTheme.colorScheme.onPrimary else p.coffee,
                                 RoundedCornerShape(PesaDesignTokens.controlRadius)))
                         }
                     }
