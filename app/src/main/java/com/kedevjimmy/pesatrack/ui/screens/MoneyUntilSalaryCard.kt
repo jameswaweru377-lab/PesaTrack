@@ -93,8 +93,8 @@ internal fun MoneyUntilSalaryCard(snapshot: PayCycleSnapshot) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = BrownHomePalette.cream,
-        border = BorderStroke(1.dp, BrownHomePalette.outline)
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -107,10 +107,10 @@ internal fun MoneyUntilSalaryCard(snapshot: PayCycleSnapshot) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(Icons.Rounded.CalendarMonth, null,
-                    modifier = Modifier.size(24.dp), tint = BrownHomePalette.coffee)
+                    modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
-                        "Planning status", color = BrownHomePalette.ink,
+                        "Planning status", color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 14.sp, fontWeight = FontWeight.Bold
                     )
                     Text(
@@ -123,18 +123,18 @@ internal fun MoneyUntilSalaryCard(snapshot: PayCycleSnapshot) {
                                 "Payday forecast available"
                             else -> "Confirm payday and balance"
                         },
-                        color = BrownHomePalette.muted, fontSize = 12.sp
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp
                     )
                 }
                 Icon(if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                     contentDescription = if (expanded) "Collapse planning status" else "Expand planning status",
-                    tint = BrownHomePalette.coffee)
+                    tint = MaterialTheme.colorScheme.primary)
             }
             if (expanded) {
             when {
                 loading -> CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
-                    color = BrownHomePalette.coffee, strokeWidth = 2.dp
+                    color = MaterialTheme.colorScheme.primary, strokeWidth = 2.dp
                 )
                 error -> TextButton(onClick = { refresh++ }) { Text("Try again") }
                 current != null -> {
@@ -161,12 +161,12 @@ internal fun MoneyUntilSalaryCard(snapshot: PayCycleSnapshot) {
                         )
                     }
                     Button(onClick = { editing = !editing }, modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = BrownHomePalette.coffee)) {
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
                         Text(if (read.confirmedPaydayIsCurrent && read.hasFreshSpendableBalance)
                             "Review payday & balance" else "Confirm payday & balance")
                     }
                     if (editing) {
-                        HorizontalDivider(color = BrownHomePalette.outline)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         ForecastConfirmationForm(
                             repository = repository,
                             read = read,
@@ -188,17 +188,17 @@ internal fun MoneyUntilSalaryCard(snapshot: PayCycleSnapshot) {
                             else if (read.result.lowMinor != null && read.result.highMinor != null)
                                 "View forecast evidence"
                             else "Why is an estimate unavailable?",
-                            color = BrownHomePalette.coffee, fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.primary, fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                         Icon(
                             if (showEvidence) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                             contentDescription = null, modifier = Modifier.size(17.dp),
-                            tint = BrownHomePalette.coffee
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
                     if (showEvidence) {
-                        HorizontalDivider(color = BrownHomePalette.outline)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         ForecastDetails(read)
                     }
                 }
@@ -216,7 +216,7 @@ private fun ForecastEvidenceChip(
     Surface(
         modifier = modifier.heightIn(min = 33.dp),
         shape = RoundedCornerShape(16.dp),
-        color = if (complete) BrownHomePalette.canvas else BrownHomePalette.cream
+        color = if (complete) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surfaceVariant
     ) {
         Row(
             Modifier.padding(horizontal = 9.dp, vertical = 8.dp),
@@ -224,10 +224,10 @@ private fun ForecastEvidenceChip(
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             Text(if (complete) "✓" else "○",
-                color = BrownHomePalette.coffee,
+                color = MaterialTheme.colorScheme.primary,
                 fontSize = 13.sp, fontWeight = FontWeight.Bold)
             Text(text, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
-                color = BrownHomePalette.ink, maxLines = 2, lineHeight = 12.sp)
+                color = MaterialTheme.colorScheme.onSurface, maxLines = 2, lineHeight = 12.sp)
         }
     }
 }
