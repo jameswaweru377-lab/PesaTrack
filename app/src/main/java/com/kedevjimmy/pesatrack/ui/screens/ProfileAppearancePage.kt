@@ -58,6 +58,7 @@ import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
 @Composable
 internal fun ProfileAppearancePage(padding: PaddingValues, back: () -> Unit) {
     val context = LocalContext.current
+    val night = MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas
     var error by remember { mutableStateOf<String?>(null) }
     fun openPhoneSettings(action: String) {
         try {
@@ -79,18 +80,18 @@ internal fun ProfileAppearancePage(padding: PaddingValues, back: () -> Unit) {
             PesaCard {
                 Column(Modifier.fillMaxWidth().padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("App preview", color = C.muted, style = MaterialTheme.typography.bodyMedium)
-                    Surface(color = C.lilac, shape = RoundedCornerShape(16.dp)) {
+                    Text("App preview", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                    Surface(color = if (night) MaterialTheme.colorScheme.surfaceVariant else C.lilac, shape = RoundedCornerShape(16.dp)) {
                       Column(Modifier.fillMaxWidth().padding(24.dp),
                           verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Surface(color = PremiumVisualTokens.card, shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
+                        Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
                           Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 com.kedevjimmy.pesatrack.ui.components.PesaLogoMark(size = 28.dp)
                                 com.kedevjimmy.pesatrack.ui.components.PesaBrandName(
                                     modifier = Modifier.weight(1f).padding(start = 8.dp),
-                                    fontSize = 17.sp, baseColor = PremiumVisualTokens.ink)
-                                Icon(Icons.Rounded.Notifications, null, tint = C.ink)
+                                    fontSize = 17.sp, baseColor = MaterialTheme.colorScheme.onSurface)
+                                Icon(Icons.Rounded.Notifications, null, tint = MaterialTheme.colorScheme.onSurface)
                             }
                             Box(Modifier.fillMaxWidth().height(86.dp).clip(RoundedCornerShape(16.dp))
                                 .background(PremiumVisualTokens.coffee)) {
@@ -115,7 +116,7 @@ internal fun ProfileAppearancePage(padding: PaddingValues, back: () -> Unit) {
                                 tabs.forEach { (name, icon, tone) ->
                                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                                         ProfileTile(icon, tone, 36.dp)
-                                        Text(name, color = C.muted, style = MaterialTheme.typography.labelSmall,
+                                        Text(name, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall,
                                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
@@ -129,8 +130,10 @@ internal fun ProfileAppearancePage(padding: PaddingValues, back: () -> Unit) {
         }
         item { ProfileSection("Theme") }
         item {
-            ProfilePremiumGroup(listOf(ProfilePremiumItem(Icons.Rounded.WbSunny, "Light",
-                "Bright and easy to read", ProfileTone.VIOLET, selected = true)))
+            ProfilePremiumGroup(listOf(ProfilePremiumItem(Icons.Rounded.WbSunny,
+                if (night) "Dark" else "Light",
+                if (night) "Coffee-black appearance. Change in Settings → Appearance" else "Cream appearance. Change in Settings → Appearance",
+                ProfileTone.VIOLET, selected = true)))
         }
         item { ProfileSection("Reading") }
         item { ProfilePremiumGroup(listOf(
