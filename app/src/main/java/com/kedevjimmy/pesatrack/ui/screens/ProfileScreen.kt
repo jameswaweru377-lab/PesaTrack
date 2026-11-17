@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.material3.MaterialTheme
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -307,10 +308,10 @@ internal fun ProfileAboutPage(
                     Text("P", color = Color.White, fontWeight = FontWeight.Black,
                         style = MaterialTheme.typography.displayLarge)
                 }
-                Text("Your money, better days.", color = C.ink,
+                Text("Your money, better days.", color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
                 Text("A private way to understand your money.",
-                    style = MaterialTheme.typography.bodyMedium, color = C.muted)
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         item {
@@ -340,12 +341,12 @@ internal fun ProfileAboutPage(
                 horizontalArrangement = Arrangement.Center) {
                 Icon(Icons.Rounded.Favorite, null, tint = C.violet, modifier = Modifier.size(19.dp))
                 Text("Made with care for everyday money.",
-                    modifier = Modifier.padding(start = 8.dp), color = C.muted,
+                    modifier = Modifier.padding(start = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall)
             }
         }
         item { TextButton(onClick = financialNotice) {
-            Text("About money guidance", color = C.muted)
+            Text("About money guidance", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } }
     }
 }
