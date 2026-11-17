@@ -25,7 +25,7 @@ import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 /** Selected Budget B: a calm, ring-led overview with real stored limit and spending. */
 @Composable
 internal fun SelectedBudgetRing(limitMinor: Long, spentMinor: Long, money: (Long) -> String) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val percent = selectedBudgetSpentPercent(limitMinor, spentMinor)
     val remaining = if (limitMinor >= spentMinor) limitMinor - spentMinor else 0L
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
@@ -64,9 +64,9 @@ internal fun SelectedBudgetFilters(selected: String, onSelect: (String) -> Unit)
             Surface(modifier = Modifier.weight(1f).heightIn(min = 48.dp)
                 .clickable { onSelect(filter) },
                 shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-                color = if (active) BrownHomePalette.coffee else BrownHomePalette.cream) {
+                color = if (active) homeColors().coffee else homeColors().cream) {
                 Box(Modifier.padding(8.dp), contentAlignment = Alignment.Center) {
-                    Text(filter, color = if (active) Color.White else BrownHomePalette.ink,
+                    Text(filter, color = if (active) MaterialTheme.colorScheme.onPrimary else homeColors().ink,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = if (active) FontWeight.Bold else FontWeight.Medium)
                 }
@@ -86,7 +86,7 @@ internal fun SelectedBudgetCategoryRow(
     onDelete: () -> Unit,
     timingContent: @Composable () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val percent = selectedBudgetSpentPercent(limitMinor, spentMinor)
     val over = spentMinor > limitMinor
     var expanded by remember { mutableStateOf(false) }
