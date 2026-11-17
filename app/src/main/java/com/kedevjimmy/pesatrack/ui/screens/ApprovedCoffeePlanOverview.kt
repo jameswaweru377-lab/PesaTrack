@@ -69,7 +69,7 @@ internal fun ApprovedCoffeePlanOverview(
     onDetails: () -> Unit,
     onSalary: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -112,7 +112,7 @@ internal fun ApprovedCoffeePlanOverview(
 
 @Composable
 private fun ApprovedPlanWeek(days: List<PlanCalendarDay>) {
-    val p = BrownHomePalette
+    val p = homeColors()
     var chosen by remember(days) { mutableStateOf(days.firstOrNull { it.isToday }?.startEpochMs) }
     Surface(color = p.cream.copy(alpha = 0.55f),
         shape = RoundedCornerShape(PesaDesignTokens.cardRadius)) {
@@ -128,9 +128,9 @@ private fun ApprovedPlanWeek(days: List<PlanCalendarDay>) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(day.weekday, fontSize = 11.sp,
-                        color = if (active) Color.White else p.ink, maxLines = 1)
+                        color = if (active) MaterialTheme.colorScheme.onPrimary else p.ink, maxLines = 1)
                     Text(day.dayOfMonth, fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                        color = if (active) Color.White else p.ink)
+                        color = if (active) MaterialTheme.colorScheme.onPrimary else p.ink)
                 }
             }
         }
@@ -139,7 +139,7 @@ private fun ApprovedPlanWeek(days: List<PlanCalendarDay>) {
 
 @Composable
 private fun ApprovedPlanMoneyCard(data: PlanJourneyView, onDetails: () -> Unit) {
-    val p = BrownHomePalette
+    val p = homeColors()
     var info by remember { mutableStateOf(false) }
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
         border = BorderStroke(1.dp, p.outline.copy(alpha = 0.5f))) {
@@ -195,7 +195,7 @@ private fun ApprovedPlanMoneyCard(data: PlanJourneyView, onDetails: () -> Unit) 
 
 @Composable
 private fun ApprovedPlanMiniMoney(label: String, amount: String, modifier: Modifier) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(label, color = p.coffee, fontSize = 12.sp)
         Text(amount, color = p.ink, fontSize = 12.sp, fontWeight = FontWeight.Bold,
@@ -207,11 +207,11 @@ private fun ApprovedPlanMiniMoney(label: String, amount: String, modifier: Modif
 private fun ApprovedPlanProgress(title: String, percent: Int?,
     icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit,
     modifier: Modifier = Modifier) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Surface(modifier = modifier.heightIn(min = 88.dp)
         .clickable(role = Role.Button, onClick = onClick),
         shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = Color.White, border = BorderStroke(1.dp, p.outline)) {
+        color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, p.outline)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -231,9 +231,9 @@ private fun ApprovedPlanProgress(title: String, percent: Int?,
 @Composable
 internal fun ApprovedPlanLink(title: String, detail: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = Color.White, border = BorderStroke(1.dp, p.outline.copy(alpha = 0.7f)),
+        color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, p.outline.copy(alpha = 0.7f)),
         modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
             .clickable(role = Role.Button, onClick = onClick)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
@@ -254,7 +254,7 @@ internal fun ApprovedPlanLink(title: String, detail: String,
 
 @Composable
 internal fun ApprovedPlanComingUp(bills: List<PlanJourneyBill>, onBills: () -> Unit) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val locale = LocalConfiguration.current.locales[0]
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Coming up", color = p.ink, fontSize = 22.sp,
