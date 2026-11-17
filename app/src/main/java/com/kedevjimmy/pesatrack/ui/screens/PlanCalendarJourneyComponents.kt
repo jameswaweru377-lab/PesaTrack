@@ -116,7 +116,7 @@ internal fun PlanJourneyDetails(
     onBills: () -> Unit,
     onPayCycle: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp),
             verticalAlignment = Alignment.CenterVertically) {
@@ -146,15 +146,15 @@ private fun PlanJourneyMonthMenu(month: String, onOtherMonths: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         Surface(shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-            color = BrownHomePalette.white,
-            border = BorderStroke(1.dp, BrownHomePalette.outline),
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.heightIn(min = 48.dp)
                 .clickable(role = Role.Button) { expanded = true }) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Text(month, color = BrownHomePalette.ink)
+                Text(month, color = MaterialTheme.colorScheme.onSurface)
                 Icon(Icons.Rounded.KeyboardArrowDown, null,
-                    tint = BrownHomePalette.ink)
+                    tint = MaterialTheme.colorScheme.onSurface)
             }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -182,7 +182,7 @@ private fun PlanJourneyPeriodToggle(selected: String, onPeriod: (String) -> Unit
                     Box(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                         contentAlignment = Alignment.Center) {
                         Text(mode, style = MaterialTheme.typography.labelSmall,
-                            color = if (active) Color.White else HomeMonochromePalette.ink,
+                            color = if (active) Color.White else MaterialTheme.colorScheme.onSurface,
                             fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
                     }
                 }
@@ -194,7 +194,7 @@ private fun PlanJourneyPeriodToggle(selected: String, onPeriod: (String) -> Unit
 @Composable
 private fun PlanJourneyWeek(days: List<PlanCalendarDay>) {
     var chosen by remember(days) { mutableStateOf(days.firstOrNull { it.isToday }?.startEpochMs) }
-    val p = BrownHomePalette
+    val p = homeColors()
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius), color = p.cream) {
         Row(Modifier.fillMaxWidth().padding(8.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -227,7 +227,7 @@ private fun PlanJourneyWeek(days: List<PlanCalendarDay>) {
 
 @Composable
 private fun PlanJourneyAvailableCard(data: PlanJourneyView, onDetails: () -> Unit) {
-    val p = HomeMonochromePalette
+    val p = homeMonochromeColors()
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius), color = p.softGreen,
         modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onDetails)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -264,7 +264,7 @@ private fun PlanJourneyAvailableCard(data: PlanJourneyView, onDetails: () -> Uni
 private fun PlanJourneyMiniFact(label: String, value: String, modifier: Modifier = Modifier) {
     Column(modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(value, style = MaterialTheme.typography.labelMedium,
-            color = HomeMonochromePalette.ink, fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold,
             maxLines = 2)
         Text(label, style = MaterialTheme.typography.labelSmall,
             color = HomeMonochromePalette.muted)
@@ -277,7 +277,7 @@ private fun PlanJourneyProgressTile(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit, modifier: Modifier
 ) {
-    val p = HomeMonochromePalette
+    val p = homeMonochromeColors()
     Surface(modifier = modifier.heightIn(min = PesaDesignTokens.bottomBarHeight + 48.dp)
         .clickable(role = Role.Button, onClick = onClick),
         color = p.surface, shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
@@ -315,7 +315,7 @@ private fun PlanJourneyBillsButton(
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Icon(Icons.Rounded.CalendarMonth, null, tint = HomeMonochromePalette.green)
             Column(Modifier.weight(1f)) {
-                Text("Bills", fontWeight = FontWeight.Bold, color = HomeMonochromePalette.ink)
+                Text("Bills", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                 Text(if (bills.isEmpty()) "No upcoming payments"
                     else "${bills.size} upcoming payment${if (bills.size == 1) "" else "s"}",
                     style = MaterialTheme.typography.bodySmall,
@@ -326,7 +326,7 @@ private fun PlanJourneyBillsButton(
                         color = HomeMonochromePalette.muted)
                 }
             }
-            Icon(Icons.Rounded.ChevronRight, null, tint = HomeMonochromePalette.ink)
+            Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurface)
         }
     }
 }
@@ -335,7 +335,7 @@ private fun PlanJourneyBillsButton(
 private fun PlanJourneyBillSection(
     title: String, bills: List<PlanJourneyBill>, onClick: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium,
             color = p.ink, fontWeight = FontWeight.Bold)
@@ -374,7 +374,7 @@ private fun PlanJourneyBillSection(
 
 @Composable
 private fun PlanJourneyBreakdown(data: PlanJourneyView) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
         color = p.white, border = BorderStroke(1.dp, p.outline)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -413,19 +413,19 @@ private fun PlanJourneyDetailMetric(label: String, value: String, modifier: Modi
             "Committed" -> Icons.Rounded.CalendarMonth
             "Saved" -> Icons.Rounded.Savings
             else -> Icons.Rounded.Spa
-        }, null, tint = BrownHomePalette.coffee, modifier = Modifier.size(24.dp))
+        }, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
         Text(label, style = MaterialTheme.typography.labelSmall,
-            color = BrownHomePalette.ink, maxLines = 2)
+            color = MaterialTheme.colorScheme.onSurface, maxLines = 2)
         Text(value, fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.labelSmall,
-            color = if (label == "Cycle remaining") BrownHomePalette.coffee
-                else BrownHomePalette.ink, maxLines = 3)
+            color = if (label == "Cycle remaining") MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurface, maxLines = 3)
     }
 }
 
 @Composable
 private fun PlanJourneyAllocations(data: PlanJourneyView) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius), color = p.white,
         border = BorderStroke(1.dp, p.outline)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -474,8 +474,8 @@ private fun PlanJourneyMoneyRow(label: String, amount: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
-            color = BrownHomePalette.muted)
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(amount, style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.SemiBold, color = BrownHomePalette.ink)
+            fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
     }
 }
