@@ -119,7 +119,7 @@ internal fun StatementMatchReviewContent(
     onLoadOlderConflicts: () -> Unit = {},
     onDecision: (StatementMatchDecisionStore.Candidate, StatementMatchDecisionStore.Decision?, StatementMatchDecisionStore.Decision?, Boolean) -> Unit = { _, _, _, _ -> }
 ) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     var confirming by remember { mutableStateOf<StatementMatchDecisionStore.Candidate?>(null) }
     confirming?.let { candidate ->
         var accountChecked by remember(candidate.hash) { mutableStateOf(false) }
@@ -411,7 +411,7 @@ private fun matchReviewMoney(minor: Long, currency: String): String {
 @Composable
 private fun MatchEvidenceLines(rows: List<StatementEvidenceCorrelationPolicy.Observation>, labels: Map<String, String>,
                                includeReferences: Boolean = true, onOpenActivity: (Long) -> Unit = {}) {
-    val p = HomeReferencePalette
+    val p = homeReferenceColors()
     fun activityId(row: StatementEvidenceCorrelationPolicy.Observation): Long? =
         if (row.source == StatementEvidenceCorrelationPolicy.Source.ACTIVITY && row.id.startsWith("activity:"))
             row.id.removePrefix("activity:").toLongOrNull()?.takeIf { it > 0L } else null
