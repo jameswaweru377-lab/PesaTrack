@@ -66,7 +66,8 @@ internal fun EverydayRow(icon: androidx.compose.ui.graphics.vector.ImageVector, 
         Row(Modifier.padding(PesaDesignTokens.cardContentPadding)
             .heightIn(min = PesaDesignTokens.minimumTouchTarget),
             verticalAlignment = Alignment.CenterVertically) {
-            IconBubble(icon, tint = C.ink, background = C.lilac)
+            IconBubble(icon, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                background = MaterialTheme.colorScheme.surfaceVariant)
             Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                 Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -89,8 +90,8 @@ internal fun ChoiceSwitch(title: String, description: String, checked: Boolean, 
             enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = C.ink,
-                checkedBorderColor = C.ink,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                checkedBorderColor = MaterialTheme.colorScheme.primary,
                 uncheckedThumbColor = C.muted,
                 uncheckedTrackColor = C.lilac,
                 uncheckedBorderColor = C.outline,
