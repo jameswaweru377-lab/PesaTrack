@@ -102,7 +102,8 @@ fun PersonalDetailsScreen(padding: PaddingValues, onBack: () -> Unit, title: Str
                     Text(it, color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium)
                 }
-                if (saved) Surface(color = C.greenSoft, shape = RoundedCornerShape(16.dp)) {
+                if (saved) Surface(color = if (MaterialTheme.colorScheme.background == com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens.darkCanvas)
+            MaterialTheme.colorScheme.surfaceVariant else C.greenSoft, shape = RoundedCornerShape(16.dp)) {
                     Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.CheckCircle, null, tint = C.green)
                         Column(Modifier.weight(1f).padding(start = 12.dp)) {
