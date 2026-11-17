@@ -146,6 +146,12 @@ private fun ApprovedPlanMoneyCard(data: PlanJourneyView, onDetails: () -> Unit) 
         Box {
             Image(painterResource(R.drawable.plan_coffee_notebook), contentDescription = null,
                 contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+            // Keep the approved notebook image, but protect light-colour text in dark mode.
+            if (MaterialTheme.colorScheme.background ==
+                com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens.darkCanvas
+            ) {
+                Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = .78f)))
+            }
             Column(Modifier.fillMaxWidth().padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
