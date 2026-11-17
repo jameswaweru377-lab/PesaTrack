@@ -69,10 +69,10 @@ internal fun HomeBalanceNotice(accounts: List<MoneyAccount>, balances: List<Plan
         return
     }
     var expanded by rememberSaveable { mutableStateOf(false) }
-    val palette = BrownHomePalette
+    val palette = homeColors()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Surface(
-            color = PremiumVisualTokens.card,
+            color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
             border = BorderStroke(PesaDesignTokens.cardOutlineWidth, palette.outline)
         ) {
@@ -109,7 +109,7 @@ internal fun HomeBalanceNotice(accounts: List<MoneyAccount>, balances: List<Plan
 private fun BalanceNoticeCard(
     account: MoneyAccount, balance: PlanSpendableAccount, onDismiss: () -> Unit
 ) {
-    val palette = BrownHomePalette
+    val palette = homeColors()
     val name = compactAccountLabel(account.name)
     val missing = balance.balanceMinor == null && !balance.conflicting
     var showMenu by remember { mutableStateOf(false) }
@@ -119,7 +119,7 @@ private fun BalanceNoticeCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        color = PremiumVisualTokens.card,
+        color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(PesaDesignTokens.cardOutlineWidth, palette.outline)
     ) {
         Column(
@@ -128,7 +128,7 @@ private fun BalanceNoticeCard(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
-                    color = PremiumVisualTokens.leaf.copy(alpha = 0.22f),
+                    color = MaterialTheme.colorScheme.secondaryContainer,
                     shape = RoundedCornerShape(PesaDesignTokens.controlRadius)
                 ) {
                     Text(
@@ -136,7 +136,7 @@ private fun BalanceNoticeCard(
                         Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = PremiumVisualTokens.leafReadable
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                 }
                 Box(Modifier.weight(1f))
@@ -174,13 +174,13 @@ private fun BalanceNoticeCard(
                     Text(
                         "Available money uses only balances PesaTrack can verify.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = PremiumVisualTokens.muted
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Surface(
                     modifier = Modifier.padding(start = 8.dp),
                     shape = CircleShape,
-                    color = PremiumVisualTokens.leaf.copy(alpha = 0.20f)
+                    color = MaterialTheme.colorScheme.secondaryContainer
                 ) {
                     Icon(
                         Icons.Rounded.AccountBalanceWallet,
@@ -206,7 +206,7 @@ private fun BalanceNoticeCard(
 
 @Composable
 internal fun ArchivedBalanceAccounts(accounts: List<MoneyAccount>) {
-    val palette = BrownHomePalette
+    val palette = homeColors()
     var restoreId by rememberSaveable { mutableStateOf<String?>(null) }
     Surface(
         modifier = Modifier.fillMaxWidth(),
