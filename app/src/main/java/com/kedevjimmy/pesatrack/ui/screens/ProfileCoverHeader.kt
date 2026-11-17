@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
+
 import androidx.compose.material3.MaterialTheme
 import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -191,8 +193,10 @@ private fun ProfileAvatarArtwork(
     Box(modifier.size(96.dp).clip(CircleShape)
         .clickable(onClick = onEdit, role = Role.Button)
         .semantics { contentDescription = "Change profile photo"; role = Role.Button }) {
+        val avatarBackground = if (MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas)
+            MaterialTheme.colorScheme.surfaceVariant else C.cream
         Surface(Modifier.fillMaxSize(), shape = CircleShape,
-            color = C.cream, border = BorderStroke(4.dp, C.cream)) {
+            color = avatarBackground, border = BorderStroke(4.dp, avatarBackground)) {
             Box(contentAlignment = Alignment.Center) {
                 if (avatarPhoto != null) Image(avatarPhoto.asImageBitmap(), "Profile photo",
                     Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
