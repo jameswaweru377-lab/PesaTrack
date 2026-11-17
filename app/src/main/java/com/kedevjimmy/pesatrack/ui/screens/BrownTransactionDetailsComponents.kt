@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import com.kedevjimmy.pesatrack.data.local.CategoryStore
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
@@ -96,7 +97,8 @@ private fun BrownTransactionPaymentCard(item: StoredTransaction, category: Strin
             Image(painter = painterResource(R.drawable.transaction_coin_receipt_brown),
                 contentDescription = null,
                 modifier = Modifier.fillMaxWidth().height(144.dp).align(Alignment.TopCenter),
-                contentScale = ContentScale.FillBounds, alpha = .54f)
+                contentScale = ContentScale.FillBounds,
+                alpha = if (p.canvas == PremiumVisualTokens.darkCanvas) .10f else .54f)
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
