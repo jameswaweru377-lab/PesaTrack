@@ -385,14 +385,14 @@ private fun BillWeekStrip(
                                     .format(day.time)
                                     .take(3),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 day.get(Calendar.DAY_OF_MONTH).toString(),
                                 modifier = Modifier.padding(top = 3.dp),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = if (selected) Color.White else MaterialTheme.colorScheme.onSurface
+                                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                             )
                             if (dayBills.isNotEmpty()) {
                                 Row(
