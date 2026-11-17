@@ -202,10 +202,10 @@ private fun BillMonthSelector(
             modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)
                 .clickable { expanded = true },
             shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-            color = HomeMonochromePalette.surface,
+            color = MaterialTheme.colorScheme.surface,
             border = androidx.compose.foundation.BorderStroke(
                 1.dp,
-                HomeMonochromePalette.line
+                MaterialTheme.colorScheme.outlineVariant
             )
         ) {
             Row(
@@ -216,13 +216,13 @@ private fun BillMonthSelector(
                     SimpleDateFormat("MMMM yyyy", locale)
                         .format(billMonth(monthOffset).time),
                     style = MaterialTheme.typography.labelMedium,
-                    color = PlanVibrant.ink
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Icon(
                     Icons.Rounded.KeyboardArrowDown,
                     contentDescription = null,
                     modifier = Modifier.padding(start = 3.dp).size(17.dp),
-                    tint = HomeMonochromePalette.green
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -368,11 +368,11 @@ private fun BillWeekStrip(
                     Surface(
                         modifier = Modifier.weight(1f).height(72.dp),
                         shape = RoundedCornerShape(14.dp),
-                        color = if (selected) PlanVibrant.violet
+                        color = if (selected) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.surfaceVariant,
                         border = if (selected) {
                             androidx.compose.foundation.BorderStroke(
-                                1.dp, PlanVibrant.violet
+                                1.dp, MaterialTheme.colorScheme.primary
                             )
                         } else null
                     ) {
@@ -788,7 +788,7 @@ fun BillsRemindersScreen(
     LazyColumn(
         modifier = Modifier
             .padding(scaffoldPadding)
-            .background(BrownHomePalette.canvas),
+            .background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(
             horizontal = 16.dp,
             vertical = 14.dp
@@ -803,7 +803,7 @@ fun BillsRemindersScreen(
                 }
                 Text("Bills calendar", modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold, color = BrownHomePalette.ink)
+                    fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             }
         }
         item {
@@ -899,7 +899,7 @@ fun BillsRemindersScreen(
                 Text(
                     "No upcoming bills",
                     modifier = Modifier.padding(vertical = 8.dp),
-                    color = BrownHomePalette.muted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
