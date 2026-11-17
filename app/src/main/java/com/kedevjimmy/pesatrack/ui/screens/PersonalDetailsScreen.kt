@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.material3.MaterialTheme
+
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -50,25 +52,25 @@ fun PersonalDetailsScreen(padding: PaddingValues, onBack: () -> Unit, title: Str
                 PesaCard {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text("Display name", style = MaterialTheme.typography.labelLarge,
-                            color = C.muted)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(value = name,
                             onValueChange = { name = it.take(60); error = null; saved = false },
                             placeholder = { Text("What should we call you?") },
                             singleLine = true, shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth(), isError = error == "Enter your display name.")
-                        HorizontalDivider(color = C.outline)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         Text("City or town (optional)", style = MaterialTheme.typography.labelLarge,
-                            color = C.muted)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(value = city,
                             onValueChange = { city = it.take(60); error = null; saved = false },
                             placeholder = { Text("e.g. Nairobi") },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth())
                         Text("Shown only in your private profile. No location permission is needed.",
-                            style = MaterialTheme.typography.bodySmall, color = C.muted)
-                        HorizontalDivider(color = C.outline)
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         Text("About me (optional)", style = MaterialTheme.typography.labelLarge,
-                            color = C.muted)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(value = bio,
                             onValueChange = { bio = it.take(160); error = null; saved = false },
                             placeholder = { Text("A little about your money journey") },
@@ -104,11 +106,11 @@ fun PersonalDetailsScreen(padding: PaddingValues, onBack: () -> Unit, title: Str
                     Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.CheckCircle, null, tint = C.green)
                         Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                            Text("Profile saved", color = C.ink, fontWeight = FontWeight.Bold)
-                            Text("Your details are up to date", color = C.muted)
+                            Text("Profile saved", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                            Text("Your details are up to date", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         IconButton(onClick = { saved = false }) {
-                            Icon(Icons.Rounded.Close, "Dismiss confirmation", tint = C.muted)
+                            Icon(Icons.Rounded.Close, "Dismiss confirmation", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
