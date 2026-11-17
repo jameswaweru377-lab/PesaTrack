@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.material3.MaterialTheme
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -116,7 +118,7 @@ internal fun TransactionRedesignHeader(
             }
         }
         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp),
-            color = Color.White, shadowElevation = 2.dp) {
+            color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) {
             Box(Modifier.background(Brush.linearGradient(listOf(
                 Color(0xFFFFFFFF), Color(0xFFF3F4FF), Color(0xFFF5FEFF)
             ))).padding(14.dp)) {
@@ -280,7 +282,7 @@ internal fun RedesignDetailAccordion(
     supporting: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
         color = p.white, border = BorderStroke(1.dp, p.outline.copy(alpha = .55f))) {
         Column(Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
@@ -317,7 +319,7 @@ internal fun TransactionOriginalMessage(
     evidence: TransactionMessageEvidenceResult?,
     source: String
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val body = evidence?.message?.body
     if (body == null) Text(evidence?.unavailableReason ?: "Original message is not yet available for " + source + ".",
         color = p.muted,
@@ -334,7 +336,7 @@ private fun BrownSpecialClassification(
     label: String, icon: ImageVector, modifier: Modifier,
     enabled: Boolean, onClick: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     Surface(modifier.clickable(enabled = enabled, onClick = onClick),
         color = p.cream, shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, p.outline)) {
@@ -364,7 +366,7 @@ private fun CategoryReferenceTile(
     onSelect: () -> Unit
 ) {
     val v = categoryIconVisual(category.label)
-    val p = BrownHomePalette
+    val p = homeColors()
     Surface(
         modifier = modifier.clickable(onClick = onSelect),
         color = if (selected) p.cream else p.white,
@@ -414,7 +416,7 @@ private fun CategoryTreatmentAction(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val ink = if (destructive) MaterialTheme.colorScheme.error else p.coffee
     val background = if (destructive) p.cream else p.white
     Surface(
@@ -469,7 +471,7 @@ internal fun TransactionCategoryChooser(
     var addingCategory by remember(item.id) { mutableStateOf(false) }
     var newCategoryName by remember(item.id) { mutableStateOf("") }
     var customError by remember(item.id) { mutableStateOf<String?>(null) }
-    val palette = BrownHomePalette
+    val palette = homeColors()
     val ink = palette.ink
     val muted = palette.muted
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
