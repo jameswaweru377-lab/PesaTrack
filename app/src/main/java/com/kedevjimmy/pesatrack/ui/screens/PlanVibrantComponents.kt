@@ -73,8 +73,8 @@ internal fun planVibrantTone(tone: String): Pair<Color, Color> = when (tone) {
 internal fun VibrantPlanPageTitle(title: String, subtitle: String, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(1.dp)) {
         Text(title, fontSize = 28.sp, lineHeight = 34.sp, fontWeight = FontWeight.Bold,
-            color = PlanVibrant.ink)
-        Text(subtitle, fontSize = 13.sp, lineHeight = 18.sp, color = PlanVibrant.muted)
+            color = MaterialTheme.colorScheme.onSurface)
+        Text(subtitle, fontSize = 13.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -89,27 +89,27 @@ internal fun VibrantPlanDateRow(
         Surface(modifier = Modifier.weight(1f)
             .heightIn(min = PesaDesignTokens.minimumTouchTarget)
             .then(if (onCycleClick != null) Modifier.clickable(onClick = onCycleClick) else Modifier),
-            shape = RoundedCornerShape(15.dp), color = Color.White,
-            shadowElevation = 1.dp, border = BorderStroke(1.dp, PlanVibrant.outline)) {
+            shape = RoundedCornerShape(15.dp), color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 1.dp, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(9.dp)) {
                 Icon(Icons.Rounded.CalendarMonth, contentDescription = null,
                     tint = PremiumVisualTokens.coffee, modifier = Modifier.size(20.dp))
-                Text(period, Modifier.weight(1f), color = PlanVibrant.ink,
+                Text(period, Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1,
                     overflow = TextOverflow.Ellipsis)
                 if (onCycleClick != null) Icon(Icons.Rounded.ExpandMore, null,
-                    Modifier.size(19.dp), tint = PlanVibrant.ink)
+                    Modifier.size(19.dp), tint = MaterialTheme.colorScheme.onSurface)
             }
         }
         Surface(modifier = Modifier.size(PesaDesignTokens.minimumTouchTarget)
             .then(if (onInsightsClick != null) Modifier.clickable(onClick = onInsightsClick) else Modifier),
-            shape = RoundedCornerShape(16.dp), color = Color.White,
-            shadowElevation = 1.dp, border = BorderStroke(1.dp, PlanVibrant.outline)) {
+            shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 1.dp, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(Icons.Rounded.Analytics, contentDescription = "View planning insights",
-                    tint = PlanVibrant.violet, modifier = Modifier.size(23.dp))
+                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(23.dp))
             }
         }
     }
@@ -118,7 +118,7 @@ internal fun VibrantPlanDateRow(
 @Composable
 internal fun VibrantPlanSurface(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Surface(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(21.dp),
-        color = Color.White, border = BorderStroke(1.dp, PlanVibrant.outline),
+        color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         shadowElevation = 1.dp) {
         Column(Modifier.fillMaxWidth().padding(13.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
@@ -129,12 +129,12 @@ internal fun VibrantPlanSurface(modifier: Modifier = Modifier, content: @Composa
 internal fun VibrantPlanSectionTitle(title: String, action: String? = null, onAction: (() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(title, Modifier.weight(1f), fontSize = 17.sp,
-            fontWeight = FontWeight.Bold, color = PlanVibrant.ink)
+            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
         if (action != null && onAction != null) {
             TextButton(onClick = onAction, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)) {
-                Text(action, color = PlanVibrant.violet, fontSize = 12.sp,
+                Text(action, color = MaterialTheme.colorScheme.primary, fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold)
-                Icon(Icons.Rounded.ChevronRight, null, Modifier.size(15.dp), tint = PlanVibrant.violet)
+                Icon(Icons.Rounded.ChevronRight, null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -275,7 +275,7 @@ internal fun VibrantPlanHero(
                         Text(
                             if (safeToday == null) "Daily guide unavailable"
                             else "Safe today · $safeToday",
-                            fontSize = 10.sp, color = PlanVibrant.ink,
+                            fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1, overflow = TextOverflow.Ellipsis
                         )
@@ -328,11 +328,11 @@ internal fun VibrantPlanSourceWarning(
             Column(Modifier.weight(1f)) {
                 Text(
                     title,
-                    color = PlanVibrant.ink, fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    message, color = PremiumVisualTokens.muted,
+                    message, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp, lineHeight = 15.sp
                 )
             }
@@ -353,17 +353,17 @@ internal fun VibrantDestinationTile(
 ) {
     Surface(modifier = modifier.heightIn(min = 62.dp)
         .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        color = PremiumVisualTokens.card, shape = RoundedCornerShape(17.dp), shadowElevation = 3.dp,
-        border = BorderStroke(1.dp, PlanVibrant.outline)) {
+        color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(17.dp), shadowElevation = 3.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             VibrantPlanIcon(icon, tone, size = 39)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(label, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold,
-                    color = PlanVibrant.ink, maxLines = 1)
+                    color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
                 Text(status, fontSize = 10.sp, lineHeight = 13.sp,
-                    color = PlanVibrant.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Icon(Icons.Rounded.ChevronRight, null, Modifier.size(15.dp),
                 tint = PremiumVisualTokens.coffee)
@@ -380,12 +380,12 @@ internal fun VibrantPlanListRow(icon: ImageVector, tone: String, label: String,
         horizontalArrangement = Arrangement.spacedBy(9.dp)) {
         VibrantPlanIcon(icon, tone, size = 38)
         Column(Modifier.weight(1f)) {
-            Text(label, color = PlanVibrant.ink, fontSize = 12.sp,
+            Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp,
                 fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(detail, color = PlanVibrant.muted,
+            Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        Text(amount, color = PlanVibrant.ink,
+        Text(amount, color = MaterialTheme.colorScheme.onSurface,
             fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
         if (onClick != null) Icon(Icons.Rounded.ChevronRight, null, Modifier.size(17.dp),
             tint = PremiumVisualTokens.coffee)
@@ -410,14 +410,14 @@ internal fun VibrantPlanMeter(
         }
         Text(
             label, Modifier.widthIn(min = 54.dp), fontSize = 10.sp,
-            color = PlanVibrant.ink, fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium,
             maxLines = 1, overflow = TextOverflow.Ellipsis
         )
         // An unknown or zero value must not draw a misleading active dot.
         Box(
             Modifier.weight(1f).height(7.dp)
                 .clip(RoundedCornerShape(7.dp))
-                .background(PremiumVisualTokens.sand)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             if (hasData && progress > 0f) {
                 Box(
@@ -429,7 +429,7 @@ internal fun VibrantPlanMeter(
         }
         Text(
             detail, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
-            color = PremiumVisualTokens.muted, maxLines = 1
+            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1
         )
     }
 }
@@ -451,15 +451,15 @@ internal fun VibrantPlanProgressCard(
     VibrantPlanSurface(modifier) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Plan progress", Modifier.weight(1f), fontSize = 16.sp,
-                fontWeight = FontWeight.ExtraBold, color = PlanVibrant.ink)
+                fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
             Icon(Icons.Rounded.Info, contentDescription = "Progress reflects recorded data",
                 tint = PremiumVisualTokens.coffee, modifier = Modifier.size(16.dp))
             Spacer(Modifier.weight(.15f))
             TextButton(onClick = onPeriodClick,
                 contentPadding = PaddingValues(horizontal = 3.dp, vertical = 0.dp)) {
-                Text(periodLabel, fontSize = 11.sp, color = PlanVibrant.ink,
+                Text(periodLabel, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold)
-                Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp), tint = PlanVibrant.ink)
+                Icon(Icons.Rounded.ExpandMore, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface)
             }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
@@ -490,10 +490,10 @@ internal fun VibrantActionButton(label: String, onClick: () -> Unit,
     modifier: Modifier = Modifier) {
     Surface(modifier = modifier.fillMaxWidth().heightIn(min = 50.dp)
         .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp), color = PlanVibrant.violet) {
+        shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.primary) {
         Box(Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
             contentAlignment = Alignment.Center) {
-            Text(label, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(label, color = MaterialTheme.colorScheme.onPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -516,9 +516,9 @@ internal fun VibrantRing(percent: Float, modifier: Modifier = Modifier,
                 arcSize, style=Stroke(width, cap=StrokeCap.Round))
         }
         Column(horizontalAlignment=Alignment.CenterHorizontally) {
-            Text(valueLabel, color=PlanVibrant.ink,
+            Text(valueLabel, color=MaterialTheme.colorScheme.onSurface,
                 fontSize=19.sp, fontWeight=FontWeight.ExtraBold)
-            Text(subtitle, fontSize=10.sp, color=PlanVibrant.muted, maxLines=1)
+            Text(subtitle, fontSize=10.sp, color=MaterialTheme.colorScheme.onSurfaceVariant, maxLines=1)
         }
     }
 }
@@ -543,13 +543,13 @@ internal fun VibrantPlanMoneyBreakdown(
     committed: String,
     available: String
 ) {
-    val ink = PremiumVisualTokens.ink
-    val muted = PremiumVisualTokens.muted
+    val ink = MaterialTheme.colorScheme.onSurface
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = PremiumVisualTokens.card,
-        border = BorderStroke(1.dp, PremiumVisualTokens.sandBorder),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         shadowElevation = 4.dp
     ) {
         Column(
@@ -572,7 +572,7 @@ internal fun VibrantPlanMoneyBreakdown(
             ) {
                 Surface(
                     modifier = Modifier.size(56.dp),
-                    color = PremiumVisualTokens.sand,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(14.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -609,27 +609,27 @@ internal fun VibrantPlanMoneyBreakdown(
                     Icons.Rounded.Toll, Color(0xFFE7EFD9), PremiumVisualTokens.leafReadable,
                     "Starting funds", startingFunds, PremiumVisualTokens.ink
                 )
-                HorizontalDivider(color = PremiumVisualTokens.sandBorder, thickness = 1.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
                 VibrantBreakdownRow(
                     Icons.Rounded.Download, Color(0xFFE7EFD9), PremiumVisualTokens.leafReadable,
                     "Other money received", received, PremiumVisualTokens.ink
                 )
-                HorizontalDivider(color = PremiumVisualTokens.sandBorder, thickness = 1.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
                 VibrantBreakdownRow(
                     Icons.Rounded.Upload, Color(0xFFFFE3EC), Color(0xFFE8397A),
                     "Cash paid", cashPaid, ink
                 )
-                HorizontalDivider(color = PremiumVisualTokens.sandBorder, thickness = 1.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
                 VibrantBreakdownRow(
                     Icons.Rounded.ReceiptLong, Color(0xFFFFEBDD), Color(0xFFF07A43),
                     "Fees", fees, ink
                 )
-                HorizontalDivider(color = PremiumVisualTokens.sandBorder, thickness = 1.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
                 VibrantBreakdownRow(
                     Icons.Rounded.Savings, PremiumVisualTokens.sand, PremiumVisualTokens.coffee,
                     "Moved to savings", saved, ink
                 )
-                HorizontalDivider(color = PremiumVisualTokens.sandBorder, thickness = 1.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
                 VibrantBreakdownRow(
                     Icons.Rounded.EventAvailable, PremiumVisualTokens.sand, PremiumVisualTokens.coffee,
                     "Still committed", committed, ink
@@ -693,7 +693,7 @@ private fun VibrantBreakdownRow(
             label, modifier = Modifier.weight(1f),
             fontSize = 13.sp, lineHeight = 17.sp,
             fontWeight = FontWeight.Bold,
-            color = PremiumVisualTokens.ink
+            color = MaterialTheme.colorScheme.onSurface
         )
         Text(
             value,
@@ -739,13 +739,13 @@ private fun VibrantBreakdownResult(available: String) {
                 fontWeight = FontWeight.ExtraBold
             )
             Text(
-                available, color = PremiumVisualTokens.ink,
+                available, color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 31.sp, lineHeight = 37.sp,
                 fontWeight = FontWeight.ExtraBold
             )
             Text(
                 "Planning amount, not your account balance.",
-                color = PremiumVisualTokens.muted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 11.sp, lineHeight = 15.sp
             )
         }
