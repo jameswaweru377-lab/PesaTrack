@@ -108,11 +108,14 @@ private fun SettingsCompactRow(
     tone: String = "violet",
     onClick: () -> Unit
 ) {
+    val night = MaterialTheme.colorScheme.background == com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens.darkCanvas
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick)
         .heightIn(min = PesaDesignTokens.minimumTouchTarget)
         .padding(horizontal = PesaDesignTokens.cardContentPadding, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        IconBubble(icon, tint = C.ink, background = C.lilac)
+        IconBubble(icon,
+            tint = if (night) MaterialTheme.colorScheme.primary else C.ink,
+            background = if (night) MaterialTheme.colorScheme.surfaceVariant else C.lilac)
         Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
