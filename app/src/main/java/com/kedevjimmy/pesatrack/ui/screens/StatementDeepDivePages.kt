@@ -385,11 +385,11 @@ private fun StatementDetailHero(label: String, amount: Long, note: String) {
     Surface(color = p.purple, shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.fillMaxWidth().heightIn(min = 115.dp)
             .padding(17.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            Text(label, color = Color.White.copy(alpha = .9f))
-            Text(statementMoney(amount), color = Color.White, fontSize = 27.sp,
+            Text(label, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = .9f))
+            Text(statementMoney(amount), color = MaterialTheme.colorScheme.onPrimary, fontSize = 27.sp,
                 fontWeight = FontWeight.ExtraBold, maxLines = 1,
                 overflow = TextOverflow.Ellipsis)
-            Text(note, color = Color.White.copy(alpha = .85f),
+            Text(note, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = .85f),
                 style = MaterialTheme.typography.labelSmall)
         }
     }
