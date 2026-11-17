@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- PesaTrack's existing notification layouts follow the phone's night mode.
+         The Android notification shade and header remain system controlled. -->
+    <color name="notice_coffee">#E6AD82</color>
+    <color name="notice_card">#242120</color>
+    <color name="notice_outline">#51433B</color>
+    <color name="notice_green">#B5D58D</color>
+    <!-- Keep legacy resource aliases for the approved category vectors. -->
+    <color name="notice_purple">#E6AD82</color>
+    <color name="notice_lavender">#2D2927</color>
+    <color name="notice_text">#F8EEE7</color>
+    <color name="notice_secondary">#D5C8C0</color>
+</resources>
