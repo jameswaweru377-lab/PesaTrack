@@ -133,7 +133,7 @@ private fun AccountDetailsContent(
             else -> true
         }
     }.sortedByDescending { it.occurredAtEpochMs }
-    LazyColumn(modifier = Modifier.padding(padding).background(BrownHomePalette.canvas),
+    LazyColumn(modifier = Modifier.padding(padding).background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(horizontal = PesaDesignTokens.screenHorizontalPadding,
             vertical = PesaDesignTokens.screenVerticalPadding),
         verticalArrangement = Arrangement.spacedBy(PesaDesignTokens.sectionGap)) {
@@ -148,8 +148,8 @@ private fun AccountDetailsContent(
         }
         item {
             Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-                color = Color.White,
-                border = BorderStroke(1.dp, BrownHomePalette.outline)) {
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                 Row(Modifier.fillMaxWidth().clickable(onClick = onImportStatement).padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text("Import a statement", Modifier.weight(1f),
@@ -200,7 +200,7 @@ private fun AccountDetailTitle(account: MoneyAccount?, onBack: () -> Unit) {
         Column(Modifier.weight(1f).padding(start = 10.dp)) {
             Text(compactAccountLabel(account?.name ?: "Account details"),
                 style = MaterialTheme.typography.headlineSmall,
-                color = BrownHomePalette.coffee, fontWeight = FontWeight.Bold)
+                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             Text(account?.identifier?.takeLast(3)?.let { "··· $it" } ?: "Your financial account",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -220,19 +220,19 @@ private fun AccountRecordedBalance(account: MoneyAccount?, balance: PaydayAccoun
         else -> "No balance evidence yet"
     }
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        color = BrownHomePalette.cream,
-        border = BorderStroke(PesaDesignTokens.cardOutlineWidth, BrownHomePalette.outline)) {
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(PesaDesignTokens.cardOutlineWidth, MaterialTheme.colorScheme.outlineVariant)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AccountProviderMark(account?.name ?: "Account")
             Text("Recorded balance", style = MaterialTheme.typography.labelLarge,
-                color = BrownHomePalette.coffee)
+                color = MaterialTheme.colorScheme.primary)
             Text(amount?.let(::formatKesAmount) ?: "Balance unavailable",
                 style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
-                color = BrownHomePalette.coffee)
+                color = MaterialTheme.colorScheme.primary)
             Text(quality + (balance?.referenceEpochMs?.let { " · " +
                 SimpleDateFormat("d MMM yyyy, h:mm a", locale).format(Date(it)) } ?: ""),
                 style = MaterialTheme.typography.bodySmall,
-                color = BrownHomePalette.coffee)
+                color = MaterialTheme.colorScheme.primary)
             Text("Not live synced", style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -247,8 +247,8 @@ private fun LinkedSavingsAccount(
         snapshot?.quality == PaydayBalanceQuality.RECONSTRUCTED)
     Surface(onClick = { onAccountClick(account.id) },
         shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = Color.White,
-        border = BorderStroke(1.dp, BrownHomePalette.outline)) {
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             AccountProviderMark(account.name)
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
