@@ -161,7 +161,7 @@ internal fun HelpPage(
                 OutlinedTextField(value = query, onValueChange = { query = it.take(80) },
                     placeholder = { Text("Search for help") },
                     leadingIcon = { androidx.compose.material3.Icon(Icons.Rounded.Search, null,
-                        tint = C.muted) }, singleLine = true,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant) }, singleLine = true,
                     shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth())
             }
             val matching = helpTopics.filter {
@@ -248,9 +248,9 @@ private fun ProfileTroubleshootingPage(
                     ProfileTile(Icons.Rounded.WarningAmber, ProfileTone.AMBER, 40.dp)
                     Column(Modifier.padding(start = 12.dp)) {
                         Text("Nothing is changed without asking you.",
-                            color = C.ink, fontWeight = FontWeight.Bold)
+                            color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                         Text("We only check and show what we find. You stay in control of your data.",
-                            color = C.muted, style = MaterialTheme.typography.bodySmall)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -263,9 +263,9 @@ private fun ProfileTroubleshootingPage(
         if (checked) item {
             Surface(color = C.greenSoft, shape = RoundedCornerShape(16.dp)) {
                 Column(Modifier.padding(16.dp)) {
-                    Text("What we found", color = C.ink, fontWeight = FontWeight.Bold)
-                    Text("Money messages: ${if (smsApproved) "Allowed" else "Permission needed"}", color = C.muted)
-                    Text("Bank-app updates: ${if (listenerAllowed) "Allowed" else "Permission needed"}", color = C.muted)
+                    Text("What we found", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                    Text("Money messages: ${if (smsApproved) "Allowed" else "Permission needed"}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Bank-app updates: ${if (listenerAllowed) "Allowed" else "Permission needed"}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -289,12 +289,12 @@ private fun ProfileTroubleshootStep(number: String, title: String, subtitle: Str
                 Text(number, color = tone.ink(), fontWeight = FontWeight.Bold)
             }
         }
-        Surface(Modifier.weight(1f).padding(start = 8.dp), color = Color.White,
+        Surface(Modifier.weight(1f).padding(start = 8.dp), color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(16.dp), shadowElevation = 2.dp) {
             Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(title, color = C.ink, fontWeight = FontWeight.Bold)
-                    Text(subtitle, color = C.muted, style = MaterialTheme.typography.bodySmall)
+                    Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+                    Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
                 Button(onClick = { action?.invoke() }, enabled = action != null,
                     shape = RoundedCornerShape(12.dp),
