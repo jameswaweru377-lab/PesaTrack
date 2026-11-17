@@ -194,8 +194,10 @@ internal fun ProfileMoneyHabitsCard(
 ) {
     Surface(Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp), shadowElevation = 2.dp,
-        color = Color.White) {
-      Box(Modifier.background(Brush.horizontalGradient(listOf(Color.White, C.greenSoft.copy(alpha = .52f), C.lilac.copy(alpha = .45f))))) {
+        color = MaterialTheme.colorScheme.surface) {
+      Box(Modifier.background(Brush.horizontalGradient(if (MaterialTheme.colorScheme.background == com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens.darkCanvas)
+          listOf(MaterialTheme.colorScheme.surface, MaterialTheme.colorScheme.surfaceVariant)
+          else listOf(Color.White, C.greenSoft.copy(alpha = .52f), C.lilac.copy(alpha = .45f))))) {
         Row(Modifier.fillMaxWidth().heightIn(min = 94.dp).padding(12.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(60.dp).clip(RoundedCornerShape(16.dp)).background(C.greenSoft),
@@ -210,7 +212,7 @@ internal fun ProfileMoneyHabitsCard(
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Better money habits", style = MaterialTheme.typography.titleSmall,
-                        color = C.ink, fontWeight = FontWeight.Bold)
+                        color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                     Surface(shape = CircleShape, color = when (state.kind) {
                         ProfileMoneyHabitsKind.AT_RISK -> C.redSoft
                         ProfileMoneyHabitsKind.LOOKING_GOOD -> C.greenSoft
@@ -226,17 +228,17 @@ internal fun ProfileMoneyHabitsCard(
                     }
                 }
                 Text(state.subtitle, style = MaterialTheme.typography.bodySmall,
-                    color = C.muted, maxLines = 2)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("See what changed", style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold, color = C.violet)
+                        fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     androidx.compose.material3.Icon(Icons.Rounded.ChevronRight, null,
-                        modifier = Modifier.size(16.dp), tint = C.violet)
+                        modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                 }
             }
             androidx.compose.material3.Icon(Icons.Rounded.ChevronRight,
                 contentDescription = "View money habits",
-                tint = C.muted)
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }
     }
@@ -276,15 +278,15 @@ internal fun ProfileMoneyHabitsDetails(
                 onClick = { onAction("plan") })
         )) }
         item {
-            Surface(shape = RoundedCornerShape(16.dp), color = C.lilac) {
+            Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
                 Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     ProfileTile(Icons.Rounded.Lightbulb, ProfileTone.VIOLET, 56.dp)
                     Column(Modifier.padding(start = 12.dp)) {
                         Text(if (risky) "Try this first" else if (healthy) "Keep it up" else "Your next step",
-                            color = C.ink, fontWeight = FontWeight.Bold)
+                            color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
                         Text(if (risky) "Check what you can pause this week"
                             else if (healthy) "Check your plan once a week"
-                            else "Review your plan and recent activity", color = C.muted)
+                            else "Review your plan and recent activity", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -307,8 +309,10 @@ private fun ProfileMoneyStatusHero(title: String, detail: String, kind: ProfileM
         ProfileMoneyHabitsKind.NEEDS_INFORMATION -> C.violet
     }
     Box(Modifier.fillMaxWidth().height(232.dp).clip(RoundedCornerShape(20.dp))
-        .background(Brush.linearGradient(listOf(if (risk) C.coralSoft else C.greenSoft, Color.White,
-            if (risk) C.redSoft else C.blueSoft)))) {
+        .background(Brush.linearGradient(if (MaterialTheme.colorScheme.background == com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens.darkCanvas)
+            listOf(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.surface)
+            else listOf(if (risk) C.coralSoft else C.greenSoft, Color.White,
+                if (risk) C.redSoft else C.blueSoft)))) {
         Canvas(Modifier.matchParentSize()) {
             val w = size.width; val h = size.height
             val wave = Path().apply {
@@ -336,9 +340,9 @@ private fun ProfileMoneyStatusHero(title: String, detail: String, kind: ProfileM
                 }
             }
             Column(Modifier.padding(start = 16.dp)) {
-                Text(title, color = C.ink, style = MaterialTheme.typography.headlineMedium,
+                Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.ExtraBold)
-                Text(detail, color = C.muted, style = MaterialTheme.typography.bodyMedium)
+                Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
