@@ -30,4 +30,9 @@ object PremiumVisualTokens {
     val darkText = Color(0xFFF8EEE7)
     val darkMuted = Color(0xFFD5C8C0)
     val darkCoffee = Color(0xFFE6AD82)
+
+    // Contrast-safe movement colours on the coffee-black canvas.
+    val darkMoneyIn = Color(0xFFB5D58D)
+    val darkMoneyOut = Color(0xFFFF9CA6)
+    val darkTransfer = Color(0xFF9FCAFF)
 }
