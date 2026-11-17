@@ -312,11 +312,12 @@ internal fun VibrantPlanSourceWarning(
     expanded: Boolean = false,
     title: String = "Some spending still needs a source"
 ) {
+    val night = MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
-        color = Color(0xFFFFF2D2),
-        border = BorderStroke(1.dp, Color(0xFFFFEBBC))
+        color = if (night) MaterialTheme.colorScheme.tertiaryContainer else Color(0xFFFFF2D2),
+        border = BorderStroke(1.dp, if (night) MaterialTheme.colorScheme.outlineVariant else Color(0xFFFFEBBC))
     ) {
         Row(
             Modifier.padding(horizontal = 13.dp, vertical = 12.dp),
@@ -324,15 +325,15 @@ internal fun VibrantPlanSourceWarning(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Icon(Icons.Rounded.Info, contentDescription = null,
-                modifier = Modifier.size(25.dp), tint = Color(0xFF9C6510))
+                modifier = Modifier.size(25.dp), tint = if (night) MaterialTheme.colorScheme.onTertiaryContainer else Color(0xFF9C6510))
             Column(Modifier.weight(1f)) {
                 Text(
                     title,
-                    color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp,
+                    color = if (night) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurface, fontSize = 13.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    message, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    message, color = if (night) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp, lineHeight = 15.sp
                 )
             }
@@ -340,7 +341,7 @@ internal fun VibrantPlanSourceWarning(
                 if (expanded) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
                 contentDescription = if (expanded) "Collapse explanation" else "Explain missing source",
                 modifier = Modifier.size(20.dp),
-                tint = PremiumVisualTokens.coffee
+                tint = if (night) MaterialTheme.colorScheme.onTertiaryContainer else PremiumVisualTokens.coffee
             )
         }
     }
@@ -607,12 +608,12 @@ internal fun VibrantPlanMoneyBreakdown(
                 Spacer(Modifier.height(15.dp))
                 VibrantBreakdownRow(
                     Icons.Rounded.Toll, Color(0xFFE7EFD9), PremiumVisualTokens.leafReadable,
-                    "Starting funds", startingFunds, PremiumVisualTokens.ink
+                    "Starting funds", startingFunds, ink
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
                 VibrantBreakdownRow(
                     Icons.Rounded.Download, Color(0xFFE7EFD9), PremiumVisualTokens.leafReadable,
-                    "Other money received", received, PremiumVisualTokens.ink
+                    "Other money received", received, ink
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
                 VibrantBreakdownRow(
