@@ -1,5 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.material3.MaterialTheme
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -59,7 +61,7 @@ internal fun InvestmentPortfolioContent(
     onBack: () -> Unit
 ) {
     LazyColumn(
-        modifier = Modifier.padding(padding).fillMaxSize().background(BrownHomePalette.canvas),
+        modifier = Modifier.padding(padding).fillMaxSize().background(MaterialTheme.colorScheme.background),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -140,7 +142,7 @@ private fun InvestmentGrowthHero() {
 
 @Composable
 private fun InvestmentMetric(value: String, label: String, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, color = Color.White, shape = RoundedCornerShape(16.dp),
+    Surface(modifier = modifier, color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, goldOutline)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(value, color = brown, style = MaterialTheme.typography.titleLarge,
@@ -152,7 +154,7 @@ private fun InvestmentMetric(value: String, label: String, modifier: Modifier = 
 
 @Composable
 private fun InvestmentHoldingRow(position: ObservedInvestmentPosition) {
-    Surface(color = Color.White, shape = RoundedCornerShape(16.dp),
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, goldOutline)) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             InvestmentBrandMark(position.label)
@@ -190,7 +192,7 @@ private fun InvestmentBrandMark(label: String) {
 @Composable
 private fun InvestmentEventRow(event: ObservedInvestmentEvent) {
     val locale = LocalConfiguration.current.locales[0]
-    Surface(color = Color.White, shape = RoundedCornerShape(16.dp),
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, goldOutline)) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             InvestmentBrandMark(event.instrumentLabel)
@@ -208,7 +210,7 @@ private fun InvestmentEventRow(event: ObservedInvestmentEvent) {
 
 @Composable
 private fun InvestmentNotice(message: String) {
-    Surface(color = Color.White, shape = RoundedCornerShape(16.dp),
+    Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, goldOutline)) {
         Text(message, Modifier.padding(16.dp), color = secondaryBrown,
             style = MaterialTheme.typography.bodyMedium)
