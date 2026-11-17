@@ -139,7 +139,9 @@ internal fun BrownActivityMonthlyHero(
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     BrownActivityMinorMetric("Money in", totals.incomeMinor,
-                        Modifier.weight(1f), PremiumVisualTokens.moneyIn)
+                        Modifier.weight(1f),
+                        if (p.canvas == PremiumVisualTokens.darkCanvas)
+                            PremiumVisualTokens.darkMoneyIn else PremiumVisualTokens.moneyIn)
                     BrownActivityMinorMetric(
                         if (balance?.partial == true) "Partial balance" else "Balance",
                         balance?.amountMinor, Modifier.weight(1f)
