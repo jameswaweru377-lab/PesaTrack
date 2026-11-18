@@ -35,7 +35,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 
 | | Feature | What it helps with |
 | --- | --- | --- |
-| 💸 | **Track activity** | Review income, spending, transfers, fees, refunds, and transaction details from supported sources. The monthly Balance card excludes reconstructed account estimates and is not monthly net flow or a salary forecast. |
+| 💸 | **Track activity** | Browse dated transactions with a right-aligned daily trusted net, switch Month / Pay cycle, and search or filter income, spending, transfers, fees and review items. Recorded account balances are separate from daily net and do not imply a salary forecast. |
 | 🧾 | **Import statements** | Review supported M-Pesa and bank statement files with duplicate and verification safeguards. Unsupported or incomplete formats are not silently accepted. |
 | 📊 | **Understand your cash flow** | Explore Money In, Money Out, categories, account context, and reports based on recorded evidence. |
 | 📄 | **Export a personal money report** | Save an offline PesaTrack-branded PDF of your selected Reports period, including trusted Activity totals, categories, trends and selected large expenses. Exported PDFs are not encrypted bank statements. |
@@ -45,7 +45,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 
 ### Five places to find what matters
 
-**Home** for your available money and accounts · **Activity** for transactions and reviews · **Plan** for spendable money, budgets and bills · **Accounts** for banks and wallets · **Profile** for Money Wellness, a vertical Statements / Import statements / Reports / Pay cycle workspace and a dedicated Settings page. Profile's three-dot menu provides personal information, photo and background options. The separate More landing and hamburger drawer have been retired; older More links redirect safely to Profile. Category icons use a shared colour-coded visual vocabulary in the category chooser and Activity, while Settings and Profile workspace rows have roomier spacing.
+**Home** for your available money and accounts · **Activity** for a compact monthly expense summary and transaction ledger with daily net, conditional review notice and on-demand search/advanced filters · **Plan** for spendable money, budgets and bills · **Accounts** for banks and wallets · **Profile** for Money Wellness, a vertical Statements / Import statements / Reports / Pay cycle workspace and a dedicated Settings page. Profile's three-dot menu provides personal information, photo and background options. The separate More landing and hamburger drawer have been retired; older More links redirect safely to Profile. Category icons use a shared colour-coded visual vocabulary in the category chooser and Activity, while Settings and Profile workspace rows have roomier spacing.
 
 > **Screenshots:** A gallery of real, privacy-safe screens will be added after device capture and review. Unlocked screens can temporarily be captured for private UI feedback, so redact personal transactions, account numbers, and statement details before sharing. No private records will be published as examples.
 

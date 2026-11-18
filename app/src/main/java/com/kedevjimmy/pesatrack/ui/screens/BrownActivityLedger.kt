@@ -27,10 +27,20 @@ import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import java.text.SimpleDateFormat
 import java.util.Date
 
-/** A daily ledger section is visually one white inset surface, but rows stay individually lazy. */
+/** A day's amount is calculated elsewhere from all trusted cash legs, not visible row filters. */
+internal fun brownActivityNetLabel(netMinor: Long?): String = when {
+    netMinor == null -> "Net unavailable"
+    netMinor > 0 -> "Net +${activityKesLabel(netMinor)}"
+    netMinor < 0 -> CheckedMoney.orNull { CheckedMoney.negate(netMinor) }
+        ?.let { "Net −${activityKesLabel(it)}" } ?: "Net unavailable"
+    else -> "Net KES 0"
+}
+
+/** Every day retains its right-aligned recorded net and its own differentiated ledger group. */
 @Composable
 internal fun BrownActivityDateHeader(dayEpochMs: Long, netMinor: Long?) {
     val p = homeColors()
@@ -39,22 +49,16 @@ internal fun BrownActivityDateHeader(dayEpochMs: Long, netMinor: Long?) {
         .format(Date(dayEpochMs))
     val title = if (dayName == "Today" || dayName == "Yesterday")
         "$dayName · $shortDate" else dayName
-    val netLabel = when {
-        netMinor == null -> "Net unavailable"
-        netMinor > 0 -> "Net +${activityKesLabel(netMinor)}"
-        netMinor < 0 -> CheckedMoney.orNull { CheckedMoney.negate(netMinor) }
-            ?.let { "Net −${activityKesLabel(it)}" } ?: "Net unavailable"
-        else -> "Net KES 0"
-    }
+    val panel = if (p.canvas == PremiumVisualTokens.darkCanvas) p.cream else p.white
     Surface(modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        color = p.white) {
+        color = panel) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, Modifier.weight(1f), color = p.ink,
                 fontFamily = FontFamily.Serif, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            Text(netLabel, color = p.coffee, fontSize = 12.sp,
+            Text(brownActivityNetLabel(netMinor), color = p.coffee, fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold, maxLines = 1,
                 overflow = TextOverflow.Ellipsis)
         }
@@ -77,6 +81,8 @@ internal fun BrownActivityRow(
         .getOrDefault(MoneyDirection.NEUTRAL)
     val needsReview = item.reviewState == ReviewState.NEEDS_REVIEW.name
     val refund = item.relationType == TransactionStore.RELATION_REFUND
+    val dark = p.canvas == PremiumVisualTokens.darkCanvas
+    val panel = if (dark) p.cream else p.white
     val displayName = financialActivityDisplayName(
         item = item,
         rawDisplayName = item.evidenceLabel?.takeIf {
@@ -88,7 +94,7 @@ internal fun BrownActivityRow(
         shape = if (position == ActivityGroupPosition.LAST ||
             position == ActivityGroupPosition.ONLY)
             RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
-        else RoundedCornerShape(0.dp), color = p.white) {
+        else RoundedCornerShape(0.dp), color = panel) {
         Column {
             Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)
                 .padding(horizontal = 12.dp, vertical = 4.dp),
@@ -97,7 +103,7 @@ internal fun BrownActivityRow(
                 Box(Modifier.size(PesaDesignTokens.iconBubble),
                     contentAlignment = Alignment.Center) {
                     Surface(shape = RoundedCornerShape(PesaDesignTokens.iconRadius),
-                        color = p.cream) {
+                        color = if (dark) p.white else p.cream) {
                         Box(Modifier.size(PesaDesignTokens.iconBubble),
                             contentAlignment = Alignment.Center) {
                             val visual = activityCategoryIconVisual(categories.labelFor(categoryId), direction)

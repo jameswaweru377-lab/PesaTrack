@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -362,6 +361,7 @@ fun ActivityScreen(
     var cycleError by remember { mutableStateOf(false) }
     var showCyclePicker by remember { mutableStateOf(false) }
     var showExtraFilters by remember { mutableStateOf(false) }
+    var showSearch by rememberSaveable { mutableStateOf(false) }
     var explainNetFlow by remember { mutableStateOf(false) }
     LaunchedEffect(ledgerUpdateState.revision) {
         try {
@@ -859,14 +859,16 @@ fun ActivityScreen(
     LaunchedEffect(selectedMonthEpochMs, payCycleMode, chosenCycle?.startTransactionId) {
         activityListState.scrollToItem(0)
     }
-    // The attention card changes the active filter; bring the review rows into
-    // view so the tap does not appear to return to the same Activity screen.
+    // The slim attention row changes the filter; move past the title, overview,
+    // section heading and compact filters to the existing review section.
     LaunchedEffect(selectedFilter, selectedGlobalQueue) {
         if (selectedFilter == "Needs Review" && selectedGlobalQueue == "Attention") {
-            val firstReviewItem = 5 + if (showExtraFilters) 2 else 0
-            if (activityListState.layoutInfo.totalItemsCount > firstReviewItem) {
-                activityListState.animateScrollToItem(firstReviewItem)
-            }
+            val firstReviewItem = 5 + (if (activityError) 1 else 0) +
+                (if (showExtraFilters) 2 else 0) +
+                (if (cycleError && payCycleMode) 1 else 0)
+            snapshotFlow { activityListState.layoutInfo.totalItemsCount }
+                .first { it > firstReviewItem }
+            activityListState.animateScrollToItem(firstReviewItem)
         }
     }
 
@@ -910,72 +912,34 @@ fun ActivityScreen(
                 Text("Showing your last successfully loaded activity.")
                 TextButton(onClick = { refresh() }) { Text("Try again") }
             }
-            item(key = "activity-brown-heading") {
-                BrownActivityHeading(
-                    month = periodLabel,
-                    payCycleMode = payCycleMode,
-                    onMonth = {
-                        payCycleMode = false
-                        showMonthPicker = true
+            brownActivityControlItems(
+                view = BrownActivityControlView(
+                    periodLabel, payCycleMode, displaySnapshot ?: snapshot,
+                    recordedBalance, needsAttentionCount, showSearch, searchQuery,
+                    showExtraFilters, selectedFilter
+                ),
+                actions = BrownActivityControlActions(
+                    onMonthMode = { payCycleMode = false },
+                    onChooseMonth = { payCycleMode = false; showMonthPicker = true },
+                    onCycle = { showCyclePicker = true },
+                    onToggleSearch = { if (showSearch) searchQuery = ""; showSearch = !showSearch },
+                    onQuery = { searchQuery = it },
+                    onToggleFilters = { showExtraFilters = !showExtraFilters },
+                    onReview = { selectedGlobalQueue = "Attention"; selectedFilter = "Needs Review" },
+                    onShowAll = {
+                        searchQuery = ""; showSearch = false; showExtraFilters = false
+                        selectedFilter = "All"; selectedGlobalQueue = null
+                        selectedFinancialSource = null
                     },
-                    onCycle = { showCyclePicker = true }
-                )
-            }
-            item(key = "activity-period-overview") {
-                Box(Modifier.padding(bottom = 8.dp)) {
-                    BrownActivityMonthlyHero(
-                        displaySnapshot ?: snapshot, payCycleMode, recordedBalance
-                    )
-                }
-            }
-            item(key = "activity-attention-card") {
-                Box(Modifier.padding(bottom = 8.dp)) {
-                    BrownActivityReview(
-                        count = needsAttentionCount,
-                        onReview = {
-                            selectedGlobalQueue = "Attention"
-                            selectedFilter = "Needs Review"
-                        }
-                    )
-                }
-            }
-            item(key = "premium-search") {
-                Box(Modifier.padding(bottom = 8.dp)) {
-                    BrownActivitySearch(
-                        query = searchQuery,
-                        onQuery = { searchQuery = it },
-                        onFilters = { showExtraFilters = !showExtraFilters }
-                    )
-                }
-            }
-            item(key = "premium-filters") {
-                Box(Modifier.padding(bottom = 4.dp)) {
-                    BrownActivitySegmentedFilters(selectedFilter) {
-                        if (selectedFilter != it) {
-                            selectedFilter = it
-                            selectedGlobalQueue = if (it == "Needs Review") "Attention" else null
-                        }
-                    }
-                }
-            }
-            if (showExtraFilters) item(key = "activity-tools") {
-                ActivityToolsDisclosure(
-                    onChanged = { refresh() },
+                    onSelectFilter = { filter ->
+                        selectedFilter = filter
+                        selectedGlobalQueue = if (filter == "Needs Review") "Attention" else null
+                    },
+                    onToolsChanged = { refresh() },
                     onPaycheckClick = onPaycheckClick,
                     onStatementsClick = onStatementsClick
                 )
-            }
-            if(showExtraFilters) item(key = "additional-filters") {
-                LazyRow(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
-                    listOf("Money Out","Money In","Owed to me","Repayments").forEach { name ->
-                        item(key=name) {
-                            FilterChip(selected=selectedFilter==name,
-                                onClick={selectedFilter=name},
-                                label={Text(name)})
-                        }
-                    }
-                }
-            }
+            )
             if(cycleError && payCycleMode) item {
                 Text("Salary cycle could not load. No records were changed.")
                 TextButton(onClick={payCycleMode=false}) { Text("Show calendar month") }
@@ -1465,13 +1429,6 @@ fun ActivityScreen(
                             )
                         }
                     } else {
-                        item(key = "activity-brown-recent-heading") {
-                            BrownActivityRecentHeading {
-                                searchQuery = ""
-                                selectedFilter = "All"
-                                selectedGlobalQueue = null
-                            }
-                        }
                         groupedFiltered.forEach {
                                 (dayEpochMs, transactions) ->
                             item(
