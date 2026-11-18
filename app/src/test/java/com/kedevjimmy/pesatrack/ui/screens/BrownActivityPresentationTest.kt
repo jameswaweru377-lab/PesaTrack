@@ -27,4 +27,17 @@ class BrownActivityPresentationTest {
         assertEquals("THIS MONTH", brownActivityPeriodCaption(false))
         assertEquals("THIS PAY CYCLE", brownActivityPeriodCaption(true))
     }
+
+    @Test fun compactLedgerExposesThreePrimaryFiltersWithoutLosingAdvancedKinds() {
+        assertEquals(listOf("All", "Money In", "Money Out"),
+            brownActivityPrimaryFilters.map { it.label })
+        assertEquals(listOf("Transfers", "Needs Review"),
+            brownActivityAdvancedFilters.map { it.key })
+    }
+
+    @Test fun reviewNoticeIsOnlyVisibleWhenAttentionIsPending() {
+        assertNull(brownActivityReviewNotice(0))
+        assertEquals("1 item needs review", brownActivityReviewNotice(1))
+        assertEquals("4 need review", brownActivityReviewNotice(4))
+    }
 }

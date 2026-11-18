@@ -38,10 +38,14 @@ enum class MainTab(
     MORE("more", "More", Icons.Rounded.MoreHoriz)
 }
 
+/** Activity owns a compact search/filter header; all other main tabs retain the brand bar. */
+internal fun showBrandedTopHeader(currentTab: MainTab?, showTopBar: Boolean): Boolean =
+    showTopBar && currentTab != null && currentTab != MainTab.ACTIVITY
+
 /**
- * Primary navigation includes Home, Activity, Plan, Accounts and More as
- * shown by the approved premium design. The anchored header and bottom bar
- * are owned by this scaffold, not by each scrolling destination.
+ * Primary navigation uses Home, Activity, Plan, Accounts and Profile.
+ * Activity owns its compact ledger header; other tabs keep the branded top bar.
+ * The shared five-tab bottom navigation remains anchored by this scaffold.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,7 +66,7 @@ fun AppScaffold(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            if (showTopBar && currentTab != null) {
+            if (showBrandedTopHeader(currentTab, showTopBar)) {
                 Box(Modifier.background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
                     BrownHomeHeader(
                         onNotifications = {

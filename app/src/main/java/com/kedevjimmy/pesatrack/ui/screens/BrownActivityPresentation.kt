@@ -12,14 +12,17 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -54,51 +57,72 @@ internal val brownActivityFilters = listOf(
     BrownActivityFilter("Review", "Needs Review")
 )
 
+internal val brownActivityPrimaryFilters = brownActivityFilters.take(3)
+internal val brownActivityAdvancedFilters = brownActivityFilters.drop(3)
+
+internal fun brownActivityReviewNotice(count: Int): String? = when {
+    count <= 0 -> null
+    count == 1 -> "1 item needs review"
+    else -> "$count need review"
+}
+
 internal fun brownActivityFilterKey(label: String): String? =
     brownActivityFilters.firstOrNull { it.label == label }?.key
 
 internal fun brownActivityPeriodCaption(payCycleMode: Boolean): String =
     if (payCycleMode) "THIS PAY CYCLE" else "THIS MONTH"
 
+/** Ledger-first Activity header: its full search field and advanced tools are disclosed on demand. */
 @Composable
-internal fun BrownActivityHeading(
+internal fun BrownActivityHeader(
     month: String,
     payCycleMode: Boolean,
+    searchOpen: Boolean,
+    searchQuery: String,
+    filtersActive: Boolean,
     onMonth: () -> Unit,
-    onCycle: () -> Unit
+    onCycle: () -> Unit,
+    onToggleSearch: () -> Unit,
+    onQuery: (String) -> Unit,
+    onToggleFilters: () -> Unit
 ) {
     val p = homeColors()
-    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp)
-        .heightIn(min = PesaDesignTokens.minimumTouchTarget),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf("Month", "Pay cycle").forEach { mode ->
-                val active = (mode == "Pay cycle") == payCycleMode
-                Surface(onClick = if (mode == "Pay cycle") onCycle else onMonth,
-                    color = if (active) p.coffee else p.cream,
-                    shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-                    modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)) {
-                    Box(Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        contentAlignment = Alignment.Center) {
-                        Text(mode, fontSize = 12.sp,
-                            color = if (active) MaterialTheme.colorScheme.onPrimary else p.coffee,
-                            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
-                    }
+    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth().heightIn(min = PesaDesignTokens.minimumTouchTarget),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text("Activity", Modifier.weight(1f), color = p.ink,
+                fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 26.sp)
+            IconButton(onClick = onToggleSearch, modifier = Modifier.size(48.dp)) {
+                Icon(if (searchOpen) Icons.Rounded.Close else Icons.Rounded.Search,
+                    if (searchOpen) "Close search" else "Search transactions",
+                    Modifier.size(24.dp), tint = p.ink)
+            }
+            IconButton(onClick = onToggleFilters, modifier = Modifier.size(48.dp)) {
+                Icon(Icons.Rounded.Tune, "Advanced filters and tools",
+                    Modifier.size(24.dp), tint = if (filtersActive) p.coffee else p.ink)
+            }
+        }
+        Row(Modifier.fillMaxWidth().heightIn(min = PesaDesignTokens.minimumTouchTarget),
+            verticalAlignment = Alignment.CenterVertically) {
+            Surface(onClick = onMonth, color = p.canvas,
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                    .semantics { contentDescription = "Choose Activity month: $month" }) {
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(month, color = p.coffee, fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis)
+                    Icon(Icons.Rounded.ExpandMore, null, Modifier.size(20.dp), tint = p.coffee)
                 }
             }
-        }
-        Spacer(Modifier.weight(1f))
-        Surface(onClick = onMonth, color = p.canvas,
-            modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)
-                .semantics { contentDescription = "Choose Activity month: $month" }) {
-            Row(verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(month, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                    color = p.coffee, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Icon(Icons.Rounded.ExpandMore, null, Modifier.size(20.dp), tint = p.coffee)
+            TextButton(onClick = if (payCycleMode) onMonth else onCycle,
+                modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)) {
+                Text(if (payCycleMode) "Month" else "Pay cycle", color = p.muted,
+                    fontSize = 12.sp)
             }
         }
+        if (searchOpen) BrownActivityInlineSearch(searchQuery, onQuery)
     }
 }
 
@@ -170,53 +194,45 @@ private fun BrownActivityMinorMetric(
 
 @Composable
 internal fun BrownActivityReview(count: Int, onReview: () -> Unit) {
+    val label = brownActivityReviewNotice(count) ?: return
     val p = homeColors()
     Surface(onClick = onReview, modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(PesaDesignTokens.innerRadius), color = p.cream) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
-            .padding(horizontal = 12.dp, vertical = 3.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Rounded.CheckCircleOutline, null, Modifier.size(27.dp), tint = p.coffee)
-            Text(if (count == 0) "All reviewed" else "$count need review",
-                modifier = Modifier.weight(1f), color = p.ink,
-                fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            Icon(Icons.Rounded.ChevronRight, "Open review", tint = p.coffee)
+        color = p.canvas) {
+        Column {
+            HorizontalDivider(color = p.outline.copy(alpha = .65f))
+            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(Icons.Rounded.CheckCircleOutline, null, Modifier.size(24.dp), tint = p.coffee)
+                Text(label, modifier = Modifier.weight(1f), color = p.ink,
+                    fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                Icon(Icons.Rounded.ChevronRight, "Open review", tint = p.coffee)
+            }
+            HorizontalDivider(color = p.outline.copy(alpha = .65f))
         }
     }
 }
 
 @Composable
-internal fun BrownActivitySearch(
-    query: String, onQuery: (String) -> Unit, onFilters: () -> Unit
-) {
+private fun BrownActivityInlineSearch(query: String, onQuery: (String) -> Unit) {
     val p = homeColors()
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Surface(Modifier.weight(1f).heightIn(min = 48.dp),
-            shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-            color = p.white, border = BorderStroke(1.dp, p.outline.copy(alpha = .7f))) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Rounded.Search, null, Modifier.size(20.dp), tint = p.muted)
-                BasicTextField(query, onQuery, Modifier.weight(1f), singleLine = true,
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = p.ink),
-                    cursorBrush = SolidColor(p.coffee), decorationBox = { field ->
-                        Box(contentAlignment = Alignment.CenterStart) {
-                            if (query.isEmpty()) Text("Search transactions", color = p.muted,
-                                style = MaterialTheme.typography.bodyMedium)
-                            field()
-                        }
-                    })
-            }
-        }
-        Surface(onClick = onFilters, modifier = Modifier.size(48.dp),
-            shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-            color = p.white, border = BorderStroke(1.dp, p.outline.copy(alpha = .7f))) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Tune, "Advanced filters", Modifier.size(22.dp), tint = p.coffee)
-            }
+    Surface(Modifier.fillMaxWidth().heightIn(min = 48.dp),
+        shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
+        color = p.white, border = BorderStroke(1.dp, p.outline.copy(alpha = .7f))) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Rounded.Search, null, Modifier.size(20.dp), tint = p.muted)
+            BasicTextField(query, onQuery, Modifier.weight(1f), singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = p.ink),
+                cursorBrush = SolidColor(p.coffee), decorationBox = { field ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (query.isEmpty()) Text("Search transactions", color = p.muted,
+                            style = MaterialTheme.typography.bodyMedium)
+                        field()
+                    }
+                })
         }
     }
 }
@@ -226,25 +242,23 @@ internal fun BrownActivitySegmentedFilters(selected: String, onSelect: (String) 
     val p = homeColors()
     val state = rememberLazyListState()
     LaunchedEffect(selected) {
-        brownActivityFilters.indexOfFirst { it.key == selected }.takeIf { it >= 0 }
+        brownActivityPrimaryFilters.indexOfFirst { it.key == selected }.takeIf { it >= 0 }
             ?.let { state.animateScrollToItem(it) }
     }
-    Surface(modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-        color = p.canvas, border = BorderStroke(1.dp, p.outline.copy(alpha = .65f))) {
-        LazyRow(state = state, verticalAlignment = Alignment.CenterVertically) {
-            items(brownActivityFilters) { tab ->
-                val active = selected == tab.key
-                Surface(onClick = { onSelect(tab.key) },
-                    modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget),
-                    color = if (active) p.coffee else p.canvas,
-                    shape = RoundedCornerShape(PesaDesignTokens.controlRadius)) {
-                    Box(Modifier.padding(horizontal = 12.dp),
-                        contentAlignment = Alignment.Center) {
-                        Text(tab.label, fontSize = 11.sp,
-                            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                            color = if (active) MaterialTheme.colorScheme.onPrimary else p.ink, maxLines = 1)
-                    }
+    LazyRow(state = state, verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(brownActivityPrimaryFilters) { tab ->
+            val active = selected == tab.key
+            Surface(onClick = { onSelect(tab.key) },
+                modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget),
+                color = if (active) p.coffee else p.canvas,
+                shape = RoundedCornerShape(PesaDesignTokens.controlRadius)) {
+                Box(Modifier.padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center) {
+                    Text(tab.label, fontSize = 12.sp,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                        color = if (active) MaterialTheme.colorScheme.onPrimary else p.ink,
+                        maxLines = 1)
                 }
             }
         }

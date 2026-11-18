@@ -27,4 +27,12 @@ class ActivityVisualGroupingPolicyTest {
     fun invalidGroupIndexDoesNotSilentlyAssignAnEdge() {
         activityGroupPosition(3, 3)
     }
+
+    @Test fun dayHeaderAlwaysHasTheExistingTrustedNetLabel() {
+        assertEquals("Net −KES 100", brownActivityNetLabel(-10_000L))
+        assertEquals("Net +KES 138.55", brownActivityNetLabel(13_855L))
+        assertEquals("Net KES 0", brownActivityNetLabel(0L))
+        assertEquals("Net unavailable", brownActivityNetLabel(null))
+        assertEquals("Net unavailable", brownActivityNetLabel(Long.MIN_VALUE))
+    }
 }

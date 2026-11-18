@@ -1,5 +1,21 @@
 # PesaTrack Current State
 
+_Ledger-first Activity dark-mode layout (18 November 2026; Android CI and Redmi acceptance pending):_
+The owner selected a compact transaction-first Activity screen from three dark
+concepts, retaining a right-aligned trusted daily **Net** amount beside every
+date heading. Activity now owns its simple title/search/filter header instead
+of repeating Home's centered logo, and the large monthly photo hero and
+redundant Recent activity / See all heading no longer precede the transaction
+list. A slim conditional review link and three primary filters keep transactions
+visible sooner; Month/Pay cycle selection, search, Transfers/Review/repayment
+advanced filters, review actions and paging remain available. Existing shared
+dark/light coffee and cream tokens distinguish date/transaction surfaces.
+The trusted complete-ledger net calculation, exclusion of owned transfers,
+cash-flow classifications, recorded balances, user decisions, offline data,
+schema, backup, permissions, signing and five-tab navigation are unchanged.
+Local Gradle is blocked by the distribution download; exact-head GitHub CI,
+accessibility/contrast checks and real-device visual acceptance are pending.
+
 _App-wide premium coffee-black dark-mode completion pass (17 November 2026; CI and real-phone acceptance pending):_
 The selected dark theme is being applied to reachable Home balance-review notices,
 Activity, Plan, budget and bill components, investment and account-detail cards,

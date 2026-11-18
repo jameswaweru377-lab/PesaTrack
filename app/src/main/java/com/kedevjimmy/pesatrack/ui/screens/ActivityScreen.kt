@@ -362,6 +362,7 @@ fun ActivityScreen(
     var cycleError by remember { mutableStateOf(false) }
     var showCyclePicker by remember { mutableStateOf(false) }
     var showExtraFilters by remember { mutableStateOf(false) }
+    var showSearch by rememberSaveable { mutableStateOf(false) }
     var explainNetFlow by remember { mutableStateOf(false) }
     LaunchedEffect(ledgerUpdateState.revision) {
         try {
@@ -859,14 +860,16 @@ fun ActivityScreen(
     LaunchedEffect(selectedMonthEpochMs, payCycleMode, chosenCycle?.startTransactionId) {
         activityListState.scrollToItem(0)
     }
-    // The attention card changes the active filter; bring the review rows into
-    // view so the tap does not appear to return to the same Activity screen.
+    // The slim attention row changes the filter; move past compact controls
+    // to the review section without changing the underlying review state.
     LaunchedEffect(selectedFilter, selectedGlobalQueue) {
         if (selectedFilter == "Needs Review" && selectedGlobalQueue == "Attention") {
-            val firstReviewItem = 5 + if (showExtraFilters) 2 else 0
-            if (activityListState.layoutInfo.totalItemsCount > firstReviewItem) {
-                activityListState.animateScrollToItem(firstReviewItem)
-            }
+            val firstReviewItem = 3 + (if (activityError) 1 else 0) +
+                (if (showExtraFilters) 2 else 0) +
+                (if (cycleError && payCycleMode) 1 else 0)
+            snapshotFlow { activityListState.layoutInfo.totalItemsCount }
+                .first { it > firstReviewItem }
+            activityListState.animateScrollToItem(firstReviewItem)
         }
     }
 
@@ -910,41 +913,35 @@ fun ActivityScreen(
                 Text("Showing your last successfully loaded activity.")
                 TextButton(onClick = { refresh() }) { Text("Try again") }
             }
-            item(key = "activity-brown-heading") {
-                BrownActivityHeading(
+            item(key = "activity-ledger-header") {
+                BrownActivityHeader(
                     month = periodLabel,
                     payCycleMode = payCycleMode,
+                    searchOpen = showSearch,
+                    searchQuery = searchQuery,
+                    filtersActive = showExtraFilters ||
+                        brownActivityPrimaryFilters.none { it.key == selectedFilter },
                     onMonth = {
                         payCycleMode = false
                         showMonthPicker = true
                     },
-                    onCycle = { showCyclePicker = true }
+                    onCycle = { showCyclePicker = true },
+                    onToggleSearch = {
+                        if (showSearch) searchQuery = ""
+                        showSearch = !showSearch
+                    },
+                    onQuery = { searchQuery = it },
+                    onToggleFilters = { showExtraFilters = !showExtraFilters }
                 )
             }
-            item(key = "activity-period-overview") {
-                Box(Modifier.padding(bottom = 8.dp)) {
-                    BrownActivityMonthlyHero(
-                        displaySnapshot ?: snapshot, payCycleMode, recordedBalance
-                    )
-                }
-            }
             item(key = "activity-attention-card") {
-                Box(Modifier.padding(bottom = 8.dp)) {
+                if (needsAttentionCount > 0) Box(Modifier.padding(bottom = 8.dp)) {
                     BrownActivityReview(
                         count = needsAttentionCount,
                         onReview = {
                             selectedGlobalQueue = "Attention"
                             selectedFilter = "Needs Review"
                         }
-                    )
-                }
-            }
-            item(key = "premium-search") {
-                Box(Modifier.padding(bottom = 8.dp)) {
-                    BrownActivitySearch(
-                        query = searchQuery,
-                        onQuery = { searchQuery = it },
-                        onFilters = { showExtraFilters = !showExtraFilters }
                     )
                 }
             }
@@ -967,11 +964,18 @@ fun ActivityScreen(
             }
             if(showExtraFilters) item(key = "additional-filters") {
                 LazyRow(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
-                    listOf("Money Out","Money In","Owed to me","Repayments").forEach { name ->
-                        item(key=name) {
-                            FilterChip(selected=selectedFilter==name,
-                                onClick={selectedFilter=name},
-                                label={Text(name)})
+                    (brownActivityAdvancedFilters + listOf(
+                        BrownActivityFilter("Owed to me", "Owed to me"),
+                        BrownActivityFilter("Repayments", "Repayments")
+                    )).forEach { filter ->
+                        item(key=filter.key) {
+                            FilterChip(selected=selectedFilter==filter.key,
+                                onClick={
+                                    selectedFilter=filter.key
+                                    selectedGlobalQueue =
+                                        if (filter.key == "Needs Review") "Attention" else null
+                                },
+                                label={Text(filter.label)})
                         }
                     }
                 }
@@ -1465,13 +1469,6 @@ fun ActivityScreen(
                             )
                         }
                     } else {
-                        item(key = "activity-brown-recent-heading") {
-                            BrownActivityRecentHeading {
-                                searchQuery = ""
-                                selectedFilter = "All"
-                                selectedGlobalQueue = null
-                            }
-                        }
                         groupedFiltered.forEach {
                                 (dayEpochMs, transactions) ->
                             item(
