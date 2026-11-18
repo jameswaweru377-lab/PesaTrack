@@ -860,11 +860,11 @@ fun ActivityScreen(
     LaunchedEffect(selectedMonthEpochMs, payCycleMode, chosenCycle?.startTransactionId) {
         activityListState.scrollToItem(0)
     }
-    // The slim attention row changes the filter; move past compact controls
-    // to the review section without changing the underlying review state.
+    // The slim attention row changes the filter; move past the title, overview,
+    // section heading and compact filters to the existing review section.
     LaunchedEffect(selectedFilter, selectedGlobalQueue) {
         if (selectedFilter == "Needs Review" && selectedGlobalQueue == "Attention") {
-            val firstReviewItem = 3 + (if (activityError) 1 else 0) +
+            val firstReviewItem = 5 + (if (activityError) 1 else 0) +
                 (if (showExtraFilters) 2 else 0) +
                 (if (cycleError && payCycleMode) 1 else 0)
             snapshotFlow { activityListState.layoutInfo.totalItemsCount }
@@ -921,7 +921,8 @@ fun ActivityScreen(
                     searchQuery = searchQuery,
                     filtersActive = showExtraFilters ||
                         brownActivityPrimaryFilters.none { it.key == selectedFilter },
-                    onMonth = {
+                    onMonthMode = { payCycleMode = false },
+                    onChooseMonth = {
                         payCycleMode = false
                         showMonthPicker = true
                     },
@@ -934,6 +935,15 @@ fun ActivityScreen(
                     onToggleFilters = { showExtraFilters = !showExtraFilters }
                 )
             }
+            item(key = "activity-period-overview") {
+                Box(Modifier.padding(bottom = 8.dp)) {
+                    BrownActivityMonthlyHero(
+                        snapshot = displaySnapshot ?: snapshot,
+                        payCycleMode = payCycleMode,
+                        balance = recordedBalance
+                    )
+                }
+            }
             item(key = "activity-attention-card") {
                 if (needsAttentionCount > 0) Box(Modifier.padding(bottom = 8.dp)) {
                     BrownActivityReview(
@@ -944,6 +954,16 @@ fun ActivityScreen(
                         }
                     )
                 }
+            }
+            item(key = "activity-transactions-heading") {
+                BrownActivityTransactionsHeading(onShowAll = {
+                    searchQuery = ""
+                    showSearch = false
+                    showExtraFilters = false
+                    selectedFilter = "All"
+                    selectedGlobalQueue = null
+                    selectedFinancialSource = null
+                })
             }
             item(key = "premium-filters") {
                 Box(Modifier.padding(bottom = 4.dp)) {

@@ -40,4 +40,11 @@ class BrownActivityPresentationTest {
         assertEquals("1 item needs review", brownActivityReviewNotice(1))
         assertEquals("4 need review", brownActivityReviewNotice(4))
     }
+
+    @Test fun compactOverviewKeepsOnlyIncomeAndRecordedBalance() {
+        assertEquals(listOf("Money in", "Balance"),
+            brownActivityHeroFooterLabels(partialBalance = false))
+        assertEquals(listOf("Money in", "Partial balance"),
+            brownActivityHeroFooterLabels(partialBalance = true))
+    }
 }

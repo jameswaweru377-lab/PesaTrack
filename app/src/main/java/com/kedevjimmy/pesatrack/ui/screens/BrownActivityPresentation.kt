@@ -72,7 +72,10 @@ internal fun brownActivityFilterKey(label: String): String? =
 internal fun brownActivityPeriodCaption(payCycleMode: Boolean): String =
     if (payCycleMode) "THIS PAY CYCLE" else "THIS MONTH"
 
-/** Ledger-first Activity header: its full search field and advanced tools are disclosed on demand. */
+internal fun brownActivityHeroFooterLabels(partialBalance: Boolean): List<String> =
+    listOf("Money in", if (partialBalance) "Partial balance" else "Balance")
+
+/** Compact Activity title and period controls; search and advanced tools open on demand. */
 @Composable
 internal fun BrownActivityHeader(
     month: String,
@@ -80,17 +83,22 @@ internal fun BrownActivityHeader(
     searchOpen: Boolean,
     searchQuery: String,
     filtersActive: Boolean,
-    onMonth: () -> Unit,
+    onMonthMode: () -> Unit,
+    onChooseMonth: () -> Unit,
     onCycle: () -> Unit,
     onToggleSearch: () -> Unit,
     onQuery: (String) -> Unit,
     onToggleFilters: () -> Unit
 ) {
     val p = homeColors()
-    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth().heightIn(min = PesaDesignTokens.minimumTouchTarget),
-            verticalAlignment = Alignment.CenterVertically) {
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Image(painterResource(R.drawable.ic_pesatrack_home_mark), null,
+                Modifier.size(36.dp).clip(RoundedCornerShape(9.dp)))
+            Box(Modifier.width(1.dp).height(24.dp).background(p.outline))
             Text("Activity", Modifier.weight(1f), color = p.ink,
                 fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 26.sp)
             IconButton(onClick = onToggleSearch, modifier = Modifier.size(48.dp)) {
@@ -103,30 +111,45 @@ internal fun BrownActivityHeader(
                     Modifier.size(24.dp), tint = if (filtersActive) p.coffee else p.ink)
             }
         }
-        Row(Modifier.fillMaxWidth().heightIn(min = PesaDesignTokens.minimumTouchTarget),
-            verticalAlignment = Alignment.CenterVertically) {
-            Surface(onClick = onMonth, color = p.canvas,
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            BrownActivityPeriodPill("Month", selected = !payCycleMode,
+                onClick = onMonthMode)
+            BrownActivityPeriodPill("Pay cycle", selected = payCycleMode,
+                onClick = onCycle)
+            Spacer(Modifier.weight(1f))
+            Surface(onClick = onChooseMonth, color = p.canvas,
+                modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)
+                    .widthIn(max = 155.dp)
                     .semantics { contentDescription = "Choose Activity month: $month" }) {
                 Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(month, color = p.coffee, fontSize = 16.sp,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(month, color = p.coffee, fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold, maxLines = 1,
                         overflow = TextOverflow.Ellipsis)
                     Icon(Icons.Rounded.ExpandMore, null, Modifier.size(20.dp), tint = p.coffee)
                 }
-            }
-            TextButton(onClick = if (payCycleMode) onMonth else onCycle,
-                modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)) {
-                Text(if (payCycleMode) "Month" else "Pay cycle", color = p.muted,
-                    fontSize = 12.sp)
             }
         }
         if (searchOpen) BrownActivityInlineSearch(searchQuery, onQuery)
     }
 }
 
-/** Decorative photography only. The four values still come from the trusted local ledger. */
+@Composable
+private fun BrownActivityPeriodPill(label: String, selected: Boolean, onClick: () -> Unit) {
+    val p = homeColors()
+    Surface(onClick = onClick,
+        modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget),
+        shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
+        color = if (selected) p.coffee else p.white) {
+        Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+            Text(label, color = if (selected) MaterialTheme.colorScheme.onPrimary else p.muted,
+                fontSize = 13.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
+        }
+    }
+}
+
+/** Decorative photography only. Expenses, income and balance come from the trusted local ledger. */
 @Composable
 internal fun BrownActivityMonthlyHero(
     snapshot: ActivityLedgerSnapshot,
@@ -135,7 +158,7 @@ internal fun BrownActivityMonthlyHero(
 ) {
     val p = homeColors()
     val totals = remember(snapshot) { activityDesign3Totals(snapshot) }
-    Box(Modifier.fillMaxWidth().height(172.dp)
+    Box(Modifier.fillMaxWidth().height(150.dp)
         .clip(RoundedCornerShape(PesaDesignTokens.cardRadius))) {
         Image(painterResource(R.drawable.home_brown_monthly_coins), null,
             Modifier.matchParentSize(), contentScale = ContentScale.Crop)
@@ -162,15 +185,15 @@ internal fun BrownActivityMonthlyHero(
                 HorizontalDivider(color = p.coffee.copy(alpha = .24f), thickness = .5.dp)
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    BrownActivityMinorMetric("Money in", totals.incomeMinor,
+                    val labels = brownActivityHeroFooterLabels(balance?.partial == true)
+                    BrownActivityMinorMetric(labels[0], totals.incomeMinor,
                         Modifier.weight(1f),
                         if (p.canvas == PremiumVisualTokens.darkCanvas)
                             PremiumVisualTokens.darkMoneyIn else PremiumVisualTokens.moneyIn)
-                    BrownActivityMinorMetric(
-                        if (balance?.partial == true) "Partial balance" else "Balance",
-                        balance?.amountMinor, Modifier.weight(1f)
-                    )
-                    BrownActivityMinorMetric("Invested", totals.investedMinor, Modifier.weight(1f))
+                    Box(Modifier.width(1.dp).height(26.dp)
+                        .background(p.outline.copy(alpha = .7f)))
+                    BrownActivityMinorMetric(labels[1], balance?.amountMinor,
+                        Modifier.weight(1f))
                 }
             }
         }
@@ -185,9 +208,9 @@ private fun BrownActivityMinorMetric(
     val p = homeColors()
     Column(modifier.padding(horizontal = 4.dp),
         verticalArrangement = Arrangement.spacedBy(1.dp)) {
-        Text(label, color = p.ink, fontSize = 10.sp, maxLines = 1)
+        Text(label, color = p.ink, fontSize = 11.sp, maxLines = 1)
         Text(minor?.let(::activityKesLabel) ?: "Unavailable", color = if (valueColor == Color.Unspecified) p.ink else valueColor,
-            fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1,
+            fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1,
             overflow = TextOverflow.Ellipsis)
     }
 }
@@ -266,18 +289,17 @@ internal fun BrownActivitySegmentedFilters(selected: String, onSelect: (String) 
 }
 
 @Composable
-internal fun BrownActivityRecentHeading(onSeeAll: () -> Unit) {
+internal fun BrownActivityTransactionsHeading(onShowAll: () -> Unit) {
     val p = homeColors()
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Text("Recent activity", Modifier.weight(1f), color = p.ink,
+        Text("Transactions", Modifier.weight(1f), color = p.ink,
             fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 22.sp)
-        Surface(onClick = onSeeAll, color = p.canvas,
+        Surface(onClick = onShowAll, color = p.canvas,
             modifier = Modifier.heightIn(min = 48.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("See all", color = p.coffee, fontSize = 12.sp)
-                Icon(Icons.Rounded.ChevronRight, null, Modifier.size(18.dp), tint = p.coffee)
+                Text("All activity", color = p.coffee, fontSize = 12.sp)
             }
         }
     }

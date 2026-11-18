@@ -1,10 +1,10 @@
-# Activity Ledger-First Implementation Plan
+# Activity Compact-Overview Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Deliver the selected dark-mode Activity layout while retaining the exact trusted daily net beside each date.
 
-**Architecture:** Keep `ActivityScreen` as the existing ledger/review state owner. Extract compact presentation controls into `BrownActivityPresentation.kt`, keep the trusted day calculation unchanged, and give Activity a title/search/filter bar inside its own screen while removing its duplicate global Home brand header. Continue using shared `homeColors()` and theme tokens for both appearances.
+**Architecture:** Keep `ActivityScreen` as the existing ledger/review state owner. Extract compact presentation controls into `BrownActivityPresentation.kt`, retain the photo-backed expenses overview with Money in and recorded Balance / Partial balance, and keep the trusted day calculation unchanged. Activity owns a compact marked title and actions rather than repeating the centered Home brand header. Continue using shared `homeColors()` and theme tokens for both appearances.
 
 **Tech Stack:** Kotlin, Jetpack Compose, JUnit4, Gradle, GitHub Actions.
 
@@ -40,7 +40,7 @@
 
 - [ ] Step 1: Add pure policy tests for three primary visible filters, accessible Transfers/Review advanced keys, the conditional review label, and Activity's own header ownership.
 - [ ] Step 2: Run focused JVM test and confirm it fails on absent new policy functions; if Gradle download is blocked, record the blocker rather than claim a red test.
-- [ ] Step 3: Implement the compact header, on-demand search/advanced filters, one-line conditional review, and three-filter first row; remove the hero and redundant recent heading from `ActivityScreen` without touching money calculations.
+- [ ] Step 3: Implement the compact header, photo-backed two-metric overview, on-demand search/advanced filters, one-line conditional review, Transactions / All activity heading, and three-filter first row; remove the redundant recent heading without touching money calculations.
 - [ ] Step 4: Run focused tests; expect green, or delegate validation to exact-head GitHub CI if local Gradle unavailable.
 
 ### Task 2: Keep the daily net and distinguish transaction surfaces
