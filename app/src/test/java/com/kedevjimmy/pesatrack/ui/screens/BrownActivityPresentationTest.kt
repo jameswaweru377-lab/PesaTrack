@@ -33,6 +33,8 @@ class BrownActivityPresentationTest {
             brownActivityPrimaryFilters.map { it.label })
         assertEquals(listOf("Transfers", "Needs Review"),
             brownActivityAdvancedFilters.map { it.key })
+        assertEquals(listOf("Transfers", "Needs Review", "Owed to me", "Repayments"),
+            brownActivitySecondaryFilters.map { it.key })
     }
 
     @Test fun reviewNoticeIsOnlyVisibleWhenAttentionIsPending() {
