@@ -97,7 +97,8 @@ internal fun BrownActivityHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Image(painterResource(R.drawable.ic_pesatrack_home_mark), null,
-                Modifier.size(36.dp).clip(RoundedCornerShape(9.dp)))
+                Modifier.size(PesaDesignTokens.compactWordmarkLogoSize)
+                    .clip(RoundedCornerShape(PesaDesignTokens.iconRadius)))
             Box(Modifier.width(1.dp).height(24.dp).background(p.outline))
             Text("Activity", Modifier.weight(1f), color = p.ink,
                 fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 26.sp)
