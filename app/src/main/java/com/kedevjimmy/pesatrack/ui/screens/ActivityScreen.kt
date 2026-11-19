@@ -822,6 +822,7 @@ fun ActivityScreen(
         ledgerUpdateState.revision
     ) { mutableIntStateOf(ACTIVITY_FIRST_BATCH) }
     val activityListState = rememberLazyListState()
+    var stickyActivityHeaderHeightPx by remember { mutableIntStateOf(0) }
     val sortedFiltered = filtered.sortedWith(
         compareByDescending<StoredTransaction> { it.occurredAtEpochMs }
             .thenByDescending { it.id }
@@ -861,14 +862,18 @@ fun ActivityScreen(
     }
     // The slim attention row changes the filter; move past the title, overview,
     // section heading and compact filters to the existing review section.
-    LaunchedEffect(selectedFilter, selectedGlobalQueue) {
-        if (selectedFilter == "Needs Review" && selectedGlobalQueue == "Attention") {
+    LaunchedEffect(selectedFilter, selectedGlobalQueue, stickyActivityHeaderHeightPx) {
+        if (selectedFilter == "Needs Review" && selectedGlobalQueue == "Attention" &&
+            stickyActivityHeaderHeightPx > 0) {
             val firstReviewItem = 5 + (if (activityError) 1 else 0) +
                 (if (showExtraFilters) 2 else 0) +
                 (if (cycleError && payCycleMode) 1 else 0)
             snapshotFlow { activityListState.layoutInfo.totalItemsCount }
                 .first { it > firstReviewItem }
-            activityListState.animateScrollToItem(firstReviewItem)
+            activityListState.animateScrollToItem(
+                firstReviewItem,
+                scrollOffset = activityReviewScrollOffset(stickyActivityHeaderHeightPx)
+            )
         }
     }
 
@@ -925,6 +930,7 @@ fun ActivityScreen(
                     onToggleSearch = { if (showSearch) searchQuery = ""; showSearch = !showSearch },
                     onQuery = { searchQuery = it },
                     onToggleFilters = { showExtraFilters = !showExtraFilters },
+                    onHeaderHeightChanged = { stickyActivityHeaderHeightPx = it },
                     onReview = { selectedGlobalQueue = "Attention"; selectedFilter = "Needs Review" },
                     onShowAll = {
                         searchQuery = ""; showSearch = false; showExtraFilters = false

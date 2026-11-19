@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -88,10 +89,13 @@ internal fun BrownActivityHeader(
     onCycle: () -> Unit,
     onToggleSearch: () -> Unit,
     onQuery: (String) -> Unit,
-    onToggleFilters: () -> Unit
+    onToggleFilters: () -> Unit,
+    onHeaderHeightChanged: (Int) -> Unit
 ) {
     val p = homeColors()
-    Column(Modifier.fillMaxWidth().background(p.canvas).padding(bottom = 10.dp),
+    Column(Modifier.fillMaxWidth().background(p.canvas)
+        .onSizeChanged { onHeaderHeightChanged(it.height) }
+        .padding(bottom = 10.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         BrownCompactTabTitle("Activity") {
             IconButton(onClick = onToggleSearch, modifier = Modifier.size(48.dp)) {

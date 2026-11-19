@@ -39,6 +39,7 @@ internal data class BrownActivityControlActions(
     val onToggleSearch: () -> Unit,
     val onQuery: (String) -> Unit,
     val onToggleFilters: () -> Unit,
+    val onHeaderHeightChanged: (Int) -> Unit,
     val onReview: () -> Unit,
     val onShowAll: () -> Unit,
     val onSelectFilter: (String) -> Unit,
@@ -66,7 +67,8 @@ internal fun LazyListScope.brownActivityControlItems(
             onCycle = actions.onCycle,
             onToggleSearch = actions.onToggleSearch,
             onQuery = actions.onQuery,
-            onToggleFilters = actions.onToggleFilters
+            onToggleFilters = actions.onToggleFilters,
+            onHeaderHeightChanged = actions.onHeaderHeightChanged
         )
     }
     item(key = "activity-period-overview") {
