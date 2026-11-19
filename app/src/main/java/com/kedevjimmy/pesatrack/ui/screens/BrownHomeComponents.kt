@@ -40,6 +40,9 @@ import java.util.Calendar
 import java.util.Date
 
 /** Reference photography is decorative; all displayed financial figures remain ledger-backed. */
+internal fun brownHomeBalanceSubtitle(partial: Boolean): String =
+    if (partial) "After unpaid bills (some balances missing)" else "After unpaid bills"
+
 /** Single ledger-backed Home balance hero; no pager or second promotional slide. */
 @Composable
 internal fun BrownHomeHero(available: String, onAccounts: () -> Unit, partial: Boolean = false) {
@@ -67,8 +70,7 @@ internal fun BrownHomeHero(available: String, onAccounts: () -> Unit, partial: B
                 fontSize = 27.sp, lineHeight = 30.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                if (partial) "Partial balance · after unpaid bills"
-                else "After unpaid bills",
+                brownHomeBalanceSubtitle(partial),
                 color = Color.White, fontSize = 12.sp, maxLines = 2
             )
         }
@@ -166,8 +168,7 @@ private fun BrownAccountTile(name: String, balance: String,
 ) {
     val p = homeColors()
     Surface(modifier.heightIn(min = 76.dp).clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp), color = p.white,
-        border = androidx.compose.foundation.BorderStroke(1.dp, p.outline)) {
+        shape = RoundedCornerShape(14.dp), color = p.white) {
         Row(Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {

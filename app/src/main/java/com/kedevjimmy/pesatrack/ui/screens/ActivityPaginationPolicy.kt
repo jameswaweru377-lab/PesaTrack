@@ -20,3 +20,7 @@ internal fun activityVisibleCount(
 
 internal fun <T> activityVisibleRows(rows: List<T>, visibleCount: Int): List<T> =
     rows.take(visibleCount.coerceAtLeast(0))
+
+/** Negative LazyList offset keeps the first review row below the pinned controls. */
+internal fun activityReviewScrollOffset(stickyHeaderHeightPx: Int): Int =
+    -stickyHeaderHeightPx.coerceAtLeast(0)

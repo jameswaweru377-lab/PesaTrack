@@ -40,4 +40,11 @@ class ActivityProgressiveListPolicyTest {
 
     @Test(expected=IllegalArgumentException::class)
     fun invalidBatchFailsFast() { activityVisibleCount(3,10,0) }
+
+    @Test fun reviewJumpAccountsForTheActualStickyHeaderHeight() {
+        assertEquals(-184, activityReviewScrollOffset(184))
+        assertEquals(-244, activityReviewScrollOffset(244))
+        assertEquals(0, activityReviewScrollOffset(0))
+        assertEquals(0, activityReviewScrollOffset(-12))
+    }
 }

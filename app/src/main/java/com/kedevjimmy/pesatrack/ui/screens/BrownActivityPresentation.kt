@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -88,20 +89,15 @@ internal fun BrownActivityHeader(
     onCycle: () -> Unit,
     onToggleSearch: () -> Unit,
     onQuery: (String) -> Unit,
-    onToggleFilters: () -> Unit
+    onToggleFilters: () -> Unit,
+    onHeaderHeightChanged: (Int) -> Unit
 ) {
     val p = homeColors()
-    Column(Modifier.fillMaxWidth().padding(bottom = 10.dp),
+    Column(Modifier.fillMaxWidth().background(p.canvas)
+        .onSizeChanged { onHeaderHeightChanged(it.height) }
+        .padding(bottom = 10.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(Modifier.fillMaxWidth().heightIn(min = PesaDesignTokens.minimumTouchTarget),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Image(painterResource(R.drawable.ic_pesatrack_home_mark), null,
-                Modifier.size(PesaDesignTokens.compactWordmarkLogoSize)
-                    .clip(RoundedCornerShape(PesaDesignTokens.iconRadius)))
-            Box(Modifier.width(1.dp).height(24.dp).background(p.outline))
-            Text("Activity", Modifier.weight(1f), color = p.ink,
-                fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 26.sp)
+        BrownCompactTabTitle("Activity") {
             IconButton(onClick = onToggleSearch, modifier = Modifier.size(48.dp)) {
                 Icon(if (searchOpen) Icons.Rounded.Close else Icons.Rounded.Search,
                     if (searchOpen) "Close search" else "Search transactions",
@@ -275,14 +271,21 @@ internal fun BrownActivitySegmentedFilters(selected: String, onSelect: (String) 
             val active = selected == tab.key
             Surface(onClick = { onSelect(tab.key) },
                 modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget),
-                color = if (active) p.coffee else p.canvas,
+                color = p.canvas,
                 shape = RoundedCornerShape(PesaDesignTokens.controlRadius)) {
-                Box(Modifier.padding(horizontal = 12.dp),
+                Box(Modifier.padding(vertical = PesaDesignTokens.compactGap),
                     contentAlignment = Alignment.Center) {
-                    Text(tab.label, fontSize = 12.sp,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                        color = if (active) MaterialTheme.colorScheme.onPrimary else p.ink,
-                        maxLines = 1)
+                    Box(
+                        Modifier.background(
+                            if (active) p.coffee else Color.Transparent,
+                            RoundedCornerShape(PesaDesignTokens.controlRadius)
+                        ).padding(horizontal = 12.dp, vertical = PesaDesignTokens.compactGap)
+                    ) {
+                        Text(tab.label, fontSize = 12.sp,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                            color = if (active) MaterialTheme.colorScheme.onPrimary else p.ink,
+                            maxLines = 1)
+                    }
                 }
             }
         }

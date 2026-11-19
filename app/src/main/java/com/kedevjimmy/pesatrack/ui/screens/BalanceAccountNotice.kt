@@ -1,7 +1,5 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,12 +13,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -44,7 +44,6 @@ import com.kedevjimmy.pesatrack.data.local.BalanceAccountVisibility
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
 import com.kedevjimmy.pesatrack.domain.rules.PlanSpendableAccount
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
-import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -70,29 +69,29 @@ internal fun HomeBalanceNotice(accounts: List<MoneyAccount>, balances: List<Plan
     }
     var expanded by rememberSaveable { mutableStateOf(false) }
     val palette = homeColors()
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Surface(
-            color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-            border = BorderStroke(PesaDesignTokens.cardOutlineWidth, palette.outline)
-        ) {
-            Row(
-                Modifier.fillMaxWidth().clickable { expanded = !expanded }
-                    .heightIn(min = PesaDesignTokens.minimumTouchTarget)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
+    Column(verticalArrangement = Arrangement.spacedBy(PesaDesignTokens.compactGap)) {
+        Surface(onClick = { expanded = !expanded }, color = palette.canvas) {
+            Column {
+                HorizontalDivider(color = palette.outline.copy(alpha = .65f))
+                Row(
+                    Modifier.fillMaxWidth()
+                        .heightIn(min = PesaDesignTokens.minimumTouchTarget)
+                        .padding(horizontal = PesaDesignTokens.compactGap),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(PesaDesignTokens.sectionGap)
+                ) {
+                    Icon(Icons.Rounded.CheckCircleOutline, contentDescription = null,
+                        tint = palette.coffee)
                     Text("${visible.size} accounts need balance review",
-                        color = palette.coffee, style = MaterialTheme.typography.titleSmall)
-                    Text("Tap to review the missing or uncertain balances",
-                        color = palette.muted, style = MaterialTheme.typography.bodySmall)
+                        modifier = Modifier.weight(1f), color = palette.ink,
+                        style = MaterialTheme.typography.titleSmall)
+                    Icon(
+                        Icons.Rounded.ExpandMore,
+                        contentDescription = if (expanded) "Hide account notices" else "Review account notices",
+                        tint = palette.coffee
+                    )
                 }
-                Icon(
-                    Icons.Rounded.ExpandMore,
-                    contentDescription = if (expanded) "Hide account notices" else "Review account notices",
-                    tint = palette.coffee
-                )
+                HorizontalDivider(color = palette.outline.copy(alpha = .65f))
             }
         }
         if (expanded) visible.forEach { (account, balance) ->
@@ -119,27 +118,35 @@ private fun BalanceNoticeCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(PesaDesignTokens.cardOutlineWidth, palette.outline)
+        color = MaterialTheme.colorScheme.surface
     ) {
         Column(
-            Modifier.padding(PesaDesignTokens.cardContentPadding),
+            Modifier.padding(horizontal = PesaDesignTokens.cardContentPadding,
+                vertical = PesaDesignTokens.compactGap),
             verticalArrangement = Arrangement.spacedBy(PesaDesignTokens.compactGap)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(PesaDesignTokens.controlRadius)
-                ) {
+                Column(Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(PesaDesignTokens.controlRadius)
+                    ) {
+                        Text(
+                            "BALANCE CHECK",
+                            Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
                     Text(
-                        "BALANCE CHECK",
-                        Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelSmall,
+                        if (missing) "Balance needs attention" else "Check account balance",
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                        color = palette.coffee
                     )
                 }
-                Box(Modifier.weight(1f))
                 Box {
                     IconButton(onClick = { showMenu = true }) {
                         Icon(Icons.Rounded.MoreVert, contentDescription = "Balance options for $name",
@@ -159,12 +166,6 @@ private fun BalanceNoticeCard(
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        if (missing) "Balance needs attention" else "Check account balance",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = palette.coffee
-                    )
                     Text(
                         if (missing) "$name has no recorded balance."
                         else "The recorded balance for $name needs checking.",
@@ -211,8 +212,7 @@ internal fun ArchivedBalanceAccounts(accounts: List<MoneyAccount>) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        color = palette.cream,
-        border = BorderStroke(1.dp, palette.outline)
+        color = palette.cream
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Archived from balances", style = MaterialTheme.typography.titleSmall, color = palette.coffee)
