@@ -15,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens as P
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 
 @Composable
@@ -23,24 +22,25 @@ internal fun ProfileMoneyWorkspace(
     statements: () -> Unit, imports: () -> Unit,
     reports: () -> Unit, payCycle: () -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Money workspace", style = MaterialTheme.typography.titleLarge,
-            color = P.ink, fontWeight = FontWeight.Bold)
+            color = colors.onBackground, fontWeight = FontWeight.Bold)
         Surface(
-            color = P.card, shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-            border = BorderStroke(1.dp, P.sandBorder)
+            color = colors.surface, shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
+            border = BorderStroke(1.dp, colors.outlineVariant)
         ) {
             Column {
                 ProfileWorkspaceRow("Statements", "Your imported statements",
                     Icons.Rounded.Description, statements)
-                HorizontalDivider(color = P.sandBorder)
+                HorizontalDivider(color = colors.outlineVariant)
                 ProfileWorkspaceRow("Import statements", "PDF, CSV and financial records",
                     Icons.Rounded.FileDownload, imports)
-                HorizontalDivider(color = P.sandBorder)
+                HorizontalDivider(color = colors.outlineVariant)
                 ProfileWorkspaceRow("Reports", "Spending and money insights",
                     Icons.Rounded.BarChart, reports)
-                HorizontalDivider(color = P.sandBorder)
+                HorizontalDivider(color = colors.outlineVariant)
                 ProfileWorkspaceRow("Pay cycle", "Salary dates and pay history",
                     Icons.Rounded.CalendarMonth, payCycle)
             }
@@ -50,13 +50,14 @@ internal fun ProfileMoneyWorkspace(
 
 @Composable
 internal fun ProfileSettingsEntry(onSettings: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Settings", style = MaterialTheme.typography.titleLarge,
-            color = P.ink, fontWeight = FontWeight.Bold)
+            color = colors.onBackground, fontWeight = FontWeight.Bold)
         Surface(
-            color = P.card, shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-            border = BorderStroke(1.dp, P.sandBorder)
+            color = colors.surface, shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
+            border = BorderStroke(1.dp, colors.outlineVariant)
         ) {
             ProfileWorkspaceRow(
                 "App preferences", "Notifications, security, appearance and data",
@@ -70,6 +71,7 @@ internal fun ProfileSettingsEntry(onSettings: () -> Unit) {
 private fun ProfileWorkspaceRow(
     name: String, subtitle: String, icon: ImageVector, onClick: () -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick)
             .heightIn(min = PesaDesignTokens.minimumTouchTarget)
@@ -78,19 +80,19 @@ private fun ProfileWorkspaceRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Surface(shape = RoundedCornerShape(PesaDesignTokens.iconRadius),
-            color = P.sand, modifier = Modifier.size(PesaDesignTokens.iconBubble)) {
+            color = colors.primaryContainer, modifier = Modifier.size(PesaDesignTokens.iconBubble)) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, tint = P.coffee,
+                Icon(icon, contentDescription = null, tint = colors.primary,
                     modifier = Modifier.size(24.dp))
             }
         }
         Column(Modifier.weight(1f)) {
-            Text(name, color = P.ink, style = MaterialTheme.typography.titleSmall,
+            Text(name, color = colors.onSurface, style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = P.muted, style = MaterialTheme.typography.bodySmall)
+            Text(subtitle, color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
         Icon(Icons.Rounded.ChevronRight, contentDescription = null,
-            tint = P.coffee, modifier = Modifier.size(20.dp))
+            tint = colors.primary, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -102,6 +104,7 @@ private data class SettingsDestination(
 internal fun ProfileSettingsHub(
     padding: PaddingValues, back: () -> Unit, onDestination: (String) -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
     val preferences = listOf(
         SettingsDestination("Notifications", "Bills, budgets and reminders",
             Icons.Rounded.NotificationsNone, "notifications"),
@@ -136,7 +139,7 @@ internal fun ProfileSettingsHub(
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                 }
                 Text("Settings", style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold, color = P.ink)
+                    fontWeight = FontWeight.Bold, color = colors.onBackground)
             }
         }
         item { SettingsSection("App preferences", preferences, onDestination) }
@@ -148,16 +151,17 @@ internal fun ProfileSettingsHub(
 private fun SettingsSection(
     title: String, entries: List<SettingsDestination>, onDestination: (String) -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold, color = P.coffee)
+            fontWeight = FontWeight.SemiBold, color = colors.primary)
         Surface(
             shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-            color = P.card, border = BorderStroke(1.dp, P.sandBorder)
+            color = colors.surface, border = BorderStroke(1.dp, colors.outlineVariant)
         ) {
             Column {
                 entries.forEachIndexed { index, item ->
-                    if (index > 0) HorizontalDivider(color = P.sandBorder)
+                    if (index > 0) HorizontalDivider(color = colors.outlineVariant)
                     ProfileWorkspaceRow(item.name, item.hint, item.icon) {
                         onDestination(item.route)
                     }

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.ui.screens.ActivityMoneyActions
 import com.kedevjimmy.pesatrack.ui.screens.BrownHomeHeader
+import com.kedevjimmy.pesatrack.ui.screens.BrownCompactTabTitle
 import com.kedevjimmy.pesatrack.ui.screens.BrownHomeBottomBar
 import com.kedevjimmy.pesatrack.ui.screens.BrownHomePalette
 import com.kedevjimmy.pesatrack.ui.screens.HomeReferencePalette
@@ -38,13 +39,18 @@ enum class MainTab(
     MORE("more", "More", Icons.Rounded.MoreHoriz)
 }
 
-/** Activity owns a compact search/filter header; all other main tabs retain the brand bar. */
+/** Only Home keeps the centered full brand; Activity owns its own sticky header. */
 internal fun showBrandedTopHeader(currentTab: MainTab?, showTopBar: Boolean): Boolean =
-    showTopBar && currentTab != null && currentTab != MainTab.ACTIVITY
+    showTopBar && currentTab == MainTab.HOME
+
+/** Plan and Accounts use a pinned mark-and-title header without a search control. */
+internal fun showCompactTopHeader(currentTab: MainTab?, showTopBar: Boolean): Boolean =
+    showTopBar && (currentTab == MainTab.PLAN || currentTab == MainTab.ACCOUNTS)
 
 /**
  * Primary navigation uses Home, Activity, Plan, Accounts and Profile.
- * Activity owns its compact ledger header; other tabs keep the branded top bar.
+ * Home owns the full branded header; Plan and Accounts use compact fixed titles.
+ * Activity owns a sticky ledger header and inline search.
  * The shared five-tab bottom navigation remains anchored by this scaffold.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,6 +83,14 @@ fun AppScaffold(
                             }
                         }
                     )
+                }
+            } else if (showCompactTopHeader(currentTab, showTopBar)) {
+                Box(
+                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    currentTab?.let { BrownCompactTabTitle(it.label) }
                 }
             }
         },

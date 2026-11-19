@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.ui.components.MainTab
 import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
+import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 
 /** Shared navigation palette, first approved on Home. */
 internal object BrownHomePalette {
@@ -84,6 +85,31 @@ internal fun BrownHomeHeader(onNotifications: () -> Unit) {
             contentAlignment = Alignment.Center) {
             Icon(Icons.Rounded.NotificationsNone, "Notifications", Modifier.size(26.dp), tint = p.onBackground)
         }
+    }
+}
+
+/** A title row shared by the pinned Plan/Accounts header and Activity's sticky tools. */
+@Composable
+internal fun BrownCompactTabTitle(
+    title: String,
+    modifier: Modifier = Modifier,
+    actions: @Composable RowScope.() -> Unit = {}
+) {
+    val palette = homeColors()
+    Row(
+        modifier.fillMaxWidth().heightIn(min = PesaDesignTokens.minimumTouchTarget),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(PesaDesignTokens.sectionGap)
+    ) {
+        Image(
+            painterResource(R.drawable.ic_pesatrack_home_mark), contentDescription = null,
+            modifier = Modifier.size(PesaDesignTokens.compactWordmarkLogoSize)
+                .clip(RoundedCornerShape(PesaDesignTokens.iconRadius))
+        )
+        Box(Modifier.width(1.dp).height(24.dp).background(palette.outline))
+        Text(title, Modifier.weight(1f), color = palette.ink,
+            fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 26.sp)
+        actions()
     }
 }
 

@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
@@ -47,11 +48,12 @@ internal data class BrownActivityControlActions(
 )
 
 /** A focused LazyList section preserves separate keys and the review scroll index. */
+@OptIn(ExperimentalFoundationApi::class)
 internal fun LazyListScope.brownActivityControlItems(
     view: BrownActivityControlView,
     actions: BrownActivityControlActions
 ) {
-    item(key = "activity-ledger-header") {
+    stickyHeader(key = "activity-ledger-header") {
         BrownActivityHeader(
             month = view.periodLabel,
             payCycleMode = view.payCycleMode,

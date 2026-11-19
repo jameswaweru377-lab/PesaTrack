@@ -123,8 +123,7 @@ internal fun ApprovedAccountsList(lines: List<AccountDisplayLine>, savings: List
                 Icon(Icons.Rounded.Add, null, Modifier.padding(start = 4.dp).size(18.dp), tint = MaterialTheme.colorScheme.primary)
             }
         }
-        Surface(shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Surface(shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surface) {
             Column(Modifier.padding(horizontal = 12.dp, vertical = 5.dp)) {
                 val hasMpesa = lines.any { it.name.contains("M-Pesa", true) }
                 lines.forEachIndexed { index, line ->
