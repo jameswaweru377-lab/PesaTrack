@@ -16,4 +16,6 @@ rg -q 'Choose a budget category' "$screens/BudgetScreen.kt"
 ! rg -q 'if \(categoryExpanded \|\| budgets.isEmpty\(\)\)' "$screens/BudgetScreen.kt"
 rg -q 'ThemeMode.entries' "$screens/ProfileAppearancePage.kt"
 rg -q 'grouped = true' "$screens/TransactionDetailScreen.kt"
+rg -Fq 'TransferReconciliationStore(context).read(overview.year)' "$screens/StatementUnifiedOverviewPage.kt"
+rg -q 'reconciliation.pairs.any' "$screens/StatementUnifiedOverviewPage.kt"
 echo 'Batch 1 UI source contracts passed'

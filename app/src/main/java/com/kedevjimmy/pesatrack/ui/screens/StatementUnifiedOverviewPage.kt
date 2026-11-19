@@ -30,6 +30,7 @@ import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
 import com.kedevjimmy.pesatrack.data.local.StatementBankReportReader
 import com.kedevjimmy.pesatrack.data.local.EverydayMoneyStore
 import com.kedevjimmy.pesatrack.data.local.StatementMatchDecisionStore
+import com.kedevjimmy.pesatrack.data.local.TransferReconciliationStore
 import com.kedevjimmy.pesatrack.domain.statements.SharedAccountingViewPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementOverviewCardsPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementSavedAccountVisibility
@@ -65,6 +66,7 @@ internal fun StatementUnifiedOverviewPage(
     val context = LocalContext.current
     var accounting by remember(overview.year) { mutableStateOf<SharedAccountingViewPolicy.View?>(null) }
     var pendingMatches by remember(overview.year) { mutableStateOf(false) }
+    var pendingReconciliations by remember(overview.year) { mutableStateOf(false) }
     var bankIdentityCounts by remember(overview.year, bankAccountIds) {
         mutableStateOf<Pair<Int, Int>?>(null)
     }
@@ -98,6 +100,21 @@ internal fun StatementUnifiedOverviewPage(
         } catch (cancelled: CancellationException) { throw cancelled
         } catch (_: Exception) { accounting = null }
     }
+    LaunchedEffect(overview) {
+        pendingReconciliations = false
+        try {
+            val transferReview = withContext(Dispatchers.IO) {
+                TransferReconciliationStore(context).read(overview.year)
+            }
+            pendingReconciliations = transferReview.reconciliation.pairs.any { pair ->
+                transferReview.decisions[pair.fingerprint] == null
+            }
+        } catch (cancelled: CancellationException) { throw cancelled
+        } catch (_: Exception) {
+            // Keep the review workspace reachable when reconciliation could not be checked.
+            pendingReconciliations = true
+        }
+    }
     val cards = StatementOverviewCardsPolicy.project(overview.cashSummary, accounting)
     val accounts = overview.accountRows
     val accountInventory = remember(accounts, limitedSources, reportAccountIds) {
@@ -128,7 +145,7 @@ internal fun StatementUnifiedOverviewPage(
                 }
             }
         }
-        if (pendingMatches) item {
+        if (pendingMatches || pendingReconciliations) item {
             TextButton(onClick = onOpenMatchReview, modifier = Modifier.heightIn(min = 48.dp)) {
                 Icon(Icons.Rounded.CompareArrows, null)
                 Spacer(Modifier.width(8.dp))
