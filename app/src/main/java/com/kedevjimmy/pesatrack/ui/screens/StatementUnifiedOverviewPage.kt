@@ -93,7 +93,8 @@ internal fun StatementUnifiedOverviewPage(
                 StatementMatchDecisionStore(context).read(overview.year)
             }
             accounting = snapshot.sharedAccounting
-            pendingMatches = snapshot.candidates.any { snapshot.decisions[it.hash] == null }
+            pendingMatches = snapshot.candidates.any { snapshot.decisions[it.hash] == null } ||
+                snapshot.possibleTransfers.isNotEmpty() || snapshot.possibleCopies.isNotEmpty()
         } catch (cancelled: CancellationException) { throw cancelled
         } catch (_: Exception) { accounting = null }
     }
@@ -484,7 +485,6 @@ private fun StatementUnifiedCashMetric(label: String, amount: Long?, modifier: M
 @Composable
 private fun StatementUnifiedWhiteCard(content: @Composable () -> Unit) {
     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()) { content() }
 }
 
@@ -497,8 +497,7 @@ private fun StatementUnifiedMetricCard(
 ) {
     Surface(modifier = modifier.then(if (onClick != null) Modifier.clickable(onClick = onClick)
         else Modifier),
-        color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(shape = RoundedCornerShape(11.dp), color = iconBackground) {
