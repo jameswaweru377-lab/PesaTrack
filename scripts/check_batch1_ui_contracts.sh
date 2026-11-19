@@ -20,4 +20,6 @@ rg -Fq 'TransferReconciliationStore(context).read(overview.year)' "$screens/Stat
 rg -q 'reconciliation.pairs.any' "$screens/StatementUnifiedOverviewPage.kt"
 rg -Fq 'Manage reviewed matches' "$screens/StatementUnifiedOverviewPage.kt"
 rg -Fq 'hasReviewedReconciliations' "$screens/StatementUnifiedOverviewPage.kt"
+rg -Fq 'reconciliation.unmatchedRoutes.isNotEmpty()' "$screens/StatementUnifiedOverviewPage.kt"
+rg -Fq 'accountMentions.isNotEmpty()' "$screens/StatementUnifiedOverviewPage.kt"
 echo 'Batch 1 UI source contracts passed'

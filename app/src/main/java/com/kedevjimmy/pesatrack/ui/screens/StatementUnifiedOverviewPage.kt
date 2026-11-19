@@ -100,7 +100,8 @@ internal fun StatementUnifiedOverviewPage(
             accounting = snapshot.sharedAccounting
             hasReviewedMatches = snapshot.decisions.isNotEmpty()
             pendingMatches = snapshot.candidates.any { snapshot.decisions[it.hash] == null } ||
-                snapshot.possibleTransfers.isNotEmpty() || snapshot.possibleCopies.isNotEmpty()
+                snapshot.possibleTransfers.isNotEmpty() || snapshot.possibleCopies.isNotEmpty() ||
+                snapshot.accountMentions.isNotEmpty() || snapshot.missingOwnershipConsent
         } catch (cancelled: CancellationException) { throw cancelled
         } catch (_: Exception) { accounting = null }
     }
@@ -113,7 +114,7 @@ internal fun StatementUnifiedOverviewPage(
             }
             pendingReconciliations = transferReview.reconciliation.pairs.any { pair ->
                 transferReview.decisions[pair.fingerprint] == null
-            }
+            } || transferReview.reconciliation.unmatchedRoutes.isNotEmpty()
             hasReviewedReconciliations = transferReview.decisions.isNotEmpty()
         } catch (cancelled: CancellationException) { throw cancelled
         } catch (_: Exception) {
