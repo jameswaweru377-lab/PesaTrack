@@ -778,25 +778,32 @@ fun TransactionDetailScreen(
         if (current.relationType == TransactionStore.RELATION_REFUND) {
             item { RefundLinkCard(current, linkedRefundOriginal) }
         }
-        item(key = "transaction-original-message") {
+        item(key = "transaction-evidence-group") {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = homeColors().white,
+                shape = RoundedCornerShape(16.dp)
+            ) {
+            Column {
             RedesignDetailAccordion(
                 title = "Original message",
                 icon = Icons.Rounded.Sms,
                 expanded = messageExpanded,
                 onToggle = { messageExpanded = !messageExpanded },
-                supporting = "View source SMS"
+                supporting = "View source SMS",
+                grouped = true
             ) {
                 TransactionOriginalMessage(messageEvidence, current.sourceKind)
             }
-        }
-        item(key = "transaction-linked-evidence") {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             RedesignDetailAccordion(
                 title = "Linked evidence",
                 icon = Icons.Rounded.AttachFile,
                 expanded = evidenceExpanded,
                 onToggle = { evidenceExpanded = !evidenceExpanded },
                 supporting = if (availableSources.isEmpty()) "No attachment added"
-                    else availableSources.size.toString() + " connected source(s)"
+                    else availableSources.size.toString() + " connected source(s)",
+                grouped = true
             ) {
                 if (availableSources.isEmpty()) {
                     Text("No additional transaction source has been matched.",
@@ -826,15 +833,15 @@ fun TransactionDetailScreen(
                     }
                 }
             }
-        }
-        item(key = "transaction-merchant-history") {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Box(Modifier.testTag("transaction-merchant-history-card")) {
                 RedesignDetailAccordion(
                     title = "Merchant history",
                     icon = Icons.Rounded.BarChart,
                     expanded = merchantExpanded,
                     onToggle = { merchantExpanded = !merchantExpanded },
-                    supporting = "View earlier payments"
+                    supporting = "View earlier payments",
+                    grouped = true
                 ) {
                     BrownMerchantHistory(
                         merchant = current.counterparty ?: pretty(current.type),
@@ -845,23 +852,35 @@ fun TransactionDetailScreen(
                     )
                 }
             }
-        }
-        item(key = "transaction-add-receipt") {
-            BrownAddReceipt(onClick = { showAnnotationDialog = true },
-                hasReceipt = annotation.receiptUri != null)
-        }
-        item(key = "transaction-facts") {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                .clickable { showAnnotationDialog = true }
+                .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(Icons.Rounded.AttachFile, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary)
+                Text(if (annotation.receiptUri == null) "Add receipt" else "View receipt",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium)
+                Icon(Icons.Rounded.ChevronRight, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary)
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             RedesignDetailAccordion(
                 title = "More transaction facts",
                 icon = Icons.AutoMirrored.Rounded.ReceiptLong,
                 expanded = factsExpanded,
-                onToggle = { factsExpanded = !factsExpanded }
+                onToggle = { factsExpanded = !factsExpanded },
+                grouped = true
             ) {
                 TransactionDetailFacts(
                     item = current, accountLabel = accountLabel,
                     onAccount = current.accountId?.let { id -> { onAccountClick(id) } },
                     onCategory = { showCategoryPicker = true }
                 )
+            }
+            }
             }
         }
 if (current.reviewState == ReviewState.USER_CLASSIFIED.name &&

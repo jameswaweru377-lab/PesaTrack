@@ -393,7 +393,7 @@ internal fun SavingGoalEditor(
                 } else if (bill) {
                     "Set the bill once. PesaTrack will use real payment activity to keep its status current."
                 } else {
-                    "Create a goal PesaTrack can match to real savings transfers."
+                    "Track your savings toward something that matters."
                 },
                 modifier =
                     Modifier.padding(
@@ -610,7 +610,8 @@ internal fun SavingGoalEditor(
                             KeyboardOptions(
                                 keyboardType =
                                     KeyboardType.Decimal
-                            )
+                            ),
+                        visualTransformation = MoneyGroupingVisualTransformation
                     )
 
                     if (!bill) {
@@ -624,12 +625,12 @@ internal fun SavingGoalEditor(
                                 Modifier.fillMaxWidth(),
                             label = {
                                 Text(
-                                    "Overall goal target (KES)"
+                                    "Total goal amount (KES)"
                                 )
                             },
                             supportingText = {
                                 Text(
-                                    "Optional. Use this for a goal such as land, emergency fund or a large purchase."
+                                    "Optional · How much do you want to save in total?"
                                 )
                             },
                             singleLine = true,
@@ -637,7 +638,8 @@ internal fun SavingGoalEditor(
                                 KeyboardOptions(
                                     keyboardType =
                                         KeyboardType.Decimal
-                                )
+                            ),
+                        visualTransformation = MoneyGroupingVisualTransformation
                         )
 
                         Row(
@@ -660,7 +662,7 @@ internal fun SavingGoalEditor(
                                 )
                                 Text(
                                     if (hasTargetDate) {
-                                        "Give this goal a deadline."
+                                        "When would you like to reach it?"
                                     } else {
                                         "Optional — save at your own pace."
                                     },
@@ -680,7 +682,12 @@ internal fun SavingGoalEditor(
                                 onCheckedChange = {
                                     hasTargetDate =
                                         it
-                                }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    uncheckedBorderColor = MaterialTheme.colorScheme.outline,
+                                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             )
                         }
 
@@ -712,7 +719,7 @@ internal fun SavingGoalEditor(
                                 if (bill) {
                                     "Who do you pay?"
                                 } else {
-                                    "Where will you save this money?"
+                                    "Savings account or transfer name"
                                 }
                             )
                         },
@@ -721,7 +728,7 @@ internal fun SavingGoalEditor(
                                 if (bill) {
                                     "Use the payee/name that appears in the payment message."
                                 } else {
-                                    "Use the name that appears in transfers, for example M-Shwari, SACCO or a savings account."
+                                    "Use the exact name in your transfer messages, e.g. M-Shwari."
                                 }
                             )
                         },
@@ -745,7 +752,7 @@ internal fun SavingGoalEditor(
                             if (bill) {
                                 "Bills are added only when you choose them. Matching trusted payments mark the current month's bill as paid; PesaTrack never creates or pays a bill automatically."
                             } else {
-                                "Only trusted transfers matched to this goal count toward progress. Creating a goal never moves money."
+                                "Only matched transfers count as savings. Creating a goal won't move money."
                             },
                             modifier =
                                 Modifier.padding(

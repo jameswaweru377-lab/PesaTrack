@@ -64,6 +64,7 @@ internal fun StatementUnifiedOverviewPage(
     var showGrossDetails by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var accounting by remember(overview.year) { mutableStateOf<SharedAccountingViewPolicy.View?>(null) }
+    var pendingMatches by remember(overview.year) { mutableStateOf(false) }
     var bankIdentityCounts by remember(overview.year, bankAccountIds) {
         mutableStateOf<Pair<Int, Int>?>(null)
     }
@@ -86,10 +87,13 @@ internal fun StatementUnifiedOverviewPage(
     }
     LaunchedEffect(overview) {
         accounting = null
+        pendingMatches = false
         try {
-            accounting = withContext(Dispatchers.IO) {
-                StatementMatchDecisionStore(context).read(overview.year).sharedAccounting
+            val snapshot = withContext(Dispatchers.IO) {
+                StatementMatchDecisionStore(context).read(overview.year)
             }
+            accounting = snapshot.sharedAccounting
+            pendingMatches = snapshot.candidates.any { snapshot.decisions[it.hash] == null }
         } catch (cancelled: CancellationException) { throw cancelled
         } catch (_: Exception) { accounting = null }
     }
@@ -123,8 +127,8 @@ internal fun StatementUnifiedOverviewPage(
                 }
             }
         }
-        item {
-            OutlinedButton(onClick = onOpenMatchReview, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+        if (pendingMatches) item {
+            TextButton(onClick = onOpenMatchReview, modifier = Modifier.heightIn(min = 48.dp)) {
                 Icon(Icons.Rounded.CompareArrows, null)
                 Spacer(Modifier.width(8.dp))
                 Text("Review possible matches")

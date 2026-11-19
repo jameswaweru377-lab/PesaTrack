@@ -42,7 +42,7 @@ internal fun SelectedFeaturedGoal(
     money: (Long) -> String,
     onClick: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val progress = if (hasTotalTarget && targetMinor > 0) (savedMinor.toDouble() / targetMinor)
         .coerceIn(0.0, 1.0).toFloat() else 0f
     val next = if (hasTotalTarget) selectedGoalNextMilestone(targetMinor, savedMinor) else null
@@ -51,7 +51,7 @@ internal fun SelectedFeaturedGoal(
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(color = Color.White, shape = RoundedCornerShape(PesaDesignTokens.iconRadius)) {
+                Surface(color = p.white, shape = RoundedCornerShape(PesaDesignTokens.iconRadius)) {
                     Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                         Icon(selectedGoalIcon(title), contentDescription = null,
                             tint = p.coffee, modifier = Modifier.size(24.dp))
@@ -69,7 +69,7 @@ internal fun SelectedFeaturedGoal(
             }
             if (hasTotalTarget) LinearProgressIndicator(progress = { progress },
                 modifier = Modifier.fillMaxWidth().height(12.dp),
-                color = p.coffee, trackColor = Color.White)
+                color = p.coffee, trackColor = p.outline)
             Text(if (hasTotalTarget) "${(progress * 100).toInt()}% of ${money(targetMinor)}"
                 else "Monthly savings target: ${money(targetMinor)}",
                 color = p.ink, style = MaterialTheme.typography.bodyMedium)
@@ -82,23 +82,6 @@ internal fun SelectedFeaturedGoal(
                     else -> "Next milestone: ${money(next)}"
                 }, fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.bodyMedium, color = p.ink)
-            }
-            if (hasTotalTarget) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically) {
-                    (1..4).forEach { index ->
-                        val milestone = (targetMinor.toDouble() * index / 4).toLong()
-                        val reached = savedMinor >= milestone && targetMinor > 0L
-                        Surface(shape = CircleShape,
-                            color = if (reached) p.coffee else Color.White,
-                            border = BorderStroke(1.dp, p.coffee)) {
-                            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                                if (reached) Icon(Icons.Rounded.Check, contentDescription = null,
-                                    tint = Color.White, modifier = Modifier.size(16.dp))
-                            }
-                        }
-                    }
-                }
             }
         }
     }
@@ -113,7 +96,7 @@ internal fun SelectedOtherGoal(
     money: (Long) -> String,
     onClick: () -> Unit
 ) {
-    val p = BrownHomePalette
+    val p = homeColors()
     val progress = if (hasTotalTarget && targetMinor > 0L) (savedMinor.toDouble() / targetMinor)
         .coerceIn(0.0, 1.0).toFloat() else 0f
     Row(Modifier.fillMaxWidth().heightIn(min = 80.dp).clickable(onClick = onClick),

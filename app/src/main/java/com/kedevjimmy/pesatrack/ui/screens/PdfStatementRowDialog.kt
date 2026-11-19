@@ -23,7 +23,7 @@ import java.util.TimeZone
         Text("Check against the PDF. Positive amounts are received; negative amounts are paid out. Editing rechecks dates and duplicates.")
         OutlinedTextField(date,{date=it},label={Text("Date/time · yyyy-MM-dd HH:mm:ss")},singleLine=true)
         OutlinedTextField(description,{description=it},label={Text("Description")},singleLine=true)
-        OutlinedTextField(amount,{amount=it},label={Text("Signed amount · KES")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),singleLine=true)
+        OutlinedTextField(amount,{amount=it},label={Text("Signed amount · KES")},keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),visualTransformation=MoneyGroupingVisualTransformation,singleLine=true)
         OutlinedTextField(reference,{reference=it},label={Text("Receipt reference")},singleLine=true)
         error?.let {Text(it,color=MaterialTheme.colorScheme.error)}
     }},dismissButton={TextButton(onClick=onDismiss){Text("Cancel")}},confirmButton={TextButton(onClick={

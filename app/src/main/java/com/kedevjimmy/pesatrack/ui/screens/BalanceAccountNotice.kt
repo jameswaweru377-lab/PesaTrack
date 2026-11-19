@@ -172,11 +172,6 @@ private fun BalanceNoticeCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = palette.ink
                     )
-                    Text(
-                        "Available money uses only balances PesaTrack can verify.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
                 Surface(
                     modifier = Modifier.padding(start = 8.dp),

@@ -24,12 +24,15 @@ import com.kedevjimmy.pesatrack.BuildConfig
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.security.AppLockManager
 import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
+import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 
 @Composable
 fun ProfileScreen(
     scaffoldPadding: PaddingValues,
     onBack: () -> Unit,
     onSettingsClick: () -> Unit,
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onThemeModeChange: (ThemeMode) -> Unit = {},
     onAccountsClick: (() -> Unit)? = null,
     onDataHealthClick: (() -> Unit)? = null,
     onGoalsClick: (() -> Unit)? = null,
@@ -137,7 +140,8 @@ fun ProfileScreen(
             privacy = { privacyReturnPage = "security"; page = "privacy" },
             moneyAccess = { accessReturnPage = "security"; page = "access" }
         )
-        "appearance" -> ProfileAppearancePage(scaffoldPadding, backFromDirectSection)
+        "appearance" -> ProfileAppearancePage(scaffoldPadding, backFromDirectSection,
+            themeMode, onThemeModeChange)
         "notifications" -> RemindersPage(scaffoldPadding, backFromDirectSection, title = "Notifications")
         "support" -> HelpPage(
             scaffoldPadding,

@@ -41,7 +41,7 @@ fun PersonalDetailsScreen(padding: PaddingValues, onBack: () -> Unit, title: Str
     Box(Modifier.fillMaxSize()) {
         ProfilePremiumPage(title, padding, onBack) {
             item {
-                Column(Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                Column(Modifier.fillMaxWidth().padding(vertical = 8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally) {
                     ProfilePhotoPicker(avatar = avatar, onPhotoSaved = {
                         scope.launch { snackbar.showSnackbar("Photo updated") }
@@ -50,7 +50,7 @@ fun PersonalDetailsScreen(padding: PaddingValues, onBack: () -> Unit, title: Str
             }
             item {
                 PesaCard {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Display name", style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(value = name,
@@ -66,8 +66,6 @@ fun PersonalDetailsScreen(padding: PaddingValues, onBack: () -> Unit, title: Str
                             placeholder = { Text("e.g. Nairobi") },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth())
-                        Text("Shown only in your private profile. No location permission is needed.",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         Text("About me (optional)", style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)

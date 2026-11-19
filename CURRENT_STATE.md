@@ -1,5 +1,25 @@
 # PesaTrack Current State
 
+_Batch 1 UI clarity pass (19 November 2026; GitHub CI and Redmi acceptance pending):_
+Savings goals now use their own compact fixed back/title/New goal header rather than
+stacking below the Plan header. Featured goals use light/dark theme surfaces, and
+unlabelled milestone circles and the voice-add entry are removed. Goal editing
+shortens explanatory copy, makes the optional deadline switch visible when off,
+and displays grouped KES amounts without changing stored input or parsing.
+The same grouping display is reused by the common salary, budget, payroll and
+manual-money entries. Budget category selection opens in a compact two-column
+bottom sheet. Profile Appearance offers System/Light/Dark choices directly and
+no longer shows a decorative app preview; photo editing has one camera action.
+Statements show match review only when unresolved candidates exist. Reports and
+Home balance notices use shorter plain-English copy. Transaction detail
+accordions now share one grouped surface while retaining their evidence,
+history, receipt and facts actions. No financial classification, matching rule,
+stored savings goal, schema, permissions, backup, signing or app ID is changed.
+Bank sub-account auto-identification remains a separately scoped evidence-backed
+feature; no automatic savings account guesses were added here. Instrumentation
+and emulator tests were not requested; real-device layout/accessibility checks
+remain necessary after CI.
+
 _Compact-overview Activity dark-mode layout (18 November 2026; Android CI and Redmi acceptance pending):_
 The owner supplied the approved dark Activity mockup and requested one addition:
 a right-aligned trusted daily **Net** amount beside every date heading. Activity

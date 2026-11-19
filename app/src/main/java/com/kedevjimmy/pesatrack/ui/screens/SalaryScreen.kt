@@ -360,7 +360,8 @@ fun SalaryScreen(scaffoldPadding: PaddingValues, onBack: () -> Unit = {}, onPayc
                         Text((active.displayLabel ?: active.name) + " · " + (accounts.firstOrNull { it.id == active.accountId }?.name ?: "Receiving account"), style = MaterialTheme.typography.labelLarge)
                         Text("Record only money that arrived in this account. You do not need an SMS, statement or payslip. An expected payday or payslip net pay alone is not received salary.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         OutlinedTextField(amount, { amount = it }, label = { Text("Amount") }, prefix = { Text("KES ") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            visualTransformation = MoneyGroupingVisualTransformation, singleLine = true,
                             modifier = Modifier.fillMaxWidth().testTag("salary-amount"), enabled = !busy)
                         SalaryReceiptDateButton(parseSalaryDate(receiptDate) ?: System.currentTimeMillis(), !busy) { receiptDate = salaryDate(it) }
                         Button(enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("salary-record"), onClick = {

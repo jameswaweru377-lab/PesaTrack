@@ -254,18 +254,21 @@ private fun ForecastConfirmationForm(
         OutlinedTextField(value = expected, onValueChange = { expected = it },
             label = { Text("Expected salary (KES)") }, singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            visualTransformation = MoneyGroupingVisualTransformation,
             modifier = Modifier.fillMaxWidth(), enabled = !busy)
         OutlinedTextField(value = balance, onValueChange = { balance = it },
             label = { Text("Spendable balance now (KES)") }, singleLine = true,
             supportingText = {
                 Text("All spendable accounts, excluding protected savings. Blank only when all accounts have fresh observations.")
             }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            visualTransformation = MoneyGroupingVisualTransformation,
             modifier = Modifier.fillMaxWidth(), enabled = !busy)
         if (read.hasActiveDebt) {
             OutlinedTextField(value = debtDue, onValueChange = { debtDue = it },
                 label = { Text("Loan/Fuliza due before payday (KES)") }, singleLine = true,
                 supportingText = { Text("Enter total repayments including fees, or 0 only if none are due.") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                visualTransformation = MoneyGroupingVisualTransformation,
                 modifier = Modifier.fillMaxWidth(), enabled = !busy)
         }
         formError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
