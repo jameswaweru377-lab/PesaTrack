@@ -18,4 +18,6 @@ rg -q 'ThemeMode.entries' "$screens/ProfileAppearancePage.kt"
 rg -q 'grouped = true' "$screens/TransactionDetailScreen.kt"
 rg -Fq 'TransferReconciliationStore(context).read(overview.year)' "$screens/StatementUnifiedOverviewPage.kt"
 rg -q 'reconciliation.pairs.any' "$screens/StatementUnifiedOverviewPage.kt"
+rg -Fq 'Manage reviewed matches' "$screens/StatementUnifiedOverviewPage.kt"
+rg -Fq 'hasReviewedReconciliations' "$screens/StatementUnifiedOverviewPage.kt"
 echo 'Batch 1 UI source contracts passed'

@@ -67,6 +67,8 @@ internal fun StatementUnifiedOverviewPage(
     var accounting by remember(overview.year) { mutableStateOf<SharedAccountingViewPolicy.View?>(null) }
     var pendingMatches by remember(overview.year) { mutableStateOf(false) }
     var pendingReconciliations by remember(overview.year) { mutableStateOf(false) }
+    var hasReviewedMatches by remember(overview.year) { mutableStateOf(false) }
+    var hasReviewedReconciliations by remember(overview.year) { mutableStateOf(false) }
     var bankIdentityCounts by remember(overview.year, bankAccountIds) {
         mutableStateOf<Pair<Int, Int>?>(null)
     }
@@ -90,11 +92,13 @@ internal fun StatementUnifiedOverviewPage(
     LaunchedEffect(overview) {
         accounting = null
         pendingMatches = false
+        hasReviewedMatches = false
         try {
             val snapshot = withContext(Dispatchers.IO) {
                 StatementMatchDecisionStore(context).read(overview.year)
             }
             accounting = snapshot.sharedAccounting
+            hasReviewedMatches = snapshot.decisions.isNotEmpty()
             pendingMatches = snapshot.candidates.any { snapshot.decisions[it.hash] == null } ||
                 snapshot.possibleTransfers.isNotEmpty() || snapshot.possibleCopies.isNotEmpty()
         } catch (cancelled: CancellationException) { throw cancelled
@@ -102,6 +106,7 @@ internal fun StatementUnifiedOverviewPage(
     }
     LaunchedEffect(overview) {
         pendingReconciliations = false
+        hasReviewedReconciliations = false
         try {
             val transferReview = withContext(Dispatchers.IO) {
                 TransferReconciliationStore(context).read(overview.year)
@@ -109,6 +114,7 @@ internal fun StatementUnifiedOverviewPage(
             pendingReconciliations = transferReview.reconciliation.pairs.any { pair ->
                 transferReview.decisions[pair.fingerprint] == null
             }
+            hasReviewedReconciliations = transferReview.decisions.isNotEmpty()
         } catch (cancelled: CancellationException) { throw cancelled
         } catch (_: Exception) {
             // Keep the review workspace reachable when reconciliation could not be checked.
@@ -150,6 +156,12 @@ internal fun StatementUnifiedOverviewPage(
                 Icon(Icons.Rounded.CompareArrows, null)
                 Spacer(Modifier.width(8.dp))
                 Text("Review possible matches")
+            }
+        } else if (hasReviewedMatches || hasReviewedReconciliations) item {
+            TextButton(onClick = onOpenMatchReview, modifier = Modifier.heightIn(min = 48.dp)) {
+                Icon(Icons.Rounded.History, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Manage reviewed matches")
             }
         }
         item {
