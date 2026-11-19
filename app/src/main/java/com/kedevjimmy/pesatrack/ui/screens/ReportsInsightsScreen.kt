@@ -273,13 +273,13 @@ private fun ReportsTopMetrics(data: ReportsInsightData, period: ReportPeriod) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (data.range.endExclusiveEpochMs > System.currentTimeMillis()) {
-                Text("Period in progress",
+                Text("This period so far",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             val fees = data.current.summary.feesMinor
             if (fees != 0L) {
-                Text("${formatKesAmount(fees)} in fees tracked separately",
+                Text("Transaction fees: ${formatKesAmount(fees)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

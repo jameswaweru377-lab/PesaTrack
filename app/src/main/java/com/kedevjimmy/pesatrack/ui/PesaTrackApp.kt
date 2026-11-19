@@ -642,7 +642,8 @@ fun PesaTrackApp(
         composable("saving-goals") {
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.PLAN,
-                useHomeHeader = true,
+                showTopBar = false,
+                useBrownHome = true,
                 onTabSelected = ::navigateToTab
             ) { padding ->
                 SavingGoalsScreen(
@@ -732,6 +733,8 @@ fun PesaTrackApp(
             ) { padding ->
                 MoreMonochromeTheme { ProfileScreen(
                     scaffoldPadding = padding,
+                    themeMode = themeMode,
+                    onThemeModeChange = onThemeModeChange,
                     onBack = { navController.popBackStack() },
                     onSettingsClick = { navController.navigate("settings") },
                     onAccountsClick = { navigateToTab(MainTab.ACCOUNTS) },

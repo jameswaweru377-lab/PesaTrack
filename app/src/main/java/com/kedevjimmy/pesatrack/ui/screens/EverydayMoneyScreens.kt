@@ -64,7 +64,7 @@ internal fun amountText(minor:Long)=java.math.BigDecimal.valueOf(minor,2).toPlai
  }
 }
 @Composable internal fun MoneyAmount(value:String,label:String="Amount (KES)",enabled:Boolean=true,onChange:(String)->Unit) {
- OutlinedTextField(value=value,onValueChange=onChange,label={Text(label)},singleLine=true,enabled=enabled,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),modifier=Modifier.fillMaxWidth())
+ OutlinedTextField(value=value,onValueChange=onChange,label={Text(label)},singleLine=true,enabled=enabled,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),visualTransformation=MoneyGroupingVisualTransformation,modifier=Modifier.fillMaxWidth())
 }
 @Composable internal fun ToolError(message:String?) {message?.let {Text(it,color=MaterialTheme.colorScheme.error,style=MaterialTheme.typography.bodyMedium)}}
 internal fun chooseDate(context:Context,date:Long,update:(Long)->Unit) {

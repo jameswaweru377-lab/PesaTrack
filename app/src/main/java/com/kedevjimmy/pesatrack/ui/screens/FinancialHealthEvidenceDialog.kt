@@ -40,19 +40,22 @@ internal fun FinancialHealthEvidenceDialog(
                     value=reserve,onValueChange={reserve=it;error=null},
                     label={Text("Accessible emergency savings (KES)")},
                     supportingText={Text("Blank means unknown; zero means you confirmed none.")},
-                    keyboardOptions=keyboard,singleLine=true,modifier=Modifier.fillMaxWidth()
+                    keyboardOptions=keyboard,visualTransformation=MoneyGroupingVisualTransformation,
+                    singleLine=true,modifier=Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value=essentials,onValueChange={essentials=it;error=null},
                     label={Text("Essential monthly living costs (KES)")},
                     supportingText={Text("Food, rent, transport, utilities and other essentials.")},
-                    keyboardOptions=keyboard,singleLine=true,modifier=Modifier.fillMaxWidth()
+                    keyboardOptions=keyboard,visualTransformation=MoneyGroupingVisualTransformation,
+                    singleLine=true,modifier=Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
                     value=requiredDebt,onValueChange={requiredDebt=it;error=null},
                     label={Text("Required monthly debt repayments (KES)")},
                     supportingText={Text("Payments due, not total outstanding principal.")},
-                    keyboardOptions=keyboard,singleLine=true,modifier=Modifier.fillMaxWidth()
+                    keyboardOptions=keyboard,visualTransformation=MoneyGroupingVisualTransformation,
+                    singleLine=true,modifier=Modifier.fillMaxWidth()
                 )
                 Text("Entries are not bank-verified and never create income, expenses, debts or transfers. Reconfirm after 30 days. You can clear any field to mark it unknown.",
                     style=MaterialTheme.typography.labelSmall)

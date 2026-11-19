@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -86,7 +87,8 @@ internal fun ProfilePhotoPicker(avatar: String, onPhotoSaved: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(Modifier.size(156.dp), contentAlignment = Alignment.Center) {
-          Box(Modifier.size(148.dp).clip(CircleShape).background(C.lilac),
+          Box(Modifier.size(148.dp).clip(CircleShape)
+              .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center) {
             val photo = savedPhoto
             if (photo != null) {
@@ -95,23 +97,18 @@ internal fun ProfilePhotoPicker(avatar: String, onPhotoSaved: () -> Unit) {
                 Text(avatar, style = MaterialTheme.typography.headlineLarge)
             }
           }
-          Box(Modifier.align(Alignment.BottomEnd).size(40.dp)
-              .clip(CircleShape).background(C.violet), contentAlignment = Alignment.Center) {
-              Icon(Icons.Rounded.AddAPhoto, "Change profile photo", tint = Color.White,
+          Box(Modifier.align(Alignment.BottomEnd).size(48.dp)
+              .clip(CircleShape).background(MaterialTheme.colorScheme.primary)
+              .clickable(enabled = !busy, onClick = {
+                  picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+              }).semantics { contentDescription = "Change profile photo" },
+              contentAlignment = Alignment.Center) {
+              Icon(Icons.Rounded.AddAPhoto, null, tint = MaterialTheme.colorScheme.onPrimary,
                   modifier = Modifier.size(24.dp))
           }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = {
-                picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-            }, enabled = !busy, shape = RoundedCornerShape(16.dp),
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                    containerColor = C.lilac, contentColor = C.violet)) {
-                Icon(Icons.Rounded.AddAPhoto, null, modifier = Modifier.size(18.dp))
-                Text(if (savedPhoto == null) "Choose photo" else "Change photo", Modifier.padding(start = 7.dp))
-            }
-            if (savedPhoto != null) {
-                OutlinedButton(onClick = {
+        if (savedPhoto != null) {
+            TextButton(onClick = {
                     busy = true
                     scope.launch {
                         val removed = withContext(Dispatchers.IO) { store.clear() }
@@ -121,16 +118,14 @@ internal fun ProfilePhotoPicker(avatar: String, onPhotoSaved: () -> Unit) {
                         } else error = "Couldn't remove this photo. Try again."
                         busy = false
                     }
-                }, enabled = !busy, shape = RoundedCornerShape(16.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                        contentColor = C.red)) {
+                }, enabled = !busy) {
                     Icon(Icons.Rounded.DeleteOutline, null, modifier = Modifier.size(18.dp))
                     Text("Remove", Modifier.padding(start = 6.dp))
-                }
             }
         }
-        Text("Choose and crop a photo from your device", style = MaterialTheme.typography.bodySmall,
-            color = C.muted)
+        if (savedPhoto == null) Text("Tap the camera to add a photo",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (busy) CircularProgressIndicator(Modifier.size(24.dp))
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }

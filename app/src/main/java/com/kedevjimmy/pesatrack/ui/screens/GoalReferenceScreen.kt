@@ -649,7 +649,6 @@ fun SavingGoalsScreen(
     var goalEditor by remember { mutableStateOf(false) }
     var editingGoal by remember { mutableStateOf<SmartRule?>(null) }
     var selectedGoal by remember { mutableStateOf<GoalCardModel?>(null) }
-    var voiceAdd by remember { mutableStateOf(false) }
 
     LaunchedEffect(revision.revision, retryLoad) {
         loadError = null
@@ -748,18 +747,6 @@ fun SavingGoalsScreen(
         }
     }
 
-    if (voiceAdd) {
-        VoicePlanningAssistantSheet(
-            kind = VoicePlanKind.GOAL,
-            onDismiss = {
-                voiceAdd = false
-            },
-            onSaved = {
-                retryLoad++
-            }
-        )
-    }
-
     selectedGoal?.let { model ->
         GoalDetailsSheet(
             model = model,
@@ -773,31 +760,29 @@ fun SavingGoalsScreen(
         )
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .padding(scaffoldPadding)
-            .background(MaterialTheme.colorScheme.background)
-            .testTag("saving-goals-list"),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item { ConceptLoadError(loadError) { retryLoad++ } }
-        item {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Column(Modifier.fillMaxSize().padding(scaffoldPadding)
+        .background(MaterialTheme.colorScheme.background)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+            .testTag("saving-goals-header"), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back to Plan")
                 }
-                Text("Your savings goals", modifier = Modifier.weight(1f),
+                Text("Savings goals", modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                OutlinedButton(onClick = { editingGoal = null; goalEditor = true },
+                TextButton(onClick = { editingGoal = null; goalEditor = true },
                     modifier = Modifier.heightIn(min = 48.dp)) {
                     Icon(Icons.Rounded.Add, contentDescription = null)
                     Spacer(Modifier.width(4.dp))
                     Text("New goal")
                 }
-            }
         }
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth().testTag("saving-goals-list"),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+        item { ConceptLoadError(loadError) { retryLoad++ } }
         if (featured == null && loadError == null) item {
             Surface(color = MaterialTheme.colorScheme.surfaceVariant,
                 shape = RoundedCornerShape(PesaDesignTokens.cardRadius)) {
@@ -831,10 +816,6 @@ fun SavingGoalsScreen(
                 TextButton(onClick = onPlanClick) { Text("Manage goals") }
             }
         }
-        item { TextButton(onClick = { voiceAdd = true }) {
-            Icon(Icons.Rounded.Mic, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("Add goal by voice")
-        } }
+        }
     }
 }

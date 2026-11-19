@@ -245,8 +245,8 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
         }
         item {OutlinedTextField(employer,{employer=it;reviewed=false},label={Text("Employer")},singleLine=true,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-employer"))}
         item {OutlinedTextField(period,{period=it;reviewed=false},label={Text("Payroll month · yyyy-MM")},singleLine=true,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-month"))}
-        item {OutlinedTextField(gross,{gross=it;reviewed=false},label={Text("Gross earnings · KES")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-gross"))}
-        item {OutlinedTextField(net,{net=it;reviewed=false},label={Text("Net payable · KES")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-net"))}
+        item {OutlinedTextField(gross,{gross=it;reviewed=false},label={Text("Gross earnings · KES")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),visualTransformation=MoneyGroupingVisualTransformation,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-gross"))}
+        item {OutlinedTextField(net,{net=it;reviewed=false},label={Text("Net payable · KES")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Decimal),visualTransformation=MoneyGroupingVisualTransformation,enabled=!busy,modifier=Modifier.fillMaxWidth().testTag("payroll-net"))}
         item {
             Text("Employee deductions reduce net payable. Employer contributions are separate.",style=MaterialTheme.typography.bodySmall)
             OutlinedButton(enabled=!busy&&lines.size<PayrollJournalPolicy.MAX_LINES,onClick={
@@ -314,6 +314,7 @@ private data class PayrollLineInput(val key: String=UUID.randomUUID().toString()
                             input.amount, { change(input.copy(amount = it)) },
                             label = { Text("Amount · KES") }, singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            visualTransformation = MoneyGroupingVisualTransformation,
                             enabled = !busy, modifier = Modifier.fillMaxWidth()
                         )
                         TextButton(enabled = !busy, onClick = {

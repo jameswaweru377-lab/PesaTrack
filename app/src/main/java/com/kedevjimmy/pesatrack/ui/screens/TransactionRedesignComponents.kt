@@ -280,11 +280,11 @@ internal fun RedesignDetailAccordion(
     expanded: Boolean,
     onToggle: () -> Unit,
     supporting: String? = null,
+    grouped: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val p = homeColors()
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-        color = p.white, border = BorderStroke(1.dp, p.outline.copy(alpha = .55f))) {
+    val rowContent: @Composable () -> Unit = {
         Column(Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth().clickable(onClick = onToggle).heightIn(min = 48.dp),
@@ -312,6 +312,10 @@ internal fun RedesignDetailAccordion(
             }
         }
     }
+    if (grouped) rowContent() else Surface(
+        Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+        color = p.white, border = BorderStroke(1.dp, p.outline.copy(alpha = .55f))
+    ) { rowContent() }
 }
 
 @Composable

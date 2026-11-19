@@ -30,6 +30,7 @@ import com.kedevjimmy.pesatrack.data.local.StatementBankArchiveStore
 import com.kedevjimmy.pesatrack.data.local.StatementBankReportReader
 import com.kedevjimmy.pesatrack.data.local.EverydayMoneyStore
 import com.kedevjimmy.pesatrack.data.local.StatementMatchDecisionStore
+import com.kedevjimmy.pesatrack.data.local.TransferReconciliationStore
 import com.kedevjimmy.pesatrack.domain.statements.SharedAccountingViewPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementOverviewCardsPolicy
 import com.kedevjimmy.pesatrack.domain.statements.StatementSavedAccountVisibility
@@ -64,6 +65,10 @@ internal fun StatementUnifiedOverviewPage(
     var showGrossDetails by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var accounting by remember(overview.year) { mutableStateOf<SharedAccountingViewPolicy.View?>(null) }
+    var pendingMatches by remember(overview.year) { mutableStateOf(false) }
+    var pendingReconciliations by remember(overview.year) { mutableStateOf(false) }
+    var hasReviewedMatches by remember(overview.year) { mutableStateOf(false) }
+    var hasReviewedReconciliations by remember(overview.year) { mutableStateOf(false) }
     var bankIdentityCounts by remember(overview.year, bankAccountIds) {
         mutableStateOf<Pair<Int, Int>?>(null)
     }
@@ -86,12 +91,36 @@ internal fun StatementUnifiedOverviewPage(
     }
     LaunchedEffect(overview) {
         accounting = null
+        pendingMatches = false
+        hasReviewedMatches = false
         try {
-            accounting = withContext(Dispatchers.IO) {
-                StatementMatchDecisionStore(context).read(overview.year).sharedAccounting
+            val snapshot = withContext(Dispatchers.IO) {
+                StatementMatchDecisionStore(context).read(overview.year)
             }
+            accounting = snapshot.sharedAccounting
+            hasReviewedMatches = snapshot.decisions.isNotEmpty()
+            pendingMatches = snapshot.candidates.any { snapshot.decisions[it.hash] == null } ||
+                snapshot.possibleTransfers.isNotEmpty() || snapshot.possibleCopies.isNotEmpty() ||
+                snapshot.accountMentions.isNotEmpty() || snapshot.missingOwnershipConsent
         } catch (cancelled: CancellationException) { throw cancelled
         } catch (_: Exception) { accounting = null }
+    }
+    LaunchedEffect(overview) {
+        pendingReconciliations = false
+        hasReviewedReconciliations = false
+        try {
+            val transferReview = withContext(Dispatchers.IO) {
+                TransferReconciliationStore(context).read(overview.year)
+            }
+            pendingReconciliations = transferReview.reconciliation.pairs.any { pair ->
+                transferReview.decisions[pair.fingerprint] == null
+            } || transferReview.reconciliation.unmatchedRoutes.isNotEmpty()
+            hasReviewedReconciliations = transferReview.decisions.isNotEmpty()
+        } catch (cancelled: CancellationException) { throw cancelled
+        } catch (_: Exception) {
+            // Keep the review workspace reachable when reconciliation could not be checked.
+            pendingReconciliations = true
+        }
     }
     val cards = StatementOverviewCardsPolicy.project(overview.cashSummary, accounting)
     val accounts = overview.accountRows
@@ -123,11 +152,17 @@ internal fun StatementUnifiedOverviewPage(
                 }
             }
         }
-        item {
-            OutlinedButton(onClick = onOpenMatchReview, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+        if (pendingMatches || pendingReconciliations) item {
+            TextButton(onClick = onOpenMatchReview, modifier = Modifier.heightIn(min = 48.dp)) {
                 Icon(Icons.Rounded.CompareArrows, null)
                 Spacer(Modifier.width(8.dp))
                 Text("Review possible matches")
+            }
+        } else if (hasReviewedMatches || hasReviewedReconciliations) item {
+            TextButton(onClick = onOpenMatchReview, modifier = Modifier.heightIn(min = 48.dp)) {
+                Icon(Icons.Rounded.History, null)
+                Spacer(Modifier.width(8.dp))
+                Text("Manage reviewed matches")
             }
         }
         item {
@@ -480,7 +515,6 @@ private fun StatementUnifiedCashMetric(label: String, amount: Long?, modifier: M
 @Composable
 private fun StatementUnifiedWhiteCard(content: @Composable () -> Unit) {
     Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth()) { content() }
 }
 
@@ -493,8 +527,7 @@ private fun StatementUnifiedMetricCard(
 ) {
     Surface(modifier = modifier.then(if (onClick != null) Modifier.clickable(onClick = onClick)
         else Modifier),
-        color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(16.dp)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(shape = RoundedCornerShape(11.dp), color = iconBackground) {

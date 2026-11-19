@@ -62,17 +62,16 @@ internal fun BrownTransactionHeader(
     BrownTransactionPaymentCard(item, category, account)
     Spacer(Modifier.height(12.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Button(onClick = onChooseCategory, Modifier.weight(1f).heightIn(min = 48.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = p.coffee)) {
+        OutlinedButton(onClick = onChooseCategory, Modifier.heightIn(min = 48.dp),
+            shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, p.outline),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = p.coffee)) {
             Icon(Icons.Rounded.Edit, null, Modifier.size(20.dp))
             Spacer(Modifier.width(7.dp))
             Text("Change category", maxLines = 1, fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold)
         }
-        OutlinedButton(onClick = onAddNote, Modifier.weight(.84f).heightIn(min = 48.dp),
-            shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, p.outline),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = p.coffee)) {
+        TextButton(onClick = onAddNote, Modifier.heightIn(min = 48.dp),
+            colors = ButtonDefaults.textButtonColors(contentColor = p.coffee)) {
             Icon(Icons.Rounded.NoteAdd, null, Modifier.size(19.dp))
             Spacer(Modifier.width(6.dp))
             Text("Add note", maxLines = 1, fontSize = 13.sp)

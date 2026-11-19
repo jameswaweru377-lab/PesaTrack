@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
@@ -53,12 +54,13 @@ import com.kedevjimmy.pesatrack.ui.components.SectionHeader
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContainer
 import com.kedevjimmy.pesatrack.ui.components.pesaToneContent
 import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
+import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
 
 @Composable
-internal fun ProfileAppearancePage(padding: PaddingValues, back: () -> Unit) {
+internal fun ProfileAppearancePage(padding: PaddingValues, back: () -> Unit,
+    themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit) {
     val context = LocalContext.current
-    val night = MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas
     var error by remember { mutableStateOf<String?>(null) }
     fun openPhoneSettings(action: String) {
         try {
@@ -76,64 +78,41 @@ internal fun ProfileAppearancePage(padding: PaddingValues, back: () -> Unit) {
                 "Choose how the app looks and feels on your device.", Icons.Rounded.Palette,
                 art = ProfileHeroArt.PALETTE)
         }
+        item { ProfileSection("Theme") }
         item {
             PesaCard {
-                Column(Modifier.fillMaxWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("App preview", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
-                    Surface(color = if (night) MaterialTheme.colorScheme.surfaceVariant else C.lilac, shape = RoundedCornerShape(16.dp)) {
-                      Column(Modifier.fillMaxWidth().padding(24.dp),
-                          verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Surface(color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(20.dp), shadowElevation = 6.dp) {
-                          Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                com.kedevjimmy.pesatrack.ui.components.PesaLogoMark(size = 28.dp)
-                                com.kedevjimmy.pesatrack.ui.components.PesaBrandName(
-                                    modifier = Modifier.weight(1f).padding(start = 8.dp),
-                                    fontSize = 17.sp, baseColor = MaterialTheme.colorScheme.onSurface)
-                                Icon(Icons.Rounded.Notifications, null, tint = MaterialTheme.colorScheme.onSurface)
-                            }
-                            Box(Modifier.fillMaxWidth().height(86.dp).clip(RoundedCornerShape(16.dp))
-                                .background(PremiumVisualTokens.coffee)) {
-                                Row(Modifier.fillMaxWidth().padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White,
-                                        modifier = Modifier.size(32.dp))
-                                    Column(Modifier.padding(start = 12.dp)) {
-                                        Text("Your money", color = Color.White, fontWeight = FontWeight.Bold)
-                                        Text("A clearer picture", color = Color.White.copy(alpha = .85f))
-                                    }
-                                }
-                            }
-                            val tabs = listOf(
-                                Triple("Home", Icons.Rounded.Home, ProfileTone.VIOLET),
-                                Triple("Activity", Icons.Rounded.List, ProfileTone.GREEN),
-                                Triple("Plan", Icons.Rounded.PieChart, ProfileTone.PINK),
-                                Triple("Accounts", Icons.Rounded.AccountBalanceWallet, ProfileTone.VIOLET),
-                                Triple("More", Icons.Rounded.MoreHoriz, ProfileTone.BLUE)
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    ThemeMode.entries.forEachIndexed { index, option ->
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                                .clickable { onThemeModeChange(option) },
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            androidx.compose.material3.RadioButton(
+                                selected = themeMode == option,
+                                onClick = { onThemeModeChange(option) }
                             )
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                tabs.forEach { (name, icon, tone) ->
-                                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                        ProfileTile(icon, tone, 36.dp)
-                                        Text(name, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall,
-                                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    }
-                                }
+                            Column(Modifier.padding(start = 12.dp)) {
+                                Text(when (option) {
+                                    ThemeMode.SYSTEM -> "Use phone setting"
+                                    ThemeMode.LIGHT -> "Light"
+                                    ThemeMode.DARK -> "Dark"
+                                }, style = MaterialTheme.typography.titleSmall)
+                                Text(when (option) {
+                                    ThemeMode.SYSTEM -> "Changes with your phone"
+                                    ThemeMode.LIGHT -> "Cream background"
+                                    ThemeMode.DARK -> "Coffee-black background"
+                                }, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall)
                             }
                         }
-                      }
-                    }
+                        if (index != ThemeMode.entries.lastIndex) {
+                            androidx.compose.material3.HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant)
+                        }
                     }
                 }
             }
-        }
-        item { ProfileSection("Theme") }
-        item {
-            ProfilePremiumGroup(listOf(ProfilePremiumItem(Icons.Rounded.WbSunny,
-                if (night) "Dark" else "Light",
-                if (night) "Coffee-black appearance. Change in Settings → Appearance" else "Cream appearance. Change in Settings → Appearance",
-                ProfileTone.VIOLET, selected = true)))
         }
         item { ProfileSection("Reading") }
         item { ProfilePremiumGroup(listOf(

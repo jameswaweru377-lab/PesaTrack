@@ -1829,6 +1829,7 @@ private fun ProtectMoneyDialog(
                             keyboardType =
                                 KeyboardType.Decimal
                         ),
+                    visualTransformation = MoneyGroupingVisualTransformation,
                     modifier =
                         Modifier.fillMaxWidth(),
                     singleLine = true
@@ -1948,6 +1949,7 @@ private fun ManualSalaryEntryDialog(
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Decimal
                     ),
+                    visualTransformation = MoneyGroupingVisualTransformation,
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
