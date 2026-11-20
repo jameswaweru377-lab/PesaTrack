@@ -1,6 +1,5 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -142,7 +141,7 @@ private fun ApprovedPlanMoneyCard(data: PlanJourneyView, onDetails: () -> Unit) 
     val p = homeColors()
     var info by remember { mutableStateOf(false) }
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        border = BorderStroke(1.dp, p.outline.copy(alpha = 0.5f))) {
+        color = MaterialTheme.colorScheme.surface) {
         Box {
             Image(painterResource(R.drawable.plan_coffee_notebook), contentDescription = null,
                 contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
@@ -217,7 +216,7 @@ private fun ApprovedPlanProgress(title: String, percent: Int?,
     Surface(modifier = modifier.heightIn(min = 88.dp)
         .clickable(role = Role.Button, onClick = onClick),
         shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, p.outline)) {
+        color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -239,7 +238,7 @@ internal fun ApprovedPlanLink(title: String, detail: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
     val p = homeColors()
     Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, p.outline.copy(alpha = 0.7f)),
+        color = MaterialTheme.colorScheme.surface,
         modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp)
             .clickable(role = Role.Button, onClick = onClick)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,

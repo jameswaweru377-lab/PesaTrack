@@ -1,6 +1,5 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -258,13 +257,13 @@ private fun InstitutionOptionGroup(
     onEdit: (FinancialInstitutionOption) -> Unit
 ) {
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(PesaDesignTokens.cardOutlineWidth, MaterialTheme.colorScheme.outlineVariant)) {
+        color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.padding(horizontal = 12.dp)) {
             options.forEachIndexed { index, option ->
                 InstitutionOptionRow(option, option.reference.providerKey in owned, busy,
                     identifiers[option.reference.providerKey].orEmpty(), onToggle, onEdit)
-                if (index != options.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .55f))
+                if (index != options.lastIndex) HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha))
             }
         }
     }

@@ -1,6 +1,5 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -169,12 +168,14 @@ private fun ProfileEditorialFooter(modifier: Modifier = Modifier) {
         modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(horizontal = 32.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
     ) {
-        HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+        HorizontalDivider(Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha))
         Text("PesaTrack", modifier = Modifier.padding(start = 12.dp),
             color = MaterialTheme.colorScheme.primary, fontSize = 12.sp,
             fontWeight = FontWeight.Bold)
         Text(" • Your money, your plans", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp,
             textAlign = TextAlign.Center)
-        HorizontalDivider(Modifier.weight(1f).padding(start = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
+        HorizontalDivider(Modifier.weight(1f).padding(start = 12.dp),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha))
     }
 }

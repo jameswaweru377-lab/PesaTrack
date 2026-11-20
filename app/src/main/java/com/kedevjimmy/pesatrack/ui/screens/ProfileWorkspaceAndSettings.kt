@@ -1,6 +1,5 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -28,19 +27,18 @@ internal fun ProfileMoneyWorkspace(
         Text("Money workspace", style = MaterialTheme.typography.titleLarge,
             color = colors.onBackground, fontWeight = FontWeight.Bold)
         Surface(
-            color = colors.surface, shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-            border = BorderStroke(1.dp, colors.outlineVariant)
+            color = colors.surface, shape = RoundedCornerShape(PesaDesignTokens.innerRadius)
         ) {
             Column {
                 ProfileWorkspaceRow("Statements", "Your imported statements",
                     Icons.Rounded.Description, statements)
-                HorizontalDivider(color = colors.outlineVariant)
+                HorizontalDivider(color = colors.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha))
                 ProfileWorkspaceRow("Import statements", "PDF, CSV and financial records",
                     Icons.Rounded.FileDownload, imports)
-                HorizontalDivider(color = colors.outlineVariant)
+                HorizontalDivider(color = colors.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha))
                 ProfileWorkspaceRow("Reports", "Spending and money insights",
                     Icons.Rounded.BarChart, reports)
-                HorizontalDivider(color = colors.outlineVariant)
+                HorizontalDivider(color = colors.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha))
                 ProfileWorkspaceRow("Pay cycle", "Salary dates and pay history",
                     Icons.Rounded.CalendarMonth, payCycle)
             }
@@ -56,8 +54,7 @@ internal fun ProfileSettingsEntry(onSettings: () -> Unit) {
         Text("Settings", style = MaterialTheme.typography.titleLarge,
             color = colors.onBackground, fontWeight = FontWeight.Bold)
         Surface(
-            color = colors.surface, shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-            border = BorderStroke(1.dp, colors.outlineVariant)
+            color = colors.surface, shape = RoundedCornerShape(PesaDesignTokens.innerRadius)
         ) {
             ProfileWorkspaceRow(
                 "App preferences", "Notifications, security, appearance and data",
@@ -157,11 +154,13 @@ private fun SettingsSection(
             fontWeight = FontWeight.SemiBold, color = colors.primary)
         Surface(
             shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-            color = colors.surface, border = BorderStroke(1.dp, colors.outlineVariant)
+            color = colors.surface
         ) {
             Column {
                 entries.forEachIndexed { index, item ->
-                    if (index > 0) HorizontalDivider(color = colors.outlineVariant)
+                    if (index > 0) HorizontalDivider(
+                        color = colors.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha)
+                    )
                     ProfileWorkspaceRow(item.name, item.hint, item.icon) {
                         onDestination(item.route)
                     }

@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
+import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import com.kedevjimmy.pesatrack.data.local.ObservedInvestmentPosition
 import com.kedevjimmy.pesatrack.data.local.ObservedInvestmentEvent
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
@@ -55,7 +56,6 @@ import java.util.Locale
 
 private val coffee = PremiumVisualTokens.coffee
 private val mutedCoffee = PremiumVisualTokens.muted
-private val thinBorder = PremiumVisualTokens.sandBorder
 private val ivory = PremiumVisualTokens.card
 
 /** Short screen label only; the full identifier is never shown in this list. */
@@ -127,7 +127,8 @@ internal fun ApprovedAccountsList(lines: List<AccountDisplayLine>, savings: List
             Column(Modifier.padding(horizontal = 12.dp, vertical = 5.dp)) {
                 val hasMpesa = lines.any { it.name.contains("M-Pesa", true) }
                 lines.forEachIndexed { index, line ->
-                    if (index > 0) HorizontalDivider(color = thinBorder)
+                    if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant
+                        .copy(alpha = PesaDesignTokens.faintDividerAlpha))
                     AccountMainRow(line, hidden,
                         expandable = line.name.contains("M-Pesa", true) && savings.isNotEmpty(),
                         onBalanceClick = line.accountId?.let { id ->
@@ -142,7 +143,8 @@ internal fun ApprovedAccountsList(lines: List<AccountDisplayLine>, savings: List
                         AccountSavingsBranches(savings, hidden, onAccountClick)
                 }
                 if (!hasMpesa) savings.forEach { line ->
-                    HorizontalDivider(color = thinBorder)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant
+                        .copy(alpha = PesaDesignTokens.faintDividerAlpha))
                     AccountMainRow(line, hidden, false,
                         onBalanceClick = line.accountId?.let { id ->
                             onBalanceClick?.let { callback -> { callback(id) } }
@@ -162,7 +164,7 @@ private fun AccountMainRow(line: AccountDisplayLine, hidden: Boolean, expandable
         verticalAlignment = Alignment.CenterVertically) {
         AccountProviderMark(line.name, Modifier.size(40.dp))
         Box(Modifier.padding(horizontal = 8.dp).width(1.dp).height(30.dp)
-            .background(MaterialTheme.colorScheme.outlineVariant))
+            .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha)))
         Text(compactAccountLabel(line.name), Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
             fontSize = 13.sp,
@@ -187,15 +189,16 @@ private fun AccountMainRow(line: AccountDisplayLine, hidden: Boolean, expandable
 @Composable
 private fun AccountSavingsBranches(savings: List<AccountDisplayLine>, hidden: Boolean,
     onAccountClick: ((String) -> Unit)?) {
+    val branchColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Canvas(Modifier.width(32.dp).height((savings.size * 57).dp)) {
             val x = 15.dp.toPx()
             val start = 0f
             val lastY = size.height - 28.dp.toPx()
-            drawLine(Color(0xFFFFC39C), Offset(x, start), Offset(x, lastY), 1.7.dp.toPx())
+            drawLine(branchColor, Offset(x, start), Offset(x, lastY), 1.7.dp.toPx())
             savings.indices.forEach { i ->
                 val y = (i * 57 + 28).dp.toPx()
-                drawLine(Color(0xFFFFC39C), Offset(x, y), Offset(size.width, y), 1.7.dp.toPx())
+                drawLine(branchColor, Offset(x, y), Offset(size.width, y), 1.7.dp.toPx())
             }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -222,14 +225,14 @@ private fun AccountSavingsBranches(savings: List<AccountDisplayLine>, hidden: Bo
 internal fun ApprovedInvestmentEntry(positions: List<ObservedInvestmentPosition>, onOpen: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
         AccountHeading("Investments")
-        Surface(onClick = onOpen, shape = RoundedCornerShape(19.dp), color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Surface(onClick = onOpen, shape = RoundedCornerShape(19.dp), color = MaterialTheme.colorScheme.surface) {
             Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(43.dp).background(Color(0xFFE3E8E9), RoundedCornerShape(7.dp)),
                     contentAlignment = Alignment.Center) {
                     Text("NSE", color = Color(0xFF30444E), fontWeight = FontWeight.ExtraBold)
                 }
-                Box(Modifier.padding(horizontal = 12.dp).width(1.dp).height(30.dp).background(MaterialTheme.colorScheme.outlineVariant))
+                Box(Modifier.padding(horizontal = 12.dp).width(1.dp).height(30.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha)))
                 Text(if (positions.isEmpty()) "Shares & investments" else "Investment portfolio",
                     modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -247,14 +250,14 @@ internal fun ApprovedAccountActivity(rows: List<StoredTransaction>, accountNames
     val locale = LocalConfiguration.current.locales[0]
     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
         AccountHeading("Recent account activity")
-        Surface(shape = RoundedCornerShape(19.dp), color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Surface(shape = RoundedCornerShape(19.dp), color = MaterialTheme.colorScheme.surface) {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 5.dp)) {
                 if (rows.isEmpty()) Text("No account transfers or salary receipts yet",
                     Modifier.padding(vertical = 14.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
                 rows.take(3).forEachIndexed { index, transaction ->
-                    if (index > 0) HorizontalDivider(color = thinBorder)
+                    if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant
+                        .copy(alpha = PesaDesignTokens.faintDividerAlpha))
                     val salary = transaction.direction == "INCOME"
                     val origin = transaction.accountId?.let(accountNames::get) ?: "Account"
                     val destination = transaction.linkedAccountId?.let(accountNames::get) ?: "Account"
