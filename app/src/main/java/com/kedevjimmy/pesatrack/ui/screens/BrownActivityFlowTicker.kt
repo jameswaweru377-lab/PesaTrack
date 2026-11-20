@@ -112,7 +112,7 @@ internal fun BrownActivityFlowTicker() {
                 verticalAlignment = Alignment.CenterVertically) {
                 ActivityTickerMetric("Money in", summary?.incomeMinor,
                     if (isDark) PremiumVisualTokens.darkMoneyIn else PremiumVisualTokens.moneyIn)
-                ActivityTickerMetric("Money out", summary?.spentMinor,
+                ActivityTickerMetric("Money out", summary?.let(::activityTickerMoneyOut),
                     if (isDark) PremiumVisualTokens.darkMoneyOut else PremiumVisualTokens.moneyOut)
                 ActivityTickerMetric("Net", summary?.netMinor, p.ink)
                 Spacer(Modifier.width(8.dp))

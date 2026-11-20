@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
+import com.kedevjimmy.pesatrack.data.local.ActivitySummary
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import java.util.Calendar
@@ -34,6 +35,10 @@ internal fun activityPaymentMethod(item: StoredTransaction): String? {
 /** Never fabricate fee information for transactions without a recorded charge. */
 internal fun activityFeeBadgeAmount(item: StoredTransaction): Long? =
     item.feeMinor.takeIf { it > 0L }
+
+/** Match Home's fee-inclusive outflow; a transfer's principal is not spending. */
+internal fun activityTickerMoneyOut(summary: ActivitySummary): Long? =
+    RecordedOutflowPolicy.available(summary.spentMinor, summary.feesMinor)
 
 internal enum class ActivityTickerPeriod(val label: String) {
     YEAR("THIS YEAR"), MONTH("THIS MONTH"), TODAY("TODAY")

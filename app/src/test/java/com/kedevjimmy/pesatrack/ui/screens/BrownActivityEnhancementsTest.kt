@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
+import com.kedevjimmy.pesatrack.data.local.ActivitySummary
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -28,6 +29,18 @@ class BrownActivityEnhancementsTest {
         assertEquals(500L, activityFeeBadgeAmount(transaction("PAY_BILL", feeMinor = 500L)))
         assertNull(activityFeeBadgeAmount(transaction("PAY_BILL", feeMinor = 0L)))
         assertNull(activityFeeBadgeAmount(transaction("PAY_BILL", feeMinor = -1L)))
+    }
+
+    @Test fun tickerMoneyOutIncludesRecordedFeesWithoutDoubleCountingSpending() {
+        val onlyTransferFee = ActivitySummary(
+            incomeMinor = 0L, spentMinor = 0L, feesMinor = 500L,
+            transferMinor = 25_000L, netMinor = -500L, needsReviewCount = 0
+        )
+        assertEquals(500L, activityTickerMoneyOut(onlyTransferFee))
+        assertEquals(10_500L, activityTickerMoneyOut(onlyTransferFee.copy(spentMinor = 10_000L)))
+        assertNull(activityTickerMoneyOut(onlyTransferFee.copy(
+            spentMinor = Long.MAX_VALUE, feesMinor = 1L
+        )))
     }
 
     @Test fun tickerRangesFollowLocalCalendarAndNeverOverlapAtYearBoundary() {
