@@ -123,6 +123,7 @@ fun ReportsInsightsScreen(
                 }
             }
             item { ReportsTopMetrics(current, period) }
+            item { ReportsFocusedCards(current, onTransactionClick) }
             item { ReportsTrendCard(current.trend, period, current.spending,
                 hasReviewCandidates = broad.isNotEmpty(),
                 onReviewCategories = { reviewType = ReportReviewType.BROAD }) }

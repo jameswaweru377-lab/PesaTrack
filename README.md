@@ -38,6 +38,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 | 💸 | **Track activity** | Browse dated transactions with a right-aligned daily trusted net, switch Month / Pay cycle, and search or filter income, spending, transfers, fees and review items. Recorded account balances are separate from daily net and do not imply a salary forecast. |
 | 🧾 | **Import statements** | Review supported M-Pesa and bank statement files with duplicate and verification safeguards. Unsupported or incomplete formats are not silently accepted. |
 | 📊 | **Understand your cash flow** | Explore Money In, Money Out, categories, account context, and reports based on recorded evidence. |
+| 📈 | **Review recorded movements** | Reports provides period-aware borrowing, confirmed investment purchase and partial savings-goal transfer summaries, with supporting event breakdowns. Unknown amounts stay unavailable. |
 | 📄 | **Export a personal money report** | Save an offline PesaTrack-branded PDF of your selected Reports period, including trusted Activity totals, categories, trends and selected large expenses. Exported PDFs are not encrypted bank statements. |
 | 🎯 | **Plan ahead** | Organize monthly budgets, bills, saving goals around recorded spendable account funds; use Activity for the separate salary-cycle view. |
 | 🤝 | **Keep track of debts** | Distinguish loans and repayments from ordinary purchases and transfers, with user confirmation where needed. |

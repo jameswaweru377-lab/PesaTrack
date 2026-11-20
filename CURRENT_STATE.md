@@ -1,5 +1,16 @@
 # PesaTrack Current State
 
+_Focused Reports movement cards (20 November 2026; CLI/device validation pending):_
+Reports now has period-aware read-only Borrowing & repayments, Money invested,
+and Savings activity cards with evidence breakdowns. Debt uses all period events
+and the existing linked-event duplicate filter rather than the debt detail's
+50-event page. Investments use completed purchase events, preserving unknown
+costs. Savings covers only trusted goal-linked transfers, not all savings bank
+accounts; the UI labels this partial coverage. No balances, ledger postings,
+classification, exported report amounts, or existing Reports totals change.
+The Gradle wrapper distribution is unavailable in this environment; physical
+phone and CI checks remain outstanding.
+
 _Borderless surface and review readability pass (20 November 2026; GitHub CI and phone acceptance pending):_
 The active Settings and Profile grouped lists, Accounts and investments sections,
 account details, Plan overview, and statement landing remove decorative outer

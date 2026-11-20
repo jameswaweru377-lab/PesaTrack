@@ -8,6 +8,12 @@ import com.kedevjimmy.pesatrack.data.local.EverydayMoneyStore
 import com.kedevjimmy.pesatrack.data.local.PersonalReceivableStore
 import com.kedevjimmy.pesatrack.data.local.StatementMatchDecisionStore
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.data.local.FocusedReportMovementReader
+import com.kedevjimmy.pesatrack.data.local.AccountStore
+import com.kedevjimmy.pesatrack.data.local.RuleStore
+import com.kedevjimmy.pesatrack.data.local.ConceptLedgerPolicy
+import com.kedevjimmy.pesatrack.domain.model.TransactionCategory
+import com.kedevjimmy.pesatrack.domain.reports.FocusedMovement
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.statements.SharedAccountingReportScopePolicy
 import com.kedevjimmy.pesatrack.domain.statements.SharedAccountingViewPolicy
@@ -22,7 +28,8 @@ internal data class ReportsInsightData(
     val spending: List<Pair<String, Long>>,
     val reviewCandidates: List<ReportReviewCandidate>,
     val trend: List<ReportTrendValue>,
-    val annualAccounting: SharedAccountingViewPolicy.View?
+    val annualAccounting: SharedAccountingViewPolicy.View?,
+    val focusedMovements: List<FocusedMovement>
 ) {
     val currentSpent: Long get() = current.summary.spentMinor
     val spendingChange: Int? get() = reportSpendingChangePercent(currentSpent, previous.summary.spentMinor)
@@ -92,6 +99,24 @@ internal class ReportsInsightsReader(private val context: Context) {
                 null
             }
         } else null
-        return ReportsInsightData(range, current, previous, spending, candidates, trend, annualAccounting)
+        val focusedReader = FocusedReportMovementReader(context)
+        val debtMovements = focusedReader.debts(range.startEpochMs, range.endExclusiveEpochMs)
+        val investmentMovements = focusedReader.investments(range.startEpochMs, range.endExclusiveEpochMs)
+        val accountTypes = AccountStore.get(context).listAccounts(false).associate { it.id to it.type }
+        val savingsRules = RuleStore.get(context).listRules(false)
+            .filter { it.category == TransactionCategory.SAVINGS }
+            .associateBy { it.id }
+        val savingsMovements = current.trustedTransactions.mapNotNull { row ->
+            val rule = row.ruleId?.let(savingsRules::get) ?: return@mapNotNull null
+            if (row.direction != MoneyDirection.TRANSFER.name || row.type == "REVERSAL" ||
+                row.cycleCandidateReason != null) return@mapNotNull null
+            val delta = ConceptLedgerPolicy.savingsDelta(row, accountTypes)
+            if (delta == 0L) return@mapNotNull null
+            FocusedMovement("saving:${row.id}", rule.displayLabel ?: rule.name,
+                if (delta > 0) "SAVED" else "WITHDRAWN", Math.abs(delta),
+                atEpochMs = row.occurredAtEpochMs, transactionId = row.id)
+        }
+        return ReportsInsightData(range, current, previous, spending, candidates, trend,
+            annualAccounting, debtMovements + investmentMovements + savingsMovements)
     }
 }
