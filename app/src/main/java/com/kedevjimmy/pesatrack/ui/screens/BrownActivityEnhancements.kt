@@ -36,6 +36,15 @@ internal fun activityPaymentMethod(item: StoredTransaction): String? {
 internal fun activityFeeBadgeAmount(item: StoredTransaction): Long? =
     item.feeMinor.takeIf { it > 0L }
 
+/** A zero field is also used when fee evidence is absent; never label it fee-free. */
+internal fun activityFeeIsUnrecorded(item: StoredTransaction): Boolean =
+    item.feeMinor <= 0L && item.direction in setOf(
+        MoneyDirection.EXPENSE.name, MoneyDirection.TRANSFER.name
+    )
+
+internal const val ACTIVITY_TICKER_PERIOD_DURATION_MS = 40_000L
+internal const val ACTIVITY_TICKER_SCROLL_DURATION_MS = 20_000
+
 /** Match Home's fee-inclusive outflow; a transfer's principal is not spending. */
 internal fun activityTickerMoneyOut(summary: ActivitySummary): Long? =
     RecordedOutflowPolicy.available(summary.spentMinor, summary.feesMinor)

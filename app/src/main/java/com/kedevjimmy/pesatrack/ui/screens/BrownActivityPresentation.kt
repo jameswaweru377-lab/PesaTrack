@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -10,8 +11,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircleOutline
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Search
@@ -60,12 +59,6 @@ internal val brownActivityFilters = listOf(
 
 internal val brownActivityPrimaryFilters = brownActivityFilters.take(3)
 internal val brownActivityAdvancedFilters = brownActivityFilters.drop(3)
-
-internal fun brownActivityReviewNotice(count: Int): String? = when {
-    count <= 0 -> null
-    count == 1 -> "1 item needs review"
-    else -> "$count need review"
-}
 
 internal fun brownActivityFilterKey(label: String): String? =
     brownActivityFilters.firstOrNull { it.label == label }?.key
@@ -213,28 +206,6 @@ private fun BrownActivityMinorMetric(
 }
 
 @Composable
-internal fun BrownActivityReview(count: Int, onReview: () -> Unit) {
-    val label = brownActivityReviewNotice(count) ?: return
-    val p = homeColors()
-    Surface(onClick = onReview, modifier = Modifier.fillMaxWidth(),
-        color = p.canvas) {
-        Column {
-            HorizontalDivider(color = p.outline.copy(alpha = .65f))
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
-                .padding(horizontal = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(Icons.Rounded.CheckCircleOutline, null, Modifier.size(24.dp), tint = p.coffee)
-                Text(label, modifier = Modifier.weight(1f), color = p.ink,
-                    fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                Icon(Icons.Rounded.ChevronRight, "Open review", tint = p.coffee)
-            }
-            HorizontalDivider(color = p.outline.copy(alpha = .65f))
-        }
-    }
-}
-
-@Composable
 private fun BrownActivityInlineSearch(query: String, onQuery: (String) -> Unit) {
     val p = homeColors()
     Surface(Modifier.fillMaxWidth().heightIn(min = 48.dp),
@@ -269,16 +240,17 @@ internal fun BrownActivitySegmentedFilters(selected: String, onSelect: (String) 
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(brownActivityPrimaryFilters) { tab ->
             val active = selected == tab.key
-            Surface(onClick = { onSelect(tab.key) },
-                modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget),
-                color = if (active) p.coffee else p.white,
-                shape = RoundedCornerShape(PesaDesignTokens.iconRadius)) {
-                Box(Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    contentAlignment = Alignment.Center) {
-                    Text(tab.label, fontSize = 12.sp,
-                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                        color = if (active) MaterialTheme.colorScheme.onPrimary else p.ink,
-                        maxLines = 1)
+            Box(Modifier.height(PesaDesignTokens.minimumTouchTarget)
+                .clickable { onSelect(tab.key) }, contentAlignment = Alignment.Center) {
+                Surface(color = if (active) p.coffee else p.white,
+                    shape = RoundedCornerShape(PesaDesignTokens.iconRadius)) {
+                    Box(Modifier.height(32.dp).padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center) {
+                        Text(tab.label, fontSize = 12.sp,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                            color = if (active) MaterialTheme.colorScheme.onPrimary else p.ink,
+                            maxLines = 1)
+                    }
                 }
             }
         }

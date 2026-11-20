@@ -31,6 +31,37 @@ class BrownActivityEnhancementsTest {
         assertNull(activityFeeBadgeAmount(transaction("PAY_BILL", feeMinor = -1L)))
     }
 
+    @Test fun outgoingRowsMakeUnrecordedFeesExplicitWithoutInventingCharges() {
+        assertEquals(true, activityFeeIsUnrecorded(transaction("SENT_MONEY", feeMinor = 0L)))
+        assertEquals(true, activityFeeIsUnrecorded(transaction("OTHER", feeMinor = -1L,
+            direction = MoneyDirection.TRANSFER.name)))
+        assertEquals(false, activityFeeIsUnrecorded(transaction("PAY_BILL", feeMinor = 500L)))
+        assertEquals(false, activityFeeIsUnrecorded(transaction("RECEIVED", feeMinor = 0L,
+            direction = MoneyDirection.INCOME.name)))
+    }
+
+    @Test fun reviewReminderIsLimitedToOncePerDayUnlessPendingCountGrows() {
+        assertEquals(false, shouldOfferActivityReviewPrompt(0, 2026324, -1, 0))
+        assertEquals(true, shouldOfferActivityReviewPrompt(3, 2026324, -1, 0))
+        assertEquals(false, shouldOfferActivityReviewPrompt(3, 2026324, 2026324, 3))
+        assertEquals(false, shouldOfferActivityReviewPrompt(2, 2026324, 2026324, 3))
+        assertEquals(true, shouldOfferActivityReviewPrompt(4, 2026324, 2026324, 3))
+        assertEquals(true, shouldOfferActivityReviewPrompt(2, 2026325, 2026324, 3))
+    }
+
+    @Test fun reviewReminderDayFollowsLocalCalendarMidnight() {
+        val zone = TimeZone.getTimeZone("Africa/Nairobi")
+        val first = at(zone, 2026, Calendar.NOVEMBER, 19, 23, 59)
+        val second = at(zone, 2026, Calendar.NOVEMBER, 20, 0, 1)
+        assertEquals(2026323, activityReviewDayKey(first, zone))
+        assertEquals(2026324, activityReviewDayKey(second, zone))
+    }
+
+    @Test fun eachTickerPeriodStaysVisibleWhileMetricsMoveAcrossTheRow() {
+        assertEquals(40_000L, ACTIVITY_TICKER_PERIOD_DURATION_MS)
+        assertEquals(20_000, ACTIVITY_TICKER_SCROLL_DURATION_MS)
+    }
+
     @Test fun tickerMoneyOutIncludesRecordedFeesWithoutDoubleCountingSpending() {
         val onlyTransferFee = ActivitySummary(
             incomeMinor = 0L, spentMinor = 0L, feesMinor = 500L,

@@ -464,27 +464,7 @@ fun ActivityScreen(
 
     suspend fun loadActivitySupplementalData():
         ActivitySupplementalData =
-        withContext(Dispatchers.IO) {
-            loadActivitySupplementalSafely(
-                reviewOverview = { store.activityReviewOverview(performMaintenance = false) },
-                ownershipEvidence = { financialStore.ownershipReviewEvidence() },
-                relationships = { relationshipReviewStore.pendingReviews() },
-                financialEntities = { financialStore.pendingEntities() },
-                diagnostics = { diagnosticsStore.recent(500) },
-                identityCount = {
-                    identityGraphStore.pendingReviewPrompts(
-                        limit = 100,
-                        includeOptional = false
-                    ).size
-                },
-                onOptionalFailure = { source ->
-                    android.util.Log.w(
-                        "PesaTrackActivity",
-                        "Optional Activity reader unavailable: $source"
-                    )
-                }
-            )
-        }
+        readActivitySupplementalData(context)
 
     fun applyActivityCoreData(
         core: ActivityCoreData
@@ -864,7 +844,7 @@ fun ActivityScreen(
     LaunchedEffect(selectedFilter, selectedGlobalQueue, stickyActivityHeaderHeightPx) {
         if (selectedFilter == "Needs Review" && selectedGlobalQueue == "Attention" &&
             stickyActivityHeaderHeightPx > 0) {
-            val firstReviewItem = 5 + (if (activityError) 1 else 0) +
+            val firstReviewItem = 4 + (if (activityError) 1 else 0) +
                 (if (showExtraFilters) 2 else 0) +
                 (if (cycleError && payCycleMode) 1 else 0)
             snapshotFlow { activityListState.layoutInfo.totalItemsCount }
@@ -892,21 +872,6 @@ fun ActivityScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            val needsAttentionCount =
-                globalOverview.reviewGroups
-                    .sumOf {
-                        it.transactionCount
-                    } +
-                    globalOverview
-                        .possibleDuplicates
-                        .size +
-                    relationshipReviews.size +
-                    reviewableFinancialEntities
-                        .size +
-                    identityReviewCount
-
-
-
             // Own-account review remains accessible but does not push the
             // transaction search further down on every visit.
 
@@ -919,7 +884,7 @@ fun ActivityScreen(
             brownActivityControlItems(
                 view = BrownActivityControlView(
                     periodLabel, payCycleMode, displaySnapshot ?: snapshot,
-                    recordedBalance, needsAttentionCount, showSearch, searchQuery,
+                    recordedBalance, showSearch, searchQuery,
                     showExtraFilters, selectedFilter
                 ),
                 actions = BrownActivityControlActions(
@@ -930,7 +895,6 @@ fun ActivityScreen(
                     onQuery = { searchQuery = it },
                     onToggleFilters = { showExtraFilters = !showExtraFilters },
                     onHeaderHeightChanged = { stickyActivityHeaderHeightPx = it },
-                    onReview = { selectedGlobalQueue = "Attention"; selectedFilter = "Needs Review" },
                     onShowAll = {
                         searchQuery = ""; showSearch = false; showExtraFilters = false
                         selectedFilter = "All"; selectedGlobalQueue = null

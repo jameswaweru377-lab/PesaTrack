@@ -1,5 +1,20 @@
 # PesaTrack Current State
 
+_Activity review/ticker/fee follow-up (#698, 20 November 2026; Android CI and Redmi acceptance pending):_
+The permanent Activity `need review` banner is removed. On Home entry after
+PIN unlock, a coffee/cream modal asks about outstanding local financial review
+items with **Review now** (the existing Activity attention queue) or **Not now**.
+It is offered at most once per device-local day for the same pending count,
+and may reappear that day if the count increases. No notification permission,
+server call, analytics or review decision is created by the prompt. The three
+main Activity filters have 32dp visible surfaces within 48dp touch targets.
+The Year/Month/Today summary keeps one label for 40 seconds while its actual
+ledger amounts slide slowly to the Net amount, fade and restart. Under outgoing
+amounts, a positive recorded fee still shows its actual amount in muted rose;
+without fee evidence, a small `Fee —` chip honestly marks it unavailable.
+Money classifications, balances, stored transactions and backups are unchanged.
+CI, ticker motion and actual Redmi visual acceptance are not yet verified.
+
 _Activity payment-context polish (#695, 20 November 2026; Android CI and phone acceptance pending):_
 The approved Activity layout is retained. Transaction subtitles now show a compact
 payment-method chip only when the stored type or explicit Paybill/Pochi/bank-to-wallet

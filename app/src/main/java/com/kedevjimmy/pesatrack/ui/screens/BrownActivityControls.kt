@@ -24,7 +24,6 @@ internal data class BrownActivityControlView(
     val payCycleMode: Boolean,
     val snapshot: ActivityLedgerSnapshot,
     val balance: ActivityRecordedBalance?,
-    val reviewCount: Int,
     val searchOpen: Boolean,
     val searchQuery: String,
     val extraFiltersOpen: Boolean,
@@ -40,7 +39,6 @@ internal data class BrownActivityControlActions(
     val onQuery: (String) -> Unit,
     val onToggleFilters: () -> Unit,
     val onHeaderHeightChanged: (Int) -> Unit,
-    val onReview: () -> Unit,
     val onShowAll: () -> Unit,
     val onSelectFilter: (String) -> Unit,
     val onToolsChanged: () -> Unit,
@@ -74,11 +72,6 @@ internal fun LazyListScope.brownActivityControlItems(
     item(key = "activity-period-overview") {
         Box(Modifier.padding(bottom = 8.dp)) {
             BrownActivityMonthlyHero(view.snapshot, view.payCycleMode, view.balance)
-        }
-    }
-    item(key = "activity-attention-card") {
-        if (view.reviewCount > 0) Box(Modifier.padding(bottom = 8.dp)) {
-            BrownActivityReview(view.reviewCount, actions.onReview)
         }
     }
     item(key = "activity-transactions-heading") {

@@ -21,6 +21,7 @@ import com.kedevjimmy.pesatrack.ui.screens.BrownHomeHeader
 import com.kedevjimmy.pesatrack.ui.screens.BrownCompactTabTitle
 import com.kedevjimmy.pesatrack.ui.screens.BrownHomeBottomBar
 import com.kedevjimmy.pesatrack.ui.screens.BrownHomePalette
+import com.kedevjimmy.pesatrack.ui.screens.BrownActivityHomeReviewPrompt
 import com.kedevjimmy.pesatrack.ui.screens.HomeReferencePalette
 import kotlinx.coroutines.launch
 
@@ -106,6 +107,15 @@ fun AppScaffold(
         },
         content = content
     )
+    if (currentTab == MainTab.HOME && useBrownHome) {
+        BrownActivityHomeReviewPrompt(onReview = {
+            when {
+                onNotificationsClick != null -> onNotificationsClick()
+                sharedNotifications != null -> sharedNotifications()
+                else -> onTabSelected(MainTab.ACTIVITY)
+            }
+        })
+    }
     if (toolsOpen) {
         ModalBottomSheet(onDismissRequest = { toolsOpen = false }) {
             Column(
