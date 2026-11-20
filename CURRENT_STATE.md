@@ -1,5 +1,18 @@
 # PesaTrack Current State
 
+_Activity payment-context polish (#695, 20 November 2026; Android CI and phone acceptance pending):_
+The approved Activity layout is retained. Transaction subtitles now show a compact
+payment-method chip only when the stored type or explicit Paybill/Pochi/bank-to-wallet
+wording supports it, followed by category and time (date stays in the day heading).
+Recorded positive transaction fees appear in a soft rose chip beside the amount;
+missing or zero fees never display an invented charge. Month / Pay cycle and the
+three main Activity filters use more rectangular existing theme shapes. A slim,
+slowly rotating This year / This month / Today strip below the filters reads
+canonical local-ledger summary values for each calendar range. It does not alter
+the approved monthly expense hero, daily net, balance, transactions, financial
+classification, storage, permissions, signing or navigation. Device layout and
+timing remain unverified; no emulator/instrumentation execution is requested.
+
 _Borderless surface and review readability pass (20 November 2026; GitHub CI and phone acceptance pending):_
 The active Settings and Profile grouped lists, Accounts and investments sections,
 account details, Plan overview, and statement landing remove decorative outer

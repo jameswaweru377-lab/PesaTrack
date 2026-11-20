@@ -89,6 +89,9 @@ internal fun LazyListScope.brownActivityControlItems(
             BrownActivitySegmentedFilters(view.selectedFilter, actions.onSelectFilter)
         }
     }
+    item(key = "activity-flow-ticker") {
+        BrownActivityFlowTicker()
+    }
     if (view.extraFiltersOpen) item(key = "activity-tools") {
         ActivityToolsDisclosure(
             onChanged = actions.onToolsChanged,
