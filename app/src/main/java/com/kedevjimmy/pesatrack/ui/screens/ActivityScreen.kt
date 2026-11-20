@@ -1028,9 +1028,14 @@ fun ActivityScreen(
                             subtitle = "Choose a category for each transaction below."
                         )
                     }
-                    item(key = "attention-review-groups") {
-                        ActivityReviewGroupList(
-                            groups = globalOverview.reviewGroups,
+                    items(
+                        count = globalOverview.reviewGroups.size,
+                        key = { index -> "attention-review-${globalOverview.reviewGroups[index].key}" }
+                    ) { index ->
+                        ActivityReviewGroupRow(
+                            group = globalOverview.reviewGroups[index],
+                            isFirst = index == 0,
+                            isLast = index == globalOverview.reviewGroups.lastIndex,
                             onSelect = onTransactionClick
                         )
                     }

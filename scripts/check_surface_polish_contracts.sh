@@ -13,8 +13,10 @@ for screen in ProfileWorkspaceAndSettings.kt InvestmentPortfolioContent.kt Accou
 done
 
 # The review rows are grouped, remain individually actionable, and are not oversized cards.
-rg -Fq 'ActivityReviewGroupList(' "$screens/ActivityScreen.kt"
+rg -Fq 'ActivityReviewGroupRow(' "$screens/ActivityScreen.kt"
+rg -Fq 'key = { index -> "attention-review-' "$screens/ActivityScreen.kt"
 ! rg -q 'private fun ReviewGroupRow\(' "$screens/ActivityScreen.kt"
+! rg -q 'groups\.forEachIndexed' "$screens/ActivityReviewGroupList.kt"
 rg -Fq 'onSelect(group.representativeTransactionId)' "$screens/ActivityReviewGroupList.kt"
 rg -Fq 'formatActivityMoney(group.totalMinor)' "$screens/ActivityReviewGroupList.kt"
 rg -Fq 'group.latestEpochMs' "$screens/ActivityReviewGroupList.kt"

@@ -27,19 +27,28 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.ReviewGroup
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 
-/** A single compact review list; each row still opens its original transaction. */
+/** Visually grouped rows that remain individually keyed and virtualized by the parent LazyColumn. */
 @Composable
-internal fun ActivityReviewGroupList(
-    groups: List<ReviewGroup>,
+internal fun ActivityReviewGroupRow(
+    group: ReviewGroup,
+    isFirst: Boolean,
+    isLast: Boolean,
     onSelect: (Long) -> Unit
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 12.dp),
-        shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
+        modifier = Modifier.fillMaxWidth().padding(
+            top = if (isFirst) 8.dp else 0.dp,
+            bottom = if (isLast) 12.dp else 0.dp
+        ),
+        shape = RoundedCornerShape(
+            topStart = if (isFirst) PesaDesignTokens.cardRadius else 0.dp,
+            topEnd = if (isFirst) PesaDesignTokens.cardRadius else 0.dp,
+            bottomEnd = if (isLast) PesaDesignTokens.cardRadius else 0.dp,
+            bottomStart = if (isLast) PesaDesignTokens.cardRadius else 0.dp
+        ),
         color = MaterialTheme.colorScheme.surface
     ) {
         Column(modifier = Modifier.padding(horizontal = PesaDesignTokens.cardContentPadding)) {
-            groups.forEachIndexed { index, group ->
                 Row(
                     modifier = Modifier.fillMaxWidth()
                         .heightIn(min = 72.dp)
@@ -90,12 +99,11 @@ internal fun ActivityReviewGroupList(
                         modifier = Modifier.size(20.dp)
                     )
                 }
-                if (index < groups.lastIndex) {
+                if (!isLast) {
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha)
                     )
                 }
-            }
         }
     }
 }
