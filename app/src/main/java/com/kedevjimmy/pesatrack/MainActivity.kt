@@ -1,6 +1,11 @@
 package com.kedevjimmy.pesatrack
 
 import android.os.Bundle
+import android.app.Activity
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.invisibleToUser
+import androidx.activity.result.contract.ActivityResultContracts
 import android.os.Build
 import android.os.CancellationSignal
 import android.hardware.biometrics.BiometricPrompt
@@ -18,6 +23,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -30,6 +36,9 @@ import com.kedevjimmy.pesatrack.ingestion.RecentSmsCatchUp
 import com.kedevjimmy.pesatrack.ui.PesaTrackApp
 import com.kedevjimmy.pesatrack.ui.screens.StartupSplashScreen
 import com.kedevjimmy.pesatrack.ui.screens.AppLockScreen
+import com.kedevjimmy.pesatrack.ui.screens.MandatoryAppLockSetupScreen
+import com.kedevjimmy.pesatrack.ui.screens.SecureAppLockDialog
+import com.kedevjimmy.pesatrack.ui.screens.LocalFinancialContentUnlocked
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
 import kotlinx.coroutines.delay
@@ -49,6 +58,35 @@ class MainActivity : ComponentActivity() {
     private lateinit var appLockManager:
         AppLockManager
     private var appLocked by mutableStateOf(false)
+    private var biometricCancellation: CancellationSignal? = null
+    /** Ephemeral: device credential authorization is lost when leaving the activity. */
+    private var pinRecoveryAuthorized by mutableStateOf(false)
+    private val pinRecoveryLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK &&
+            appLocked && ::appLockManager.isInitialized && appLockManager.isEnabled()
+        ) {
+            pinRecoveryAuthorized = true
+            updateSecureWindowState()
+        }
+    }
+
+    private fun canRecoverPinWithDeviceCredential(): Boolean =
+        getSystemService(KeyguardManager::class.java)?.isDeviceSecure == true
+
+    private fun requestPinRecovery() {
+        if (!appLocked || !appLockManager.isEnabled() || !canRecoverPinWithDeviceCredential()) {
+            return
+        }
+        val keyguard = getSystemService(KeyguardManager::class.java) ?: return
+        @Suppress("DEPRECATION")
+        val challenge = keyguard.createConfirmDeviceCredentialIntent(
+            "Recover PesaTrack PIN",
+            "Confirm your phone lock to set a new app PIN without erasing your records."
+        ) ?: return
+        pinRecoveryLauncher.launch(challenge)
+    }
     private var captureForeground = false
     private fun readSmartIntent(intent: Intent) {
         intent.getStringExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_KEY)?.let {
@@ -156,6 +194,7 @@ class MainActivity : ComponentActivity() {
             var setupComplete by remember {
                 mutableStateOf(preferences.getBoolean("setup_complete", false))
             }
+            var securityConfigured by remember { mutableStateOf(appLockManager.isEnabled()) }
             var welcomeVisible by remember { mutableStateOf(!setupComplete) }
             var showLaunchSplash by remember {
                 mutableStateOf(true)
@@ -182,10 +221,80 @@ class MainActivity : ComponentActivity() {
             PesaTrackTheme(darkTheme = useDark) {
                 if (showLaunchSplash) {
                     StartupSplashScreen(darkTheme = useDark)
-                } else if (
-                    appLocked &&
-                    appLockManager.isEnabled()
-                ) {
+                } else if (setupComplete && !securityConfigured) {
+                    MandatoryAppLockSetupScreen(onSecured = {
+                        securityConfigured = appLockManager.isEnabled()
+                        appLocked = false
+                    })
+                } else {
+                    androidx.compose.foundation.layout.Box(
+                        modifier = androidx.compose.ui.Modifier.fillMaxSize()
+                    ) {
+                        androidx.compose.foundation.layout.Box(
+                            modifier = androidx.compose.ui.Modifier.fillMaxSize().then(
+                                if (appLocked || pinRecoveryAuthorized)
+                                    androidx.compose.ui.Modifier.semantics {
+                                        invisibleToUser()
+                                    }
+                                else androidx.compose.ui.Modifier
+                            )
+                        ) {
+                            CompositionLocalProvider(LocalFinancialContentUnlocked provides (!appLocked && !pinRecoveryAuthorized)) {
+                            PesaTrackApp(
+                    salaryOpenRequest = if (appLocked || pinRecoveryAuthorized) 0 else salaryOpenRequest,
+                    billsOpenRequest = if (appLocked || pinRecoveryAuthorized) 0 else billsOpenRequest,
+                    reviewOpenRequest = if (appLocked || pinRecoveryAuthorized) 0 else reviewOpenRequest,
+                    smartOpenRequest = if (appLocked || pinRecoveryAuthorized) 0 else smartOpenRequest, smartKey = smartKey, smartAction = smartAction, smartRevision = smartRevision,
+                    phonePageRequest = if (appLocked || pinRecoveryAuthorized) 0 else phonePageRequest, phonePageRoute = phonePageRoute,
+                    onPhoneRequestHandled = {
+                        phonePageRequest = 0
+                        intent.removeExtra(com.kedevjimmy.pesatrack.planning.PhoneNotificationPreview.OPEN_PAGE)
+                    },
+                    onSmartRequestHandled = {
+                        smartOpenRequest = 0
+                        intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_KEY)
+                        intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_ACTION)
+                        intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_REVISION)
+                    },
+                            planningOpenRequest = if (appLocked || pinRecoveryAuthorized) 0 else planningOpenRequest, planningRoute = planningRoute,
+                    themeMode = themeMode,
+                    onThemeModeChange = { newMode ->
+                        themeMode = newMode
+                        preferences.edit().putString("theme_mode", newMode.name).apply()
+                    },
+                    setupComplete = setupComplete,
+                    onWelcomeVisibilityChange = { welcomeVisible = it },
+                    onSetupComplete = {
+                        setupComplete = true
+                        preferences.edit()
+                            .putBoolean(
+                                "setup_complete",
+                                true
+                            )
+                            .apply()
+                        SalaryReminders.schedule(this@MainActivity)
+        BillSchedules.schedule(this@MainActivity)
+        com.kedevjimmy.pesatrack.planning.PlanningReminders.schedule(this@MainActivity)
+        ReviewAttentionReminders.schedule(this@MainActivity)
+        com.kedevjimmy.pesatrack.planning.BackupReminders.schedule(this@MainActivity)
+                        AutomaticHistoryRepair.scheduleIfAllowed(this@MainActivity)
+                    }
+                )
+                            }
+                        }
+                        if (pinRecoveryAuthorized) {
+                            SecureAppLockDialog {
+                                MandatoryAppLockSetupScreen(
+                                recoveringExistingPin = true,
+                                onSecured = {
+                                    pinRecoveryAuthorized = false
+                                    securityConfigured = appLockManager.isEnabled()
+                                    appLocked = false
+                                }
+                            )
+                            }
+                        } else if (appLocked && appLockManager.isEnabled()) {
+                            SecureAppLockDialog {
                     AppLockScreen(
                         biometricAvailable =
                             canUseBiometrics(),
@@ -207,49 +316,13 @@ class MainActivity : ComponentActivity() {
                         },
                         onBiometricUnlock = {
                             requestBiometricUnlock()
-                        }
+                        },
+                        deviceCredentialRecoveryAvailable = canRecoverPinWithDeviceCredential(),
+                        onRecoverWithDeviceCredential = { requestPinRecovery() }
                     )
-                } else {
-                    PesaTrackApp(
-                    salaryOpenRequest = salaryOpenRequest,
-                    billsOpenRequest = billsOpenRequest,
-                    reviewOpenRequest = reviewOpenRequest,
-                    smartOpenRequest = smartOpenRequest, smartKey = smartKey, smartAction = smartAction, smartRevision = smartRevision,
-                    phonePageRequest = phonePageRequest, phonePageRoute = phonePageRoute,
-                    onPhoneRequestHandled = {
-                        phonePageRequest = 0
-                        intent.removeExtra(com.kedevjimmy.pesatrack.planning.PhoneNotificationPreview.OPEN_PAGE)
-                    },
-                    onSmartRequestHandled = {
-                        smartOpenRequest = 0
-                        intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_KEY)
-                        intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_ACTION)
-                        intent.removeExtra(com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.OPEN_REVISION)
-                    },
-                            planningOpenRequest = planningOpenRequest, planningRoute = planningRoute,
-                    themeMode = themeMode,
-                    onThemeModeChange = { newMode ->
-                        themeMode = newMode
-                        preferences.edit().putString("theme_mode", newMode.name).apply()
-                    },
-                    setupComplete = setupComplete,
-                    onWelcomeVisibilityChange = { welcomeVisible = it },
-                    onSetupComplete = {
-                        setupComplete = true
-                        preferences.edit()
-                            .putBoolean(
-                                "setup_complete",
-                                true
-                            )
-                            .apply()
-                        SalaryReminders.schedule(this)
-        BillSchedules.schedule(this)
-        com.kedevjimmy.pesatrack.planning.PlanningReminders.schedule(this)
-        ReviewAttentionReminders.schedule(this)
-        com.kedevjimmy.pesatrack.planning.BackupReminders.schedule(this)
-                        AutomaticHistoryRepair.scheduleIfAllowed(this)
+                            }
+                        }
                     }
-                )
                 }
             }
         }
@@ -284,6 +357,10 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        // A prompt started before backgrounding must never unlock a later foreground session.
+        biometricCancellation?.cancel()
+        biometricCancellation = null
+        pinRecoveryAuthorized = false
         if (
             ::appLockManager
                 .isInitialized &&
@@ -316,7 +393,11 @@ class MainActivity : ComponentActivity() {
         ) {
             return
         }
-        if (ScreenCapturePolicy.shouldBlockCapture(
+        if (pinRecoveryAuthorized ||
+            (!appLockManager.isEnabled() &&
+                getSharedPreferences("pesatrack_preferences", MODE_PRIVATE)
+                    .getBoolean("setup_complete", false)) ||
+            ScreenCapturePolicy.shouldBlockCapture(
                 appLockEnabled = appLockManager.isEnabled(),
                 appLocked = lockedForCapture,
                 foreground = captureForeground,
@@ -374,6 +455,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestBiometricUnlock() {
+        if (!captureForeground || !appLocked || !::appLockManager.isInitialized ||
+            !appLockManager.isEnabled() || !canUseBiometrics()
+        ) return
         if (
             Build.VERSION.SDK_INT <
             Build.VERSION_CODES.P
@@ -395,8 +479,11 @@ class MainActivity : ComponentActivity() {
                 ) { _, _ -> }
                 .build()
 
+        biometricCancellation?.cancel()
+        val signal = CancellationSignal()
+        biometricCancellation = signal
         prompt.authenticate(
-            CancellationSignal(),
+            signal,
             mainExecutor,
             object :
                 BiometricPrompt
@@ -410,8 +497,11 @@ class MainActivity : ComponentActivity() {
                         .onAuthenticationSucceeded(
                             result
                         )
-                    appLockManager
-                        .markUnlocked()
+                    if (biometricCancellation !== signal || signal.isCanceled ||
+                        !captureForeground || !appLocked || !appLockManager.isEnabled()
+                    ) return
+                    biometricCancellation = null
+                    appLockManager.markUnlocked()
                     appLocked = false
                 }
             }

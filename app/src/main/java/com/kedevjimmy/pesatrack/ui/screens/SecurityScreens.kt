@@ -4,6 +4,8 @@ import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -73,8 +75,12 @@ fun AppLockScreen(
     biometricAvailable: Boolean,
     onPinUnlock: (String) -> Boolean,
     pinLockoutRemainingMs: () -> Long,
-    onBiometricUnlock: () -> Unit
+    onBiometricUnlock: () -> Unit,
+    deviceCredentialRecoveryAvailable: Boolean,
+    onRecoverWithDeviceCredential: () -> Unit
 ) {
+    BackHandler { /* Locked app never passes back navigation to the hidden app. */ }
+    val blockerInteraction = remember { MutableInteractionSource() }
     var pin by remember {
         mutableStateOf("")
     }
@@ -95,6 +101,9 @@ fun AppLockScreen(
                         )
                     )
                 )
+                .clickable(interactionSource = blockerInteraction, indication = null) {
+                    /* Consume taps outside lock controls rather than hitting hidden screens. */
+                }
                 .padding(
                     horizontal = 28.dp,
                     vertical = 36.dp
@@ -290,6 +299,15 @@ fun AppLockScreen(
             }
         }
 
+        if (deviceCredentialRecoveryAvailable) {
+            OutlinedButton(
+                onClick = onRecoverWithDeviceCredential,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+            ) {
+                Text("Forgot PIN? Verify phone lock")
+            }
+        }
+
         Text(
             "Your PIN is stored only on this device and is not included in backups.",
             modifier =
@@ -450,32 +468,6 @@ fun AppLockSettingsSheet(
                 )
             }
 
-            if (enabled) {
-                OutlinedButton(
-                    onClick = {
-                        if (
-                            manager.disable(
-                                currentPin
-                            )
-                        ) {
-                            onChanged()
-                            onDismiss()
-                        } else {
-                            error =
-                                lockoutError(
-                                    manager =
-                                        manager,
-                                    fallback =
-                                        "Enter the current PIN before disabling app lock."
-                                )
-                        }
-                    },
-                    modifier =
-                        Modifier.fillMaxWidth()
-                ) {
-                    Text("Disable app lock")
-                }
-            }
 
             Button(
                 onClick = {

@@ -64,6 +64,9 @@ private data class StagedBankPdf(
 )
 private data class SuggestedBankPdf(val label: String, val staged: StagedBankPdf)
 
+/** Blocks asynchronous statement dialogs until app-lock authentication completes. */
+internal val LocalFinancialContentUnlocked = compositionLocalOf { true }
+
 private const val UNFAMILIAR_BANK_PDF = "UNFAMILIAR_BANK"
 private const val OTHER_BANK_SOURCE = "__PESATRACK_OTHER_BANK_SOURCE__"
 
@@ -570,7 +573,7 @@ private fun readStatement(c:Context,uri:Uri):String {
    }
   }
  }
- sourcePdfUri?.let { uri ->
+ if (LocalFinancialContentUnlocked.current) sourcePdfUri?.let { uri ->
   AlertDialog(
    onDismissRequest={sourcePdfUri=null;sourcePdfPassword="";pdfPasswordWrong=false},
    properties=DialogProperties(securePolicy=SecureFlagPolicy.SecureOn),
