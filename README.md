@@ -41,7 +41,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 | 📄 | **Export a personal money report** | Save an offline PesaTrack-branded PDF of your selected Reports period, including trusted Activity totals, categories, trends and selected large expenses. Exported PDFs are not encrypted bank statements. |
 | 🎯 | **Plan ahead** | Organize monthly budgets, bills, saving goals around recorded spendable account funds; use Activity for the separate salary-cycle view. |
 | 🤝 | **Keep track of debts** | Distinguish loans and repayments from ordinary purchases and transfers, with user confirmation where needed. |
-| 🔐 | **Keep control of your data** | Use local storage, optional app lock, encrypted user-created backups, and privacy controls. |
+| 🔐 | **Keep control of your data** | Use local storage, mandatory app-lock PIN after onboarding, optional biometric unlocking, encrypted user-created backups, and privacy controls. |
 
 ### Five places to find what matters
 
