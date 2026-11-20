@@ -131,6 +131,7 @@ private fun ActivityTickerStrip(
         Box(Modifier.width(1.dp).height(24.dp)
             .background(p.outline.copy(alpha = PesaDesignTokens.faintDividerAlpha)))
         BoxWithConstraints(Modifier.weight(1f)) {
+            val netRunway = maxWidth * .42f
             Row(Modifier.horizontalScroll(scroll)
                 .graphicsLayer { alpha = opacity.value },
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -141,7 +142,7 @@ private fun ActivityTickerStrip(
                     if (isDark) PremiumVisualTokens.darkMoneyOut else PremiumVisualTokens.moneyOut)
                 ActivityTickerMetric("Net", summary?.netMinor, p.ink)
                 // Leave a little runway so Net rests near the centre, not clipped at the edge.
-                Spacer(Modifier.width(maxWidth * .42f))
+                Spacer(Modifier.width(netRunway))
             }
         }
     }
