@@ -24,7 +24,6 @@ import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
-import com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
@@ -96,8 +95,8 @@ internal fun BrownActivityRow(
             RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp)
         else RoundedCornerShape(0.dp), color = panel) {
         Column {
-            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                .padding(horizontal = 12.dp, vertical = 4.dp),
+            Row(Modifier.fillMaxWidth().heightIn(min = 64.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.size(PesaDesignTokens.iconBubble),
@@ -116,36 +115,80 @@ internal fun BrownActivityRow(
                             border = BorderStroke(1.dp, p.white)) {}
                     }
                 }
-                Column(Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(displayName, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                        color = p.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    val subtitle = when {
-                        needsReview -> "Needs Review"
-                        refund -> "Refund"
-                        debtLink?.active == true && debtLink.kind == "LENT" -> "Money lent"
-                        debtLink?.active == true && debtLink.kind == "REPAID" -> "Repayment"
-                        direction == MoneyDirection.TRANSFER -> "Transfer"
-                        else -> categories.labelFor(categoryId)
-                    }
-                    Text("$subtitle · " + SimpleDateFormat("h:mm a",
-                        LocalConfiguration.current.locales[0]).format(Date(item.occurredAtEpochMs)),
-                        fontSize = 11.sp, color = p.muted, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis)
+                val subtitle = when {
+                    needsReview -> "Needs Review"
+                    refund -> "Refund"
+                    debtLink?.active == true && debtLink.kind == "LENT" -> "Money lent"
+                    debtLink?.active == true && debtLink.kind == "REPAID" -> "Repayment"
+                    direction == MoneyDirection.TRANSFER -> "Transfer"
+                    else -> categories.labelFor(categoryId)
                 }
-                val isCredit = refund || direction == MoneyDirection.INCOME ||
-                    item.type == MpesaTransactionType.REVERSAL.name
-                Text(amountLabel(item, direction)
-                    .replace("+ KES", "+KES").replace("- KES", "−KES"),
-                    modifier = Modifier.widthIn(max = 124.dp),
-                    color = themeMoneyMovementColor(direction, refund),
-                    fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                BrownActivityRowDescription(displayName, subtitle,
+                    activityPaymentMethod(item), item.occurredAtEpochMs, dark,
+                    modifier = Modifier.weight(1f))
+                BrownActivityRowAmount(item, direction, refund, dark)
             }
             if (position == ActivityGroupPosition.FIRST ||
                 position == ActivityGroupPosition.MIDDLE) {
                 HorizontalDivider(Modifier.padding(start = 64.dp, end = 12.dp),
                     color = p.outline.copy(alpha = .5f), thickness = .5.dp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BrownActivityRowDescription(
+    title: String, category: String, method: String?, epochMs: Long,
+    dark: Boolean, modifier: Modifier = Modifier
+) {
+    val p = homeColors()
+    val time = SimpleDateFormat("h:mm a", LocalConfiguration.current.locales[0])
+        .format(Date(epochMs))
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            color = p.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (method != null) {
+                Surface(color = if (dark) p.white else p.cream,
+                    shape = RoundedCornerShape(PesaDesignTokens.iconRadius)) {
+                    Text(method, Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        color = p.ink, fontWeight = FontWeight.Medium,
+                        fontSize = 9.sp, maxLines = 1)
+                }
+                Text("·", color = p.muted, fontSize = 10.sp)
+            }
+            Text(category, Modifier.weight(1f, fill = false),
+                fontSize = 10.sp, color = p.muted, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
+            Text("·", color = p.muted, fontSize = 10.sp)
+            Text(time, fontSize = 10.sp, color = p.muted, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun BrownActivityRowAmount(
+    item: StoredTransaction, direction: MoneyDirection, refund: Boolean, dark: Boolean
+) {
+    Column(horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(amountLabel(item, direction)
+            .replace("+ KES", "+KES").replace("- KES", "−KES"),
+            modifier = Modifier.widthIn(max = 124.dp),
+            color = themeMoneyMovementColor(direction, refund),
+            fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
+        activityFeeBadgeAmount(item)?.let { fee ->
+            val feeColor = if (dark) PremiumVisualTokens.darkMoneyOut
+                else PremiumVisualTokens.moneyOut
+            Surface(color = feeColor.copy(alpha = .12f),
+                shape = RoundedCornerShape(PesaDesignTokens.iconRadius)) {
+                Text("Fee ${activityKesLabel(fee)}",
+                    Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    color = feeColor, fontSize = 9.sp,
+                    fontWeight = FontWeight.Medium, maxLines = 1)
             }
         }
     }

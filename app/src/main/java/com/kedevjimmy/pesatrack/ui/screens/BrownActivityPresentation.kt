@@ -137,7 +137,7 @@ private fun BrownActivityPeriodPill(label: String, selected: Boolean, onClick: (
     val p = homeColors()
     Surface(onClick = onClick,
         modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget),
-        shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
+        shape = RoundedCornerShape(PesaDesignTokens.iconRadius),
         color = if (selected) p.coffee else p.white) {
         Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
             Text(label, color = if (selected) MaterialTheme.colorScheme.onPrimary else p.muted,
@@ -271,21 +271,14 @@ internal fun BrownActivitySegmentedFilters(selected: String, onSelect: (String) 
             val active = selected == tab.key
             Surface(onClick = { onSelect(tab.key) },
                 modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget),
-                color = p.canvas,
-                shape = RoundedCornerShape(PesaDesignTokens.controlRadius)) {
-                Box(Modifier.padding(vertical = PesaDesignTokens.compactGap),
+                color = if (active) p.coffee else p.white,
+                shape = RoundedCornerShape(PesaDesignTokens.iconRadius)) {
+                Box(Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     contentAlignment = Alignment.Center) {
-                    Box(
-                        Modifier.background(
-                            if (active) p.coffee else Color.Transparent,
-                            RoundedCornerShape(PesaDesignTokens.controlRadius)
-                        ).padding(horizontal = 12.dp, vertical = PesaDesignTokens.compactGap)
-                    ) {
-                        Text(tab.label, fontSize = 12.sp,
-                            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                            color = if (active) MaterialTheme.colorScheme.onPrimary else p.ink,
-                            maxLines = 1)
-                    }
+                    Text(tab.label, fontSize = 12.sp,
+                        fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                        color = if (active) MaterialTheme.colorScheme.onPrimary else p.ink,
+                        maxLines = 1)
                 }
             }
         }
