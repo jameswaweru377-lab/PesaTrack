@@ -44,6 +44,7 @@ object PesaDesignTokens {
     val regularWordmarkLogoSize = 44.dp
     val wordmarkGap = 10.dp
     val cardOutlineWidth = 1.dp
+    const val faintDividerAlpha = 0.30f
     val lightCardElevation = 1.dp
     val sectionActionIconSize = 19.dp
     val statusPillHorizontalPadding = 10.dp

@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
@@ -72,7 +71,7 @@ internal fun HomeBalanceNotice(accounts: List<MoneyAccount>, balances: List<Plan
     Column(verticalArrangement = Arrangement.spacedBy(PesaDesignTokens.compactGap)) {
         Surface(onClick = { expanded = !expanded }, color = palette.canvas) {
             Column {
-                HorizontalDivider(color = palette.outline.copy(alpha = .65f))
+                HorizontalDivider(color = palette.outline.copy(alpha = PesaDesignTokens.faintDividerAlpha))
                 Row(
                     Modifier.fillMaxWidth()
                         .heightIn(min = PesaDesignTokens.minimumTouchTarget)
@@ -91,7 +90,7 @@ internal fun HomeBalanceNotice(accounts: List<MoneyAccount>, balances: List<Plan
                         tint = palette.coffee
                     )
                 }
-                HorizontalDivider(color = palette.outline.copy(alpha = .65f))
+                HorizontalDivider(color = palette.outline.copy(alpha = PesaDesignTokens.faintDividerAlpha))
             }
         }
         if (expanded) visible.forEach { (account, balance) ->
@@ -123,28 +122,37 @@ private fun BalanceNoticeCard(
         Column(
             Modifier.padding(horizontal = PesaDesignTokens.cardContentPadding,
                 vertical = PesaDesignTokens.compactGap),
-            verticalArrangement = Arrangement.spacedBy(PesaDesignTokens.compactGap)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        shape = RoundedCornerShape(PesaDesignTokens.controlRadius)
-                    ) {
-                        Text(
-                            "BALANCE CHECK",
-                            Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Rounded.AccountBalanceWallet,
+                            contentDescription = null,
+                            tint = palette.coffee,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        if (missing) "Balance needs attention" else "Check account balance",
+                        name,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = palette.coffee
+                        fontWeight = FontWeight.SemiBold,
+                        color = palette.ink
+                    )
+                    Text(
+                        if (missing) "No balance recorded" else "Balance needs checking",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Box {
@@ -162,28 +170,6 @@ private fun BalanceNoticeCard(
                             onDismiss()
                         })
                     }
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        if (missing) "$name has no recorded balance."
-                        else "The recorded balance for $name needs checking.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = palette.ink
-                    )
-                }
-                Surface(
-                    modifier = Modifier.padding(start = 8.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.secondaryContainer
-                ) {
-                    Icon(
-                        Icons.Rounded.AccountBalanceWallet,
-                        contentDescription = null,
-                        tint = palette.coffee,
-                        modifier = Modifier.padding(12.dp).size(24.dp)
-                    )
                 }
             }
             Button(

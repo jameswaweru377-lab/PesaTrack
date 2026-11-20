@@ -1,6 +1,5 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -148,8 +147,7 @@ private fun AccountDetailsContent(
         }
         item {
             Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-                color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                color = MaterialTheme.colorScheme.surface) {
                 Row(Modifier.fillMaxWidth().clickable(onClick = onImportStatement).padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text("Import a statement", Modifier.weight(1f),
@@ -220,8 +218,7 @@ private fun AccountRecordedBalance(account: MoneyAccount?, balance: PaydayAccoun
         else -> "No balance evidence yet"
     }
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        border = BorderStroke(PesaDesignTokens.cardOutlineWidth, MaterialTheme.colorScheme.outlineVariant)) {
+        color = MaterialTheme.colorScheme.surfaceVariant) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AccountProviderMark(account?.name ?: "Account")
             Text("Recorded balance", style = MaterialTheme.typography.labelLarge,
@@ -247,8 +244,7 @@ private fun LinkedSavingsAccount(
         snapshot?.quality == PaydayBalanceQuality.RECONSTRUCTED)
     Surface(onClick = { onAccountClick(account.id) },
         shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        color = MaterialTheme.colorScheme.surface) {
         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             AccountProviderMark(account.name)
             Column(Modifier.weight(1f).padding(start = 10.dp)) {

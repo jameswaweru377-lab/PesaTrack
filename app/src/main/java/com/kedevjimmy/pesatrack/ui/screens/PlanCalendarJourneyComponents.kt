@@ -280,8 +280,7 @@ private fun PlanJourneyProgressTile(
     val p = homeMonochromeColors()
     Surface(modifier = modifier.heightIn(min = PesaDesignTokens.bottomBarHeight + 48.dp)
         .clickable(role = Role.Button, onClick = onClick),
-        color = p.surface, shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        border = BorderStroke(1.dp, p.line)) {
+        color = p.surface, shape = RoundedCornerShape(PesaDesignTokens.innerRadius)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -307,7 +306,6 @@ private fun PlanJourneyBillsButton(
     bills: List<PlanJourneyBill>, paidPercent: Int?, onClick: () -> Unit
 ) {
     Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        border = BorderStroke(1.dp, HomeMonochromePalette.line),
         color = HomeMonochromePalette.surface,
         modifier = Modifier.fillMaxWidth().heightIn(min = PesaDesignTokens.bottomBarHeight)
             .clickable(role = Role.Button, onClick = onClick)) {
@@ -367,7 +365,8 @@ private fun PlanJourneyBillSection(
                     style = MaterialTheme.typography.bodyMedium, maxLines = 2)
                 Icon(Icons.Rounded.ChevronRight, null, tint = p.ink)
             }
-            if (index != bills.lastIndex) HorizontalDivider(color = p.outline)
+            if (index != bills.lastIndex) HorizontalDivider(
+                color = p.outline.copy(alpha = PesaDesignTokens.faintDividerAlpha))
         }
     }
 }
@@ -376,7 +375,7 @@ private fun PlanJourneyBillSection(
 private fun PlanJourneyBreakdown(data: PlanJourneyView) {
     val p = homeColors()
     Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = p.white, border = BorderStroke(1.dp, p.outline)) {
+        color = p.white) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (LocalConfiguration.current.fontScale > 1.15f) {
                 listOf(
@@ -426,8 +425,7 @@ private fun PlanJourneyDetailMetric(label: String, value: String, modifier: Modi
 @Composable
 private fun PlanJourneyAllocations(data: PlanJourneyView) {
     val p = homeColors()
-    Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius), color = p.white,
-        border = BorderStroke(1.dp, p.outline)) {
+    Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius), color = p.white) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Your allocations", style = MaterialTheme.typography.titleMedium,
                 color = p.ink, fontWeight = FontWeight.Bold)

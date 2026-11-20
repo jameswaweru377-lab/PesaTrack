@@ -1,5 +1,18 @@
 # PesaTrack Current State
 
+_Borderless surface and review readability pass (20 November 2026; GitHub CI and phone acceptance pending):_
+The active Settings and Profile grouped lists, Accounts and investments sections,
+account details, Plan overview, and statement landing remove decorative outer
+card strokes while using a shared faint divider alpha for list separation.
+Activity's review queue now shows a single compact, individually actionable list,
+including each review group's amount and most recent date, instead of tall
+repeated cards. Home balance-review notices have an account-specific compact
+heading, wallet icon, Add/Update balance and unchanged archive/dismiss menu.
+Functional controls keep focus/selection outlines. The screen composition and
+existing financial, review, archive, navigation, storage and signed release
+behaviors remain unchanged. Source UI contracts run locally, with Android CI
+and real-device light/dark checks still required before declaring visual acceptance.
+
 _Batch 1 UI clarity pass (19 November 2026; GitHub CI and Redmi acceptance pending):_
 Savings goals now use their own compact fixed back/title/New goal header rather than
 stacking below the Plan header. Featured goals use light/dark theme surfaces, and

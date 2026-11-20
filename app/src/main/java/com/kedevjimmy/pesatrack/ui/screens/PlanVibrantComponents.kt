@@ -1,6 +1,5 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -90,7 +89,7 @@ internal fun VibrantPlanDateRow(
             .heightIn(min = PesaDesignTokens.minimumTouchTarget)
             .then(if (onCycleClick != null) Modifier.clickable(onClick = onCycleClick) else Modifier),
             shape = RoundedCornerShape(15.dp), color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+            shadowElevation = 1.dp) {
             Row(Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -106,7 +105,7 @@ internal fun VibrantPlanDateRow(
         Surface(modifier = Modifier.size(PesaDesignTokens.minimumTouchTarget)
             .then(if (onInsightsClick != null) Modifier.clickable(onClick = onInsightsClick) else Modifier),
             shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface,
-            shadowElevation = 1.dp, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+            shadowElevation = 1.dp) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(Icons.Rounded.Analytics, contentDescription = "View planning insights",
                     tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(23.dp))
@@ -118,7 +117,7 @@ internal fun VibrantPlanDateRow(
 @Composable
 internal fun VibrantPlanSurface(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Surface(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(21.dp),
-        color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        color = MaterialTheme.colorScheme.surface,
         shadowElevation = 1.dp) {
         Column(Modifier.fillMaxWidth().padding(13.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
@@ -286,7 +285,6 @@ internal fun VibrantPlanHero(
                     Surface(
                         shape = RoundedCornerShape(19.dp),
                         color = Color.White.copy(alpha = .16f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = .55f)),
                         modifier = Modifier.clickable(onClick = onCycleClick)
                     ) {
                         Row(
@@ -316,8 +314,7 @@ internal fun VibrantPlanSourceWarning(
     Surface(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
-        color = if (night) MaterialTheme.colorScheme.tertiaryContainer else Color(0xFFFFF2D2),
-        border = BorderStroke(1.dp, if (night) MaterialTheme.colorScheme.outlineVariant else Color(0xFFFFEBBC))
+        color = if (night) MaterialTheme.colorScheme.tertiaryContainer else Color(0xFFFFF2D2)
     ) {
         Row(
             Modifier.padding(horizontal = 13.dp, vertical = 12.dp),
@@ -354,8 +351,8 @@ internal fun VibrantDestinationTile(
 ) {
     Surface(modifier = modifier.heightIn(min = 62.dp)
         .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(17.dp), shadowElevation = 3.dp,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(17.dp), shadowElevation = 3.dp
+    ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 9.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -550,7 +547,6 @@ internal fun VibrantPlanMoneyBreakdown(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         shadowElevation = 4.dp
     ) {
         Column(
@@ -610,27 +606,27 @@ internal fun VibrantPlanMoneyBreakdown(
                     Icons.Rounded.Toll, Color(0xFFE7EFD9), PremiumVisualTokens.leafReadable,
                     "Starting funds", startingFunds, ink
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha), thickness = 1.dp)
                 VibrantBreakdownRow(
                     Icons.Rounded.Download, Color(0xFFE7EFD9), PremiumVisualTokens.leafReadable,
                     "Other money received", received, ink
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha), thickness = 1.dp)
                 VibrantBreakdownRow(
                     Icons.Rounded.Upload, Color(0xFFFFE3EC), Color(0xFFE8397A),
                     "Cash paid", cashPaid, ink
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha), thickness = 1.dp)
                 VibrantBreakdownRow(
                     Icons.Rounded.ReceiptLong, Color(0xFFFFEBDD), Color(0xFFF07A43),
                     "Fees", fees, ink
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha), thickness = 1.dp)
                 VibrantBreakdownRow(
                     Icons.Rounded.Savings, PremiumVisualTokens.sand, PremiumVisualTokens.coffee,
                     "Moved to savings", saved, ink
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = PesaDesignTokens.faintDividerAlpha), thickness = 1.dp)
                 VibrantBreakdownRow(
                     Icons.Rounded.EventAvailable, PremiumVisualTokens.sand, PremiumVisualTokens.coffee,
                     "Still committed", committed, ink

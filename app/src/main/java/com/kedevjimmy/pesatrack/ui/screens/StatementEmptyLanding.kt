@@ -1,6 +1,5 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -58,7 +57,6 @@ internal fun StatementEmptyLanding(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = cardShape,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Row(
@@ -94,7 +92,6 @@ internal fun StatementEmptyLanding(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(17.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
         ) {
             Row(
@@ -119,7 +116,6 @@ internal fun StatementEmptyLanding(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(
@@ -196,7 +192,6 @@ private fun ImportTypeCard(
     Card(
         modifier = modifier.then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(

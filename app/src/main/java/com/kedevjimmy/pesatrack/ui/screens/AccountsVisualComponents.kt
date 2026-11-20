@@ -1,6 +1,5 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -164,13 +163,13 @@ internal fun AccountSectionGroup(
     onAccountClick: ((String) -> Unit)?
 ) {
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        border = BorderStroke(PesaDesignTokens.cardOutlineWidth, MaterialTheme.colorScheme.outlineVariant),
         color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
             val lines = accountDisplayLines(entries)
             lines.forEachIndexed { index, line ->
                 AccountSectionRow(line, amountsHidden, onAccountClick)
-                if (index != lines.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                if (index != lines.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant
+                    .copy(alpha = PesaDesignTokens.faintDividerAlpha))
             }
         }
     }
@@ -223,8 +222,7 @@ internal fun CompactDebtAccountRow(debt: DebtAccountSnapshot) {
         (debt.hasUnresolvedDrawdown && debt.outstandingMinor == 0L &&
             debt.balanceQuality == DebtBalanceQuality.ESTIMATED)
     Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(PesaDesignTokens.cardOutlineWidth, MaterialTheme.colorScheme.outlineVariant)) {
+        color = MaterialTheme.colorScheme.surface) {
         Row(Modifier.fillMaxWidth().heightIn(min = 88.dp).padding(14.dp),
             verticalAlignment = Alignment.CenterVertically) {
             AccountProviderMark(debt.name)
@@ -255,8 +253,7 @@ internal fun CompactDebtAccountRow(debt: DebtAccountSnapshot) {
 internal fun CompactDebtAccountGroup(debts: List<DebtAccountSnapshot>, onConfirmBalance: (() -> Unit)?) {
     var expandedId by remember { mutableStateOf<String?>(null) }
     Surface(shape = RoundedCornerShape(PesaDesignTokens.cardRadius),
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(PesaDesignTokens.cardOutlineWidth, MaterialTheme.colorScheme.outlineVariant)) {
+        color = MaterialTheme.colorScheme.surface) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)) {
             debts.forEachIndexed { index, debt ->
                 val unknown = debt.balanceQuality == DebtBalanceQuality.UNKNOWN ||
@@ -281,7 +278,8 @@ internal fun CompactDebtAccountGroup(debts: List<DebtAccountSnapshot>, onConfirm
                         modifier = Modifier.padding(start = 4.dp))
                 }
                 if (expandedId == debt.id) DebtEvidenceDetail(debt, unknown)
-                if (index < debts.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                if (index < debts.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant
+                    .copy(alpha = PesaDesignTokens.faintDividerAlpha))
             }
             if (onConfirmBalance != null) {
                 OutlinedButton(onClick = onConfirmBalance, modifier = Modifier.fillMaxWidth()

@@ -114,7 +114,6 @@ import com.kedevjimmy.pesatrack.data.local.FinancialUnderstandingStore
 import com.kedevjimmy.pesatrack.data.local.IdentityGraphStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
 import com.kedevjimmy.pesatrack.data.local.PossibleDuplicateGroup
-import com.kedevjimmy.pesatrack.data.local.ReviewGroup
 import com.kedevjimmy.pesatrack.data.local.RelationshipReviewCandidate
 import com.kedevjimmy.pesatrack.data.local.RelationshipReviewItem
 import com.kedevjimmy.pesatrack.data.local.RelationshipReviewKind
@@ -1025,39 +1024,14 @@ fun ActivityScreen(
                 ) {
                     item {
                         AttentionQuestionHeader(
-                            title =
-                                "What were these transactions?",
-                            subtitle =
-                                "Confirm a category once and PesaTrack can learn the stable identity when the evidence is strong."
+                            title = "Transactions to review",
+                            subtitle = "Choose a category for each transaction below."
                         )
                     }
-                    items(
-                        count =
-                            globalOverview
-                                .reviewGroups
-                                .size,
-                        key = { index ->
-                            "attention-review-" +
-                                globalOverview
-                                    .reviewGroups[
-                                        index
-                                    ]
-                                    .key
-                        }
-                    ) { index ->
-                        val group =
-                            globalOverview
-                                .reviewGroups[
-                                    index
-                                ]
-                        ReviewGroupRow(
-                            group = group,
-                            onClick = {
-                                onTransactionClick(
-                                    group
-                                        .representativeTransactionId
-                                )
-                            }
+                    item(key = "attention-review-groups") {
+                        ActivityReviewGroupList(
+                            groups = globalOverview.reviewGroups,
+                            onSelect = onTransactionClick
                         )
                     }
                 }
@@ -1717,7 +1691,6 @@ private fun FinancialAccountDiscoveryCard(
         modifier = Modifier.fillMaxWidth().padding(bottom = 9.dp),
         shape = RoundedCornerShape(21.dp),
         color = surfaceColor,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         shadowElevation = 1.dp
     ) {
         Column(
@@ -2235,8 +2208,7 @@ private fun ActivityMonthlyHero(
             .clickable(onClick = onToggle)
             .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" },
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .28f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = .40f))) {
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .28f)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(monthLabel, modifier = Modifier.weight(1f),
@@ -2714,8 +2686,7 @@ private fun ActivityMonthSectionHeader(
             stateDescription = if (expanded) "Expanded" else "Collapsed"
         },
         shape = RoundedCornerShape(16.dp),
-        color = colors.surface,
-        border = BorderStroke(1.dp, colors.outlineVariant)
+        color = colors.surface
     ) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 56.dp)
@@ -3816,62 +3787,6 @@ private fun ReviewQueueCallout(
                         " collapsed by full name or phone.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Icon(
-                Icons.Rounded.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun ReviewGroupRow(
-    group: ReviewGroup,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Row(
-            Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconBubble(
-                Icons.AutoMirrored.Rounded.HelpOutline,
-                size = 42.dp,
-                background = pesaToneContainer("amber"),
-                tint = pesaToneContent("amber")
-            )
-            Column(
-                Modifier
-                    .weight(1f)
-                    .padding(horizontal = 11.dp)
-            ) {
-                Text(
-                    group.label,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    "${group.transactionCount} transaction" +
-                        if (group.transactionCount == 1) "" else "s" +
-                        " • ${formatActivityMoney(group.totalMinor)} total",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "Tap once to classify and optionally remember this identity.",
-                    modifier = Modifier.padding(top = 2.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = pesaToneContent("amber")
                 )
             }
             Icon(
