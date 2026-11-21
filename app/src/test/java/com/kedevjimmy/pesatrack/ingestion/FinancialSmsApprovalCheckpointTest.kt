@@ -1,5 +1,6 @@
 package com.kedevjimmy.pesatrack.ingestion
 
+import android.app.Application
 import android.content.Context
 import com.kedevjimmy.pesatrack.data.local.FinancialSmsSenderApprovalStore
 import org.junit.Assert.assertEquals
@@ -11,8 +12,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
+@Config(application = Application::class, manifest = Config.NONE, sdk = [28])
 class FinancialSmsApprovalCheckpointTest {
     private lateinit var context: Context
 
