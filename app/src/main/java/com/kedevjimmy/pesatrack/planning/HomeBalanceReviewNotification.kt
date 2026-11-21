@@ -4,12 +4,14 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.kedevjimmy.pesatrack.MainActivity
 import com.kedevjimmy.pesatrack.data.local.CanonicalStoreLock
 import com.kedevjimmy.pesatrack.domain.rules.BalanceReviewReminderPolicy
 import com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind
+import java.util.Calendar
 
 /** A quiet, permission-aware alternative to persistent balance-check cards on Home. */
 object HomeBalanceReviewNotification {
@@ -48,12 +50,21 @@ object HomeBalanceReviewNotification {
         val state = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (!BalanceReviewReminderPolicy.shouldPost(
                 signature, state.getString("signature", "").orEmpty(),
-                state.getLong("shown_at", 0L), now, preferences.lastBanner()
+                state.getLong("shown_at", 0L), now, preferences.lastBanner(),
+                Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
             )) return
 
         PhoneNotificationChannels.ensure(
             appContext, CHANNEL, "Balance checks", NotificationManager.IMPORTANCE_LOW
         )
+        if (Build.VERSION.SDK_INT >= 26) {
+            val channel = appContext.getSystemService(NotificationManager::class.java)
+                .getNotificationChannel(CHANNEL)
+            if (channel == null || channel.importance == NotificationManager.IMPORTANCE_NONE) {
+                // A disabled or missing channel cannot deliver; preserve the daily allowance.
+                return
+            }
+        }
         val intent = Intent(appContext, MainActivity::class.java)
             .putExtra(PhoneNotificationPreview.OPEN_PAGE, "accounts")
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)

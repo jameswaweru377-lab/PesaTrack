@@ -34,4 +34,11 @@ class BalanceReviewReminderPolicyTest {
         assertTrue(BalanceReviewReminderPolicy.shouldPost("new", "", 0L, now, now - day))
         assertFalse(BalanceReviewReminderPolicy.shouldPost("new", "", 0L, now, now + 1L))
     }
+
+    @Test fun balanceRemindersObserveTheSameQuietHoursAsSmartAlerts() {
+        assertFalse(BalanceReviewReminderPolicy.shouldPost("new", "", 0L, now, localHour = 8))
+        assertTrue(BalanceReviewReminderPolicy.shouldPost("new", "", 0L, now, localHour = 9))
+        assertTrue(BalanceReviewReminderPolicy.shouldPost("new", "", 0L, now, localHour = 19))
+        assertFalse(BalanceReviewReminderPolicy.shouldPost("new", "", 0L, now, localHour = 20))
+    }
 }
