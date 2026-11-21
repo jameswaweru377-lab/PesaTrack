@@ -30,9 +30,7 @@ class CompactOnboardingContract(unittest.TestCase):
         self.assertIn("SmsAccessConsentStore.setAccepted", profile)
         self.assertIn("SmartSetupStage.PROFILE", setup)
         self.assertIn("RequestPermission()", setup)
-        self.assertLess(setup.index("if (stage == SmartSetupStage.PROFILE)"),
-                        setup.index("SmartSmsPermissionPage("),
-                        "The new native-permission route must return before legacy privacy UI")
+        self.assertNotIn("SmartSmsPermissionPage(", setup)
 
     def test_all_history_with_full_black_ring_and_no_progress_card(self):
         setup = contents("SmartOnboardingSetupScreen.kt")
@@ -51,6 +49,15 @@ class CompactOnboardingContract(unittest.TestCase):
         self.assertNotIn("OutlinedTextField(", picker)
         self.assertIn("selectedOwnedKeys", picker)
         self.assertIn("onDone()", setup)
+
+    def test_no_legacy_import_completion_or_skip_screen_in_active_route(self):
+        setup = contents("SmartOnboardingSetupScreen.kt")
+        route = setup.split("fun SmartOnboardingSetupScreen(", 1)[1].split("private fun ImportChoicePage(", 1)[0]
+        self.assertNotIn("SetupCompletePage(", route)
+        self.assertNotIn("ImportChoicePage(", route)
+        self.assertNotIn("SmartSmsPermissionPage(", route)
+        self.assertNotIn("private fun ImportChoicePage(", setup)
+        self.assertNotIn("private fun SetupCompletePage(", setup)
 
     def test_transaction_ranking_does_not_count_promotions_or_balance_only_events(self):
         presentation = contents("OnboardingInstitutionPresentationPolicy.kt")
