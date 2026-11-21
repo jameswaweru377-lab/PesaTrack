@@ -138,13 +138,6 @@ class HistoricalSmsImporter(
         var pendingReview = 0
         var cancelled = false
 
-        val projection = arrayOf(
-            BaseColumns._ID,
-            Telephony.Sms.ADDRESS,
-            Telephony.Sms.BODY,
-            Telephony.Sms.DATE
-        )
-
         val selection: String
         val selectionArgs: Array<String>
 
@@ -188,85 +181,47 @@ class HistoricalSmsImporter(
 
         var lastProcessedSmsDate = 0L
         var lastProcessedSmsId = -1L
+        var totalRows = 0
 
-        SmsAccessConsentStore.requireRead(context)
-        context.contentResolver.query(
-            Telephony.Sms.Inbox.CONTENT_URI,
-            projection,
-            selection,
-            selectionArgs,
-            Telephony.Sms.DATE +
+        fun publishProgress(force: Boolean = false) {
+            if (
+                onProgress == null ||
+                (!force && scanned != 1 && scanned % PROGRESS_INTERVAL != 0 && scanned != totalRows)
+            ) return
+            onProgress.invoke(
+                HistoricalImportProgress(
+                    scanned = scanned,
+                    total = totalRows,
+                    matched = matched,
+                    inserted = recordTotals.allRecords,
+                    duplicates = duplicates,
+                    ignored = ignored,
+                    resumed = resumed
+                )
+            )
+        }
+
+        val finishedReading = SelectiveSmsInboxReader(context).scan(
+            selection = selection,
+            selectionArgs = selectionArgs,
+            sortOrder = Telephony.Sms.DATE +
                 " ASC, " +
-                BaseColumns._ID +
-                " ASC"
-        )?.use { cursor ->
-            val idIndex =
-                cursor.getColumnIndexOrThrow(
-                    BaseColumns._ID
-                )
-            val addressIndex =
-                cursor.getColumnIndexOrThrow(
-                    Telephony.Sms.ADDRESS
-                )
-            val bodyIndex =
-                cursor.getColumnIndexOrThrow(
-                    Telephony.Sms.BODY
-                )
-            val dateIndex =
-                cursor.getColumnIndexOrThrow(
-                    Telephony.Sms.DATE
-                )
-            val total = cursor.count.coerceAtLeast(0)
-
-            fun publishProgress(force: Boolean = false) {
-                if (
-                    onProgress == null ||
-                    (
-                        !force &&
-                        scanned != 1 &&
-                        scanned % PROGRESS_INTERVAL != 0 &&
-                        scanned != total
-                    )
-                ) {
-                    return
-                }
-
-                onProgress.invoke(
-                    HistoricalImportProgress(
-                        scanned = scanned,
-                        total = total,
-                        matched = matched,
-                        inserted = recordTotals.allRecords,
-                        duplicates = duplicates,
-                        ignored = ignored,
-                        resumed = resumed
-                    )
-                )
-            }
-
-            while (cursor.moveToNext()) {
+                BaseColumns._ID + " ASC",
+            isCancelled = isCancelled
+        ) { row, total ->
+                totalRows = total
                 SmsAccessConsentStore.requireConsent(context)
                 if (isCancelled()) {
                     cancelled = true
-                    break
+                    return@scan false
                 }
 
                 scanned += 1
 
-                val smsId =
-                    cursor.getLong(idIndex)
-                val address =
-                    cursor.getString(
-                        addressIndex
-                    )?.trim()
-                val body =
-                    cursor.getString(
-                        bodyIndex
-                    )?.trim()
-                val smsDate =
-                    cursor.getLong(
-                        dateIndex
-                    )
+                val smsId = row.id
+                val address = row.sender?.trim()
+                val body = row.body?.trim()
+                val smsDate = row.receivedAtEpochMs
 
                 lastProcessedSmsDate =
                     smsDate
@@ -278,7 +233,7 @@ class HistoricalSmsImporter(
 
                 if (body.isNullOrBlank() || smsDate <= 0L) {
                     ignored += 1
-                    continue
+                    return@scan true
                 }
 
                 val interpreted =
@@ -348,7 +303,7 @@ class HistoricalSmsImporter(
                     ) {
                         duplicates += 1
                     }
-                    continue
+                    return@scan true
                 }
 
                 if (
@@ -363,7 +318,7 @@ class HistoricalSmsImporter(
                         interpreted.insertedTransactions,
                         interpreted.insertedFinancialEvents
                     )
-                    continue
+                    return@scan true
                 }
 
                 if (
@@ -377,7 +332,7 @@ class HistoricalSmsImporter(
                     // ignored rather than converted into an
                     // arbitrary OTHER transaction.
                     ignored += 1
-                    continue
+                    return@scan true
                 }
 
                 val configuredRule =
@@ -394,7 +349,7 @@ class HistoricalSmsImporter(
 
                 if (configuredRule == null) {
                     ignored += 1
-                    continue
+                    return@scan true
                 }
 
                 val parsed = RuleBackedFinancialResolver.resolve(
@@ -405,7 +360,7 @@ class HistoricalSmsImporter(
 
                 if (parsed == null) {
                     ignored += 1
-                    continue
+                    return@scan true
                 }
 
                 val didInsert = store.insertIfNew(
@@ -458,9 +413,14 @@ class HistoricalSmsImporter(
                     }
                     publishProgress()
                 }
-            }
+                true
+        }
 
-            if (cancelled) {
+        if (!finishedReading) {
+            cancelled = true
+        }
+
+        if (cancelled) {
                 if (
                     mode ==
                         HistoricalImportMode
@@ -481,8 +441,7 @@ class HistoricalSmsImporter(
                     )
                 }
                 publishProgress(force = true)
-            }
-        } ?: error("SMS history is temporarily unavailable.")
+        }
 
         if (
             mode == HistoricalImportMode.IMPORT &&

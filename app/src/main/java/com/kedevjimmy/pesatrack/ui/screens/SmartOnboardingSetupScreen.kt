@@ -1404,15 +1404,9 @@ fun SmartOnboardingSetupScreen(
                         )
                     }
                 }
-                if (selectedKeys.isNotEmpty() && smsGranted && selectedImportStartEpochMs != null) {
-                    selectedImportStartEpochMs?.let { startEpochMs ->
-                        HistoricalSmsImporter(context.applicationContext).importSince(
-                            sinceEpochMs = startEpochMs,
-                            rebuildPayCycles = false,
-                            untilEpochMsExclusive = selectedImportEndExclusiveEpochMs
-                        )
-                    }
-                }
+                // The first scan already preserved financial evidence. Ownership
+                // confirmation above reconciles pending records without a second
+                // full read of the SMS inbox.
                 if (directSources.any { it.providerKey == "SAFARICOM_MPESA" }) {
                     transactionStore.reconcileOwnAccountTransfers(rebuildPayCycles = false)
                 }

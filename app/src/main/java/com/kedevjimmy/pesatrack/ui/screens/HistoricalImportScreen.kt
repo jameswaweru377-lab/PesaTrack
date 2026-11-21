@@ -177,7 +177,7 @@ fun HistoricalImportScreen(
             PesaCard {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Before reading SMS", style = MaterialTheme.typography.titleMedium)
-                    Text("With your agreement and Android permission, PesaTrack reads financial SMS to organise income, spending, transfers, balances and debts on this device. Full messages are not uploaded. Optional online merchant lookup is a separate choice using limited descriptors. You choose the import window; recent SMS catch-up can run when you reopen the app. Unrelated messages are not added to your ledger. You can continue using the app without this access.",
+                    Text("With your agreement and Android permission, PesaTrack checks SMS sender names first and opens only messages from recognised or personally approved financial senders. It ignores unrelated message bodies. Financial messages stay on this phone. You can continue without SMS access.",
                         style = MaterialTheme.typography.bodySmall)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = consentAccepted, enabled = !importing, onCheckedChange = { accepted ->
@@ -225,6 +225,8 @@ fun HistoricalImportScreen(
                 }
             }
         }
+
+        item { FinancialSmsSenderApprovalSection(importing = importing) }
 
         if (!permissionGranted) {
             item {

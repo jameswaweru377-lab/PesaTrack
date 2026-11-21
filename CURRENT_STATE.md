@@ -1247,7 +1247,14 @@ Activity now separates Money lent (full-payment recipient prefill) from Shared b
 
 Explicit shared intent uses the existing journal event_key namespace shared:UUID; kind remains LENT, schema stays 37 and generic encrypted backup preserves the key. No previous journal rows are rewritten. Source snapshots are revalidated before entry save. No new permissions, telemetry or remote financial processing. Instrumentation remains off; new integration/journey fixtures may be compiled without being executed.
 
+### Sender-first historical SMS privacy and import performance (21 November 2026, review branch)
+
+`feature/privacy-first-sms-import-20261121` introduces an offline sender-first reader: the initial SMS provider projection requests only IDs, addresses and dates; only trusted financial sender IDs are selected in bounded body queries. The existing 38-bank sender directory, supported mobile-money/lender names and explicit user-approved names in Import History form the allowlist. Unknown and personal senders are not read by the import reader; financial provider promotional messages may still be read locally but do not become transactions without relevant evidence. Salary candidate and original-message lookup reuse this reader. The second full SMS history scan after onboarding ownership confirmation has been removed; existing pending-transfer reconciliation remains.
+
+No financial data deletion, schema migration, permission expansion, network service, signing or workflow change. Android `READ_SMS` still provides system-wide permission; sender restrictions are enforced within the app. Kotlin compilation, device-specific sender aliases, true scan-speed gains, and physical-phone acceptance must be separately verified before declaring this ready for release.
+
 ## B2 ownership and Activity review
+
 
 Explicit ownership consent is separate from identity and account discovery. Legacy accounts require an explicit transfer-matching choice; optional profile name and full phone number are only hints. Activity offers user-reviewed bank-to-M-Pesa pairs only with two confirmed owned accounts, complementary transactions, a transaction-code cross-reference, identical recorded movement timestamps and uniqueness. Ordered three-name evidence is strong, two names require review, and this implementation confirms neither automatically. Confirmation preserves both source observations, fees, native observed balances and authoritative corrections; stale/ambiguous pairs cannot apply.
 

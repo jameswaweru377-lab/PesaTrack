@@ -66,28 +66,20 @@ object KenyanBankDirectory {
                 ?.let(::normalizeSender)
                 ?.takeIf { it.isNotBlank() }
                 ?: return null
+        return senderByAlias[normalized]
+    }
 
-        return banks.firstOrNull { bank ->
-            bank.senderHints.any { hint ->
-                val normalizedHint =
-                    normalizeSender(hint)
-                if (
-                    normalized ==
-                    normalizedHint
-                ) {
-                    true
-                } else if (
-                    normalized.startsWith(
-                        normalizedHint
-                    )
-                ) {
-                    normalized
-                        .removePrefix(
-                            normalizedHint
-                        ) in
-                        ALLOWED_SENDER_SUFFIXES
-                } else {
-                    false
+    // Previously rebuilt normalized hints for every SMS. Preserve the same
+    // bounded suffixes and first-bank precedence with one offline lookup map.
+    private val senderByAlias: Map<String, KenyanBank> by lazy {
+        buildMap {
+            banks.forEach { bank ->
+                bank.senderHints.forEach { hint ->
+                    val base = normalizeSender(hint)
+                    ALLOWED_SENDER_SUFFIXES.forEach { suffix ->
+                        val key = base + suffix
+                        if (key !in this) put(key, bank)
+                    }
                 }
             }
         }
@@ -97,10 +89,9 @@ object KenyanBankDirectory {
         value: String
     ): String =
         value.uppercase()
-            .replace(
-                Regex("""[^A-Z0-9]+"""),
-                ""
-            )
+            .replace(SENDER_PUNCTUATION, "")
+
+    private val SENDER_PUNCTUATION = Regex("""[^A-Z0-9]+""")
 
     private val ALLOWED_SENDER_SUFFIXES =
         setOf(

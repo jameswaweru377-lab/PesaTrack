@@ -1,10 +1,7 @@
 package com.kedevjimmy.pesatrack.ingestion
 
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
 import android.provider.Telephony
-import androidx.core.content.ContextCompat
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.domain.interpretation.*
 
@@ -23,22 +20,14 @@ class TransactionMessageEvidenceReader(private val context: Context) {
         }
         return try {
             val candidates = mutableListOf<TransactionMessageEvidence>()
-            val projection = arrayOf(Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE)
-            // Escape LIKE wildcards even though provider references are normally alphanumeric.
-            val escaped = code.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            val cursor = context.contentResolver.query(
-                Telephony.Sms.Inbox.CONTENT_URI, projection,
-                "${Telephony.Sms.BODY} LIKE ? ESCAPE '\\'", arrayOf("%$escaped%"),
-                "${Telephony.Sms.DATE} DESC"
-            ) ?: return TransactionMessageEvidenceResult(unavailableReason = "Messages are temporarily unavailable. Try refreshing.")
-            cursor.use {
-                val senderIndex = it.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
-                val bodyIndex = it.getColumnIndexOrThrow(Telephony.Sms.BODY)
-                val dateIndex = it.getColumnIndexOrThrow(Telephony.Sms.DATE)
-                while (it.moveToNext()) {
-                    com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore.requireConsent(context)
-                    val sender = it.getString(senderIndex).orEmpty()
-                    val body = it.getString(bodyIndex).orEmpty()
+            SelectiveSmsInboxReader(context).scan(
+                selection = Telephony.Sms.DATE + " >= ?",
+                selectionArgs = arrayOf("0"),
+                sortOrder = Telephony.Sms.DATE + " DESC"
+            ) { row, _ ->
+                    val sender = row.sender.orEmpty()
+                    val body = row.body.orEmpty()
+                    if (!body.contains(code, ignoreCase = true)) return@scan true
                     val interpretation = FinancialMessageInterpreter.interpret(title = sender, body = body)
                     val amounts = interpretation.events.map { event ->
                         when (event) {
@@ -54,8 +43,8 @@ class TransactionMessageEvidenceReader(private val context: Context) {
                             is DebtRepaymentEventFact -> event.amountMinor
                         }
                     }
-                    candidates += TransactionMessageEvidence(sender, body, it.getLong(dateIndex), interpretation.transactionCode, amounts)
-                }
+                    candidates += TransactionMessageEvidence(sender, body, row.receivedAtEpochMs, interpretation.transactionCode, amounts)
+                    true
             }
             val match = matchingTransactionMessage(code, transaction.amountMinor, candidates)
             TransactionMessageEvidenceResult(match, if (match == null) "The original message could not be uniquely matched on this device. It may have been deleted or received as a notification." else null)

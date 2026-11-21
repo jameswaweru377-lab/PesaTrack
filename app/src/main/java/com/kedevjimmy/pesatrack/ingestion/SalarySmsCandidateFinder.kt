@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack.ingestion
 import android.content.Context
 import android.provider.Telephony
 import com.kedevjimmy.pesatrack.domain.model.KenyanBank
+import com.kedevjimmy.pesatrack.domain.model.KenyanBankDirectory
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialMessageInterpreter
 import com.kedevjimmy.pesatrack.domain.interpretation.ReceiptEventFact
 
@@ -23,45 +24,18 @@ class SalarySmsCandidateFinder(
         sinceEpochMs: Long,
         limit: Int = 12
     ): List<SalarySmsCandidate> {
+        if (limit <= 0) return emptyList()
         if (!com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore.canRead(context)) return emptyList()
-        val projection = arrayOf(
-            Telephony.Sms._ID,
-            Telephony.Sms.ADDRESS,
-            Telephony.Sms.BODY,
-            Telephony.Sms.DATE
-        )
-
-        val senderHints = bank.senderHints.map(::normalizeSender)
         val candidates = mutableListOf<SalarySmsCandidate>()
-
-        context.contentResolver.query(
-            Telephony.Sms.CONTENT_URI,
-            projection,
-            Telephony.Sms.DATE + " >= ?",
-            arrayOf(sinceEpochMs.toString()),
-            Telephony.Sms.DATE + " DESC"
-        )?.use { cursor ->
-            val idIndex = cursor.getColumnIndexOrThrow(Telephony.Sms._ID)
-            val addressIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
-            val bodyIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.BODY)
-            val dateIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.DATE)
-
-            while (cursor.moveToNext() && candidates.size < limit) {
-                if (!com.kedevjimmy.pesatrack.data.local.SmsAccessConsentStore.hasConsent(context)) break
-                val address = cursor.getString(addressIndex)?.trim().orEmpty()
-                val normalizedAddress = normalizeSender(address)
-                if (normalizedAddress.isBlank()) continue
-                if (senderHints.none { hint ->
-                        normalizedAddress.contains(hint) || hint.contains(normalizedAddress)
-                    }
-                ) {
-                    continue
-                }
-
-                val body =
-                    cursor.getString(bodyIndex)
-                        ?.trim()
-                        .orEmpty()
+        SelectiveSmsInboxReader(context).scan(
+            selection = Telephony.Sms.DATE + " >= ?",
+            selectionArgs = arrayOf(sinceEpochMs.toString()),
+            sortOrder = Telephony.Sms.DATE + " DESC",
+            acceptSender = { sender -> KenyanBankDirectory.matchSender(sender)?.id == bank.id }
+        ) { row, _ ->
+                val address = row.sender?.trim().orEmpty()
+                val body = row.body?.trim().orEmpty()
+                if (body.isBlank()) return@scan true
                 val receipt =
                     FinancialMessageInterpreter
                         .interpret(
@@ -71,25 +45,19 @@ class SalarySmsCandidateFinder(
                         .events
                         .filterIsInstance<ReceiptEventFact>()
                         .singleOrNull()
-                        ?: continue
+                        ?: return@scan true
 
                 candidates += SalarySmsCandidate(
-                    smsId = cursor.getLong(idIndex),
+                    smsId = row.id,
                     address = address,
-                    receivedAtEpochMs =
-                        cursor.getLong(dateIndex),
+                    receivedAtEpochMs = row.receivedAtEpochMs,
                     amountMinor = receipt.amountMinor,
                     originator = receipt.counterparty,
                     rawBody = body
                 )
-            }
+                candidates.size < limit
         }
 
         return candidates
     }
-
-    private fun normalizeSender(value: String): String =
-        value.uppercase()
-            .replace(Regex("""[^A-Z0-9]+"""), "")
-            .trim()
 }

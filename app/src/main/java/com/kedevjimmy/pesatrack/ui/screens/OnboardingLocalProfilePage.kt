@@ -72,7 +72,7 @@ internal fun OnboardingLocalProfilePage(onProceed: () -> Unit) {
                 colors = CheckboxDefaults.colors(checkedColor = PremiumVisualTokens.darkCoffee,
                     uncheckedColor = PremiumVisualTokens.darkMuted,
                     checkmarkColor = PremiumVisualTokens.ink))
-            Text("I agree to PesaTrack scanning all available financial SMS on this phone to find my transactions.",
+            Text("I agree to PesaTrack checking SMS sender names and reading messages only from recognised or approved financial senders to find my transactions.",
                 color = PremiumVisualTokens.darkText, style = MaterialTheme.typography.bodySmall)
         }
         Text("You'll choose which accounts are yours after scanning. You can manage access in Android settings.",
