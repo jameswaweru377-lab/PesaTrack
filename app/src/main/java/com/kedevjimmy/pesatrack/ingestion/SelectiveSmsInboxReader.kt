@@ -30,6 +30,7 @@ class SelectiveSmsInboxReader(private val context: Context) {
         sortOrder: String,
         uri: Uri = Telephony.Sms.Inbox.CONTENT_URI,
         acceptSender: ((String?) -> Boolean)? = null,
+        bodyContainsReference: String? = null,
         isCancelled: () -> Boolean = { false },
         onRow: (row: SelectiveSmsRow, total: Int) -> Boolean
     ): Boolean {
@@ -57,7 +58,7 @@ class SelectiveSmsInboxReader(private val context: Context) {
                             acceptSender(header.sender)
                         }
                     }
-                    if (isCancelled()) emptyMap() else readTrustedBodies(uri, trusted)
+                    if (isCancelled()) emptyMap() else readTrustedBodies(uri, trusted, bodyContainsReference)
                 }
                 for (header in batch) {
                     if (isCancelled()) return false
@@ -89,18 +90,23 @@ class SelectiveSmsInboxReader(private val context: Context) {
         }
     }
 
-    private fun readTrustedBodies(uri: Uri, headers: List<Header>): Map<Long, String> {
+    private fun readTrustedBodies(
+        uri: Uri,
+        headers: List<Header>,
+        bodyContainsReference: String?
+    ): Map<Long, String> {
         if (headers.isEmpty()) return emptyMap()
         SmsAccessConsentStore.requireRead(context)
         // Binding both metadata values in SQL prevents reading a private SMS body
         // if a provider changes/reuses the ID between the two queries.
-        val exactPair = "(" + BaseColumns._ID + " = ? AND " + Telephony.Sms.ADDRESS + " = ?)"
-        val selection = List(headers.size) { exactPair }.joinToString(" OR ")
+        val query = trustedSmsBodyQuery(
+            headers.map { it.id to it.sender.orEmpty() },
+            bodyContainsReference
+        )
         val approvedHeaders = headers.associateBy { it.id }
         val result = HashMap<Long, String>(headers.size)
         context.contentResolver.query(
-            uri, BODY_PROJECTION, selection,
-            headers.flatMap { listOf(it.id.toString(), it.sender.orEmpty()) }.toTypedArray(), null
+            uri, BODY_PROJECTION, query.selection, query.selectionArgs, null
         )?.use { cursor ->
             val idColumn = cursor.getColumnIndexOrThrow(BaseColumns._ID)
             val senderColumn = cursor.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)

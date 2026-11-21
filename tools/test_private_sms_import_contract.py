@@ -22,7 +22,8 @@ class PrivateSmsImportContract(unittest.TestCase):
         self.assertIn("FinancialSmsSenderPolicy.isTrusted", reader)
         self.assertIn("BODY_PROJECTION", reader)
         self.assertIn("METADATA_PROJECTION", reader)
-        self.assertIn('BaseColumns._ID + " = ? AND " + Telephony.Sms.ADDRESS + " = ?)"', reader)
+        query = source(INGESTION, "TrustedSmsBodyQuery.kt")
+        self.assertIn('BaseColumns._ID + " = ? AND " + Telephony.Sms.ADDRESS + " = ?)"', query)
         self.assertIn("withApprovedSenders", reader)
         self.assertNotIn("by lazy", reader)
 
@@ -39,10 +40,21 @@ class PrivateSmsImportContract(unittest.TestCase):
                 self.assertIn("SelectiveSmsInboxReader", reader)
                 self.assertNotIn("Telephony.Sms.BODY", reader)
 
+    def test_original_message_reference_is_filtered_before_any_trusted_body_is_returned(self):
+        evidence = source(INGESTION, "TransactionMessageEvidenceReader.kt")
+        reader = source(INGESTION, "SelectiveSmsInboxReader.kt")
+        self.assertIn("bodyContainsReference = code", evidence)
+        self.assertIn("trustedSmsBodyQuery", reader)
+        self.assertIn("bodyContainsReference", reader)
+
     def test_replays_only_when_unconfirmed_events_might_be_lost(self):
         screen = source(SCREENS, "SmartOnboardingSetupScreen.kt")
+        policy = source(INGESTION, "OnboardingOwnershipReplayPolicy.kt")
         self.assertEqual(2, len(re.findall(r"HistoricalSmsImporter\s*\(", screen)))
-        self.assertRegex(screen, r"importResult\?\.pendingReview\s*\?:\s*0")
+        self.assertIn("shouldReplaySmsAfterOwnership", screen)
+        self.assertIn("initialImport.pendingReview > 0", policy)
+        self.assertIn("initialImport == null", policy)
+        self.assertIn("initialImport.cancelled", policy)
 
     def test_sender_policy_change_invalidates_checkpoints(self):
         store = source(INGESTION, "HistoricalImportCheckpointStore.kt")

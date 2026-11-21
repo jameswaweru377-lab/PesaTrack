@@ -23,7 +23,8 @@ class TransactionMessageEvidenceReader(private val context: Context) {
             SelectiveSmsInboxReader(context).scan(
                 selection = Telephony.Sms.DATE + " >= ?",
                 selectionArgs = arrayOf("0"),
-                sortOrder = Telephony.Sms.DATE + " DESC"
+                sortOrder = Telephony.Sms.DATE + " DESC",
+                bodyContainsReference = code
             ) { row, _ ->
                     val sender = row.sender.orEmpty()
                     val body = row.body.orEmpty()

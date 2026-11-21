@@ -635,12 +635,13 @@ class FinancialMessageIngestionCoordinator private constructor(
 
                     if (inserted) {
                         insertedTransactions += 1
-                        if (
-                            effectiveAccountId == null
-                        ) {
-                            pendingReviewEvents += 1
-                        }
                         changed = true
+                    }
+                    // A repeat scan can encounter an already-imported credit
+                    // before its bank is confirmed. It still needs an ownership
+                    // replay even when duplicate detection prevents an insert.
+                    if (effectiveAccountId == null) {
+                        pendingReviewEvents += 1
                     }
                 }
                 is CashWithdrawalEventFact -> {

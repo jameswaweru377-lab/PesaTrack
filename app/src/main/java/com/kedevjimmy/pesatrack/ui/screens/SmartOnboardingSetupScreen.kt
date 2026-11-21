@@ -1407,10 +1407,12 @@ fun SmartOnboardingSetupScreen(
                 // Before ownership is confirmed, unowned bank payments and fees
                 // are counted as pending but not stored. Replay only if the first
                 // scan encountered them; duplicate records remain idempotent.
-                if (
-                    (importResult?.pendingReview ?: 0) > 0 &&
-                    selectedKeys.isNotEmpty() && smsGranted && selectedImportStartEpochMs != null
-                ) {
+                if (com.kedevjimmy.pesatrack.ingestion.shouldReplaySmsAfterOwnership(
+                        initialImport = importResult,
+                        selectedAccountCount = selectedKeys.size,
+                        smsAllowed = smsGranted,
+                        startEpochMs = selectedImportStartEpochMs
+                    )) {
                     selectedImportStartEpochMs?.let { startEpochMs ->
                         HistoricalSmsImporter(context.applicationContext).importSince(
                             sinceEpochMs = startEpochMs,
