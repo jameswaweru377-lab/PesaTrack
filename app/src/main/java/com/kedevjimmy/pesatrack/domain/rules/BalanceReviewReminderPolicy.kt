@@ -5,8 +5,10 @@ object BalanceReviewReminderPolicy {
     const val DAY_MS = 24L * 60 * 60 * 1000
     private const val REPEAT_MS = 7 * DAY_MS
 
-    fun shouldPost(signature: String, previousSignature: String, lastShownAt: Long, now: Long): Boolean {
+    fun shouldPost(signature: String, previousSignature: String, lastShownAt: Long,
+                   now: Long, lastSmartAlertAt: Long = 0L): Boolean {
         if (signature.isBlank() || now <= 0 || lastShownAt > now) return false
+        if (lastSmartAlertAt > 0 && now - lastSmartAlertAt < DAY_MS) return false
         if (lastShownAt == 0L) return true
         val elapsed = now - lastShownAt
         return elapsed >= DAY_MS && (signature != previousSignature || elapsed >= REPEAT_MS)

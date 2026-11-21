@@ -211,6 +211,36 @@ internal fun ArchivedBalanceAccounts(accounts: List<MoneyAccount>) {
     }
 }
 
+/** A compact Accounts entry point replaces the archive menu formerly inside Home notices. */
+@Composable
+internal fun BalanceVisibilityManager(accounts: List<MoneyAccount>) {
+    if (accounts.isEmpty()) return
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    var archiveId by rememberSaveable { mutableStateOf<String?>(null) }
+    val palette = homeColors()
+    Column {
+        TextButton(onClick = { expanded = !expanded }) {
+            Text(if (expanded) "Hide balance options" else "Manage balance totals", color = palette.coffee)
+            Icon(Icons.Rounded.ExpandMore, contentDescription = null, tint = palette.coffee)
+        }
+        if (expanded) {
+            accounts.distinctBy { it.id }.forEach { account ->
+                Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(compactAccountLabel(account.name), Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = { archiveId = account.id }) {
+                        Text("Archive", color = palette.coffee)
+                    }
+                }
+            }
+        }
+    }
+    accounts.firstOrNull { it.id == archiveId }?.let { account ->
+        BalanceArchiveDialog(account, archive = true) { archiveId = null }
+    }
+}
+
 @Composable
 private fun BalanceArchiveDialog(account: MoneyAccount, archive: Boolean, onDismiss: () -> Unit) {
     val context = LocalContext.current

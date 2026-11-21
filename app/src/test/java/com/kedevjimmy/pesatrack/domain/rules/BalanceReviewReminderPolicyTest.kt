@@ -28,4 +28,10 @@ class BalanceReviewReminderPolicyTest {
         assertFalse(BalanceReviewReminderPolicy.shouldPost("old", "old", now + 1, now))
         assertFalse(BalanceReviewReminderPolicy.shouldPost("old", "old", 0L, 0L))
     }
+
+    @Test fun balanceRemindersShareTheDailyBudgetWithOtherSmartAlerts() {
+        assertFalse(BalanceReviewReminderPolicy.shouldPost("new", "", 0L, now, now - day / 2))
+        assertTrue(BalanceReviewReminderPolicy.shouldPost("new", "", 0L, now, now - day))
+        assertFalse(BalanceReviewReminderPolicy.shouldPost("new", "", 0L, now, now + 1L))
+    }
 }

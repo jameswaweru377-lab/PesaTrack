@@ -7,6 +7,7 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.kedevjimmy.pesatrack.MainActivity
+import com.kedevjimmy.pesatrack.data.local.CanonicalStoreLock
 import com.kedevjimmy.pesatrack.domain.rules.BalanceReviewReminderPolicy
 import com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind
 
@@ -20,7 +21,12 @@ object HomeBalanceReviewNotification {
         NotificationManagerCompat.from(context).cancel(ID)
     }
 
-    fun update(context: Context, missingAccountIds: List<String>) {
+    fun update(context: Context, missingAccountIds: List<String>) =
+        synchronized(CanonicalStoreLock.monitor) {
+            updateLocked(context, missingAccountIds)
+        }
+
+    private fun updateLocked(context: Context, missingAccountIds: List<String>) {
         val appContext = context.applicationContext
         val manager = NotificationManagerCompat.from(appContext)
         if (missingAccountIds.isEmpty()) {
@@ -42,7 +48,7 @@ object HomeBalanceReviewNotification {
         val state = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (!BalanceReviewReminderPolicy.shouldPost(
                 signature, state.getString("signature", "").orEmpty(),
-                state.getLong("shown_at", 0L), now
+                state.getLong("shown_at", 0L), now, preferences.lastBanner()
             )) return
 
         PhoneNotificationChannels.ensure(
@@ -78,5 +84,6 @@ object HomeBalanceReviewNotification {
             return
         }
         state.edit().putString("signature", signature).putLong("shown_at", now).apply()
+        preferences.recordBalanceNotice(now)
     }
 }
