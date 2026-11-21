@@ -327,6 +327,11 @@ fun AccountsScreen(
                     onBalanceClick = { balanceDialogAccountId = it })
             }
         }
+        if (visible.isNotEmpty()) item(key = "balance-visibility-controls") {
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                BalanceVisibilityManager(visible.flatMap { it.group.accounts })
+            }
+        }
         if (archivedAccounts.isNotEmpty()) item(key = "archived-balance-accounts") {
             Box(Modifier.padding(horizontal = 16.dp)) {
                 ArchivedBalanceAccounts(archivedAccounts)

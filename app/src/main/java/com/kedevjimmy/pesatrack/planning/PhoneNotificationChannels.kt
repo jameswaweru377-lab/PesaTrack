@@ -18,10 +18,11 @@ object PhoneNotificationChannels {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) &&
             NotificationManagerCompat.from(context).areNotificationsEnabled()
 
-    fun ensure(context: Context, id: String, label: String) {
+    fun ensure(context: Context, id: String, label: String,
+               importance: Int = NotificationManager.IMPORTANCE_HIGH) {
         if (Build.VERSION.SDK_INT >= 26) {
             context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(id, label, NotificationManager.IMPORTANCE_HIGH).apply {
+                NotificationChannel(id, label, importance).apply {
                     description = "Optional PesaTrack phone reminders"
                     setShowBadge(true)
                 }

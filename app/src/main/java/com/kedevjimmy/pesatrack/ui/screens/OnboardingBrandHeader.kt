@@ -13,18 +13,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
 import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
+import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 
 @Composable
 internal fun OnboardingBrandHeader() {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(70.dp).background(PremiumVisualTokens.darkSurface, RoundedCornerShape(18.dp)),
+        Box(Modifier.size(PesaDesignTokens.minimumTouchTarget)
+            .background(PremiumVisualTokens.darkSurface, RoundedCornerShape(PesaDesignTokens.sectionGap)),
             contentAlignment = Alignment.Center) {
-            PesaLogoMark(size = 62.dp)
+            PesaLogoMark(size = PesaDesignTokens.regularWordmarkLogoSize)
         }
-        Spacer(Modifier.height(5.dp))
-        Text("PesaTrack", fontFamily = FontFamily.Serif, fontSize = 30.sp,
+        Spacer(Modifier.height(4.dp))
+        Text("PesaTrack", fontFamily = FontFamily.Serif, fontSize = 20.sp,
             fontWeight = FontWeight.Bold, color = PremiumVisualTokens.darkText)
         Text("YOUR MONEY, YOUR PLANS", color = PremiumVisualTokens.darkCoffee,
-            fontSize = 10.sp, letterSpacing = 1.7.sp)
+            fontSize = 8.sp, letterSpacing = 1.3.sp)
     }
 }
