@@ -316,6 +316,10 @@ fun HomeScreen(
     var homeLoaded by remember {
         mutableStateOf(warmHome != null)
     }
+    // The warm snapshot can be from a prior ledger revision. A reminder must use fresh evidence.
+    var balanceNoticeReadyRevision by remember {
+        mutableStateOf(if (warmHome != null) stateCache?.revision else null)
+    }
 
     var cycleSnapshot by remember {
         mutableStateOf(
@@ -684,6 +688,7 @@ fun HomeScreen(
                         supplemental = supplemental,
                         loadedRevision = loadedRevision
                     )
+                    balanceNoticeReadyRevision = loadedRevision
                     val elapsed = android.os.SystemClock.elapsedRealtime() - refreshStarted
                     if (elapsed > 400L) android.util.Log.i("PesaTrackPerf", "Home refresh took ${elapsed}ms")
                 } while (refreshPending)
@@ -1405,8 +1410,10 @@ fun HomeScreen(
     val missingBalanceIds = currentAccountMoney.filter { !it.isProtected && it.provisional }
         .mapNotNull { balance -> balanceAccounts.firstOrNull { it.id == balance.id }?.id }
         .distinct().sorted()
-    LaunchedEffect(homeLoaded, homeLoading, homeError, ledgerUpdateState.isProcessing, missingBalanceIds) {
-        if (homeLoaded && !homeLoading && !homeError && !ledgerUpdateState.isProcessing) {
+    LaunchedEffect(homeLoaded, homeLoading, homeError, ledgerUpdateState.revision,
+        ledgerUpdateState.isProcessing, balanceNoticeReadyRevision, missingBalanceIds) {
+        if (homeLoaded && !homeLoading && !homeError && !ledgerUpdateState.isProcessing &&
+            balanceNoticeReadyRevision == ledgerUpdateState.revision) {
             HomeBalanceReviewNotification.update(context, missingBalanceIds)
         }
     }
