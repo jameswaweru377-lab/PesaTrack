@@ -17,14 +17,14 @@ import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 @Composable
 internal fun OnboardingBrandHeader() {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(70.dp).background(PremiumVisualTokens.darkSurface, RoundedCornerShape(18.dp)),
+        Box(Modifier.size(46.dp).background(PremiumVisualTokens.darkSurface, RoundedCornerShape(12.dp)),
             contentAlignment = Alignment.Center) {
-            PesaLogoMark(size = 62.dp)
+            PesaLogoMark(size = 40.dp)
         }
-        Spacer(Modifier.height(5.dp))
-        Text("PesaTrack", fontFamily = FontFamily.Serif, fontSize = 30.sp,
+        Spacer(Modifier.height(3.dp))
+        Text("PesaTrack", fontFamily = FontFamily.Serif, fontSize = 20.sp,
             fontWeight = FontWeight.Bold, color = PremiumVisualTokens.darkText)
         Text("YOUR MONEY, YOUR PLANS", color = PremiumVisualTokens.darkCoffee,
-            fontSize = 10.sp, letterSpacing = 1.7.sp)
+            fontSize = 8.sp, letterSpacing = 1.3.sp)
     }
 }
