@@ -8,12 +8,17 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.kedevjimmy.pesatrack.MainActivity
 import com.kedevjimmy.pesatrack.domain.rules.BalanceReviewReminderPolicy
+import com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind
 
 /** A quiet, permission-aware alternative to persistent balance-check cards on Home. */
 object HomeBalanceReviewNotification {
     private const val CHANNEL = "home-balance-review"
     private const val ID = 947
     private const val PREFS = "home_balance_review_notice"
+
+    fun cancel(context: Context) {
+        NotificationManagerCompat.from(context).cancel(ID)
+    }
 
     fun update(context: Context, missingAccountIds: List<String>) {
         val appContext = context.applicationContext
@@ -25,8 +30,12 @@ object HomeBalanceReviewNotification {
 
         val preferences = SmartNoticePreferences(appContext)
         val now = System.currentTimeMillis()
-        if (preferences.mode() == "off" || preferences.snoozeUntil() > now ||
-            !PhoneNotificationChannels.canPost(appContext)) return
+        if (!preferences.enabled(SmartNoticeKind.ACCOUNT) || preferences.mode() == "off" ||
+            preferences.snoozeUntil() > now) {
+            cancel(appContext)
+            return
+        }
+        if (!PhoneNotificationChannels.canPost(appContext)) return
 
         // Persist only a hash; account IDs and balances never enter notification history.
         val signature = SmartNoticePreferences.hash(missingAccountIds.distinct().sorted().joinToString("\n"))

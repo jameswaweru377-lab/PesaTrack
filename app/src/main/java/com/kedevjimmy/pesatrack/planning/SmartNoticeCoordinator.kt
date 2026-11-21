@@ -42,6 +42,7 @@ object SmartNoticeCoordinator {
     fun setEnabled(c: Context, kind: SmartNoticeKind, value: Boolean) {
         synchronized(CanonicalStoreLock.monitor) {
             SmartNoticePreferences(c).setEnabled(kind,value)
+            if (kind == SmartNoticeKind.ACCOUNT && !value) HomeBalanceReviewNotification.cancel(c)
             cancel(c); schedule(c)
         }
     }
