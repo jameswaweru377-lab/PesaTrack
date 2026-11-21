@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -63,47 +64,31 @@ internal fun ApprovedAnalysisPage(
     reviewMode: Boolean,
     onContinue: () -> Unit
 ) {
-    val phase = when {
-        reviewMode -> "Ready to review"
-        importing -> "Reading financial messages"
-        else -> "Preparing your setup"
+    val phase = if (reviewMode) "Ready to review" else when (progressStep) {
+        0 -> if (importing) "Reading financial SMS" else "Checking saved records"
+        1 -> "Finding your accounts"
+        2 -> "Checking money in"
+        3 -> "Checking for duplicates"
+        else -> "Ready to review"
     }
     Column(
-        Modifier.fillMaxWidth().padding(top = 12.dp),
+        Modifier.fillMaxWidth().padding(top = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Understanding your money", style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-        Text("PesaTrack is checking the records on this phone.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center)
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(16.dp),
-            border = androidx.compose.foundation.BorderStroke(
-                1.dp, MaterialTheme.colorScheme.outlineVariant)
-        ) {
-            Row(Modifier.fillMaxWidth().padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                if (reviewMode) {
-                    Icon(Icons.Rounded.CheckCircle, contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(24.dp))
-                } else {
-                    androidx.compose.material3.CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                }
-                Text(phase, style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold)
+        OnboardingProgressPanel(
+            title = if (reviewMode) "Understanding your money" else if (importing)
+                "Reading your financial SMS" else "Preparing your money",
+            description = if (importing) "Finding financial activity in the messages on this phone. Please keep PesaTrack open."
+            else "Reviewing what is already saved on this phone.",
+            status = phase,
+            icon = Icons.AutoMirrored.Rounded.Message,
+            finished = reviewMode || progressStep >= 4
+        )
+        if (reviewMode) {
+            Button(onClick = onContinue, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                Text("Choose my accounts")
             }
-        }
-        Button(onClick = onContinue, enabled = reviewMode,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-            shape = RoundedCornerShape(16.dp)) {
-            Text("Choose my accounts")
         }
     }
 }

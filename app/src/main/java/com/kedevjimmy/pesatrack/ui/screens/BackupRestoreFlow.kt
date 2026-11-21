@@ -446,6 +446,14 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
                             }
                         }
                         RestoreStep.REVIEW -> {
+                            if (busy) {
+                                OnboardingProgressPanel(
+                                    title = "Restoring your data…",
+                                    description = "Please keep PesaTrack open while your encrypted backup is restored.",
+                                    status = "Restoring saved records…",
+                                    icon = Icons.Rounded.Restore
+                                )
+                            } else {
                             val details = approvedFile?.preview
                             if (details != null) {
                                 BackupStepLabel("1  Selected     •     2  Unlocked     •     3  Review")
@@ -476,6 +484,7 @@ fun BackupRestoreSheet(onDismiss: () -> Unit) {
                                     Spacer(Modifier.size(8.dp))
                                     Text("Restore and replace")
                                 }
+                            }
                             }
                         }
                         RestoreStep.APP_PIN -> {

@@ -509,14 +509,13 @@ fun SmartOnboardingSetupScreen(
                 }
             }
             MessageAccessAction.OPEN_NOTIFICATIONS -> {
-                // Notification listening is optional and can be enabled later in More.
-                // Do not interrupt the first-run SMS import with a second permission.
+                // Notification access is optional; do not add another first-run screen.
                 accessStarted = false
-                stage = SmartSetupStage.IMPORT
+                stage = SmartSetupStage.ANALYZE
             }
             MessageAccessAction.CONTINUE -> {
                 accessStarted = false
-                stage = SmartSetupStage.IMPORT
+                stage = SmartSetupStage.ANALYZE
             }
         }
     }
@@ -1631,7 +1630,7 @@ fun SmartOnboardingSetupScreen(
                 SmartSetupStage
                     .ANALYZE -> {
                     analysisReviewMode = false
-                    SmartSetupStage.IMPORT
+                    SmartSetupStage.SMS_PERMISSION
                 }
 
                 SmartSetupStage
@@ -1728,6 +1727,9 @@ fun SmartOnboardingSetupScreen(
                         smsPromptLaunched = false
                         accessStarted = true
                     } else consentError = "Your choice could not be saved. Please try again."
+                },
+                onChooseHistory = {
+                    if (!accessStarted) stage = SmartSetupStage.IMPORT
                 },
                 onContinue = {
                     if (disclosureAccepted && SmsAccessConsentStore.setAccepted(context, true)) {

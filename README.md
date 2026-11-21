@@ -64,6 +64,12 @@ An app-lock PIN protects access to the app's interface; it **does not encrypt th
 2. Choose **`PesaTrack-Full.apk`** for a new installation, or **`PesaTrack-Update.apk`** for an existing compatible installation. The release process publishes two names for the same signed build; the name alone does not guarantee an in-place update.
 3. Review Android's installation and permission prompts, then set up only the financial sources you want to use.
 
+New installations start with one short welcome, an optional consented SMS import
+with visible progress, and a brief account-ownership review. A local 6–8 digit
+app PIN is required before the financial pages open. No online sign-up or
+Safaricom phone-number/password account is required; notifications can be
+enabled later. Backup restoration is a separate, user-initiated process.
+
 **Before updating:** protect your data with a verified backup. A phone running an older debug-signed APK may not accept the release-signed update. Do not uninstall or erase app data just to force an update. See the [release and signing guide](docs/RELEASE_PROCESS.md).
 
 The preview targets **Android 7.0+ on supported ARM64 devices** and remains under active development. Device compatibility, banking-message coverage, and statement formats vary. PesaTrack is not a bank, a payment app, or a substitute for original provider records.
