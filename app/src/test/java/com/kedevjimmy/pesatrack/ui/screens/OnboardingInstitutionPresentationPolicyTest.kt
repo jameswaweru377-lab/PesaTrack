@@ -9,10 +9,29 @@ import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticCode
 import com.kedevjimmy.pesatrack.domain.messagepack.MessageParseRoute
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OnboardingInstitutionPresentationPolicyTest {
+    @Test fun promotionalAndBalanceOnlyMessagesCannotRankBankSuggestions() {
+        val linked = diagnostic("EQUITY", 1_800_000_000_000L, "transaction")
+        val promo = linked.copy(
+            code = FinancialIngestionDiagnosticCode.OBSERVATION_ONLY,
+            linkedTransactionId = null, insertedFinancialEvents = 1
+        )
+        val unrecognized = promo.copy(code = FinancialIngestionDiagnosticCode.UNRECOGNIZED_FINANCIAL_LANGUAGE)
+        assertTrue(OnboardingInstitutionPresentationPolicy.isTransactionEvidence(linked))
+        assertFalse(OnboardingInstitutionPresentationPolicy.isTransactionEvidence(promo))
+        assertFalse(OnboardingInstitutionPresentationPolicy.isTransactionEvidence(unrecognized))
+        assertTrue(OnboardingInstitutionPresentationPolicy.isTransactionEvidence(
+            promo.copy(code = FinancialIngestionDiagnosticCode.INGESTED, insertedTransactions = 1)
+        ))
+        assertTrue(OnboardingInstitutionPresentationPolicy.isTransactionEvidence(
+            promo.copy(code = FinancialIngestionDiagnosticCode.PENDING_REVIEW, pendingReviewEvents = 1)
+        ))
+    }
+
     @Test fun repeatedImportObservationsDoNotInflateInstitutionMessageCount() {
         val original = diagnostic(
             title = "EQUITY",

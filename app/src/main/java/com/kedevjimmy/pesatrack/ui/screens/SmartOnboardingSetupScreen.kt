@@ -15,6 +15,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -145,6 +146,7 @@ import kotlinx.coroutines.launch
 
 private enum class SmartSetupStage {
     WELCOME,
+    PROFILE,
     IMPORT,
     SMS_PERMISSION,
     ANALYZE,
@@ -159,6 +161,7 @@ private enum class SmartSetupStage {
 }
 
 private const val CUSTOM_IMPORT_SELECTION = 3
+private const val ALL_HISTORY_SELECTION = 4
 
 private enum class AnalysisStep {
     SCANNING,
@@ -242,7 +245,7 @@ fun SmartOnboardingSetupScreen(
     var smsHandled by rememberSaveable { mutableStateOf(false) }
     var notificationsHandled by rememberSaveable { mutableStateOf(false) }
     var importMonths by rememberSaveable {
-        mutableStateOf(2)
+        mutableStateOf(ALL_HISTORY_SELECTION)
     }
     var customImportStartDateEpochMs by rememberSaveable {
         mutableStateOf(defaultCustomImportStartDateEpochMs())
@@ -265,6 +268,7 @@ fun SmartOnboardingSetupScreen(
     val selectedImportStartEpochMs = when (importMonths) {
         1, 2 -> OnboardingHistoryWindow.importStartEpochMs(importMonths)
         CUSTOM_IMPORT_SELECTION -> customImportRange?.startEpochMs
+        ALL_HISTORY_SELECTION -> 0L
         else -> null
     }
     val selectedImportEndExclusiveEpochMs = customImportRange?.endExclusiveEpochMs
@@ -280,6 +284,8 @@ fun SmartOnboardingSetupScreen(
     var smsDenied by rememberSaveable {
         mutableStateOf(false)
     }
+    var notificationPromptLaunched by rememberSaveable { mutableStateOf(false) }
+    var accountSaveError by remember { mutableStateOf<String?>(null) }
     var importResult by remember {
         mutableStateOf<HistoricalImportResult?>(null)
     }
@@ -419,8 +425,21 @@ fun SmartOnboardingSetupScreen(
             smsGranted = granted
             smsDenied = !granted
             smsHandled = true
-            if (!granted) accessStarted = false
+            if (!granted) {
+                // Android denied the grant; never read SMS. Manual bank choice remains available.
+                accessStarted = false
+                stage = SmartSetupStage.ANALYZE
+            }
         }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        notificationsHandled = true
+        if (stage == SmartSetupStage.ANALYZE && analysisStep == AnalysisStep.COMPLETE) {
+            stage = SmartSetupStage.REVIEW
+        }
+    }
 
     val appInfoLauncher =
         rememberLauncherForActivityResult(
@@ -575,8 +594,8 @@ fun SmartOnboardingSetupScreen(
                     diagnosticsStore
                         .recent(500)
                         .filter {
-                            it.receivedAtEpochMs >=
-                                cutoff
+                            it.receivedAtEpochMs >= cutoff &&
+                                OnboardingInstitutionPresentationPolicy.isTransactionEvidence(it)
                         }
 
                 val sources =
@@ -800,8 +819,16 @@ fun SmartOnboardingSetupScreen(
         analysisStep =
             AnalysisStep.COMPLETE
         delay(180)
-        stage =
-            SmartSetupStage.REVIEW
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !notificationPromptLaunched && ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPromptLaunched = true
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            stage = SmartSetupStage.REVIEW
+        }
     }
 
     LaunchedEffect(
@@ -1360,6 +1387,23 @@ fun SmartOnboardingSetupScreen(
                         entityKey = reference.entityKey, rebuildPayCycles = false
                     )
                 }
+                // The profile number becomes an owned M-PESA identifier only after
+                // the user explicitly selects M-PESA on this account screen.
+                if (directSources.any { it.providerKey == "SAFARICOM_MPESA" }) {
+                    val phone = context.getSharedPreferences(
+                        "pesatrack_preferences", Context.MODE_PRIVATE
+                    ).getString("profile_mpesa_phone", null)
+                    if (phone != null) {
+                        val wallet = accountStore.listAccounts(enabledOnly = false)
+                            .firstOrNull { it.id == AccountStore.DEFAULT_MPESA_ID }
+                        accountStore.updateDetails(
+                            id = AccountStore.DEFAULT_MPESA_ID,
+                            identifier = phone,
+                            openingBalanceMinor = wallet?.openingBalanceMinor,
+                            openingBalanceAsOfEpochMs = wallet?.openingBalanceAsOfEpochMs
+                        )
+                    }
+                }
                 if (selectedKeys.isNotEmpty() && smsGranted && selectedImportStartEpochMs != null) {
                     selectedImportStartEpochMs?.let { startEpochMs ->
                         HistoricalSmsImporter(context.applicationContext).importSince(
@@ -1368,6 +1412,9 @@ fun SmartOnboardingSetupScreen(
                             untilEpochMsExclusive = selectedImportEndExclusiveEpochMs
                         )
                     }
+                }
+                if (directSources.any { it.providerKey == "SAFARICOM_MPESA" }) {
+                    transactionStore.reconcileOwnAccountTransfers(rebuildPayCycles = false)
                 }
                 if (selectedKeys.isNotEmpty()) payCycleStore.rebuild()
             }
@@ -1615,7 +1662,10 @@ fun SmartOnboardingSetupScreen(
     BackHandler(
         enabled =
             stage != SmartSetupStage.SMS_PERMISSION &&
-                stage != SmartSetupStage.WELCOME
+                stage != SmartSetupStage.WELCOME &&
+                stage != SmartSetupStage.PROFILE &&
+                stage != SmartSetupStage.ANALYZE &&
+                stage != SmartSetupStage.REVIEW
     ) {
         if (onboardingBusy) {
             return@BackHandler
@@ -1679,7 +1729,84 @@ fun SmartOnboardingSetupScreen(
 
                 SmartSetupStage.WELCOME ->
                     SmartSetupStage.WELCOME
+
+                SmartSetupStage.PROFILE ->
+                    SmartSetupStage.WELCOME
             }
+    }
+
+    // Four-screen first-run route. Legacy optional detail steps are available after setup,
+    // but they cannot interrupt the approved profile → scan → ownership path.
+    if (stage == SmartSetupStage.WELCOME) {
+        PesaTrackWelcomePage(onGetStarted = { stage = SmartSetupStage.PROFILE })
+        return
+    }
+    if (stage == SmartSetupStage.PROFILE) {
+        OnboardingLocalProfilePage(onProceed = {
+            disclosureAccepted = SmsAccessConsentStore.hasConsent(context)
+            importMonths = ALL_HISTORY_SELECTION
+            accessStarted = true
+            smsPromptLaunched = false
+            smsHandled = smartHasSmsPermission(context)
+            stage = SmartSetupStage.SMS_PERMISSION
+        })
+        return
+    }
+    if (stage == SmartSetupStage.SMS_PERMISSION || stage == SmartSetupStage.ANALYZE) {
+        val phase = when (analysisStep) {
+            AnalysisStep.SCANNING -> "Importing transactions…"
+            AnalysisStep.ACCOUNTS -> "Finding your accounts…"
+            AnalysisStep.INCOME -> "Checking transfers…"
+            AnalysisStep.DUPLICATES -> "Checking for duplicates…"
+            AnalysisStep.COMPLETE -> "Finishing up…"
+        }
+        OnboardingDarkScanPage(importing = smsGranted, phase = phase)
+        return
+    }
+    if (stage == SmartSetupStage.REVIEW) {
+        androidx.compose.foundation.layout.Column(
+            Modifier.fillMaxSize().background(com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens.darkCanvas)
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(scaffoldPadding)
+                .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 24.dp)
+        ) {
+            ReviewDiscoveryPage(
+                sources = detectedSources,
+                selectedOwnedKeys = selectedOwnedKeys,
+                mpesaIdentifierHint = mpesaPhoneSuggestion,
+                importResult = importResult,
+                applying = reviewSaving,
+                error = accountSaveError,
+                onToggleAccount = { key, checked ->
+                    selectedOwnedKeys = if (checked) selectedOwnedKeys + key else selectedOwnedKeys - key
+                    accountSaveError = null
+                },
+                onSelectInstitution = { reference, checked ->
+                    manualInstitutionReferences = if (checked)
+                        manualInstitutionReferences + (reference.entityKey to reference)
+                    else manualInstitutionReferences - reference.entityKey
+                    selectedOwnedKeys = if (checked)
+                        selectedOwnedKeys + reference.entityKey
+                    else selectedOwnedKeys - reference.entityKey
+                    accountSaveError = null
+                },
+                onContinue = {
+                    if (!reviewSaving && selectedOwnedKeys.isNotEmpty()) setupScope.launch {
+                        accountSaveError = null
+                        try {
+                            completedInstitutionKeys = selectedOwnedKeys
+                            completionInstitutionCount = selectedOwnedKeys.size
+                            applySelectedAccountOwnership()
+                            onDone()
+                        } catch (_: Exception) {
+                            accountSaveError = "Could not save your accounts. Please try again."
+                        }
+                    }
+                }
+            )
+        }
+        return
     }
 
     BackHandler(enabled = chooseInstitutions) { chooseInstitutions = false }
@@ -1778,14 +1905,12 @@ fun SmartOnboardingSetupScreen(
             SmartSetupStage.WELCOME -> {
                 item {
                     PesaTrackWelcomePage(
-                        onGetStarted = { stage = SmartSetupStage.SMS_PERMISSION },
-                        onSkip = {
-                            importMonths = 0
-                            stage = SmartSetupStage.ANALYZE
-                        }
+                        onGetStarted = { stage = SmartSetupStage.PROFILE }
                     )
                 }
             }
+
+            SmartSetupStage.PROFILE -> Unit
 
             SmartSetupStage.IMPORT -> {
                 item {

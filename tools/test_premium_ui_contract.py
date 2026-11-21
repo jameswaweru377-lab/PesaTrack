@@ -116,8 +116,9 @@ class PremiumUiContractTest(unittest.TestCase):
 
     def test_onboarding_welcome_is_short_and_uncluttered(self):
         welcome = source(SCREENS / "PesaTrackWelcomePage.kt")
-        self.assertIn("Understand balances and transfers", welcome)
-        self.assertIn("Track money in and out", welcome)
+        self.assertIn("Understand M-PESA, banks and transfers", welcome)
+        self.assertIn("onboarding_cafe_clean", welcome)
+        self.assertNotIn("onSkip", welcome)
         self.assertNotIn("ApprovedReferenceHero(", welcome)
         self.assertNotIn("Understand spending and debts", welcome)
 
@@ -130,24 +131,21 @@ class PremiumUiContractTest(unittest.TestCase):
 
     def test_premium_splash_and_welcome_use_bundled_visuals(self):
         splash = source(SCREENS / "StartupSplashScreen.kt")
-        hero = source(SCREENS / "PremiumWelcomeHero.kt")
         welcome = source(SCREENS / "PesaTrackWelcomePage.kt")
-        for file in (splash, hero):
-            self.assertIn("R.drawable.profile_default_nairobi_cover", file)
-            self.assertIn("R.drawable.wallet_welcome", file)
-        self.assertIn("PesaLogoMark(size = 72.dp)", splash)
-        self.assertIn("PremiumWelcomeHero()", welcome)
+        for file in (splash, welcome):
+            self.assertIn("R.drawable.onboarding_cafe_clean", file)
+        self.assertIn("PesaLogoMark(size = 88.dp)", splash)
+        self.assertIn("PesaLogoMark(size = 76.dp)", welcome)
         self.assertIn("colors = ButtonDefaults.buttonColors(", welcome)
         self.assertIn("onGetStarted", welcome)
-        self.assertIn("onSkip", welcome)
-        self.assertNotIn("R.drawable.onboarding_welcome_hero", welcome + hero)
+        self.assertNotIn("onSkip", welcome)
 
     def test_onboarding_drops_old_step_dots_and_import_choices(self):
         setup = source(SCREENS / "SmartOnboardingSetupScreen.kt")
-        self.assertIn("OnboardingPremiumHeader()", setup)
+        self.assertIn("OnboardingLocalProfilePage(", setup)
+        self.assertIn("OnboardingDarkScanPage(", setup)
         self.assertNotIn("StageProgress(stage)", setup)
-        self.assertIn("Import your money history", setup)
-        self.assertIn("Skip import for now", setup)
+        self.assertIn("ALL_HISTORY_SELECTION", setup)
 
     def test_sms_disclosure_preserves_explicit_consent(self):
         privacy = source(SCREENS / "ApprovedPrivacyConsentPage.kt")
@@ -173,26 +171,24 @@ class PremiumUiContractTest(unittest.TestCase):
         self.assertIn('"Checking for duplicates"', analysis)
 
     def test_sms_disclosure_and_account_review_stay_compact_and_explicit(self):
-        privacy = source(SCREENS / "ApprovedPrivacyConsentPage.kt")
+        privacy = source(SCREENS / "OnboardingLocalProfilePage.kt")
         review = source(SCREENS / "OnboardingDiscoveryPage.kt")
         setup = source(SCREENS / "SmartOnboardingSetupScreen.kt")
-        self.assertEqual(privacy.count("ApprovedPrivacyCard("), 3,
-                         "Two facts plus the reusable component keep the consent screen short")
-        self.assertIn("onContinueWithout", privacy)
+        self.assertIn("SmsAccessConsentStore.setAccepted", privacy)
+        self.assertNotIn("onContinueWithout", privacy)
         self.assertIn("selectedOwnedKeys = emptySet()", setup)
-        self.assertIn("I’ll choose later", review)
+        self.assertNotIn("I’ll choose later", review)
 
     def test_recent_sms_permission_flows_directly_to_progress(self):
         setup = source(SCREENS / "SmartOnboardingSetupScreen.kt")
-        permissions = source(SCREENS / "SmartOnboardingPermissionComponents.kt")
-        privacy = source(SCREENS / "ApprovedPrivacyConsentPage.kt")
+        privacy = source(SCREENS / "OnboardingLocalProfilePage.kt")
         sms_result = setup.split("MessageAccessAction.OPEN_NOTIFICATIONS ->", 1)[1].split("LaunchedEffect(", 1)[0]
         self.assertNotIn("stage = SmartSetupStage.IMPORT", sms_result,
                          "After granting SMS permission, a second range page must not interrupt import")
         self.assertIn("stage = SmartSetupStage.ANALYZE", sms_result)
-        self.assertIn("onChooseHistory", permissions)
-        self.assertIn("onChooseHistory", privacy)
-        self.assertIn('"Change dates"', privacy)
+        self.assertIn("RequestPermission()", setup)
+        self.assertIn("Start scanning", privacy)
+        self.assertNotIn("Change dates", privacy)
 
     def test_local_pin_setup_follows_reference_without_remote_registration(self):
         pin = source(SCREENS / "MandatoryAppLockSetupScreen.kt")
@@ -213,7 +209,7 @@ class PremiumUiContractTest(unittest.TestCase):
         self.assertIn("Select only the services you personally use.", review)
         self.assertNotIn('Text("Top 5"', review)
         self.assertLess(review.index("Search banks and money services"),
-                        review.index("ranked.forEach"))
+                        review.index("matchingDetected.forEach"))
 
     def test_profile_replaces_more_with_workspaces_and_settings(self):
         profile = source(SCREENS / "ProfileEditorialHome.kt")

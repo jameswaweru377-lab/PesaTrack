@@ -68,7 +68,7 @@ fun PesaLogoMark(modifier: Modifier = Modifier, size: Dp = PesaDesignTokens.icon
         color = Color.Transparent
     ) {
         androidx.compose.foundation.Image(
-            painter = painterResource(R.drawable.ic_pesatrack_logo),
+            painter = painterResource(R.drawable.ic_pesatrack_home_mark),
             contentDescription = "PesaTrack",
             modifier = Modifier.fillMaxSize()
         )

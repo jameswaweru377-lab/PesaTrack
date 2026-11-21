@@ -1,21 +1,22 @@
 # PesaTrack Current State
 
-_Short offline first-run onboarding (21 November 2026; Android CI and Redmi acceptance pending):_
-The initial app route now shows one welcome page instead of repeating the same
-introduction. SMS disclosure retains explicit consent, a no-SMS route and the
-existing historical date choices through an optional Change dates action;
-allowing the default recent range goes straight to local import, without a
-second compulsory selection page. The local import/discovery phase uses a
-cream/coffee-themed, indeterminate progress card with honest phase text and
-no invented percentage. Detected account ownership still requires explicit
-selection and can be skipped. The separate mandatory 6–8 digit PIN setup now
-uses the same compact theme with two masked/revealable fields; there is no
-phone-number registration or cloud account. User-authorized encrypted backup
-restoration shows a matching progress card only while a restore job is active.
-The existing importer, ledger, consent store, account ownership, app-lock PIN
-storage, restore authorization, schema, permissions and signing are unchanged.
-Android CI and physical-device permissions, contrast and restore acceptance
-remain unverified; instrumentation is deliberately not run.
+_Compact dark first-run onboarding (21 November 2026; Android CI and Redmi acceptance pending):_
+The app now has an approved full-screen café splash with the current brown Home
+mark, one required offline form for name, Kenyan M-PESA phone, PIN confirmation
+and SMS disclosure, followed by the Android READ_SMS prompt. It imports available
+financial SMS by default and shows a full-black indeterminate progress ring
+around a receipt-and-coin icon with honest phase descriptions, not a progress
+card. Android may then show the ordinary optional notification runtime prompt.
+A borderless dark institution picker surfaces the five strongest transaction-
+evidenced suggestions, lets users search other supported institutions, and
+requires an explicit account choice before opening Home. A name does not
+prove ownership; the profile phone becomes an M-PESA identifier only after
+explicit M-PESA selection. No online registration, date wizard, welcome
+carousel, or final completion page is part of this route. Denied SMS access
+leaves manual institution search available. Existing backup restoration,
+financial rules, PIN hashing and schema remain unchanged. Android compile/CI,
+physical-device contrast and permission acceptance are still unverified;
+instrumentation is deliberately not run.
 
 _Activity review/ticker/fee follow-up (#698, 20 November 2026; Android CI and Redmi acceptance pending):_
 The permanent Activity `need review` banner is removed. On Home entry after
