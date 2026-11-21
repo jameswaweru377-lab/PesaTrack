@@ -286,9 +286,14 @@ fun SmartOnboardingSetupScreen(
     }
     var notificationPromptLaunched by rememberSaveable { mutableStateOf(false) }
     var accountSaveError by remember { mutableStateOf<String?>(null) }
+    var replayIncomplete by rememberSaveable { mutableStateOf(false) }
+    var committedOwnedKeys by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var importResult by remember {
         mutableStateOf<HistoricalImportResult?>(null)
     }
+    // Kept across process recreation even though the full import result is not.
+    // This differentiates a never-consented setup from interrupted bank history.
+    var historicalScanUnverified by rememberSaveable { mutableStateOf(false) }
     var detectedSources by remember {
         mutableStateOf<List<DetectedSetupSource>>(
             emptyList()
@@ -565,6 +570,11 @@ fun SmartOnboardingSetupScreen(
 
         analysisStep =
             AnalysisStep.SCANNING
+        val scanningJob = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
+        if (importSelectionValid &&
+            MessageAccessPolicy.canImport(disclosureAccepted, smsGranted, importMonths) &&
+            startEpochMs != null
+        ) historicalScanUnverified = true
         importResult =
             withContext(Dispatchers.IO) {
                 if (
@@ -577,13 +587,17 @@ fun SmartOnboardingSetupScreen(
                             context.applicationContext
                         ).importSince(
                             sinceEpochMs = startEpochMs,
-                            untilEpochMsExclusive = selectedImportEndExclusiveEpochMs
+                            untilEpochMsExclusive = selectedImportEndExclusiveEpochMs,
+                            isCancelled = { scanningJob?.isActive == false }
                         )
                     }.getOrNull()
                 } else {
                     null
                 }
             }
+        if (importResult?.let { !it.cancelled && it.pendingReview == 0 } == true) {
+            historicalScanUnverified = false
+        }
         delay(MIN_PROGRESS_STEP_MS)
 
         analysisStep =
@@ -1362,27 +1376,46 @@ fun SmartOnboardingSetupScreen(
         return true
     }
 
-    suspend fun applySelectedAccountOwnership() {
+    suspend fun applySelectedAccountOwnership(): Boolean {
         if (reviewSaving) {
-            return
+            return false
         }
 
         reviewSaving = true
         try {
-            val selectedKeys = selectedOwnedKeys
+            val selectedKeys = if (replayIncomplete) committedOwnedKeys.toSet() else selectedOwnedKeys
+            val owningJob = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]
+            val replayRequired = com.kedevjimmy.pesatrack.ingestion.ownershipReplayRequired(
+                previouslyIncomplete = replayIncomplete,
+                initialImport = importResult,
+                selectedAccountCount = selectedKeys.size,
+                smsAllowed = smsGranted,
+                startEpochMs = selectedImportStartEpochMs,
+                priorScanUnverified = historicalScanUnverified
+            )
             val pendingKeys = pendingOwnershipEntities.map { it.entityKey }.toSet()
             val directSources = (detectedSources.map { it.reference } + manualInstitutionReferences.values)
                 .filter { it.entityKey in selectedKeys && it.entityKey !in pendingKeys }
                 .distinctBy { it.entityKey }
-            withContext(Dispatchers.IO) {
+            // Ownership must be persisted before we expose a way to continue
+            // without SMS history. In particular, recreation during this write
+            // must never turn an uncommitted selection into a saved account.
+            if (!replayIncomplete) withContext(Dispatchers.IO) {
+                check((pendingKeys + directSources.map { it.entityKey }).containsAll(selectedKeys)) {
+                    "Selected financial accounts could not be resolved"
+                }
                 pendingOwnershipEntities.filter { it.entityKey in selectedKeys }.forEach { entity ->
-                    financialUnderstandingStore.confirmEntityOwned(entity.entityKey)
+                    check(financialUnderstandingStore.confirmEntityOwned(entity.entityKey) != null) {
+                        "Selected financial account could not be confirmed"
+                    }
                     financialCoordinator.reconcilePendingTransfers(
                         entityKey = entity.entityKey, rebuildPayCycles = false
                     )
                 }
                 directSources.forEach { reference ->
-                    financialUnderstandingStore.setInstitutionOwned(reference)
+                    check(financialUnderstandingStore.setInstitutionOwned(reference) != null) {
+                        "Selected financial institution could not be confirmed"
+                    }
                     financialCoordinator.reconcilePendingTransfers(
                         entityKey = reference.entityKey, rebuildPayCycles = false
                     )
@@ -1404,27 +1437,40 @@ fun SmartOnboardingSetupScreen(
                         )
                     }
                 }
+            }
+            if (replayRequired && !replayIncomplete) {
+                committedOwnedKeys = selectedKeys.toList()
+                replayIncomplete = true
+            }
+            val replayCompleted = withContext(Dispatchers.IO) {
                 // Before ownership is confirmed, unowned bank payments and fees
                 // are counted as pending but not stored. Replay only if the first
                 // scan encountered them; duplicate records remain idempotent.
-                if (com.kedevjimmy.pesatrack.ingestion.shouldReplaySmsAfterOwnership(
-                        initialImport = importResult,
-                        selectedAccountCount = selectedKeys.size,
-                        smsAllowed = smsGranted,
-                        startEpochMs = selectedImportStartEpochMs
-                    )) {
-                    selectedImportStartEpochMs?.let { startEpochMs ->
-                        HistoricalSmsImporter(context.applicationContext).importSince(
-                            sinceEpochMs = startEpochMs,
-                            rebuildPayCycles = false,
-                            untilEpochMsExclusive = selectedImportEndExclusiveEpochMs
-                        )
+                var historyComplete = !replayRequired
+                if (replayRequired && smsGranted && selectedImportStartEpochMs != null) {
+                    val replayResult = try {
+                        selectedImportStartEpochMs?.let { startEpochMs ->
+                            HistoricalSmsImporter(context.applicationContext).importSince(
+                                sinceEpochMs = startEpochMs,
+                                rebuildPayCycles = false,
+                                untilEpochMsExclusive = selectedImportEndExclusiveEpochMs,
+                                isCancelled = { owningJob?.isActive == false }
+                            )
+                        }
+                    } catch (cancelled: kotlin.coroutines.cancellation.CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        // Keep confirmed accounts, but require an explicit retry
+                        // or accounts-only choice if the SMS provider fails.
+                        null
                     }
+                    historyComplete = com.kedevjimmy.pesatrack.ingestion.ownershipReplayCompleted(replayResult)
                 }
                 if (directSources.any { it.providerKey == "SAFARICOM_MPESA" }) {
                     transactionStore.reconcileOwnAccountTransfers(rebuildPayCycles = false)
                 }
                 if (selectedKeys.isNotEmpty()) payCycleStore.rebuild()
+                historyComplete
             }
 
             availableAccounts =
@@ -1436,7 +1482,7 @@ fun SmartOnboardingSetupScreen(
                 )
             pendingOwnershipEntities =
                 financialUnderstandingStore.pendingEntities()
-            selectedOwnedKeys = emptySet()
+            if (replayCompleted) selectedOwnedKeys = emptySet()
 
             if (
                 availableAccounts.none {
@@ -1536,6 +1582,7 @@ fun SmartOnboardingSetupScreen(
                 manualSalaryAccountId =
                     refreshedSalary.accountId
             }
+            return replayCompleted
         } finally {
             reviewSaving = false
         }
@@ -1781,14 +1828,18 @@ fun SmartOnboardingSetupScreen(
         ) {
             ReviewDiscoveryPage(
                 sources = detectedSources,
-                selectedOwnedKeys = selectedOwnedKeys,
+                selectedOwnedKeys = if (replayIncomplete) committedOwnedKeys.toSet() else selectedOwnedKeys,
                 mpesaIdentifierHint = mpesaPhoneSuggestion,
                 importResult = importResult,
                 applying = reviewSaving,
-                error = accountSaveError,
+                selectionsLocked = replayIncomplete,
+                error = accountSaveError ?: if (replayIncomplete) {
+                    "Message import is incomplete. Retry, or continue with accounts only and import history later."
+                } else null,
                 onToggleAccount = { key, checked ->
                     selectedOwnedKeys = if (checked) selectedOwnedKeys + key else selectedOwnedKeys - key
                     accountSaveError = null
+                    replayIncomplete = false
                 },
                 onSelectInstitution = { reference, checked ->
                     manualInstitutionReferences = if (checked)
@@ -1798,20 +1849,31 @@ fun SmartOnboardingSetupScreen(
                         selectedOwnedKeys + reference.entityKey
                     else selectedOwnedKeys - reference.entityKey
                     accountSaveError = null
+                    replayIncomplete = false
                 },
                 onContinue = {
-                    if (!reviewSaving && selectedOwnedKeys.isNotEmpty()) setupScope.launch {
+                    val selectedForConfirmation = if (replayIncomplete) committedOwnedKeys.toSet() else selectedOwnedKeys
+                    if (!reviewSaving && selectedForConfirmation.isNotEmpty()) setupScope.launch {
                         accountSaveError = null
                         try {
-                            completedInstitutionKeys = selectedOwnedKeys
-                            completionInstitutionCount = selectedOwnedKeys.size
-                            applySelectedAccountOwnership()
-                            onDone()
+                            completedInstitutionKeys = selectedForConfirmation
+                            completionInstitutionCount = selectedForConfirmation.size
+                            if (applySelectedAccountOwnership()) {
+                                replayIncomplete = false
+                                committedOwnedKeys = emptyList()
+                                onDone()
+                            } else {
+                                replayIncomplete = true
+                                accountSaveError = "Message import stopped before finishing. Retry, or continue with your accounts and import history later."
+                            }
+                        } catch (cancelled: kotlin.coroutines.cancellation.CancellationException) {
+                            throw cancelled
                         } catch (_: Exception) {
                             accountSaveError = "Could not save your accounts. Please try again."
                         }
                     }
-                }
+                },
+                onContinueWithAccountsOnly = if (replayIncomplete) ({ onDone() }) else null
             )
         }
         return

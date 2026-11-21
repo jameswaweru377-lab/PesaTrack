@@ -23,11 +23,13 @@ class TrustedSmsBodyQuerySqliteTest {
                 Triple(5, "EQUITY", "Ref ABXYC")
             ).forEach { (id, address, body) ->
                 db.execSQL("INSERT INTO sms (_id, address, body) VALUES (?, ?, ?)",
-                    arrayOf(id, address, body))
+                    arrayOf<Any>(id, address, body))
             }
 
             val query = trustedSmsBodyQuery(
-                listOf(1L to "EQUITY", 2L to "MPESA", 3L to "EQUITY", 5L to "EQUITY"),
+                // The first trusted row has no reference: catches an ungrouped
+                // OR expression that applies LIKE only to the last ID.
+                listOf(5L to "EQUITY", 1L to "EQUITY", 2L to "MPESA", 3L to "EQUITY"),
                 reference = "AB_%\\C"
             )
             val returnedIds = db.rawQuery(

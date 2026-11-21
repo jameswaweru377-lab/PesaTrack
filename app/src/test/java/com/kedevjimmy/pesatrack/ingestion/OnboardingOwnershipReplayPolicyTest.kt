@@ -27,7 +27,26 @@ class OnboardingOwnershipReplayPolicyTest {
         // A partial scan cannot prove it saw all outstanding bank movements.
         assertTrue(shouldReplaySmsAfterOwnership(cleanImport.copy(cancelled = true), 1, true, 100L))
         assertFalse(shouldReplaySmsAfterOwnership(cleanImport.copy(pendingReview = 1), 0, true, 100L))
-        assertFalse(shouldReplaySmsAfterOwnership(cleanImport.copy(pendingReview = 1), 1, false, 100L))
-        assertFalse(shouldReplaySmsAfterOwnership(cleanImport.copy(pendingReview = 1), 1, true, null))
+        // Revoking permission cannot erase already-observed unowned bank debits.
+        assertTrue(shouldReplaySmsAfterOwnership(cleanImport.copy(pendingReview = 1), 1, false, 100L))
+        assertTrue(shouldReplaySmsAfterOwnership(cleanImport.copy(pendingReview = 1), 1, true, null))
+        assertFalse(shouldReplaySmsAfterOwnership(null, 1, false, 100L))
+    }
+
+    @Test fun partialOrFailedOwnershipReplayCannotBeReportedAsComplete() {
+        assertFalse(ownershipReplayCompleted(null))
+        assertFalse(ownershipReplayCompleted(cleanImport.copy(cancelled = true)))
+        assertTrue(ownershipReplayCompleted(cleanImport))
+    }
+
+    @Test fun interruptedReplayIsRequiredEvenAfterPermissionChanges() {
+        assertTrue(ownershipReplayRequired(true, cleanImport, 1, false, 100L))
+        assertTrue(ownershipReplayRequired(true, null, 1, true, 100L))
+        assertFalse(ownershipReplayRequired(false, cleanImport, 1, true, 100L))
+        // An initial pending scan may have been lost on process recreation.
+        assertTrue(ownershipReplayRequired(false, null, 1, false, 100L,
+            priorScanUnverified = true))
+        assertFalse(ownershipReplayRequired(false, null, 1, false, 100L,
+            priorScanUnverified = false))
     }
 }

@@ -51,10 +51,34 @@ class PrivateSmsImportContract(unittest.TestCase):
         screen = source(SCREENS, "SmartOnboardingSetupScreen.kt")
         policy = source(INGESTION, "OnboardingOwnershipReplayPolicy.kt")
         self.assertEqual(2, len(re.findall(r"HistoricalSmsImporter\s*\(", screen)))
-        self.assertIn("shouldReplaySmsAfterOwnership", screen)
+        self.assertIn("ownershipReplayRequired", screen)
+        self.assertIn("shouldReplaySmsAfterOwnership", policy)
         self.assertIn("initialImport.pendingReview > 0", policy)
         self.assertIn("initialImport == null", policy)
         self.assertIn("initialImport.cancelled", policy)
+
+    def test_interrupted_ownership_replay_does_not_silently_finish_onboarding(self):
+        screen = source(SCREENS, "SmartOnboardingSetupScreen.kt")
+        policy = source(INGESTION, "OnboardingOwnershipReplayPolicy.kt")
+        discovery = source(SCREENS, "OnboardingDiscoveryPage.kt")
+        self.assertIn("ownershipReplayCompleted", screen)
+        self.assertIn("ownershipReplayCompleted", policy)
+        self.assertIn("if (applySelectedAccountOwnership())", screen)
+        self.assertIn("Continue with accounts only", discovery)
+        self.assertIn("ownershipReplayRequired", screen)
+        self.assertIn("previouslyIncomplete", policy)
+        self.assertIn("historicalScanUnverified by rememberSaveable", screen)
+        self.assertIn("priorScanUnverified = historicalScanUnverified", screen)
+        self.assertIn("committedOwnedKeys", screen)
+        self.assertIn("selectionsLocked", discovery)
+        self.assertIn("isCancelled =", screen)
+        # The accounts-only escape must never become available before the
+        # account store has acknowledged the selected ownership writes.
+        self.assertLess(screen.index("check(financialUnderstandingStore.confirmEntityOwned"),
+                        screen.index("committedOwnedKeys = selectedKeys.toList()"))
+        self.assertIn("check(financialUnderstandingStore.setInstitutionOwned(reference) != null)", screen)
+        self.assertIn("val scanningJob =", screen)
+        self.assertIn("isCancelled = { scanningJob?.isActive == false }", screen)
 
     def test_sender_policy_change_invalidates_checkpoints(self):
         store = source(INGESTION, "HistoricalImportCheckpointStore.kt")

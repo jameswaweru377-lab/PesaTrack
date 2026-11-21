@@ -39,10 +39,12 @@ internal fun ReviewDiscoveryPage(
     mpesaIdentifierHint: String?,
     importResult: HistoricalImportResult?,
     applying: Boolean,
+    selectionsLocked: Boolean = false,
     error: String? = null,
     onToggleAccount: (String, Boolean) -> Unit,
     onSelectInstitution: (FinancialAccountReference, Boolean) -> Unit,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    onContinueWithAccountsOnly: (() -> Unit)? = null
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     val topFive = remember(sources) { OnboardingInstitutionPresentationPolicy.topFive(sources) }
@@ -71,7 +73,7 @@ internal fun ReviewDiscoveryPage(
                 .testTag("onboarding-institution-search"),
             leadingIcon = { Icon(Icons.Rounded.Search, null) },
             placeholder = { Text("Search banks and money services") },
-            singleLine = true, enabled = !applying,
+            singleLine = true, enabled = !applying && !selectionsLocked,
             shape = RoundedCornerShape(17.dp),
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = PremiumVisualTokens.darkCard,
@@ -95,7 +97,7 @@ internal fun ReviewDiscoveryPage(
                 source.reference.entityKey,
                 source.messageCount,
                 if (mpesa) OnboardingInstitutionPresentationPolicy.maskIdentifier(mpesaIdentifierHint) else null,
-                source.reference.entityKey in selectedOwnedKeys, !applying
+                source.reference.entityKey in selectedOwnedKeys, !applying && !selectionsLocked
             ) { onToggleAccount(source.reference.entityKey, it) }
         }
         directory.forEach { option ->
@@ -106,7 +108,7 @@ internal fun ReviewDiscoveryPage(
                 else -> "Savings"
             }
             DetectedInstitutionCard(reference.displayName, type, reference.entityKey,
-                null, null, reference.entityKey in selectedOwnedKeys, !applying) {
+                null, null, reference.entityKey in selectedOwnedKeys, !applying && !selectionsLocked) {
                 onSelectInstitution(reference, it)
             }
         }
@@ -119,6 +121,10 @@ internal fun ReviewDiscoveryPage(
         Text("${selectedOwnedKeys.size} selected · Only confirm accounts you use",
             Modifier.testTag("onboarding-selected-institution-count"),
             style = MaterialTheme.typography.bodySmall, color = PremiumVisualTokens.darkMuted)
+        if (selectionsLocked) {
+            Text("Your account choices are saved. Finish importing messages or continue with accounts only.",
+                style = MaterialTheme.typography.bodySmall, color = PremiumVisualTokens.darkMuted)
+        }
         error?.let { Text(it, color = PremiumVisualTokens.darkMoneyOut,
             style = MaterialTheme.typography.bodySmall) }
         Button(
@@ -132,6 +138,13 @@ internal fun ReviewDiscoveryPage(
                 disabledContentColor = PremiumVisualTokens.darkMuted
             )
         ) { Text(if (applying) "Saving accounts…" else "Confirm my accounts", fontWeight = FontWeight.Bold) }
+        if (onContinueWithAccountsOnly != null) {
+            TextButton(
+                onClick = onContinueWithAccountsOnly,
+                enabled = !applying,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Continue with accounts only") }
+        }
     }
 }
 
