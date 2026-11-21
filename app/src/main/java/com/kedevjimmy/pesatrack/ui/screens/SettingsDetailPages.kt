@@ -292,7 +292,7 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
         }
         item { ProfilePremiumGroup(listOf(
             ProfilePremiumItem(Icons.Rounded.AccountCircle, "Account & data review",
-                "Check accounts that need confirmation", ProfileTone.BLUE,
+                "Missing balances and accounts to confirm", ProfileTone.BLUE,
                 checked = accountReviewOn, onToggle = {
                     accountReviewOn = it
                     com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.setEnabled(
@@ -371,6 +371,7 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
                     FilterChip(selected = smartMode == value,onClick = {
                         smartMode = value; smart.setMode(value)
                         com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.cancel(context)
+                        if (value == "off") com.kedevjimmy.pesatrack.planning.HomeBalanceReviewNotification.cancel(context)
                         ReviewAttentionReminders.schedule(context)
                     },label = { Text(label) })
                 }
@@ -380,6 +381,7 @@ internal fun RemindersPage(padding: PaddingValues, back: () -> Unit, title: Stri
                 snoozed = !snoozed
                 smart.snooze(if (snoozed) System.currentTimeMillis() + com.kedevjimmy.pesatrack.domain.rules.ReviewReminderPolicy.DAY_MS else 0)
                 com.kedevjimmy.pesatrack.planning.SmartNoticeCoordinator.cancel(context)
+                if (snoozed) com.kedevjimmy.pesatrack.planning.HomeBalanceReviewNotification.cancel(context)
             }) { Text(if (snoozed) "Resume smart alerts" else "Snooze smart alerts for a day") }
             TextButton(onClick = { smart.resetDiscovery() }) { Text("Show the They Owe Me tip again") }
         }

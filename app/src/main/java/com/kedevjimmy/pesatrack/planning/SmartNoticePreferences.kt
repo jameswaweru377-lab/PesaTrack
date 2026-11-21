@@ -25,6 +25,8 @@ class SmartNoticePreferences(context: Context) {
     fun snooze(until: Long) = synchronized(CanonicalStoreLock.monitor) { prefs.edit().putLong("smart_snooze",until).apply() }
     fun paymentEnabledAt() = prefs.getLong("payment_enabled_at",0)
     fun lastBanner() = maxOf(prefs.getLong("smart_last_banner",0),prefs.getLong("last_shown",0))
+    /** Account-balance reminders consume the same daily alert allowance. */
+    fun recordBalanceNotice(now: Long) { prefs.edit().putLong("smart_last_banner", now).apply() }
     fun settledAt(): Long {
         if (!prefs.contains("smart_settled_at")) changed()
         return prefs.getLong("smart_settled_at",0)

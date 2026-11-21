@@ -100,7 +100,7 @@ class MainActivity : ComponentActivity() {
     private fun readPhonePageIntent(intent: Intent) {
         intent.getStringExtra(com.kedevjimmy.pesatrack.planning.PhoneNotificationPreview.OPEN_PAGE)
             ?.takeIf { it in setOf("bills", "salary", "budgets", "activity-attention",
-                "saving-goals", "debts", "data-health", "backup-reminder") }
+                "saving-goals", "debts", "data-health", "backup-reminder", "accounts") }
             ?.let { phonePageRoute = it; phonePageRequest++ }
     }
     override fun onSaveInstanceState(outState: Bundle) {

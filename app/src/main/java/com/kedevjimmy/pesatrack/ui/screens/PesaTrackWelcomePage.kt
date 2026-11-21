@@ -14,16 +14,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
-import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
 import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 
-/** Approved photographic splash. Text, logo and button are accessible native controls. */
+/** Approved photographic welcome, with the message and button unobstructed. */
 @Composable
 internal fun PesaTrackWelcomePage(onGetStarted: () -> Unit) {
     Box(Modifier.fillMaxSize().background(PremiumVisualTokens.darkCanvas)) {
@@ -42,18 +40,7 @@ internal fun PesaTrackWelcomePage(onGetStarted: () -> Unit) {
                 .padding(horizontal = 28.dp, vertical = 34.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.weight(.6f))
-            Box(Modifier.size(86.dp)
-                .background(PremiumVisualTokens.darkSurface, RoundedCornerShape(22.dp)),
-                contentAlignment = Alignment.Center) {
-                PesaLogoMark(size = 76.dp)
-            }
-            Spacer(Modifier.height(8.dp))
-            Text("PesaTrack", color = Color.White, fontFamily = FontFamily.Serif,
-                fontSize = 39.sp, fontWeight = FontWeight.Bold)
-            Text("YOUR MONEY, YOUR PLANS", color = PremiumVisualTokens.darkCoffee,
-                fontSize = 12.sp, letterSpacing = 2.sp)
-            Spacer(Modifier.weight(1.4f))
+            Spacer(Modifier.weight(1f))
             Text("YOUR MONEY.\nYOUR PLANS.", color = Color.White, fontSize = 40.sp,
                 lineHeight = 43.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
             Text("Understand M-PESA, banks and transfers — privately.",

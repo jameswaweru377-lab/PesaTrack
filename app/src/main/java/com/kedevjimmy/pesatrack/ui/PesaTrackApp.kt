@@ -108,7 +108,7 @@ fun PesaTrackApp(
     LaunchedEffect(phonePageRequest, setupComplete) {
         if (phonePageRequest > 0 && setupComplete && phonePageRoute in setOf(
                 "bills", "salary", "budgets", "activity-attention", "saving-goals",
-                "debts", "data-health", "backup-reminder"
+                "debts", "data-health", "backup-reminder", "accounts"
             )) {
             navController.navigate(phonePageRoute) { launchSingleTop = true }
             onPhoneRequestHandled()

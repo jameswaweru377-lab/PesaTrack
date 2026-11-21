@@ -126,7 +126,7 @@ internal fun BrownActivityRow(
                 BrownActivityRowDescription(displayName, subtitle,
                     activityPaymentMethod(item), item.occurredAtEpochMs, dark,
                     modifier = Modifier.weight(1f))
-                BrownActivityRowAmount(item, direction, refund, dark)
+                BrownActivityRowAmount(item, direction, refund)
             }
             if (position == ActivityGroupPosition.FIRST ||
                 position == ActivityGroupPosition.MIDDLE) {
@@ -170,9 +170,8 @@ private fun BrownActivityRowDescription(
 
 @Composable
 private fun BrownActivityRowAmount(
-    item: StoredTransaction, direction: MoneyDirection, refund: Boolean, dark: Boolean
+    item: StoredTransaction, direction: MoneyDirection, refund: Boolean
 ) {
-    val p = homeColors()
     Column(horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(amountLabel(item, direction)
@@ -181,19 +180,5 @@ private fun BrownActivityRowAmount(
             color = themeMoneyMovementColor(direction, refund),
             fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
-        val recordedFee = activityFeeBadgeAmount(item)
-        if (recordedFee != null || activityFeeIsUnrecorded(item)) {
-            val feeColor = if (dark) PremiumVisualTokens.darkMoneyOut
-                else PremiumVisualTokens.moneyOut
-            val known = recordedFee != null
-            Surface(color = if (known) feeColor.copy(alpha = .12f)
-                else if (dark) p.white else p.cream,
-                shape = RoundedCornerShape(PesaDesignTokens.iconRadius)) {
-                Text(if (known) "Fee ${activityKesLabel(recordedFee!!)}" else "Fee —",
-                    Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    color = if (known) feeColor else p.muted,
-                    fontSize = 9.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-            }
-        }
     }
 }

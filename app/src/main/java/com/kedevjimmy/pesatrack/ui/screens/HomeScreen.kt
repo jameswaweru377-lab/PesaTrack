@@ -90,6 +90,7 @@ import com.kedevjimmy.pesatrack.domain.rules.AccountDisplayPolicy
 import com.kedevjimmy.pesatrack.domain.rules.AccountIdentityPresentation
 import com.kedevjimmy.pesatrack.domain.rules.SalaryExpectationPolicy
 import com.kedevjimmy.pesatrack.domain.rules.PlanSpendableBalancePolicy
+import com.kedevjimmy.pesatrack.planning.HomeBalanceReviewNotification
 import com.kedevjimmy.pesatrack.planning.BillSchedules
 import com.kedevjimmy.pesatrack.planning.ScheduledBill
 import com.kedevjimmy.pesatrack.ui.components.AvailableToLiveHero
@@ -314,6 +315,10 @@ fun HomeScreen(
     var rebuildPending by remember { mutableStateOf(false) }
     var homeLoaded by remember {
         mutableStateOf(warmHome != null)
+    }
+    // The warm snapshot can be from a prior ledger revision. A reminder must use fresh evidence.
+    var balanceNoticeReadyRevision by remember {
+        mutableStateOf(if (warmHome != null) stateCache?.revision else null)
     }
 
     var cycleSnapshot by remember {
@@ -683,6 +688,7 @@ fun HomeScreen(
                         supplemental = supplemental,
                         loadedRevision = loadedRevision
                     )
+                    balanceNoticeReadyRevision = loadedRevision
                     val elapsed = android.os.SystemClock.elapsedRealtime() - refreshStarted
                     if (elapsed > 400L) android.util.Log.i("PesaTrackPerf", "Home refresh took ${elapsed}ms")
                 } while (refreshPending)
@@ -1401,6 +1407,16 @@ fun HomeScreen(
     val currentAccountMoney = VerifiedAccountBalancePolicy.planAccounts(
         balanceAccounts, confirmedAccountIds, accountBalanceSnapshots, balanceNow
     )
+    val missingBalanceIds = currentAccountMoney.filter { !it.isProtected && it.provisional }
+        .mapNotNull { balance -> balanceAccounts.firstOrNull { it.id == balance.id }?.id }
+        .distinct().sorted()
+    LaunchedEffect(homeLoaded, homeLoading, homeError, ledgerUpdateState.revision,
+        ledgerUpdateState.isProcessing, balanceNoticeReadyRevision, missingBalanceIds) {
+        if (homeLoaded && !homeLoading && !homeError && !ledgerUpdateState.isProcessing &&
+            balanceNoticeReadyRevision == ledgerUpdateState.revision) {
+            HomeBalanceReviewNotification.update(context, missingBalanceIds)
+        }
+    }
     val currentSpendable = PlanSpendableBalancePolicy.calculate(
         currentAccountMoney,
         planUpcomingBillsTotalMinor(upcomingBills.map { it.remainingMinor }),
@@ -1469,13 +1485,10 @@ fun HomeScreen(
             TextButton(onClick = { refresh() }) { Text("Retry") }
         }
         item(key = "brown-money-hero") {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                BrownHomeHero(
-                    homeSummary.currentAvailableMinor?.let(::formatMoney) ?: "Unavailable",
-                    onAccountsClick, partial = currentSpendable.spendablePartial
-                )
-                HomeBalanceNotice(balanceAccounts, currentAccountMoney)
-            }
+            BrownHomeHero(
+                homeSummary.currentAvailableMinor?.let(::formatMoney) ?: "Unavailable",
+                onAccountsClick, partial = currentSpendable.spendablePartial
+            )
         }
         item(key = "brown-shortcuts") {
             BrownHomeShortcuts(onActivityClick, onAccountsClick, onBudgetClick,
