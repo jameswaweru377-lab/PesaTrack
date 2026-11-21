@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.BalanceAccountVisibility
 import com.kedevjimmy.pesatrack.domain.model.MoneyAccount
+import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.rules.PlanSpendableAccount
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import kotlinx.coroutines.CancellationException
@@ -214,7 +215,11 @@ internal fun ArchivedBalanceAccounts(accounts: List<MoneyAccount>) {
 /** A compact Accounts entry point replaces the archive menu formerly inside Home notices. */
 @Composable
 internal fun BalanceVisibilityManager(accounts: List<MoneyAccount>) {
-    if (accounts.isEmpty()) return
+    // Only account types offered by ArchivedBalanceAccounts' restore source are archivable.
+    val archivable = accounts.filter {
+        it.type in setOf(AccountType.BANK, AccountType.MOBILE_WALLET, AccountType.SAVINGS)
+    }.distinctBy { it.id }
+    if (archivable.isEmpty()) return
     var expanded by rememberSaveable { mutableStateOf(false) }
     var archiveId by rememberSaveable { mutableStateOf<String?>(null) }
     val palette = homeColors()
@@ -224,7 +229,7 @@ internal fun BalanceVisibilityManager(accounts: List<MoneyAccount>) {
             Icon(Icons.Rounded.ExpandMore, contentDescription = null, tint = palette.coffee)
         }
         if (expanded) {
-            accounts.distinctBy { it.id }.forEach { account ->
+            archivable.forEach { account ->
                 Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(compactAccountLabel(account.name), Modifier.weight(1f),
@@ -236,7 +241,7 @@ internal fun BalanceVisibilityManager(accounts: List<MoneyAccount>) {
             }
         }
     }
-    accounts.firstOrNull { it.id == archiveId }?.let { account ->
+    archivable.firstOrNull { it.id == archiveId }?.let { account ->
         BalanceArchiveDialog(account, archive = true) { archiveId = null }
     }
 }
