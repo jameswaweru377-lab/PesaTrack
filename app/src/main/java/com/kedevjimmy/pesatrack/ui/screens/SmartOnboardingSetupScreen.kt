@@ -1404,7 +1404,13 @@ fun SmartOnboardingSetupScreen(
                         )
                     }
                 }
-                if (selectedKeys.isNotEmpty() && smsGranted && selectedImportStartEpochMs != null) {
+                // Before ownership is confirmed, unowned bank payments and fees
+                // are counted as pending but not stored. Replay only if the first
+                // scan encountered them; duplicate records remain idempotent.
+                if (
+                    (importResult?.pendingReview ?: 0) > 0 &&
+                    selectedKeys.isNotEmpty() && smsGranted && selectedImportStartEpochMs != null
+                ) {
                     selectedImportStartEpochMs?.let { startEpochMs ->
                         HistoricalSmsImporter(context.applicationContext).importSince(
                             sinceEpochMs = startEpochMs,
