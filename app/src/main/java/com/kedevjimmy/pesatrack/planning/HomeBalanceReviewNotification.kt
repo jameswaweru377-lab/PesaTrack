@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.kedevjimmy.pesatrack.MainActivity
@@ -102,6 +103,7 @@ object HomeBalanceReviewNotification {
             manager.notify(ID, notice)
         } catch (_: SecurityException) {
             // Android permission may be revoked between checking and posting.
+            Log.w("PesaTrackNotices", "Balance notification blocked by Android permission; no account data logged")
             return
         }
         state.edit().putString("signature", signature).putLong("shown_at", now).apply()

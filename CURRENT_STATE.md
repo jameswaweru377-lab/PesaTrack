@@ -1,8 +1,20 @@
 # PesaTrack Current State
 
+_Small UI and reminder polish (21 November 2026; Redmi visual acceptance pending):_
+Plan's Planning status has no decorative border. Home no longer displays an
+inline balance-review notice; eligible missing balances can generate a quiet,
+permission-aware phone notification linked to Accounts when the Account & data
+review setting is enabled. It follows quiet hours, the shared daily reminder
+limit and the latest completed ledger revision. The original archive/restore
+action remains available under Accounts → Manage balance totals. Activity
+transaction rows no longer show fee badges, but recorded fees still count in
+the ledger and daily net totals remain. The bank-picker brand is compact, and
+the café welcome photo no longer overlays a redundant logo and wordmark. No
+accounting, data migration, app identity or release-signing behavior is changed.
+
 _Compact dark first-run onboarding (21 November 2026; Android CI and Redmi acceptance pending):_
-The app now has an approved full-screen café splash with the current brown Home
-mark, one required offline form for name, Kenyan M-PESA phone, PIN confirmation
+The app now has an approved full-screen café splash with no overlaid brand mark,
+one required offline form for name, Kenyan M-PESA phone, PIN confirmation
 and SMS disclosure, followed by the Android READ_SMS prompt. It imports available
 financial SMS by default and shows a full-black indeterminate progress ring
 around a receipt-and-coin icon with honest phase descriptions, not a progress
