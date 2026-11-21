@@ -32,7 +32,7 @@ object KenyanBankDirectory {
         KenyanBank("guardian", "Guardian Bank Limited", listOf("GUARDIAN BANK", "GUARDIAN")),
         KenyanBank("gulf-african", "Gulf African Bank", listOf("GULF AFRICAN", "GULF AFRICAN BANK", "GAB")),
         KenyanBank("habib", "Habib Bank A.G Zurich", listOf("HABIB BANK", "HABIB")),
-        KenyanBank("i-and-m", "I&M Bank Kenya", listOf("I&M", "I&M BANK", "IM BANK", "IMBANK", "IANDBANK", "IANDM BANK")),
+        KenyanBank("i-and-m", "I&M Bank Kenya", listOf("I&M", "I&M BANK", "IM BANK", "IMBANK", "IANDBANK", "IANDMBANK", "IANDM BANK")),
         KenyanBank("kcb", "KCB Bank Kenya", listOf("KCB", "KCB BANK")),
         KenyanBank("kingdom", "Kingdom Bank", listOf("KINGDOM BANK", "KINGDOM")),
         KenyanBank("middle-east", "Middle East Bank (K) Limited", listOf("MIDDLE EAST BANK", "MEB")),
@@ -61,6 +61,7 @@ object KenyanBankDirectory {
     }
 
     fun matchSender(sender: String?): KenyanBank? {
+        if (!SafeSmsSenderAddress.isValid(sender)) return null
         val normalized =
             sender
                 ?.let(::normalizeSender)

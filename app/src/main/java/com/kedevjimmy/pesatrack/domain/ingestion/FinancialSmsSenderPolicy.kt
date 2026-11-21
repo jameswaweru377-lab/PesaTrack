@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.domain.ingestion
 
 import com.kedevjimmy.pesatrack.domain.model.KenyanBankDirectory
+import com.kedevjimmy.pesatrack.domain.model.SafeSmsSenderAddress
 import java.util.Locale
 
 /** Sender metadata only: never inspect a message body to admit an SMS. */
@@ -10,12 +11,15 @@ object FinancialSmsSenderPolicy {
     private val establishedSenders = setOf(
         "MPESA", "SAFARICOM", "MSHWARI", "KCBMPESA", "FULIZA",
         "AIRTELMONEY", "AIRTEL", "TKASH", "TIMIZA", "TALA", "BRANCH",
-        "ZENKA", "OKASH", "HUSTLERFUND", "KWAJAHAZI"
+        "ZENKA", "OKASH", "HUSTLERFUND", "HUSTLERFND", "KWAJAHAZI",
+        // Exact sender aliases in the shipped Kenyan message packs.
+        "DTBK", "PESALINK", "GLOBALPAY", "EVOPAY", "ETICA", "ETICALTD",
+        "SANLAM", "SANLAMUT"
     )
     private val senderPunctuation = Regex("[^A-Z0-9]")
 
     fun normalize(sender: String?): String =
-        sender.orEmpty()
+        sender.takeIf(SafeSmsSenderAddress::isValid).orEmpty()
             .trim()
             .uppercase(Locale.ROOT)
             .replace(senderPunctuation, "")

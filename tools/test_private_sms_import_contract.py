@@ -22,7 +22,9 @@ class PrivateSmsImportContract(unittest.TestCase):
         self.assertIn("FinancialSmsSenderPolicy.isTrusted", reader)
         self.assertIn("BODY_PROJECTION", reader)
         self.assertIn("METADATA_PROJECTION", reader)
-        self.assertRegex(reader, r"BaseColumns\._ID\s*\+\s*\" IN")
+        self.assertIn('BaseColumns._ID + " = ? AND " + Telephony.Sms.ADDRESS + " = ?)"', reader)
+        self.assertIn("withApprovedSenders", reader)
+        self.assertNotIn("by lazy", reader)
 
     def test_historical_import_does_not_query_all_sms_bodies(self):
         importer = source(INGESTION, "HistoricalSmsImporter.kt")
@@ -37,9 +39,20 @@ class PrivateSmsImportContract(unittest.TestCase):
                 self.assertIn("SelectiveSmsInboxReader", reader)
                 self.assertNotIn("Telephony.Sms.BODY", reader)
 
-    def test_no_second_full_inbox_import_after_ownership_selection(self):
+    def test_replays_only_when_unconfirmed_events_might_be_lost(self):
         screen = source(SCREENS, "SmartOnboardingSetupScreen.kt")
-        self.assertEqual(1, len(re.findall(r"HistoricalSmsImporter\s*\(", screen)))
+        self.assertEqual(2, len(re.findall(r"HistoricalSmsImporter\s*\(", screen)))
+        self.assertRegex(screen, r"importResult\?\.pendingReview\s*\?:\s*0")
+
+    def test_sender_policy_change_invalidates_checkpoints(self):
+        store = source(INGESTION, "HistoricalImportCheckpointStore.kt")
+        importer = source(INGESTION, "HistoricalSmsImporter.kt")
+        approvals = source(ROOT / "app/src/main/java/com/kedevjimmy/pesatrack/data/local", "FinancialSmsSenderApprovalStore.kt")
+        self.assertIn("approvalRevision", store)
+        self.assertIn("expectedApprovalRevision", store)
+        self.assertIn("approvalRevision", importer)
+        self.assertIn("REVISION", approvals)
+        self.assertIn("withApprovedSenders", approvals)
 
     def test_unknown_sender_approval_requires_explicit_import_screen_action(self):
         screen = source(SCREENS, "HistoricalImportScreen.kt")

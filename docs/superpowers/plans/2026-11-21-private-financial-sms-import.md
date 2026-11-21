@@ -4,7 +4,7 @@
 
 **Goal:** Prevent importing or reading private SMS bodies and improve repeated/history import efficiency without changing financial truth.
 
-**Architecture:** A pure sender policy controls an Android SMS inbox reader that fetches metadata first and only loads bodies by trusted row IDs in bounded batches. Historical import and the other on-demand SMS readers consume this one reader; onboarding stops its second full scan.
+**Architecture:** A pure sender policy controls an Android SMS inbox reader that fetches metadata first and only loads bodies by trusted row ID and exact sender in bounded batches. Historical import and other SMS readers consume this reader; onboarding skips the second pass when the first found no pending unowned financial events.
 
 **Tech Stack:** Kotlin/JVM, Android `ContentResolver` SMS provider, existing SharedPreferences, SQLite importer, existing Compose theme, Python source contracts.
 
@@ -51,8 +51,8 @@
 
 **Files:** Modify `ui/screens/SmartOnboardingSetupScreen.kt`; `ui/screens/HistoricalImportScreen.kt`; create `ui/screens/FinancialSmsSenderApprovalSection.kt`; update `README.md`, `CURRENT_STATE.md`, `docs/PRIVACY_POLICY.md` and test source contracts.
 
-- [ ] Write a contract that fails if onboarding performs the same full-range SMS import both for discovery and again for account selection.
-- [ ] Remove redundant second inbox import; use existing identity/transfer reconciliation without losing canonical records.
+- [x] Write a contract that requires onboarding's follow-up import only when unowned events need it.
+- [x] Retain conditional replay for unowned bank debits/fees, in addition to identity/transfer reconciliation.
 - [ ] Add an existing-import-settings approval affordance for explicit sender names (no additional onboarding screen).
 - [ ] Run source contracts, JVM tests/lint/build via available toolchain or GitHub CI, and review diff for changed money meaning.
 

@@ -53,6 +53,8 @@ internal fun FinancialSmsSenderApprovalSection(importing: Boolean) {
                 onClick = {
                     if (!FinancialSmsSenderPolicy.canApprove(senderInput)) {
                         error = "Use a financial business name or short code, not a phone number."
+                    } else if (FinancialSmsSenderPolicy.isTrusted(senderInput)) {
+                        error = "This financial sender is already recognised by PesaTrack."
                     } else if (approvals.approve(senderInput)) {
                         approvedSenders = approvals.listApproved().sorted()
                         senderInput = ""

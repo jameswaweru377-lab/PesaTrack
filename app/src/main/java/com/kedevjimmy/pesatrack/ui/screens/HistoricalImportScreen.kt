@@ -177,7 +177,7 @@ fun HistoricalImportScreen(
             PesaCard {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Before reading SMS", style = MaterialTheme.typography.titleMedium)
-                    Text("With your agreement and Android permission, PesaTrack checks SMS sender names first and opens only messages from recognised or personally approved financial senders. It ignores unrelated message bodies. Financial messages stay on this phone. You can continue without SMS access.",
+                    Text("With your agreement and Android permission, PesaTrack checks SMS sender names first and opens only messages from recognised or personally approved financial senders. It ignores unrelated message bodies. Recent financial SMS may be checked again when you reopen the app to keep your activity up to date. Financial messages stay on this phone. You can continue without SMS access.",
                         style = MaterialTheme.typography.bodySmall)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = consentAccepted, enabled = !importing, onCheckedChange = { accepted ->

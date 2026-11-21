@@ -29,9 +29,7 @@ class SelectiveSmsInboxReader(private val context: Context) {
         selectionArgs: Array<String>,
         sortOrder: String,
         uri: Uri = Telephony.Sms.Inbox.CONTENT_URI,
-        acceptSender: (String?) -> Boolean = { sender ->
-            FinancialSmsSenderPolicy.isTrusted(sender, approvedSenders)
-        },
+        acceptSender: ((String?) -> Boolean)? = null,
         isCancelled: () -> Boolean = { false },
         onRow: (row: SelectiveSmsRow, total: Int) -> Boolean
     ): Boolean {
@@ -47,10 +45,20 @@ class SelectiveSmsInboxReader(private val context: Context) {
             val total = headersCursor.count.coerceAtLeast(0)
             val batch = ArrayList<Header>(HEADER_BATCH_SIZE)
 
+            val approvals = FinancialSmsSenderApprovalStore(context)
+
             fun flush(): Boolean {
                 if (isCancelled()) return false
-                val trusted = batch.filter { acceptSender(it.sender) }
-                val bodyById = readTrustedBodies(uri, trusted)
+                val bodyById = approvals.withApprovedSenders { extraSenders ->
+                    val trusted = batch.filter { header ->
+                        if (acceptSender == null) {
+                            FinancialSmsSenderPolicy.isTrusted(header.sender, extraSenders)
+                        } else {
+                            acceptSender(header.sender)
+                        }
+                    }
+                    if (isCancelled()) emptyMap() else readTrustedBodies(uri, trusted)
+                }
                 for (header in batch) {
                     if (isCancelled()) return false
                     SmsAccessConsentStore.requireConsent(context)
@@ -84,13 +92,15 @@ class SelectiveSmsInboxReader(private val context: Context) {
     private fun readTrustedBodies(uri: Uri, headers: List<Header>): Map<Long, String> {
         if (headers.isEmpty()) return emptyMap()
         SmsAccessConsentStore.requireRead(context)
-        val placeholders = List(headers.size) { "?" }.joinToString(",")
-        val selection = BaseColumns._ID + " IN ($placeholders)"
+        // Binding both metadata values in SQL prevents reading a private SMS body
+        // if a provider changes/reuses the ID between the two queries.
+        val exactPair = "(" + BaseColumns._ID + " = ? AND " + Telephony.Sms.ADDRESS + " = ?)"
+        val selection = List(headers.size) { exactPair }.joinToString(" OR ")
         val approvedHeaders = headers.associateBy { it.id }
         val result = HashMap<Long, String>(headers.size)
         context.contentResolver.query(
             uri, BODY_PROJECTION, selection,
-            headers.map { it.id.toString() }.toTypedArray(), null
+            headers.flatMap { listOf(it.id.toString(), it.sender.orEmpty()) }.toTypedArray(), null
         )?.use { cursor ->
             val idColumn = cursor.getColumnIndexOrThrow(BaseColumns._ID)
             val senderColumn = cursor.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)
@@ -107,10 +117,6 @@ class SelectiveSmsInboxReader(private val context: Context) {
             }
         } ?: error("Approved SMS messages are temporarily unavailable.")
         return result
-    }
-
-    private val approvedSenders: Set<String> by lazy(LazyThreadSafetyMode.NONE) {
-        FinancialSmsSenderApprovalStore(context).listApproved()
     }
 
     private companion object {

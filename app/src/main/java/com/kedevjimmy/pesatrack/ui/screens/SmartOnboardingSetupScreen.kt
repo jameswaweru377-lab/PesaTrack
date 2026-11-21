@@ -1404,9 +1404,21 @@ fun SmartOnboardingSetupScreen(
                         )
                     }
                 }
-                // The first scan already preserved financial evidence. Ownership
-                // confirmation above reconciles pending records without a second
-                // full read of the SMS inbox.
+                // Before ownership is confirmed, unowned bank payments and fees
+                // are counted as pending but not stored. Replay only if the first
+                // scan encountered them; duplicate records remain idempotent.
+                if (
+                    (importResult?.pendingReview ?: 0) > 0 &&
+                    selectedKeys.isNotEmpty() && smsGranted && selectedImportStartEpochMs != null
+                ) {
+                    selectedImportStartEpochMs?.let { startEpochMs ->
+                        HistoricalSmsImporter(context.applicationContext).importSince(
+                            sinceEpochMs = startEpochMs,
+                            rebuildPayCycles = false,
+                            untilEpochMsExclusive = selectedImportEndExclusiveEpochMs
+                        )
+                    }
+                }
                 if (directSources.any { it.providerKey == "SAFARICOM_MPESA" }) {
                     transactionStore.reconcileOwnAccountTransfers(rebuildPayCycles = false)
                 }

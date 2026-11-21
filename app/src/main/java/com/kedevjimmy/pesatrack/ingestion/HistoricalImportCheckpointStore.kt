@@ -1,13 +1,15 @@
 package com.kedevjimmy.pesatrack.ingestion
 
 import android.content.Context
+import com.kedevjimmy.pesatrack.data.local.FinancialSmsSenderApprovalStore
 
 data class HistoricalImportCheckpoint(
     val resumeKey: String,
     val sinceEpochMs: Long,
     val lastSmsDateEpochMs: Long,
     val lastSmsId: Long,
-    val updatedAtEpochMs: Long
+    val updatedAtEpochMs: Long,
+    val approvalRevision: Long = 0L
 )
 
 class HistoricalImportCheckpointStore(
@@ -19,12 +21,14 @@ class HistoricalImportCheckpointStore(
                 PREFS_NAME,
                 Context.MODE_PRIVATE
             )
+    private val approvals = FinancialSmsSenderApprovalStore(context)
 
     fun load(
         resumeKey: String,
         nowEpochMs: Long =
             System.currentTimeMillis(),
-        expectedSinceEpochMs: Long? = null
+        expectedSinceEpochMs: Long? = null,
+        expectedApprovalRevision: Long = approvals.revision()
     ): HistoricalImportCheckpoint? {
         val storedKey =
             prefs.getString(
@@ -56,12 +60,14 @@ class HistoricalImportCheckpointStore(
                 KEY_UPDATED_AT_EPOCH_MS,
                 0L
             )
+        val approvalRevision = prefs.getLong(KEY_APPROVAL_REVISION, -1L)
 
         val age =
             nowEpochMs - updatedAtEpochMs
 
         if (
-            sinceEpochMs <= 0L ||
+            sinceEpochMs < 0L ||
+            approvalRevision != expectedApprovalRevision ||
             (expectedSinceEpochMs != null &&
                 sinceEpochMs != expectedSinceEpochMs) ||
             lastSmsDateEpochMs <= 0L ||
@@ -81,8 +87,8 @@ class HistoricalImportCheckpointStore(
             lastSmsDateEpochMs =
                 lastSmsDateEpochMs,
             lastSmsId = lastSmsId,
-            updatedAtEpochMs =
-                updatedAtEpochMs
+            updatedAtEpochMs = updatedAtEpochMs,
+            approvalRevision = approvalRevision
         )
     }
 
@@ -92,11 +98,12 @@ class HistoricalImportCheckpointStore(
         lastSmsDateEpochMs: Long,
         lastSmsId: Long,
         nowEpochMs: Long =
-            System.currentTimeMillis()
+            System.currentTimeMillis(),
+        approvalRevision: Long = approvals.revision()
     ) {
         if (
             resumeKey.isBlank() ||
-            sinceEpochMs <= 0L ||
+            sinceEpochMs < 0L ||
             lastSmsDateEpochMs <= 0L ||
             lastSmsDateEpochMs < sinceEpochMs ||
             lastSmsId < 0L
@@ -104,7 +111,11 @@ class HistoricalImportCheckpointStore(
             return
         }
 
-        prefs.edit()
+        approvals.withApprovedSenders {
+            // An in-flight scan using an older sender policy must never overwrite
+            // a checkpoint that a future import could incorrectly resume.
+            if (approvals.revision() != approvalRevision) return@withApprovedSenders
+            prefs.edit()
             .putString(
                 KEY_RESUME_KEY,
                 resumeKey
@@ -125,7 +136,9 @@ class HistoricalImportCheckpointStore(
                 KEY_UPDATED_AT_EPOCH_MS,
                 nowEpochMs
             )
+            .putLong(KEY_APPROVAL_REVISION, approvalRevision)
             .apply()
+        }
     }
 
     fun clear() {
@@ -148,6 +161,7 @@ class HistoricalImportCheckpointStore(
             "last_sms_id"
         private const val KEY_UPDATED_AT_EPOCH_MS =
             "updated_at_epoch_ms"
+        private const val KEY_APPROVAL_REVISION = "sender_policy_revision"
 
         private const val MAX_CHECKPOINT_AGE_MS =
             7L * 24L * 60L * 60L * 1_000L

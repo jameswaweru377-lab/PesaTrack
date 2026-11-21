@@ -106,6 +106,9 @@ class HistoricalSmsImporter(
             HistoricalImportCheckpointStore(
                 context
             )
+        val senderApprovalStore =
+            com.kedevjimmy.pesatrack.data.local.FinancialSmsSenderApprovalStore(context)
+        val approvalRevision = senderApprovalStore.revision()
         val normalizedResumeKey =
             resumeKey
                 ?.trim()
@@ -118,7 +121,8 @@ class HistoricalSmsImporter(
             ) {
                 checkpointStore.load(
                     resumeKey = normalizedResumeKey,
-                    expectedSinceEpochMs = sinceEpochMs
+                    expectedSinceEpochMs = sinceEpochMs,
+                    expectedApprovalRevision = approvalRevision
                 )
             } else {
                 null
@@ -207,11 +211,11 @@ class HistoricalSmsImporter(
             sortOrder = Telephony.Sms.DATE +
                 " ASC, " +
                 BaseColumns._ID + " ASC",
-            isCancelled = isCancelled
+            isCancelled = { isCancelled() || senderApprovalStore.revision() != approvalRevision }
         ) { row, total ->
                 totalRows = total
                 SmsAccessConsentStore.requireConsent(context)
-                if (isCancelled()) {
+                if (isCancelled() || senderApprovalStore.revision() != approvalRevision) {
                     cancelled = true
                     return@scan false
                 }
@@ -408,7 +412,8 @@ class HistoricalSmsImporter(
                             lastSmsDateEpochMs =
                                 smsDate,
                             lastSmsId =
-                                smsId
+                                smsId,
+                            approvalRevision = approvalRevision
                         )
                     }
                     publishProgress()
@@ -437,7 +442,8 @@ class HistoricalSmsImporter(
                         lastSmsDateEpochMs =
                             lastProcessedSmsDate,
                         lastSmsId =
-                            lastProcessedSmsId
+                            lastProcessedSmsId,
+                        approvalRevision = approvalRevision
                     )
                 }
                 publishProgress(force = true)
