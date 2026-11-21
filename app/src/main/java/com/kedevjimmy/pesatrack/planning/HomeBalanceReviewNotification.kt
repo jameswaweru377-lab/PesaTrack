@@ -11,6 +11,7 @@ import com.kedevjimmy.pesatrack.MainActivity
 import com.kedevjimmy.pesatrack.data.local.CanonicalStoreLock
 import com.kedevjimmy.pesatrack.domain.rules.BalanceReviewReminderPolicy
 import com.kedevjimmy.pesatrack.domain.rules.SmartNoticeKind
+import com.kedevjimmy.pesatrack.security.BackupRecoveryStatus
 import java.util.Calendar
 
 /** A quiet, permission-aware alternative to persistent balance-check cards on Home. */
@@ -38,18 +39,27 @@ object HomeBalanceReviewNotification {
 
         val preferences = SmartNoticePreferences(appContext)
         val now = System.currentTimeMillis()
+        val signature = SmartNoticePreferences.hash(missingAccountIds.distinct().sorted().joinToString("\n"))
+        val state = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val postedSignature = state.getString("signature", "").orEmpty()
+        if (!BalanceReviewReminderPolicy.postedSetIsCurrent(postedSignature, signature)) {
+            // Withdraw the old count even when a new reminder is still on cooldown.
+            manager.cancel(ID)
+        }
         if (!preferences.enabled(SmartNoticeKind.ACCOUNT) || preferences.mode() == "off" ||
             preferences.snoozeUntil() > now) {
+            cancel(appContext)
+            return
+        }
+        if (BackupRecoveryStatus.failure != null || !preferences.importReady()) {
             cancel(appContext)
             return
         }
         if (!PhoneNotificationChannels.canPost(appContext)) return
 
         // Persist only a hash; account IDs and balances never enter notification history.
-        val signature = SmartNoticePreferences.hash(missingAccountIds.distinct().sorted().joinToString("\n"))
-        val state = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (!BalanceReviewReminderPolicy.shouldPost(
-                signature, state.getString("signature", "").orEmpty(),
+                signature, postedSignature,
                 state.getLong("shown_at", 0L), now, preferences.lastBanner(),
                 Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
             )) return

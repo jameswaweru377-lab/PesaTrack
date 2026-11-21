@@ -41,4 +41,10 @@ class BalanceReviewReminderPolicyTest {
         assertTrue(BalanceReviewReminderPolicy.shouldPost("new", "", 0L, now, localHour = 19))
         assertFalse(BalanceReviewReminderPolicy.shouldPost("new", "", 0L, now, localHour = 20))
     }
+
+    @Test fun postedCountBecomesStaleWhenAccountsChangeEvenDuringCooldown() {
+        assertTrue(BalanceReviewReminderPolicy.postedSetIsCurrent("old", "old"))
+        assertFalse(BalanceReviewReminderPolicy.postedSetIsCurrent("old", "new"))
+        assertFalse(BalanceReviewReminderPolicy.postedSetIsCurrent("", "new"))
+    }
 }
