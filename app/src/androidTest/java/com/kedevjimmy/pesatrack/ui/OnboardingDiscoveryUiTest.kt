@@ -42,8 +42,7 @@ class OnboardingDiscoveryUiTest {
         compose.runOnIdle { assertTrue(selected) }
     }
 
-    @Test fun accountListSupportsSkippingWithoutAnyOwnershipSelection() {
-        var continued = false
+    @Test fun accountListRequiresOwnershipConfirmation() {
         compose.setContent {
             PesaTrackTheme(darkTheme = true) {
                 ReviewDiscoveryPage(
@@ -51,13 +50,12 @@ class OnboardingDiscoveryUiTest {
                     selectedOwnedKeys = emptySet(), mpesaIdentifierHint = null, importResult = null, applying = false,
                     onToggleAccount = { _, _ -> },
                     onSelectInstitution = { _, _ -> },
-                    onContinue = { continued = true }
+                    onContinue = { error("No account was selected") }
                 )
             }
         }
         compose.onNodeWithText("Which accounts are yours?").assertExists()
-        compose.onNodeWithText("Continue with selected").performClick()
-        compose.runOnIdle { assertTrue(continued) }
+        compose.onNodeWithText("Confirm my accounts").assertIsNotEnabled()
     }
 
     @Test fun missingBankDirectoryOpensOnlyWhenRequested() {

@@ -15,6 +15,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -145,6 +146,7 @@ import kotlinx.coroutines.launch
 
 private enum class SmartSetupStage {
     WELCOME,
+    PROFILE,
     IMPORT,
     SMS_PERMISSION,
     ANALYZE,
@@ -159,6 +161,7 @@ private enum class SmartSetupStage {
 }
 
 private const val CUSTOM_IMPORT_SELECTION = 3
+private const val ALL_HISTORY_SELECTION = 4
 
 private enum class AnalysisStep {
     SCANNING,
@@ -242,7 +245,7 @@ fun SmartOnboardingSetupScreen(
     var smsHandled by rememberSaveable { mutableStateOf(false) }
     var notificationsHandled by rememberSaveable { mutableStateOf(false) }
     var importMonths by rememberSaveable {
-        mutableStateOf(2)
+        mutableStateOf(ALL_HISTORY_SELECTION)
     }
     var customImportStartDateEpochMs by rememberSaveable {
         mutableStateOf(defaultCustomImportStartDateEpochMs())
@@ -265,6 +268,7 @@ fun SmartOnboardingSetupScreen(
     val selectedImportStartEpochMs = when (importMonths) {
         1, 2 -> OnboardingHistoryWindow.importStartEpochMs(importMonths)
         CUSTOM_IMPORT_SELECTION -> customImportRange?.startEpochMs
+        ALL_HISTORY_SELECTION -> 0L
         else -> null
     }
     val selectedImportEndExclusiveEpochMs = customImportRange?.endExclusiveEpochMs
@@ -280,6 +284,8 @@ fun SmartOnboardingSetupScreen(
     var smsDenied by rememberSaveable {
         mutableStateOf(false)
     }
+    var notificationPromptLaunched by rememberSaveable { mutableStateOf(false) }
+    var accountSaveError by remember { mutableStateOf<String?>(null) }
     var importResult by remember {
         mutableStateOf<HistoricalImportResult?>(null)
     }
@@ -419,8 +425,21 @@ fun SmartOnboardingSetupScreen(
             smsGranted = granted
             smsDenied = !granted
             smsHandled = true
-            if (!granted) accessStarted = false
+            if (!granted) {
+                // Android denied the grant; never read SMS. Manual bank choice remains available.
+                accessStarted = false
+                stage = SmartSetupStage.ANALYZE
+            }
         }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        notificationsHandled = true
+        if (stage == SmartSetupStage.ANALYZE && analysisStep == AnalysisStep.COMPLETE) {
+            stage = SmartSetupStage.REVIEW
+        }
+    }
 
     val appInfoLauncher =
         rememberLauncherForActivityResult(
@@ -509,14 +528,13 @@ fun SmartOnboardingSetupScreen(
                 }
             }
             MessageAccessAction.OPEN_NOTIFICATIONS -> {
-                // Notification listening is optional and can be enabled later in More.
-                // Do not interrupt the first-run SMS import with a second permission.
+                // Notification access is optional; do not add another first-run screen.
                 accessStarted = false
-                stage = SmartSetupStage.IMPORT
+                stage = SmartSetupStage.ANALYZE
             }
             MessageAccessAction.CONTINUE -> {
                 accessStarted = false
-                stage = SmartSetupStage.IMPORT
+                stage = SmartSetupStage.ANALYZE
             }
         }
     }
@@ -576,8 +594,8 @@ fun SmartOnboardingSetupScreen(
                     diagnosticsStore
                         .recent(500)
                         .filter {
-                            it.receivedAtEpochMs >=
-                                cutoff
+                            it.receivedAtEpochMs >= cutoff &&
+                                OnboardingInstitutionPresentationPolicy.isTransactionEvidence(it)
                         }
 
                 val sources =
@@ -801,8 +819,16 @@ fun SmartOnboardingSetupScreen(
         analysisStep =
             AnalysisStep.COMPLETE
         delay(180)
-        stage =
-            SmartSetupStage.REVIEW
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !notificationPromptLaunched && ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPromptLaunched = true
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            stage = SmartSetupStage.REVIEW
+        }
     }
 
     LaunchedEffect(
@@ -1361,6 +1387,23 @@ fun SmartOnboardingSetupScreen(
                         entityKey = reference.entityKey, rebuildPayCycles = false
                     )
                 }
+                // The profile number becomes an owned M-PESA identifier only after
+                // the user explicitly selects M-PESA on this account screen.
+                if (directSources.any { it.providerKey == "SAFARICOM_MPESA" }) {
+                    val phone = context.getSharedPreferences(
+                        "pesatrack_preferences", Context.MODE_PRIVATE
+                    ).getString("profile_mpesa_phone", null)
+                    if (phone != null) {
+                        val wallet = accountStore.listAccounts(enabledOnly = false)
+                            .firstOrNull { it.id == AccountStore.DEFAULT_MPESA_ID }
+                        accountStore.updateDetails(
+                            id = AccountStore.DEFAULT_MPESA_ID,
+                            identifier = phone,
+                            openingBalanceMinor = wallet?.openingBalanceMinor,
+                            openingBalanceAsOfEpochMs = wallet?.openingBalanceAsOfEpochMs
+                        )
+                    }
+                }
                 if (selectedKeys.isNotEmpty() && smsGranted && selectedImportStartEpochMs != null) {
                     selectedImportStartEpochMs?.let { startEpochMs ->
                         HistoricalSmsImporter(context.applicationContext).importSince(
@@ -1369,6 +1412,9 @@ fun SmartOnboardingSetupScreen(
                             untilEpochMsExclusive = selectedImportEndExclusiveEpochMs
                         )
                     }
+                }
+                if (directSources.any { it.providerKey == "SAFARICOM_MPESA" }) {
+                    transactionStore.reconcileOwnAccountTransfers(rebuildPayCycles = false)
                 }
                 if (selectedKeys.isNotEmpty()) payCycleStore.rebuild()
             }
@@ -1616,7 +1662,10 @@ fun SmartOnboardingSetupScreen(
     BackHandler(
         enabled =
             stage != SmartSetupStage.SMS_PERMISSION &&
-                stage != SmartSetupStage.WELCOME
+                stage != SmartSetupStage.WELCOME &&
+                stage != SmartSetupStage.PROFILE &&
+                stage != SmartSetupStage.ANALYZE &&
+                stage != SmartSetupStage.REVIEW
     ) {
         if (onboardingBusy) {
             return@BackHandler
@@ -1631,7 +1680,7 @@ fun SmartOnboardingSetupScreen(
                 SmartSetupStage
                     .ANALYZE -> {
                     analysisReviewMode = false
-                    SmartSetupStage.IMPORT
+                    SmartSetupStage.SMS_PERMISSION
                 }
 
                 SmartSetupStage
@@ -1680,1525 +1729,86 @@ fun SmartOnboardingSetupScreen(
 
                 SmartSetupStage.WELCOME ->
                     SmartSetupStage.WELCOME
+
+                SmartSetupStage.PROFILE ->
+                    SmartSetupStage.WELCOME
             }
     }
 
-    BackHandler(enabled = chooseInstitutions) { chooseInstitutions = false }
-    if (chooseInstitutions) {
-        FinancialInstitutionsRedesignScreen(scaffoldPadding) { chooseInstitutions = false }
+    // Four-screen first-run route. Legacy optional detail steps are available after setup,
+    // but they cannot interrupt the approved profile → scan → ownership path.
+    if (stage == SmartSetupStage.WELCOME) {
+        PesaTrackWelcomePage(onGetStarted = { stage = SmartSetupStage.PROFILE })
         return
     }
-    if (stage == SmartSetupStage.SMS_PERMISSION) {
-        Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
-            .windowInsetsPadding(WindowInsets.safeDrawing).padding(scaffoldPadding).padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            OnboardingPremiumHeader()
-            Box(Modifier.fillMaxWidth().weight(1f)) {
-            SmartSmsPermissionPage(
-                accepted = disclosureAccepted, busy = accessStarted, denied = smsDenied, consentError = consentError,
-                selectedRangeDescription = when (importMonths) {
-                    1 -> "1 completed month plus this month to date"
-                    2 -> "2 completed months plus this month to date"
-                    CUSTOM_IMPORT_SELECTION -> customImportRange?.let {
-                        "${formatOnboardingDate(it.startEpochMs)} – ${formatOnboardingDate(customImportEndDateEpochMs)}"
-                    }
-                    else -> null
+    if (stage == SmartSetupStage.PROFILE) {
+        OnboardingLocalProfilePage(onProceed = {
+            disclosureAccepted = SmsAccessConsentStore.hasConsent(context)
+            importMonths = ALL_HISTORY_SELECTION
+            accessStarted = true
+            smsPromptLaunched = false
+            smsHandled = smartHasSmsPermission(context)
+            stage = SmartSetupStage.SMS_PERMISSION
+        })
+        return
+    }
+    if (stage == SmartSetupStage.SMS_PERMISSION || stage == SmartSetupStage.ANALYZE) {
+        val phase = when (analysisStep) {
+            AnalysisStep.SCANNING -> "Importing transactions…"
+            AnalysisStep.ACCOUNTS -> "Finding your accounts…"
+            AnalysisStep.INCOME -> "Checking transfers…"
+            AnalysisStep.DUPLICATES -> "Checking for duplicates…"
+            AnalysisStep.COMPLETE -> "Finishing up…"
+        }
+        OnboardingDarkScanPage(importing = smsGranted, phase = phase)
+        return
+    }
+    if (stage == SmartSetupStage.REVIEW) {
+        androidx.compose.foundation.layout.Column(
+            Modifier.fillMaxSize().background(com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens.darkCanvas)
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(scaffoldPadding)
+                .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 24.dp)
+        ) {
+            ReviewDiscoveryPage(
+                sources = detectedSources,
+                selectedOwnedKeys = selectedOwnedKeys,
+                mpesaIdentifierHint = mpesaPhoneSuggestion,
+                importResult = importResult,
+                applying = reviewSaving,
+                error = accountSaveError,
+                onToggleAccount = { key, checked ->
+                    selectedOwnedKeys = if (checked) selectedOwnedKeys + key else selectedOwnedKeys - key
+                    accountSaveError = null
                 },
-                restrictedHelp = smsDenied && smartIsLikelySideloaded(context),
-                onAccepted = {
-                    val revoked = if (it) true else {
-                        val sourcesSaved = com.kedevjimmy.pesatrack.ingestion.NotificationSourceTrustStore(context).revokeAll()
-                        val smsSaved = SmsAccessConsentStore.setAccepted(context, false)
-                        sourcesSaved && smsSaved
-                    }
-                    if (revoked) {
-                        disclosureAccepted = it
-                        consentError = null
-                    } else consentError = "Your choice could not be saved. Please try again."
-                },
-                onOpenAppInfo = {
-                    smsAppInfoVisited = true
-                    appInfoLauncher.launch(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.parse("package:" + context.packageName)))
-                },
-                onTryAgain = {
-                    if (disclosureAccepted && SmsAccessConsentStore.setAccepted(context, true)) {
-                        smsDenied = false
-                        smsHandled = false
-                        smsPromptLaunched = false
-                        accessStarted = true
-                    } else consentError = "Your choice could not be saved. Please try again."
+                onSelectInstitution = { reference, checked ->
+                    manualInstitutionReferences = if (checked)
+                        manualInstitutionReferences + (reference.entityKey to reference)
+                    else manualInstitutionReferences - reference.entityKey
+                    selectedOwnedKeys = if (checked)
+                        selectedOwnedKeys + reference.entityKey
+                    else selectedOwnedKeys - reference.entityKey
+                    accountSaveError = null
                 },
                 onContinue = {
-                    if (disclosureAccepted && SmsAccessConsentStore.setAccepted(context, true)) {
-                        consentError = null
-                        accessStarted = true
-                    } else consentError = "Your choice could not be saved. Please try again."
-                },
-                onContinueWithout = {
-                    val sourcesSaved = com.kedevjimmy.pesatrack.ingestion.NotificationSourceTrustStore(context).revokeAll()
-                    val smsSaved = SmsAccessConsentStore.setAccepted(context, false)
-                    if (sourcesSaved && smsSaved) {
-                        disclosureAccepted = false
-                        importMonths = 0
-                        accessStarted = false
-                        stage = SmartSetupStage.ANALYZE
-                    } else consentError = "Your choice could not be saved. Please try again."
+                    if (!reviewSaving && selectedOwnedKeys.isNotEmpty()) setupScope.launch {
+                        accountSaveError = null
+                        try {
+                            completedInstitutionKeys = selectedOwnedKeys
+                            completionInstitutionCount = selectedOwnedKeys.size
+                            applySelectedAccountOwnership()
+                            onDone()
+                        } catch (_: Exception) {
+                            accountSaveError = "Could not save your accounts. Please try again."
+                        }
+                    }
                 }
-            )
-            }
+            )
         }
         return
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                MaterialTheme.colorScheme
-                    .background
-            )
-            .windowInsetsPadding(
-                WindowInsets.safeDrawing
-            )
-            .padding(scaffoldPadding),
-        contentPadding =
-            PaddingValues(
-                horizontal = 18.dp,
-                vertical = 20.dp
-            ),
-        verticalArrangement =
-            Arrangement.spacedBy(16.dp)
-    ) {
-        item { OnboardingPremiumHeader() }
-
-        when (stage) {
-            SmartSetupStage.WELCOME -> {
-                item {
-                    PesaTrackWelcomePage(
-                        onGetStarted = { stage = SmartSetupStage.SMS_PERMISSION },
-                        onSkip = {
-                            importMonths = 0
-                            stage = SmartSetupStage.ANALYZE
-                        }
-                    )
-                }
-            }
-
-            SmartSetupStage.IMPORT -> {
-                item {
-                    ImportChoicePage(
-                        selectedMonths =
-                            importMonths,
-                        customStartDateEpochMs = customImportStartDateEpochMs,
-                        customEndDateEpochMs = customImportEndDateEpochMs,
-                        canContinue = importSelectionValid,
-                        onSelected = {
-                            importMonths = it
-                            smsDenied = false
-                        },
-                        onCustomStartDateSelected = {
-                            customImportStartDateEpochMs = it
-                            importMonths = CUSTOM_IMPORT_SELECTION
-                            smsDenied = false
-                        },
-                        onCustomEndDateSelected = {
-                            customImportEndDateEpochMs = it
-                            importMonths = CUSTOM_IMPORT_SELECTION
-                            smsDenied = false
-                        },
-                        onLater = {
-                            importMonths = 0
-                            smsDenied = false
-                            stage = SmartSetupStage.ANALYZE
-                        },
-                        onContinue = {
-                            if (
-                                importMonths == 0 ||
-                                (importSelectionValid && MessageAccessPolicy.canImport(
-                                    disclosureAccepted, smsGranted, importMonths
-                                ))
-                            ) {
-                                stage =
-                                    SmartSetupStage
-                                        .ANALYZE
-                            } else {
-                                smsPromptLaunched =
-                                    false
-                                stage =
-                                    SmartSetupStage
-                                        .SMS_PERMISSION
-                            }
-                        }
-                    )
-                }
-            }
-
-            SmartSetupStage.SMS_PERMISSION -> Unit
-
-            SmartSetupStage.ANALYZE -> {
-                item {
-                    ApprovedAnalysisPage(
-                        importing =
-                            importSelectionValid && MessageAccessPolicy.canImport(
-                                disclosureAccepted, smsGranted, importMonths
-                            ),
-                        progressStep = analysisStep.ordinal,
-                        reviewMode =
-                            analysisReviewMode,
-                        onContinue = {
-                            analysisReviewMode = false
-                            stage = SmartSetupStage.REVIEW
-                        }
-                    )
-                }
-            }
-
-            SmartSetupStage.REVIEW -> {
-                item {
-                    ReviewDiscoveryPage(
-                        sources =
-                            detectedSources,
-                        selectedOwnedKeys = selectedOwnedKeys,
-                        mpesaIdentifierHint = mpesaPhoneSuggestion,
-                        importResult = importResult,
-                        applying = reviewSaving,
-                        onToggleAccount = { key, checked ->
-                            selectedOwnedKeys = if (checked) selectedOwnedKeys + key
-                            else selectedOwnedKeys - key
-                        },
-                        onSelectInstitution = { reference, checked ->
-                            manualInstitutionReferences = if (checked) {
-                                manualInstitutionReferences + (reference.entityKey to reference)
-                            } else manualInstitutionReferences - reference.entityKey
-                            selectedOwnedKeys = if (checked) selectedOwnedKeys + reference.entityKey
-                            else selectedOwnedKeys - reference.entityKey
-                        },
-                        onContinue = {
-                            setupScope.launch {
-                                val wantsMpesa = (detectedSources.map { it.reference } + manualInstitutionReferences.values).any {
-                                    it.providerKey == "SAFARICOM_MPESA" &&
-                                        it.entityKey in selectedOwnedKeys
-                                }
-                                mpesaWasSelected = wantsMpesa
-                                completedInstitutionKeys = selectedOwnedKeys
-                                completionInstitutionCount = selectedOwnedKeys.size
-                                applySelectedAccountOwnership()
-                                // Essentials are complete once account ownership is confirmed.
-                                // Optional M-Pesa services, payday and account labels are in the app.
-                                stage = SmartSetupStage.COMPLETE
-                            }
-                        }
-                    )
-                }
-            }
-
-            SmartSetupStage.SALARY_MANUAL -> {
-                item {
-                    ManualSalaryPage(
-                        context = context,
-                        accounts =
-                            availableAccounts,
-                        selectedAccountId =
-                            manualSalaryAccountId,
-                        payer =
-                            manualSalaryPayer,
-                        importMonths =
-                            selectedHistoryMonths.coerceIn(0, 3),
-                        historyMode =
-                            manualSalaryHistoryMode,
-                        drafts =
-                            manualSalaryDrafts,
-                        searchStatus =
-                            salaryHistorySearchStatus,
-                        error =
-                            manualSalaryError,
-                        saving =
-                            manualSalarySaving,
-                        savingLabel =
-                            manualSalarySavingLabel,
-                        onAccountSelected = {
-                            manualSalaryAccountId =
-                                it
-                            manualSalaryError =
-                                null
-                            salaryHistorySearchStatus =
-                                null
-                        },
-                        onPayerChanged = {
-                            manualSalaryPayer =
-                                it
-                            manualSalaryError =
-                                null
-                            salaryHistorySearchStatus =
-                                null
-                        },
-                        onHistoryModeChanged = {
-                                mode ->
-                            manualSalaryHistoryMode =
-                                mode
-                            manualSalaryDrafts =
-                                defaultSmartSalaryDrafts(
-                                    if (
-                                        mode ==
-                                        SalaryHistoryMode
-                                            .LATEST_ONLY
-                                    ) {
-                                        1
-                                    } else {
-                                        importMonths
-                                            .coerceAtLeast(
-                                                1
-                                            )
-                                    }
-                                )
-                            salaryHistorySearchStatus =
-                                null
-                            manualSalaryError =
-                                null
-                        },
-                        onSearchHistory = {
-                            setupScope.launch {
-                                searchImportedSalaryHistory()
-                            }
-                        },
-                        onDraftAmountChanged = {
-                                index,
-                                value ->
-                            manualSalaryDrafts =
-                                manualSalaryDrafts
-                                    .mapIndexed {
-                                            itemIndex,
-                                            draft ->
-                                        if (
-                                            itemIndex ==
-                                            index
-                                        ) {
-                                            draft.copy(
-                                                amount =
-                                                    value,
-                                                matchedTransactionId =
-                                                    null
-                                            )
-                                        } else {
-                                            draft
-                                        }
-                                    }
-                            manualSalaryError =
-                                null
-                        },
-                        onDraftDateSelected = {
-                                index,
-                                value ->
-                            manualSalaryDrafts =
-                                manualSalaryDrafts
-                                    .mapIndexed {
-                                            itemIndex,
-                                            draft ->
-                                        if (
-                                            itemIndex ==
-                                            index
-                                        ) {
-                                            draft.copy(
-                                                paidAtEpochMs =
-                                                    value,
-                                                matchedTransactionId =
-                                                    null
-                                            )
-                                        } else {
-                                            draft
-                                        }
-                                    }
-                            manualSalaryError =
-                                null
-                        },
-                        onSave = {
-                            if (!manualSalarySaving) {
-                                manualSalarySaving =
-                                    true
-                                manualSalarySavingLabel =
-                                    "Saving salary entries…"
-                                manualSalaryError =
-                                    null
-                                setupScope.launch {
-                                    try {
-                                        if (
-                                            applyManualSalary()
-                                        ) {
-                                            stage = SmartSetupStage.COMPLETE
-                                        }
-                                    } catch (
-                                        error: Throwable
-                                    ) {
-                                        manualSalaryError =
-                                            "PesaTrack could not save your salary yet. Please try again."
-                                    } finally {
-                                        manualSalarySaving =
-                                            false
-                                    }
-                                }
-                            }
-                        },
-                        onSkip = {
-                            stage = SmartSetupStage.SALARY_OPTIONAL
-                        }
-                    )
-                }
-            }
-
-            SmartSetupStage.MPESA_CONFIRM -> {
-                item {
-                    MpesaConfirmationPage(
-                        suggestedPhone =
-                            mpesaPhoneSuggestion
-                                .orEmpty(),
-                        manualMode =
-                            manualPhoneMode,
-                        manualPhone =
-                            manualMpesaPhone,
-                        error = phoneError,
-                        busy =
-                            mpesaConfirmationBusy,
-                        lockedAccountChecked =
-                            linkedSavingsChoices["NCBA_MSHWARI_LOCK_SAVINGS"] == OnboardingOwnershipChoice.MINE,
-                        onLockedAccountChanged = { enabled ->
-                            linkedSavingsChoices = if (enabled) {
-                                linkedSavingsChoices + (
-                                    "NCBA_MSHWARI_LOCK_SAVINGS" to OnboardingOwnershipChoice.MINE
-                                )
-                            } else {
-                                linkedSavingsChoices - "NCBA_MSHWARI_LOCK_SAVINGS"
-                            }
-                        },
-                        onManualChanged = {
-                            manualMpesaPhone = it
-                            phoneError = null
-                        },
-                        onConfirmSuggested = {
-                            val suggested =
-                                mpesaPhoneSuggestion
-                                    .orEmpty()
-                            if (
-                                !mpesaConfirmationBusy
-                            ) {
-                                mpesaConfirmationBusy =
-                                    true
-                                setupScope.launch {
-                                    try {
-                                        if (
-                                            confirmMpesaPhone(
-                                                suggested
-                                            )
-                                        ) {
-                                            if (linkedSavingsChoices["NCBA_MSHWARI_LOCK_SAVINGS"] != OnboardingOwnershipChoice.MINE ||
-                                                applyLinkedSavingsChoices()
-                                            ) {
-                                                stage = nextAfterMpesaSetup()
-                                            } else {
-                                                phoneError = linkedSavingsError
-                                            }
-                                        }
-                                    } finally {
-                                        mpesaConfirmationBusy =
-                                            false
-                                    }
-                                }
-                            }
-                        },
-                        onChooseAnother = {
-                            manualPhoneMode = true
-                        },
-                        onSaveManual = {
-                            if (
-                                !mpesaConfirmationBusy
-                            ) {
-                                mpesaConfirmationBusy =
-                                    true
-                                setupScope.launch {
-                                    try {
-                                        if (
-                                            confirmMpesaPhone(
-                                                manualMpesaPhone
-                                            )
-                                        ) {
-                                            if (linkedSavingsChoices["NCBA_MSHWARI_LOCK_SAVINGS"] != OnboardingOwnershipChoice.MINE ||
-                                                applyLinkedSavingsChoices()
-                                            ) {
-                                                stage = nextAfterMpesaSetup()
-                                            } else {
-                                                phoneError = linkedSavingsError
-                                            }
-                                        }
-                                    } finally {
-                                        mpesaConfirmationBusy =
-                                            false
-                                    }
-                                }
-                            }
-                        },
-                        onSkip = {
-                            setupScope.launch {
-                                    stage =
-                                        nextAfterMpesaSetup()
-                                }
-                        }
-                    )
-                }
-            }
-
-            SmartSetupStage.MPESA_SERVICES -> {
-                item {
-                    ApprovedMpesaServicesPage(
-                        detectedServices = detectedMpesaServices(),
-                        allSupportedServices = linkedSavingsOptions,
-                        activityCounts = detectedSources.associate { source -> source.reference.entityKey to source.messageCount },
-                        selectedProviderKeys = linkedSavingsChoices.filterValues { it == OnboardingOwnershipChoice.MINE }.keys,
-                        saving = linkedSavingsSaving,
-                        error = linkedSavingsError,
-                        onToggle = { provider, selected ->
-                            linkedSavingsChoices = if (selected) linkedSavingsChoices + (provider to OnboardingOwnershipChoice.MINE)
-                            else linkedSavingsChoices - provider
-                        },
-                        onContinue = {
-                            setupScope.launch {
-                                if (applyLinkedSavingsChoices()) {
-                                    completionServiceCount = linkedSavingsChoices.count { it.value == OnboardingOwnershipChoice.MINE }
-                                    stage = SmartSetupStage.ACCOUNT_DETAILS
-                                }
-                            }
-                        },
-                        onSkip = {
-                            linkedSavingsChoices = emptyMap()
-                            completionServiceCount = 0
-                            stage = SmartSetupStage.ACCOUNT_DETAILS
-                        }
-                    )
-                }
-            }
-
-            SmartSetupStage.ACCOUNT_DETAILS -> {
-                item {
-                    PesaTrackAccountDetailsPage(
-                        accounts = availableAccounts,
-                        labels = accountLabels,
-                        lastFourHints = bankLastFourHints,
-                        mpesaSelected = mpesaWasSelected,
-                        suggestedMpesaNumber = mpesaPhoneSuggestion,
-                        mpesaNumberAccepted = mpesaSuggestedNumberAccepted,
-                        mpesaPhoneInput = mpesaPhoneInput,
-                        saving = identitySaving,
-                        error = identityError,
-                        onLabelChanged = { id, label ->
-                            accountLabels = accountLabels + (id to label)
-                            identityError = null
-                        },
-                        onLastFourChanged = { id, suffix ->
-                            bankLastFourHints = bankLastFourHints + (id to suffix)
-                            identityError = null
-                        },
-                        onMpesaNumberAccepted = { mpesaSuggestedNumberAccepted = it },
-                        onMpesaPhoneChanged = { mpesaPhoneInput = it.filter { char -> char.isDigit() || char == '+' }.take(16) },
-                        onSaveAndContinue = { saveAccountDetails() },
-                        onSkip = { stage = SmartSetupStage.COMPLETE }
-                    )
-                }
-            }
-
-            SmartSetupStage.SALARY_OPTIONAL -> {
-                item {
-                    OnboardingSalaryChoicePage(
-                        suggestion = salarySuggestion,
-                        saving = salaryConfirmationSaving,
-                        error = salaryConfirmationError,
-                        onConfirmDetected = {
-                            if (!salaryConfirmationSaving && salarySuggestion != null) {
-                                salaryConfirmationSaving = true
-                                salaryConfirmationError = null
-                                salaryAccepted = true
-                                setupScope.launch {
-                                    try {
-                                        applySalaryIfConfirmed()
-                                        stage = SmartSetupStage.COMPLETE
-                                    } catch (_: Exception) {
-                                        salaryAccepted = false
-                                        salaryConfirmationError = "Could not save salary yet. Please try again or skip."
-                                    } finally {
-                                        salaryConfirmationSaving = false
-                                    }
-                                }
-                            }
-                        },
-                        onEnterManually = {
-                            if (!salaryConfirmationSaving) {
-                                salaryAccepted = false
-                                stage = SmartSetupStage.SALARY_MANUAL
-                            }
-                        },
-                        onNotMySalary = {
-                            if (!salaryConfirmationSaving) {
-                                salaryAccepted = false
-                                stage = SmartSetupStage.COMPLETE
-                            }
-                        },
-                        onSkip = {
-                            if (!salaryConfirmationSaving) {
-                                salaryAccepted = false
-                                stage = SmartSetupStage.COMPLETE
-                            }
-                        }
-                    )
-                }
-            }
-
-            SmartSetupStage.LIVE_CAPTURE -> {
-                item {
-                    SmartLiveCapturePage(
-                        alreadyEnabled =
-                            notificationGranted,
-                        settingsVisited =
-                            notificationSettingsVisited,
-                        restrictedInstall =
-                            smartIsLikelySideloaded(
-                                context
-                            ),
-                        restrictedPrepared =
-                            !smartIsLikelySideloaded(
-                                context
-                            ) ||
-                                smsAppInfoVisited,
-                        onEnable = {
-                            if (
-                                notificationGranted
-                            ) {
-                                stage =
-                                    SmartSetupStage
-                                        .COMPLETE
-                            } else if (
-                                smartIsLikelySideloaded(
-                                    context
-                                ) &&
-                                !smsAppInfoVisited
-                            ) {
-                                smsAppInfoVisited =
-                                    true
-                                appInfoLauncher.launch(
-                                    Intent(
-                                        Settings
-                                            .ACTION_APPLICATION_DETAILS_SETTINGS,
-                                        Uri.parse(
-                                            "package:" +
-                                                context.packageName
-                                        )
-                                    )
-                                )
-                            } else {
-                                notificationSettingsVisited =
-                                    true
-                                settingsLauncher.launch(
-                                    smartNotificationAccessIntent(
-                                        context
-                                    )
-                                )
-                            }
-                        },
-                        onOpenAppInfo = {
-                            smsAppInfoVisited = true
-                            appInfoLauncher.launch(
-                                Intent(
-                                    Settings
-                                        .ACTION_APPLICATION_DETAILS_SETTINGS,
-                                    Uri.parse(
-                                        "package:" +
-                                            context.packageName
-                                    )
-                                )
-                            )
-                        },
-                        onLater = {
-                            stage =
-                                SmartSetupStage
-                                    .COMPLETE
-                        }
-                    )
-                }
-            }
-
-            SmartSetupStage.COMPLETE -> {
-                item {
-                    SetupCompletePage(
-                        institutionCount = completionInstitutionCount,
-                        serviceCount = completionServiceCount,
-                        navigating = completionNavigating,
-                        onHome = {
-                            if (!completionNavigating) {
-                                completionNavigating =
-                                    true
-                                onDone()
-                            }
-                        },
-                        onReview = {
-                            selectedOwnedKeys = completedInstitutionKeys
-                            stage = SmartSetupStage.REVIEW
-                        }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ImportChoicePage(
-    selectedMonths: Int,
-    customStartDateEpochMs: Long,
-    customEndDateEpochMs: Long,
-    canContinue: Boolean,
-    onSelected: (Int) -> Unit,
-    onCustomStartDateSelected: (Long) -> Unit,
-    onCustomEndDateSelected: (Long) -> Unit,
-    onLater: () -> Unit,
-    onContinue: () -> Unit
-) {
-    val context = LocalContext.current
-    val today = startOfLocalDayEpochMs(System.currentTimeMillis())
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Import your money history", style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold)
-        Text("Start with recent financial messages. Older history can be added later.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium)
-        PremiumRangeOption(
-            "Recent messages", "Recommended · two completed months and this month",
-            selectedMonths == 2, { onSelected(2) }
-        )
-        PremiumRangeOption(
-            "Older history", "Choose an earlier start and end date",
-            selectedMonths == CUSTOM_IMPORT_SELECTION, { onSelected(CUSTOM_IMPORT_SELECTION) }
-        )
-        if (selectedMonths == CUSTOM_IMPORT_SELECTION) {
-            val range = OnboardingHistoryWindow.customRange(
-                customStartDateEpochMs, customEndDateEpochMs)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {
-                    val selected = Calendar.getInstance().apply { timeInMillis = customStartDateEpochMs }
-                    DatePickerDialog(context, { _, year, month, day ->
-                        onCustomStartDateSelected(pickerDateEpochMs(year, month, day))
-                    }, selected.get(Calendar.YEAR), selected.get(Calendar.MONTH),
-                        selected.get(Calendar.DAY_OF_MONTH)).apply {
-                        datePicker.maxDate = minOf(endOfLocalDayEpochMs(customEndDateEpochMs),
-                            endOfLocalDayEpochMs(today))
-                    }.show()
-                }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
-                    Text("From " + formatOnboardingDate(customStartDateEpochMs))
-                }
-                OutlinedButton(onClick = {
-                    val selected = Calendar.getInstance().apply { timeInMillis = customEndDateEpochMs }
-                    DatePickerDialog(context, { _, year, month, day ->
-                        onCustomEndDateSelected(pickerDateEpochMs(year, month, day))
-                    }, selected.get(Calendar.YEAR), selected.get(Calendar.MONTH),
-                        selected.get(Calendar.DAY_OF_MONTH)).apply {
-                        datePicker.minDate = startOfLocalDayEpochMs(customStartDateEpochMs)
-                        datePicker.maxDate = endOfLocalDayEpochMs(today)
-                    }.show()
-                }, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
-                    Text("To " + formatOnboardingDate(customEndDateEpochMs))
-                }
-            }
-            if (range == null) Text("Choose a valid past date range.",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall)
-        }
-        Text("Duplicates are skipped and original transaction dates are preserved.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Button(onClick = onContinue, enabled = canContinue,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-            shape = RoundedCornerShape(16.dp)) {
-            Text("Import messages", fontWeight = FontWeight.SemiBold)
-        }
-        TextButton(onClick = onLater, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text("Skip import for now")
-        }
-    }
-}
-
-@Composable
-private fun ImportRangeChoice(
-    label: String,
-    selected: Boolean,
-    selectedBackground: Color,
-    selectedContent: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier.heightIn(min = 42.dp).clickable(onClick = onClick),
-        shape = RoundedCornerShape(13.dp),
-        color = if (selected) selectedBackground else Color.Transparent,
-        border = BorderStroke(
-            1.dp,
-            if (selected) MaterialTheme.colorScheme.secondary
-            else MaterialTheme.colorScheme.outlineVariant
-        )
-    ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 4.dp)) {
-            Text(
-                label,
-                style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp),
-                fontWeight = FontWeight.Bold,
-                color = if (selected) selectedContent else MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-@Composable
-private fun AnalysisPage(
-    importing: Boolean,
-    step: AnalysisStep,
-    reviewMode: Boolean = false,
-    onContinue: (() -> Unit)? = null
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 22.dp),
-        horizontalAlignment =
-            Alignment.CenterHorizontally
-    ) {
-        Surface(
-            modifier = Modifier.size(96.dp),
-            shape = CircleShape,
-            color =
-                MaterialTheme.colorScheme
-                    .primaryContainer
-        ) {
-            Box(
-                contentAlignment =
-                    Alignment.Center
-            ) {
-                if (
-                    reviewMode &&
-                    step ==
-                        AnalysisStep.COMPLETE
-                ) {
-                    Icon(
-                        Icons.Rounded
-                            .CheckCircle,
-                        contentDescription =
-                            null,
-                        modifier =
-                            Modifier.size(
-                                58.dp
-                            ),
-                        tint =
-                            MaterialTheme
-                                .colorScheme
-                                .primary
-                    )
-                } else {
-                    CircularProgressIndicator(
-                        modifier =
-                            Modifier.size(58.dp),
-                        strokeWidth = 5.dp
-                    )
-                }
-            }
-        }
-
-        Text(
-            "Understanding your money…",
-            modifier =
-                Modifier.padding(top = 24.dp),
-            style =
-                MaterialTheme.typography
-                    .headlineMedium,
-            color =
-                MaterialTheme.colorScheme
-                    .onBackground,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
-        )
-        Text(
-            if (importing) {
-                "PesaTrack is working through your selected history one step at a time."
-            } else {
-                "PesaTrack is preparing a clean starting point and will learn as new activity arrives."
-            },
-            modifier =
-                Modifier.padding(top = 8.dp),
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-
-        PesaCard(
-            modifier =
-                Modifier.padding(top = 26.dp)
-        ) {
-            Column(
-                Modifier.padding(16.dp),
-                verticalArrangement =
-                    Arrangement.spacedBy(16.dp)
-            ) {
-                AnalysisRow(
-                    label =
-                        "Scanning financial messages",
-                    target =
-                        AnalysisStep.SCANNING,
-                    current = step
-                )
-                AnalysisRow(
-                    label =
-                        "Finding your accounts",
-                    target =
-                        AnalysisStep.ACCOUNTS,
-                    current = step
-                )
-                AnalysisRow(
-                    label =
-                        "Looking for recurring income",
-                    target =
-                        AnalysisStep.INCOME,
-                    current = step
-                )
-                AnalysisRow(
-                    label =
-                        "Checking duplicate evidence",
-                    target =
-                        AnalysisStep.DUPLICATES,
-                    current = step
-                )
-            }
-        }
-
-        if (
-            reviewMode &&
-            onContinue != null
-        ) {
-            Button(
-                onClick = onContinue,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 18.dp)
-                        .heightIn(
-                            min = 54.dp
-                        ),
-                shape =
-                    RoundedCornerShape(
-                        18.dp
-                    )
-            ) {
-                Text(
-                    "Continue to what we found"
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun AnalysisRow(
-    label: String,
-    target: AnalysisStep,
-    current: AnalysisStep
-) {
-    val complete =
-        current == AnalysisStep.COMPLETE ||
-            current.ordinal >
-                target.ordinal
-    val active =
-        !complete &&
-            current == target
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment =
-            Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier.size(24.dp),
-            contentAlignment =
-                Alignment.Center
-        ) {
-            when {
-                complete -> {
-                    Icon(
-                        Icons.Rounded.CheckCircle,
-                        contentDescription = null,
-                        tint =
-                            MaterialTheme
-                                .colorScheme
-                                .primary,
-                        modifier =
-                            Modifier.size(24.dp)
-                    )
-                }
-
-                active -> {
-                    CircularProgressIndicator(
-                        modifier =
-                            Modifier.size(22.dp),
-                        strokeWidth = 2.5.dp
-                    )
-                }
-
-                else -> {
-                    Surface(
-                        modifier =
-                            Modifier.size(10.dp),
-                        shape = CircleShape,
-                        color =
-                            MaterialTheme
-                                .colorScheme
-                                .outlineVariant
-                    ) {}
-                }
-            }
-        }
-
-        Text(
-            label,
-            modifier =
-                Modifier.padding(start = 12.dp),
-            color =
-                if (active || complete) {
-                    MaterialTheme.colorScheme
-                        .onSurface
-                } else {
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant
-                },
-            fontWeight =
-                if (active) {
-                    FontWeight.SemiBold
-                } else {
-                    FontWeight.Normal
-                }
-        )
-    }
-}
-
-@Composable
-private fun ManualSalaryPage(
-    context: Context,
-    accounts: List<MoneyAccount>,
-    selectedAccountId: String,
-    payer: String,
-    importMonths: Int,
-    historyMode: SalaryHistoryMode,
-    drafts: List<SmartSalaryDraft>,
-    searchStatus: String?,
-    error: String?,
-    saving: Boolean,
-    savingLabel: String,
-    onAccountSelected: (String) -> Unit,
-    onPayerChanged: (String) -> Unit,
-    onHistoryModeChanged:
-        (SalaryHistoryMode) -> Unit,
-    onSearchHistory: () -> Unit,
-    onDraftAmountChanged:
-        (Int, String) -> Unit,
-    onDraftDateSelected:
-        (Int, Long) -> Unit,
-    onSave: () -> Unit,
-    onSkip: () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement =
-            Arrangement.spacedBy(16.dp)
-    ) {
-        SmartSetupHero(
-            icon = Icons.Rounded.Payments,
-            title = "Set up your salary history",
-            body =
-                "Payday starts a cash-flow cycle. Add the dates and amounts PesaTrack could not reliably learn from your messages."
-        )
-
-        PesaCard {
-            Column(
-                modifier =
-                    Modifier.padding(16.dp),
-                verticalArrangement =
-                    Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    "Where does salary arrive?",
-                    style =
-                        MaterialTheme.typography
-                            .titleMedium,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurface
-                )
-
-                accounts.forEach { account ->
-                    SalaryAccountChoice(
-                        account = account,
-                        selected =
-                            account.id ==
-                                selectedAccountId,
-                        onClick = {
-                            onAccountSelected(
-                                account.id
-                            )
-                        }
-                    )
-                }
-            }
-        }
-
-        OutlinedTextField(
-            value = payer,
-            onValueChange = onPayerChanged,
-            label = {
-                Text(
-                    "Payroll / statement name"
-                )
-            },
-            placeholder = {
-                Text(
-                    "Example: XYZ PAYROLL"
-                )
-            },
-            supportingText = {
-                Text(
-                    "Use the wording shown by your bank or M-Pesa. It can be different from your employer's legal name."
-                )
-            },
-            modifier =
-                Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        if (
-            importMonths > 0 &&
-            payer.isNotBlank()
-        ) {
-            OutlinedButton(
-                onClick = onSearchHistory,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 52.dp),
-                shape =
-                    RoundedCornerShape(18.dp)
-            ) {
-                Text(
-                    "Search imported history for this payroll name"
-                )
-            }
-        }
-
-        if (importMonths > 1) {
-            Text(
-                "How much salary history do you want to add?",
-                style =
-                    MaterialTheme.typography
-                        .titleMedium,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurface
-            )
-
-            SmartSelectableSetupCard(
-                selected =
-                    historyMode ==
-                        SalaryHistoryMode
-                            .IMPORT_WINDOW,
-                title =
-                    "Use the selected history",
-                body =
-                    "Add up to $importMonths paydays so PesaTrack can reconstruct earlier pay cycles.",
-                icon =
-                    Icons.Rounded.History,
-                onClick = {
-                    onHistoryModeChanged(
-                        SalaryHistoryMode
-                            .IMPORT_WINDOW
-                    )
-                }
-            )
-
-            SmartSelectableSetupCard(
-                selected =
-                    historyMode ==
-                        SalaryHistoryMode
-                            .LATEST_ONLY,
-                title =
-                    "Start with my latest salary",
-                body =
-                    "Skip older paydays and begin the cash-flow model from the most recent salary.",
-                icon =
-                    Icons.Rounded.Payments,
-                onClick = {
-                    onHistoryModeChanged(
-                        SalaryHistoryMode
-                            .LATEST_ONLY
-                    )
-                }
-            )
-        }
-
-        searchStatus?.let { message ->
-            Surface(
-                modifier =
-                    Modifier.fillMaxWidth(),
-                shape =
-                    RoundedCornerShape(16.dp),
-                color =
-                    pesaToneContainer(
-                        if (
-                            message.startsWith(
-                                "Found"
-                            )
-                        ) {
-                            "green"
-                        } else {
-                            "amber"
-                        }
-                    )
-            ) {
-                Text(
-                    message,
-                    modifier =
-                        Modifier.padding(14.dp),
-                    style =
-                        MaterialTheme.typography
-                            .bodyMedium,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurface
-                )
-            }
-        }
-
-        drafts.forEachIndexed {
-                index,
-                draft ->
-            PesaCard {
-                Column(
-                    modifier =
-                        Modifier.padding(16.dp),
-                    verticalArrangement =
-                        Arrangement.spacedBy(10.dp)
-                ) {
-                    Row(
-                        modifier =
-                            Modifier.fillMaxWidth(),
-                        verticalAlignment =
-                            Alignment.CenterVertically
-                    ) {
-                        Column(
-                            modifier =
-                                Modifier.weight(1f)
-                        ) {
-                            Text(
-                                draft.monthLabel,
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .titleMedium,
-                                fontWeight =
-                                    FontWeight
-                                        .SemiBold
-                            )
-                            if (
-                                draft.matchedTransactionId !=
-                                null
-                            ) {
-                                Text(
-                                    "Found in imported history",
-                                    style =
-                                        MaterialTheme
-                                            .typography
-                                            .labelSmall,
-                                    color =
-                                        MaterialTheme
-                                            .colorScheme
-                                            .primary
-                                )
-                            }
-                        }
-                        if (
-                            draft.matchedTransactionId !=
-                            null
-                        ) {
-                            Icon(
-                                Icons.Rounded.CheckCircle,
-                                contentDescription =
-                                    "Matched from history",
-                                tint =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .primary
-                            )
-                        }
-                    }
-
-                    OutlinedTextField(
-                        value = draft.amount,
-                        onValueChange = {
-                            onDraftAmountChanged(
-                                index,
-                                it
-                            )
-                        },
-                        label = {
-                            Text(
-                                "Salary amount"
-                            )
-                        },
-                        prefix = {
-                            Text("KES ")
-                        },
-                        keyboardOptions =
-                            KeyboardOptions(
-                                keyboardType =
-                                    KeyboardType
-                                        .Decimal
-                            ),
-                        modifier =
-                            Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-
-                    OutlinedButton(
-                        onClick = {
-                            val initial =
-                                Calendar
-                                    .getInstance()
-                                    .apply {
-                                        draft
-                                            .paidAtEpochMs
-                                            ?.let {
-                                                timeInMillis =
-                                                    it
-                                            }
-                                    }
-
-                            DatePickerDialog(
-                                context,
-                                {
-                                        _,
-                                        year,
-                                        month,
-                                        dayOfMonth ->
-                                    val selected =
-                                        Calendar
-                                            .getInstance()
-                                            .apply {
-                                                clear()
-                                                set(
-                                                    year,
-                                                    month,
-                                                    dayOfMonth,
-                                                    12,
-                                                    0,
-                                                    0
-                                                )
-                                            }
-                                            .timeInMillis
-                                    onDraftDateSelected(
-                                        index,
-                                        selected
-                                    )
-                                },
-                                initial.get(
-                                    Calendar.YEAR
-                                ),
-                                initial.get(
-                                    Calendar.MONTH
-                                ),
-                                initial.get(
-                                    Calendar
-                                        .DAY_OF_MONTH
-                                )
-                            ).apply {
-                                datePicker.maxDate =
-                                    System
-                                        .currentTimeMillis()
-                            }.show()
-                        },
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .heightIn(
-                                    min = 52.dp
-                                )
-                    ) {
-                        Text(
-                            draft.paidAtEpochMs
-                                ?.let(
-                                    ::formatSetupDate
-                                )
-                                ?: "Choose the actual payday"
-                        )
-                    }
-                }
-            }
-        }
-
-        Text(
-            if (
-                historyMode ==
-                SalaryHistoryMode.IMPORT_WINDOW
-            ) {
-                "Leave an older month empty if you cannot recover it. PesaTrack will use only the paydays you confirm."
-            } else {
-                "PesaTrack will start from this payday. Older calendar activity remains visible, but it will not be treated as an earlier salary cycle."
-            },
-            style =
-                MaterialTheme.typography
-                    .bodySmall,
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant
-        )
-
-        error?.let { message ->
-            Surface(
-                modifier =
-                    Modifier.fillMaxWidth(),
-                shape =
-                    RoundedCornerShape(16.dp),
-                color =
-                    MaterialTheme.colorScheme
-                        .errorContainer
-            ) {
-                Text(
-                    message,
-                    modifier =
-                        Modifier.padding(14.dp),
-                    color =
-                        MaterialTheme.colorScheme
-                            .onErrorContainer
-                )
-            }
-        }
-
-        Button(
-            onClick = onSave,
-            enabled = !saving,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 56.dp),
-            shape =
-                RoundedCornerShape(18.dp)
-        ) {
-            if (saving) {
-                CircularProgressIndicator(
-                    modifier =
-                        Modifier.size(20.dp),
-                    strokeWidth = 2.dp
-                )
-                Text(
-                    savingLabel,
-                    modifier =
-                        Modifier.padding(
-                            start = 10.dp
-                        )
-                )
-            } else {
-                Text(
-                    if (
-                        historyMode ==
-                        SalaryHistoryMode
-                            .IMPORT_WINDOW &&
-                        drafts.size > 1
-                    ) {
-                        "Save salary history and continue"
-                    } else {
-                        "Save salary and continue"
-                    }
-                )
-            }
-        }
-
-        TextButton(
-            onClick = onSkip,
-            enabled = !saving,
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
-            Text("Skip for now")
-        }
-    }
-}
-
-@Composable
-private fun SalaryAccountChoice(
-    account: MoneyAccount,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape =
-            RoundedCornerShape(16.dp),
-        color =
-            if (selected) {
-                MaterialTheme.colorScheme
-                    .primaryContainer
-            } else {
-                MaterialTheme.colorScheme
-                    .surfaceVariant
-                    .copy(alpha = .55f)
-            }
-    ) {
-        Row(
-            modifier =
-                Modifier.padding(13.dp),
-            verticalAlignment =
-                Alignment.CenterVertically
-        ) {
-            IconBubble(
-                icon =
-                    when (account.type) {
-                        AccountType.BANK ->
-                            Icons.Rounded
-                                .AccountBalance
-                        AccountType.MOBILE_WALLET ->
-                            Icons.Rounded
-                                .PhoneAndroid
-                        AccountType.CASH ->
-                            Icons.Rounded.Wallet
-                        else ->
-                            Icons.Rounded.Payments
-                    },
-                size = 40.dp
-            )
-            Text(
-                AccountIdentityPresentation
-                    .title(account),
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 10.dp),
-                style =
-                    MaterialTheme.typography
-                        .titleSmall,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurface
-            )
-            if (selected) {
-                Icon(
-                    Icons.Rounded.CheckCircle,
-                    contentDescription =
-                        "Selected",
-                    tint =
-                        MaterialTheme.colorScheme
-                            .primary
-                )
-            }
-        }
-    }
 }
 
 @Composable
@@ -3304,75 +1914,6 @@ internal fun MpesaConfirmationPage(
         TextButton(onClick = onSkip, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
             Text("Back to this later")
         }
-    }
-}
-
-@Composable
-private fun SetupCompletePage(
-    institutionCount: Int,
-    serviceCount: Int,
-    navigating: Boolean,
-    onHome: () -> Unit,
-    onReview: () -> Unit
-) {
-    Column(
-        Modifier.fillMaxWidth().padding(top = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text("You're ready to start", style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold)
-        Text("Your choices are saved on this phone. Older messages, payday and other accounts can be added anytime.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium)
-        PesaCard {
-            Column(Modifier.fillMaxWidth().padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                CompletionSummaryRow("Accounts selected", "$institutionCount")
-                CompletionSummaryRow("M-Pesa services", "$serviceCount")
-                CompletionSummaryRow("Payday", "Optional · set up in Plan")
-            }
-        }
-        Button(onClick = onHome, enabled = !navigating,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-            shape = RoundedCornerShape(16.dp)) {
-            Text(if (navigating) "Opening…" else "Open PesaTrack",
-                fontWeight = FontWeight.SemiBold)
-        }
-        TextButton(onClick = onReview, enabled = !navigating,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text("Review accounts")
-        }
-    }
-}
-
-@Composable
-private fun CompletionSummaryRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
-        Text(value, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun CompletionRow(
-    text: String
-) {
-    Row(
-        verticalAlignment =
-            Alignment.CenterVertically
-    ) {
-        Icon(
-            Icons.Rounded.CheckCircle,
-            contentDescription = null,
-            tint =
-                MaterialTheme.colorScheme
-                    .primary
-        )
-        Text(
-            text,
-            modifier =
-                Modifier.padding(start = 10.dp)
-        )
     }
 }
 

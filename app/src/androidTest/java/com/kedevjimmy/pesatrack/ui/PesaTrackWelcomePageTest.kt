@@ -20,24 +20,23 @@ class PesaTrackWelcomePageTest {
         var events = 0
         compose.setContent {
             PesaTrackTheme(darkTheme = true) {
-                PesaTrackWelcomePage(onGetStarted = { events++ }, onSkip = {})
+                PesaTrackWelcomePage(onGetStarted = { events++ })
             }
         }
-        compose.onNodeWithText("Your money,").assertIsDisplayed()
+        compose.onNodeWithText("YOUR MONEY.", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Welcome to Home").assertDoesNotExist()
-        compose.onNodeWithText("Track money in and out").assertIsDisplayed()
+        compose.onNodeWithText("Understand M-PESA, banks and transfers", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Get started", substring = true).performClick()
         compose.runOnIdle { assertEquals(1, events) }
     }
 
-    @Test fun userCanSkipWithoutGrantingSmsPermission() {
-        var skipped = false
+    @Test fun splashHasNoSkipThatBypassesRequiredLocalPin() {
         compose.setContent {
             PesaTrackTheme(darkTheme = false) {
-                PesaTrackWelcomePage(onGetStarted = {}, onSkip = { skipped = true })
+                PesaTrackWelcomePage(onGetStarted = {})
             }
         }
-        compose.onNodeWithText("Set up later").performClick()
-        compose.runOnIdle { assertEquals(true, skipped) }
+        compose.onNodeWithText("Set up later").assertDoesNotExist()
+        compose.onNodeWithText("Get started").assertIsDisplayed()
     }
 }

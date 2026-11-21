@@ -1,94 +1,71 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AccountBalanceWallet
-import androidx.compose.material.icons.rounded.TrendingUp
-import androidx.compose.material3.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.kedevjimmy.pesatrack.R
+import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
 import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
-import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 
-/** Approved first-run screen: visual introduction followed by two short benefits. */
+/** Approved photographic splash. Text, logo and button are accessible native controls. */
 @Composable
-internal fun PesaTrackWelcomePage(onGetStarted: () -> Unit, onSkip: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        PremiumWelcomeHero()
-        Text(
-            "Your money, clearer.",
-            style = MaterialTheme.typography.headlineLarge,
-            fontFamily = FontFamily.Serif,
-            fontWeight = FontWeight.Bold,
-            color = PremiumVisualTokens.ink
+internal fun PesaTrackWelcomePage(onGetStarted: () -> Unit) {
+    Box(Modifier.fillMaxSize().background(PremiumVisualTokens.darkCanvas)) {
+        Image(
+            painter = painterResource(R.drawable.onboarding_cafe_clean),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
         )
-        Text(
-            "Private money tracking for M-Pesa and bank activity in one place.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(4.dp))
-        OnboardingBenefit(Icons.Rounded.TrendingUp, "Track money in and out")
-        OnboardingBenefit(
-            Icons.Rounded.AccountBalanceWallet,
-            "Understand balances and transfers"
-        )
-        Spacer(Modifier.height(8.dp))
-        Button(
-            onClick = onGetStarted,
-            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-            shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = PremiumVisualTokens.coffee, contentColor = Color.White
-            )
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(
+            Color.Black.copy(alpha = .48f), Color.Transparent, Color.Black.copy(alpha = .1f),
+            Color.Black.copy(alpha = .84f)
+        ))))
+        Column(
+            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(horizontal = 28.dp, vertical = 34.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Get started", fontWeight = FontWeight.SemiBold)
-        }
-        TextButton(
-            onClick = onSkip, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
-        ) {
-            Text("Set up later")
-        }
-    }
-}
-
-@Composable
-private fun OnboardingBenefit(icon: ImageVector, title: String) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = PremiumVisualTokens.card,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
-        Row(
-            Modifier.padding(horizontal = 12.dp, vertical = 8.dp).heightIn(min = 48.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Surface(
-                shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-                color = PremiumVisualTokens.sand
-            ) {
-                Icon(
-                    icon, contentDescription = null, tint = PremiumVisualTokens.coffee,
-                    modifier = Modifier.padding(8.dp).size(24.dp)
-                )
+            Spacer(Modifier.weight(.6f))
+            Box(Modifier.size(86.dp)
+                .background(PremiumVisualTokens.darkSurface, RoundedCornerShape(22.dp)),
+                contentAlignment = Alignment.Center) {
+                PesaLogoMark(size = 76.dp)
             }
-            Text(
-                title, style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold, color = PremiumVisualTokens.ink
-            )
+            Spacer(Modifier.height(8.dp))
+            Text("PesaTrack", color = Color.White, fontFamily = FontFamily.Serif,
+                fontSize = 39.sp, fontWeight = FontWeight.Bold)
+            Text("YOUR MONEY, YOUR PLANS", color = PremiumVisualTokens.darkCoffee,
+                fontSize = 12.sp, letterSpacing = 2.sp)
+            Spacer(Modifier.weight(1.4f))
+            Text("YOUR MONEY.\nYOUR PLANS.", color = Color.White, fontSize = 40.sp,
+                lineHeight = 43.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+            Text("Understand M-PESA, banks and transfers — privately.",
+                Modifier.padding(top = 12.dp, bottom = 25.dp), color = Color.White,
+                fontSize = 16.sp, textAlign = TextAlign.Center)
+            Button(onClick = onGetStarted,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PremiumVisualTokens.cream,
+                    contentColor = PremiumVisualTokens.coffee)) {
+                Text("Get started", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+            }
         }
     }
 }

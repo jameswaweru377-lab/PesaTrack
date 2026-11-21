@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnostic
+import com.kedevjimmy.pesatrack.ingestion.FinancialIngestionDiagnosticCode
 import java.util.Locale
 
 /** Presentation-only rules for the post-scan institution review. */
@@ -22,6 +23,12 @@ internal object OnboardingInstitutionPresentationPolicy {
 
     fun isSafaricomProduct(providerKey: String?): Boolean =
         providerKey in safaricomProductProviderKeys
+
+    /** A bank sender alone is not evidence of an actual money movement. */
+    fun isTransactionEvidence(observation: FinancialIngestionDiagnostic): Boolean =
+        observation.insertedTransactions > 0 || observation.pendingReviewEvents > 0 ||
+            (observation.code == FinancialIngestionDiagnosticCode.LINKED_OBSERVATION &&
+                observation.linkedTransactionId != null)
 
     /**
      * Historical imports can observe the same SMS again. Diagnostics have no

@@ -36,6 +36,7 @@ internal fun ApprovedPrivacyConsentPage(
     onAccepted: (Boolean) -> Unit,
     onOpenAppInfo: () -> Unit,
     onTryAgain: () -> Unit,
+    onChooseHistory: () -> Unit,
     onContinue: () -> Unit,
     onContinueWithout: () -> Unit
 ) {
@@ -84,9 +85,6 @@ internal fun ApprovedPrivacyConsentPage(
             ApprovedPrivacyCard(
                 Icons.Rounded.Shield, "Your messages stay on this phone", ""
             )
-            ApprovedPrivacyCard(
-                Icons.Rounded.AccountBalance, "You choose which accounts are yours", ""
-            )
             Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant,
                 shape = RoundedCornerShape(12.dp)) {
                 Row(Modifier.padding(9.dp), horizontalArrangement = Arrangement.spacedBy(7.dp),
@@ -100,6 +98,10 @@ internal fun ApprovedPrivacyConsentPage(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
+            }
+            TextButton(onClick = onChooseHistory, enabled = !busy,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                Text("Change dates", style = MaterialTheme.typography.labelLarge)
             }
         }
         Row(

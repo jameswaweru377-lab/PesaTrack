@@ -53,7 +53,6 @@ import com.kedevjimmy.pesatrack.ui.screens.MoneySetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoreScreen
 import com.kedevjimmy.pesatrack.ui.screens.StatementIntelligenceDashboard
 import com.kedevjimmy.pesatrack.ui.screens.MpesaConnectionScreen
-import com.kedevjimmy.pesatrack.ui.screens.OnboardingScreen
 import com.kedevjimmy.pesatrack.ui.screens.PayCycleActivityScreen
 import com.kedevjimmy.pesatrack.ui.screens.PlanScreen
 import com.kedevjimmy.pesatrack.ui.screens.ProfileScreen
@@ -228,13 +227,16 @@ fun PesaTrackApp(
             }
         }
         composable("onboarding") {
-            OnboardingScreen(
-                onContinue = {
-                    navController.navigate(
-                        "smart-onboarding-setup"
-                    )
-                }
-            )
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background,
+                contentColor = MaterialTheme.colorScheme.onBackground
+            ) {
+                SmartOnboardingSetupScreen(
+                    scaffoldPadding = PaddingValues(),
+                    onDone = ::finishSetup
+                )
+            }
         }
 
         composable("smart-onboarding-setup") {

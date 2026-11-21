@@ -1,31 +1,16 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.RadioButtonChecked
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Wallet
-import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +19,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -42,10 +28,10 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountReference
 import com.kedevjimmy.pesatrack.domain.model.AccountType
 import com.kedevjimmy.pesatrack.domain.model.FinancialInstitutionDirectory
-import com.kedevjimmy.pesatrack.domain.model.FinancialInstitutionOption
 import com.kedevjimmy.pesatrack.ingestion.HistoricalImportResult
-import com.kedevjimmy.pesatrack.ui.components.PesaCard
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 
+/** Top five are ranked by actual financial transactions, never by promotional SMS. */
 @Composable
 internal fun ReviewDiscoveryPage(
     sources: List<DetectedSetupSource>,
@@ -53,142 +39,145 @@ internal fun ReviewDiscoveryPage(
     mpesaIdentifierHint: String?,
     importResult: HistoricalImportResult?,
     applying: Boolean,
+    error: String? = null,
     onToggleAccount: (String, Boolean) -> Unit,
     onSelectInstitution: (FinancialAccountReference, Boolean) -> Unit,
     onContinue: () -> Unit
 ) {
     var query by rememberSaveable { mutableStateOf("") }
-    val ranked = remember(sources) { OnboardingInstitutionPresentationPolicy.topFive(sources) }
+    val topFive = remember(sources) { OnboardingInstitutionPresentationPolicy.topFive(sources) }
     val sourceKeys = remember(sources) { sources.mapTo(mutableSetOf()) { it.reference.entityKey } }
-    val moreDetected = remember(query, sources, ranked) {
-        if (query.isBlank()) emptyList() else sources.filter { source ->
-            source.reference.entityKey !in ranked.map { it.reference.entityKey } && source.name.contains(query, true)
+    val matchingDetected = remember(query, sources, topFive) {
+        if (query.isBlank()) topFive else sources.filter {
+            it.name.contains(query, ignoreCase = true)
         }
     }
-    val directoryResults = remember(query, sourceKeys) {
+    val directory = remember(query, sourceKeys) {
         if (query.isBlank()) emptyList() else FinancialInstitutionDirectory.search(query)
             .filterNot { it.reference.entityKey in sourceKeys }
             .filterNot { OnboardingInstitutionPresentationPolicy.isSafaricomProduct(it.reference.providerKey) }
             .distinctBy { it.reference.entityKey }.take(10)
     }
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Which accounts are yours?",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+        OnboardingBrandHeader()
+        Spacer(Modifier.height(15.dp))
+        Text("Which accounts are yours?", style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold, color = PremiumVisualTokens.darkText)
         Text("Select only the services you personally use.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        OutlinedTextField(
-            value = query,
-            onValueChange = { query = it.take(60) },
-            modifier = Modifier.fillMaxWidth().testTag("onboarding-institution-search"),
+            style = MaterialTheme.typography.bodyMedium, color = PremiumVisualTokens.darkMuted)
+        TextField(
+            value = query, onValueChange = { query = it.take(60) },
+            modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp)
+                .testTag("onboarding-institution-search"),
             leadingIcon = { Icon(Icons.Rounded.Search, null) },
             placeholder = { Text("Search banks and money services") },
-            singleLine = true,
-            enabled = !applying
+            singleLine = true, enabled = !applying,
+            shape = RoundedCornerShape(17.dp),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = PremiumVisualTokens.darkCard,
+                unfocusedContainerColor = PremiumVisualTokens.darkCard,
+                focusedTextColor = PremiumVisualTokens.darkText,
+                unfocusedTextColor = PremiumVisualTokens.darkText,
+                focusedPlaceholderColor = PremiumVisualTokens.darkMuted,
+                unfocusedPlaceholderColor = PremiumVisualTokens.darkMuted,
+                focusedLeadingIconColor = PremiumVisualTokens.darkMuted,
+                unfocusedLeadingIconColor = PremiumVisualTokens.darkMuted,
+                cursorColor = PremiumVisualTokens.darkCoffee,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent
+            )
         )
-        if (ranked.isNotEmpty()) {
-            ranked.forEach { source ->
-                val isMpesa = source.reference.providerKey == "SAFARICOM_MPESA"
-                DetectedInstitutionCard(
-                    name = source.name,
-                    type = if (isMpesa) "Mobile money · possible wallet" else "${source.type} · possible account",
-                    key = source.reference.entityKey,
-                    messageCount = source.messageCount,
-                    identifierHint = if (isMpesa) OnboardingInstitutionPresentationPolicy.maskIdentifier(mpesaIdentifierHint) else null,
-                    checked = source.reference.entityKey in selectedOwnedKeys,
-                    enabled = !applying,
-                    onChecked = { onToggleAccount(source.reference.entityKey, it) }
-                )
+        matchingDetected.forEach { source ->
+            val mpesa = source.reference.providerKey == "SAFARICOM_MPESA"
+            DetectedInstitutionCard(
+                source.name,
+                if (mpesa) "Mobile money" else source.type,
+                source.reference.entityKey,
+                source.messageCount,
+                if (mpesa) OnboardingInstitutionPresentationPolicy.maskIdentifier(mpesaIdentifierHint) else null,
+                source.reference.entityKey in selectedOwnedKeys, !applying
+            ) { onToggleAccount(source.reference.entityKey, it) }
+        }
+        directory.forEach { option ->
+            val reference = option.reference
+            val type = when (reference.accountTypeHint) {
+                AccountType.BANK -> "Bank"
+                AccountType.MOBILE_WALLET -> "Mobile money"
+                else -> "Savings"
             }
-        } else {
-            PesaCard {
-                Text(
-                    if (importResult == null) "No institutions were identified yet. Search for one you use, or continue and add accounts later."
-                    else "No financial institutions could be confidently identified. Search for one you use, or continue without adding an account.",
-                    Modifier.padding(14.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall
-                )
+            DetectedInstitutionCard(reference.displayName, type, reference.entityKey,
+                null, null, reference.entityKey in selectedOwnedKeys, !applying) {
+                onSelectInstitution(reference, it)
             }
         }
-        Text("${selectedOwnedKeys.size} selected · Select only accounts you use", modifier = Modifier.padding(start = 1.dp).testTag("onboarding-selected-institution-count"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        moreDetected.forEach { source ->
-            DetectedInstitutionCard(source.name, "${source.type} · detected from messages", source.reference.entityKey, source.messageCount, null, source.reference.entityKey in selectedOwnedKeys, !applying) { onToggleAccount(source.reference.entityKey, it) }
+        if (matchingDetected.isEmpty() && directory.isEmpty()) {
+            Text(if (query.isBlank()) "No transaction sources found. Search for the bank or wallet you use."
+                else "No matching institution. Try another name.",
+                color = PremiumVisualTokens.darkMuted, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp))
         }
-        directoryResults.forEach { option ->
-            val ref = option.reference
-            val type = when (ref.accountTypeHint) {
-                AccountType.BANK -> "Bank · possible account"
-                AccountType.MOBILE_WALLET -> "Mobile money · possible wallet"
-                else -> "Savings · possible account"
-            }
-            DetectedInstitutionCard(ref.displayName, type, ref.entityKey, null, null, ref.entityKey in selectedOwnedKeys, !applying) { onSelectInstitution(ref, it) }
-        }
-        if (query.isNotBlank() && moreDetected.isEmpty() && directoryResults.isEmpty()) {
-            Text("No matches in your supported institution list. Try another name.", modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall)
-        }
-        Button(onClick = onContinue, enabled = !applying, modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp), shape = RoundedCornerShape(15.dp)) {
-            Text(if (applying) "Saving choices…" else "Continue with selected")
-        }
-        TextButton(onClick = onContinue, enabled = !applying, modifier = Modifier.fillMaxWidth()) { Text("I’ll choose later") }
+        Text("${selectedOwnedKeys.size} selected · Only confirm accounts you use",
+            Modifier.testTag("onboarding-selected-institution-count"),
+            style = MaterialTheme.typography.bodySmall, color = PremiumVisualTokens.darkMuted)
+        error?.let { Text(it, color = PremiumVisualTokens.darkMoneyOut,
+            style = MaterialTheme.typography.bodySmall) }
+        Button(
+            onClick = onContinue, enabled = !applying && selectedOwnedKeys.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            shape = RoundedCornerShape(17.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = PremiumVisualTokens.darkCoffee,
+                contentColor = PremiumVisualTokens.ink,
+                disabledContainerColor = PremiumVisualTokens.darkSurface,
+                disabledContentColor = PremiumVisualTokens.darkMuted
+            )
+        ) { Text(if (applying) "Saving accounts…" else "Confirm my accounts", fontWeight = FontWeight.Bold) }
     }
 }
 
 @Composable
 internal fun DetectedAccountCheckRow(
-    key: String,
-    name: String,
-    type: String,
-    checked: Boolean,
-    enabled: Boolean,
-    messageCount: Int? = null,
-    identifierHint: String? = null,
+    key: String, name: String, type: String, checked: Boolean, enabled: Boolean,
+    messageCount: Int? = null, identifierHint: String? = null,
     onChecked: (Boolean) -> Unit
 ) = DetectedInstitutionCard(name, type, key, messageCount, identifierHint, checked, enabled, onChecked)
 
 @Composable
 private fun DetectedInstitutionCard(
-    name: String,
-    type: String,
-    key: String,
-    messageCount: Int?,
-    identifierHint: String?,
-    checked: Boolean,
-    enabled: Boolean,
+    name: String, type: String, key: String, messageCount: Int?,
+    identifierHint: String?, checked: Boolean, enabled: Boolean,
     onChecked: (Boolean) -> Unit
 ) {
-    val outline = if (checked) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outlineVariant
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 58.dp)
-            .background(if (checked) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .25f) else MaterialTheme.colorScheme.surface, RoundedCornerShape(15.dp))
-            .border(1.dp, outline, RoundedCornerShape(15.dp))
+        Modifier.fillMaxWidth().heightIn(min = 77.dp)
+            .background(if (checked) PremiumVisualTokens.darkSurface else PremiumVisualTokens.darkCard,
+                RoundedCornerShape(17.dp))
             .toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onChecked)
-            .testTag("detected-account-$key").padding(horizontal = 10.dp, vertical = 9.dp),
+            .testTag("detected-account-$key")
+            .padding(horizontal = 14.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(Modifier.size(34.dp), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer) {
+        Surface(Modifier.size(43.dp), shape = RoundedCornerShape(13.dp),
+            color = PremiumVisualTokens.darkCanvas) {
             Box(contentAlignment = Alignment.Center) {
-                val icon = when {
-                    type.startsWith("Bank") -> Icons.Rounded.AccountBalance
-                    type.startsWith("Mobile") || type == "Wallet" -> Icons.Rounded.Wallet
-                    else -> Icons.Rounded.AccountBalance
-                }
-                Icon(icon, null, Modifier.size(19.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                Icon(if (type.contains("Bank", ignoreCase = true)) Icons.Rounded.AccountBalance
+                    else Icons.Rounded.Wallet, null, Modifier.size(23.dp),
+                    tint = PremiumVisualTokens.darkCoffee)
             }
         }
-        Column(Modifier.weight(1f).padding(start = 9.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(onboardingShortBankName(name), modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold)
-            }
-            val details = listOfNotNull(type, identifierHint).joinToString(" · ")
-            Text(details, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.weight(1f).padding(start = 13.dp)) {
+            Text(onboardingShortBankName(name), color = PremiumVisualTokens.darkText,
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(listOfNotNull(type, messageCount?.let { "$it transactions found" }, identifierHint)
+                .joinToString(" · "), color = PremiumVisualTokens.darkMuted,
+                style = MaterialTheme.typography.labelSmall)
         }
-        Checkbox(checked = checked, onCheckedChange = null, enabled = enabled)
+        Icon(if (checked) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
+            contentDescription = null, tint = if (checked) PremiumVisualTokens.darkCoffee
+                else PremiumVisualTokens.darkMuted, modifier = Modifier.size(26.dp))
     }
 }
 
-/** Display-only shortening; institution identity and ownership keys remain unchanged. */
 private fun onboardingShortBankName(name: String): String =
     name.removeSuffix(" Bank Kenya").let { shortened ->
         if (shortened != name) "$shortened Bank"

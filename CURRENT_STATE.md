@@ -1,5 +1,23 @@
 # PesaTrack Current State
 
+_Compact dark first-run onboarding (21 November 2026; Android CI and Redmi acceptance pending):_
+The app now has an approved full-screen café splash with the current brown Home
+mark, one required offline form for name, Kenyan M-PESA phone, PIN confirmation
+and SMS disclosure, followed by the Android READ_SMS prompt. It imports available
+financial SMS by default and shows a full-black indeterminate progress ring
+around a receipt-and-coin icon with honest phase descriptions, not a progress
+card. Android may then show the ordinary optional notification runtime prompt.
+A borderless dark institution picker surfaces the five strongest transaction-
+evidenced suggestions, lets users search other supported institutions, and
+requires an explicit account choice before opening Home. A name does not
+prove ownership; the profile phone becomes an M-PESA identifier only after
+explicit M-PESA selection. No online registration, date wizard, welcome
+carousel, or final completion page is part of this route. Denied SMS access
+leaves manual institution search available. Existing backup restoration,
+financial rules, PIN hashing and schema remain unchanged. Android compile/CI,
+physical-device contrast and permission acceptance are still unverified;
+instrumentation is deliberately not run.
+
 _Activity review/ticker/fee follow-up (#698, 20 November 2026; Android CI and Redmi acceptance pending):_
 The permanent Activity `need review` banner is removed. On Home entry after
 PIN unlock, a coffee/cream modal asks about outstanding local financial review

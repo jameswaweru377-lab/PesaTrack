@@ -69,6 +69,7 @@ internal fun SmartSmsPermissionPage(
     onAccepted: (Boolean) -> Unit,
     onOpenAppInfo: () -> Unit,
     onTryAgain: () -> Unit,
+    onChooseHistory: () -> Unit,
     onContinue: () -> Unit,
     onContinueWithout: () -> Unit
 ) {
@@ -82,6 +83,7 @@ internal fun SmartSmsPermissionPage(
         onAccepted = onAccepted,
         onOpenAppInfo = onOpenAppInfo,
         onTryAgain = onTryAgain,
+        onChooseHistory = onChooseHistory,
         onContinue = onContinue,
         onContinueWithout = onContinueWithout
     )

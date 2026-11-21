@@ -266,6 +266,7 @@ class MainActivity : ComponentActivity() {
                     onWelcomeVisibilityChange = { welcomeVisible = it },
                     onSetupComplete = {
                         setupComplete = true
+                        securityConfigured = appLockManager.isEnabled()
                         preferences.edit()
                             .putBoolean(
                                 "setup_complete",
