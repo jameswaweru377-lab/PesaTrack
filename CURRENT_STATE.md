@@ -1,5 +1,18 @@
 # PesaTrack Current State
 
+_Notification inbox design (22 November 2026; Android CI and Redmi visual check pending):_
+The Home bell opens the approved coffee-black Notifications layout with a compact
+back/title/unread-count header, a settings and mark-all-read overflow, All updates /
+Needs review / Reminders filters, and the existing five-tab bottom bar. Actual
+unread Activity review notices may appear once in a featured attention card;
+closing that card leaves the unread notice accessible as a normal dated row.
+Other delivered reminders use date-grouped borderless rows with subtle dividers,
+timeline markers and unread indicators.
+The light theme uses the same shared color system. No synthetic notices or money
+figures are created; local delivery history, read persistence, navigation and
+notification permissions remain unchanged. Android 7 visual behavior and phone
+acceptance are not yet verified.
+
 _Historical own-account transfer repair (22 November 2026; Android CI and Redmi verification pending):_
 The local SMS replay now recognizes an interpreted bank-origin "Send Money"
 payment as a transfer when its full destination phone matches a uniquely
