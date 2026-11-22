@@ -22,6 +22,12 @@ class LockKeypadEntryPolicyTest {
         assertEquals("12", LockKeypadEntryPolicy.appendDigit("12", '٣', 6))
     }
 
+    @Test fun alternateKeyboardRetainsUnicodeNumeralsAcceptedDuringPinCreation() {
+        assertEquals("١٢٣٤٥٦", LockKeypadEntryPolicy.fromKeyboard("x١٢٣٤٥٦y", 6))
+        assertEquals("١٢٣٤٥٦", LockKeypadEntryPolicy.fromKeyboard("١٢٣٤٥٦٧", 6))
+        assertEquals("1٢3٤", LockKeypadEntryPolicy.fromKeyboard("a1٢3٤!", null))
+    }
+
     @Test fun backspaceRemovesOneDigitAndCanClearAnError() {
         assertEquals("123", LockKeypadEntryPolicy.removeLast("1234"))
         assertEquals("", LockKeypadEntryPolicy.removeLast(""))

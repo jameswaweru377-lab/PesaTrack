@@ -4,8 +4,10 @@ _Daily PIN keypad redesign (22 November 2026; Android CI and phone acceptance pe
 The returning-user lock screen is a uniform coffee-black surface with the
 current PesaTrack mark, compact welcome heading, masked PIN indicator dots,
 an on-screen numeric keypad, a fingerprint shortcut where supported and a
-plain Forgot PIN? phone-credential recovery action. The old outlined PIN field,
-system keyboard, Unlock button and keyboard Done fallback are removed. A brief
+plain Forgot PIN? phone-credential recovery action. The normal entry has no
+system keyboard, Unlock button or keyboard Done fallback. An optional phone-
+keyboard entry allows existing PINs with non-ASCII numerals to unlock without
+changing their saved hash. A brief
 spinner and errors remain on the lock screen, with no change to underlying
 protected data. PINs verify automatically at their recorded 4–8 digit length;
 older PINs without that metadata are checked across candidate lengths as one
