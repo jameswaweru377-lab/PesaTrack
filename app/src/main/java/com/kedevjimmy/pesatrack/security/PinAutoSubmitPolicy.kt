@@ -4,7 +4,10 @@ enum class PinEntryAction { WAIT, VERIFY, VERIFY_LEGACY_START, VERIFY_LEGACY_CON
 
 /** The first successful unlock of an older PIN persists its length for later entries. */
 object PinAutoSubmitPolicy {
-    fun onChange(pin: String, storedLength: Int?): PinEntryAction {
+    fun onChange(pin: String, storedLength: Int?, isDeletion: Boolean = false): PinEntryAction {
+        // Backspacing an older PIN is a correction, not a new failed unlock attempt.
+        // The previous verification is cancelled by Compose when the PIN changes.
+        if (isDeletion) return PinEntryAction.WAIT
         if (pin.any { !it.isDigit() } || pin.length > 8) return PinEntryAction.WAIT
         if (storedLength != null && storedLength in 4..8) {
             return if (pin.length == storedLength) PinEntryAction.VERIFY else PinEntryAction.WAIT
