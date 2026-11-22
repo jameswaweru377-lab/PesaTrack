@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
@@ -45,6 +46,7 @@ fun NotificationCenterScreen(
     onOpen: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val locale = LocalConfiguration.current.locales[0]
     val revision by LocalNotificationInboxStore.revision.collectAsState()
     val alerts = remember(context, revision) { LocalNotificationInboxStore.list(context) }
     var unreadOnly by rememberSaveable { mutableStateOf(false) }
@@ -68,7 +70,7 @@ fun NotificationCenterScreen(
             LazyColumn(contentPadding = PaddingValues(bottom = PesaDesignTokens.sectionGap)) {
                 display.featured?.let { alert ->
                     item("featured-date") {
-                        Text(SimpleDateFormat("EEEE d MMM yyyy", Locale.getDefault()).apply {
+                        Text(SimpleDateFormat("EEEE d MMM yyyy", locale).apply {
                             timeZone = timezone
                         }.format(Date(now)),
                             modifier = Modifier.padding(vertical = 16.dp),
@@ -85,7 +87,7 @@ fun NotificationCenterScreen(
                 if (display.today.isNotEmpty()) {
                     item("today-title") { InboxSectionTitle("Today") }
                     items(display.today, key = { it.key }) { alert ->
-                        NotificationInboxRow(alert, now, timezone) {
+                        NotificationInboxRow(alert, now, timezone, locale) {
                             LocalNotificationInboxStore.markRead(context, alert.key)
                             onOpen(alert.route)
                         }
@@ -94,7 +96,7 @@ fun NotificationCenterScreen(
                 if (display.earlierThisWeek.isNotEmpty()) {
                     item("week-title") { InboxSectionTitle("Earlier this week") }
                     items(display.earlierThisWeek, key = { it.key }) { alert ->
-                        NotificationInboxRow(alert, now, timezone) {
+                        NotificationInboxRow(alert, now, timezone, locale) {
                             LocalNotificationInboxStore.markRead(context, alert.key)
                             onOpen(alert.route)
                         }
@@ -103,7 +105,7 @@ fun NotificationCenterScreen(
                 if (display.older.isNotEmpty()) {
                     item("older-title") { InboxSectionTitle("Earlier") }
                     items(display.older, key = { it.key }) { alert ->
-                        NotificationInboxRow(alert, now, timezone) {
+                        NotificationInboxRow(alert, now, timezone, locale) {
                             LocalNotificationInboxStore.markRead(context, alert.key)
                             onOpen(alert.route)
                         }
@@ -219,7 +221,7 @@ private fun InboxSectionTitle(label: String) {
 
 @Composable
 private fun NotificationInboxRow(notice: LocalInboxNotice, now: Long,
-                                 timezone: TimeZone, onClick: () -> Unit) {
+                                 timezone: TimeZone, locale: Locale, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val day = Calendar.getInstance(timezone).apply { timeInMillis = notice.createdAt }
     val current = Calendar.getInstance(timezone).apply { timeInMillis = now }
@@ -230,11 +232,11 @@ private fun NotificationInboxRow(notice: LocalInboxNotice, now: Long,
     fun sameDay(a: Calendar, b: Calendar) = a.get(Calendar.ERA) == b.get(Calendar.ERA) &&
         a.get(Calendar.YEAR) == b.get(Calendar.YEAR) &&
         a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
-    fun format(pattern: String) = SimpleDateFormat(pattern, Locale.getDefault()).apply {
+    fun format(pattern: String) = SimpleDateFormat(pattern, locale).apply {
         timeZone = timezone
     }.format(Date(notice.createdAt))
     val timestamp = when {
-        sameDay(day, current) -> format("h:mm a").lowercase(Locale.getDefault())
+        sameDay(day, current) -> format("h:mm a").lowercase(locale)
         sameDay(day, yesterday) -> "Yesterday"
         notice.createdAt < now && now - notice.createdAt < 7L * 24 * 60 * 60 * 1000 ->
             format("EEE")
