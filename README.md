@@ -53,6 +53,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 
 - **Local-first:** the on-device SQLite data is the source of truth for personal financial records.
 - **Optional access:** historical SMS and financial-notification access depend on the permissions you choose to grant.
+- **Sender-first SMS privacy:** when importing history, PesaTrack checks message sender information without requesting personal message bodies, then reads only recognised or explicitly approved financial senders. Messages from an unknown sender stay unread until you approve its sender name in Import History. Promotional messages from a financial sender can still be checked but are not accepted as financial transactions without actual evidence.
 - **Offline processing:** the app does not request internet permission or perform online merchant lookup; financial message interpretation stays on-device.
 - **Your exports:** backups are passphrase-encrypted; exported reports and files need the same care as other financial documents.
 
@@ -71,6 +72,9 @@ phone and asks the user to confirm at least one bank or wallet, with manual
 search available even if SMS access is denied. Notifications use Android's
 optional permission prompt. There is no online account registration or OTP.
 Backup restoration remains a separate, user-initiated process.
+The first scan checks senders before retrieving financial message text. A
+follow-up pass runs after account confirmation only when the first scan found
+pending events that could not safely be recorded without ownership.
 
 **Before updating:** protect your data with a verified backup. A phone running an older debug-signed APK may not accept the release-signed update. Do not uninstall or erase app data just to force an update. See the [release and signing guide](docs/RELEASE_PROCESS.md).
 

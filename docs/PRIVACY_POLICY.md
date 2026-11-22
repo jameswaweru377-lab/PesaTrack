@@ -35,7 +35,9 @@ the app does not silently erase existing device preferences or backup files.
 
 During first-run setup PesaTrack explains financial-SMS access and asks you to agree before requesting Android's `READ_SMS` permission. With both approvals, it scans the available financial-message history on this phone, including older messages, to build and reconcile the local ledger. There is no separate date-range choice in first-run setup. Android SMS permission remains optional: refusing it prevents the import, and the app offers a searchable manual account list instead.
 
-PesaTrack is designed to ignore unrelated messages rather than turn them into financial records. Full SMS bodies are not sent to the optional online merchant lookup service.
+During historical SMS import, PesaTrack first requests only SMS record IDs, sender information and dates. It then requests message bodies only for senders recognised by its offline financial sender list or explicitly approved by you in **Import History**. Unknown and personal-number senders are not opened by the import reader. You can remove an additional approved sender at any time; removal stops future reads from that sender but does not delete already imported financial records. SMS from approved financial providers may include promotions or security notices; their content can be inspected locally to distinguish genuine financial events, and unrelated material is not entered as a transaction.
+
+Android grants the `READ_SMS` permission across the SMS inbox, not exclusively for financial messages. The sender-first restriction is enforced by PesaTrack's own reader; it does not narrow Android's system permission. SMS bodies are not uploaded or sent to any external service.
 
 You can use PesaTrack without granting historical SMS access, although historical automatic import will be unavailable.
 
