@@ -35,7 +35,10 @@ data class OwnAccountTransferMatch(
 }
 
 object OwnAccountTransferDetector {
-    private val phoneRegex = Regex("""(?<!\d)(?:\+?254|0)[17]\d{8}(?!\d)""")
+    private val directedPhoneRegex = Regex(
+        """\bto\s+(?:(?:m-pesa|mpesa|wallet)\s*)?[:#]?\s*((?:\+?254|0)[17]\d{8})(?!\d)""",
+        RegexOption.IGNORE_CASE
+    )
     private val genericAccountWords = setOf(
         "bank", "account", "mobile", "wallet", "savings", "current", "salary", "my"
     )
@@ -162,16 +165,11 @@ object OwnAccountTransferDetector {
 
         normalizeKenyanPhone(value)
             ?.let { phone ->
-                return phoneRegex
-                    .findAll(text)
-                    .mapNotNull {
-                        normalizeKenyanPhone(
-                            it.value
-                        )
-                    }
-                    .any {
-                        it == phone
-                    }
+                // A help-line or unrelated phone in the text must not identify
+                // the transfer destination. Only a directed recipient counts.
+                val recipients = directedPhoneRegex.findAll(text)
+                    .mapNotNull { normalizeKenyanPhone(it.groupValues[1]) }.toList()
+                return recipients.singleOrNull() == phone
             }
 
         val compactIdentifier =

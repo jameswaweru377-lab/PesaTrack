@@ -17,7 +17,7 @@
 
 ---
 
-PesaTrack helps you understand money coming in, going out, and moving between your accounts. It builds a personal ledger from supported financial-message evidence and your own entries, while keeping imported statement records available for separate verification and review—without making a cloud account the centre of your finances.
+PesaTrack helps you understand money coming in, going out, and moving between your accounts. It builds a personal ledger from supported financial-message evidence and your own entries, while keeping imported statement records available for separate verification and review—without making a cloud account the centre of your finances. For supported completed bank-to-wallet messages, a saved full recipient phone and confirmed account ownership can identify transfers between your accounts across institutions; a different recipient phone is treated as an outgoing payment. Names alone never prove an account belongs to you.
 
 Saved statement archives are separate evidence: saving a bank PDF never automatically adds its rows to Activity. Only sources that pass their format-specific account, document, balance and totals checks enter verified Statements cash-flow reports; other admitted evidence remains separate and clearly labelled. Every import requires review and consent.
 

@@ -11,14 +11,15 @@ object SelfNameEvidencePolicy {
     fun compare(configuredFullName: String?, observedCounterpartyName: String?): SelfNameEvidenceLevel {
         val profile = tokens(configuredFullName)
         val candidate = tokens(observedCounterpartyName)
-        if (profile.size != 3 || profile.toSet().size != 3 ||
+        if (profile.size !in 2..3 || profile.toSet().size != profile.size ||
             candidate.size !in 2..3 || candidate.toSet().size != candidate.size) {
             return SelfNameEvidenceLevel.NO_MATCH
         }
         val shared = candidate.toSet().intersect(profile.toSet()).size
         return when {
-            candidate == profile -> SelfNameEvidenceLevel.EXACT_THREE_NAMES
-            shared == 2 -> SelfNameEvidenceLevel.TWO_OF_THREE_REVIEW
+            profile.size == 3 && candidate.size == 3 &&
+                candidate.toSet() == profile.toSet() -> SelfNameEvidenceLevel.EXACT_THREE_NAMES
+            shared >= 2 -> SelfNameEvidenceLevel.TWO_OF_THREE_REVIEW
             else -> SelfNameEvidenceLevel.NO_MATCH
         }
     }
