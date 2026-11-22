@@ -92,5 +92,4 @@ class PayCycleIncomeEvidenceRefreshTest {
             put("account_id", accountId)
             if (salary) { put("rule_id", "synthetic-salary-rule"); put("cycle_override", "FORCE_START") }
         })
-    )
 }
