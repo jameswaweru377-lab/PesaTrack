@@ -6,7 +6,7 @@ enum class PinEntryAction { WAIT, VERIFY }
 object PinAutoSubmitPolicy {
     fun onChange(pin: String, storedLength: Int?): PinEntryAction {
         if (pin.any { !it.isDigit() } || pin.length > 8) return PinEntryAction.WAIT
-        if (storedLength in 4..8) {
+        if (storedLength != null && storedLength in 4..8) {
             return if (pin.length == storedLength) PinEntryAction.VERIFY else PinEntryAction.WAIT
         }
         return if (pin.length == 8) PinEntryAction.VERIFY else PinEntryAction.WAIT
