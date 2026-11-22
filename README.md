@@ -27,6 +27,8 @@ Bank PDF identification runs locally, asks for bank confirmation when a supporte
 
 **Accuracy comes first:** when a transaction, balance, or document cannot be verified confidently, PesaTrack asks for review or shows the limitation instead of inventing a number.
 
+For imported bank-to-wallet payments, a saved name by itself never removes an expense: automatic own-account classification requires an explicitly confirmed source account and the full destination phone of an explicitly confirmed wallet. Existing SMS can be rechecked locally after an app update without replacing user-entered classifications. Uncertain entries may still need review.
+
 When two statement PDFs contain matching amounts but only a generic narration (such as `TRANSFER`), PesaTrack preserves both records and holds the combined source-only subtotal for review. A narration label is not a verified duplicate receipt code.
 
 Reconciliation relies on confirmed account identities and cash-movement evidence, not a fixed Equity/M-Pesa pairing. If a bank account's full identifier changes, older documents remain in its history but stop serving as proof of a current account movement. Bank PDF **format support is separate**: verified bank-PDF admission remains limited to the supported Equity layout, while other banks' PDFs need their own validation before admission.
