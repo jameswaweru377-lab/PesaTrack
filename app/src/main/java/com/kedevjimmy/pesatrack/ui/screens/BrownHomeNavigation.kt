@@ -67,6 +67,13 @@ internal fun homeColors(): HomeColors {
     )
 }
 
+/** No badge for a clear inbox; never let double-digit counts overflow the bell. */
+internal fun unreadNotificationBadge(count: Int): String? = when {
+    count <= 0 -> null
+    count > 9 -> "9+"
+    else -> count.toString()
+}
+
 @Composable
 internal fun BrownHomeHeader(onNotifications: () -> Unit) {
     val p = MaterialTheme.colorScheme
@@ -76,6 +83,7 @@ internal fun BrownHomeHeader(onNotifications: () -> Unit) {
         com.kedevjimmy.pesatrack.planning.LocalNotificationInboxStore.list(context)
             .count { !it.read }
     }
+    val badge = unreadNotificationBadge(unread)
     Box(Modifier.fillMaxWidth().height(76.dp).background(p.background)
         .padding(horizontal = 12.dp)) {
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally,
@@ -95,10 +103,10 @@ internal fun BrownHomeHeader(onNotifications: () -> Unit) {
                 onClick = onNotifications),
             contentAlignment = Alignment.Center) {
             Icon(Icons.Rounded.NotificationsNone, "Notifications", Modifier.size(26.dp), tint = p.onBackground)
-            if (unread > 0) {
+            if (badge != null) {
                 Box(Modifier.align(Alignment.TopEnd).size(18.dp)
-                    .background(p.primary, CircleShape), contentAlignment = Alignment.Center) {
-                    Text(if (unread > 9) "9+" else "$unread", color = p.onPrimary, fontSize = 9.sp,
+                    .background(p.error, CircleShape), contentAlignment = Alignment.Center) {
+                    Text(badge, color = p.onError, fontSize = 9.sp,
                         fontWeight = FontWeight.Bold)
                 }
             }

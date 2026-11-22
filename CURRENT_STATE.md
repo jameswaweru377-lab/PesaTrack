@@ -1,5 +1,23 @@
 # PesaTrack Current State
 
+_Selected compact finance UI (22 November 2026; exact-head CI and Redmi review pending):_
+Profile Money Wellness uses a solid coffee-brown card instead of the second
+Nairobi photograph. A circular indicator displays only the score supplied by
+the existing complete-data Home financial evaluator; when confidence is
+insufficient it says "Needs info" without an invented percentage. The personal
+Nairobi profile cover itself is unchanged. Transaction Details uses the
+compact black ledger layout: a small status/amount summary, three existing
+management actions, source-backed account/type/reference facts, and grouped
+collapsed evidence/history with all older functions still reachable.
+Home's local unread bell badge is red, while unknown Home bank balances are
+labelled "Not recorded" instead of repeated large unavailable warnings.
+The Accounts M-Pesa branches are initially collapsed; tapping the parent
+reveals the existing savings subaccounts. Remember-category match counts and
+details remain available in a more compact dialog. None of these UI changes
+changes balance arithmetic, transaction classification, local notification
+delivery, permissions, backup, release signing or app navigation. Instrumentation
+is deliberately excluded; real-device acceptance is pending.
+
 _Daily returning-user splash refresh (22 November 2026; Android CI and device review pending):_
 Cold launches for existing users now display the actual PesaTrack copper Home mark
 on a single full-black canvas with a brief peach trace and compact serif wordmark.

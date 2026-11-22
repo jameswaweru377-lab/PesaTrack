@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,7 +34,8 @@ import java.util.Date
 @Composable
 internal fun BrownTransactionHeader(
     item: StoredTransaction, category: String, account: String,
-    onBack: () -> Unit, onChooseCategory: () -> Unit, onAddNote: () -> Unit
+    onBack: () -> Unit, onChooseCategory: () -> Unit, onAddNote: () -> Unit,
+    onReceipt: () -> Unit, hasReceipt: Boolean
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     val p = homeColors()
@@ -41,9 +43,9 @@ internal fun BrownTransactionHeader(
         IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart)) {
             Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = p.ink)
         }
-        Text("Transaction details", Modifier.align(Alignment.Center), color = p.ink,
+        Text("Transaction", Modifier.align(Alignment.Center), color = p.ink,
             fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold,
-            fontSize = 24.sp, maxLines = 1)
+            fontSize = 21.sp, maxLines = 1)
         Box(Modifier.align(Alignment.CenterEnd)) {
             IconButton(onClick = { menuExpanded = true }) {
                 Icon(Icons.Rounded.MoreHoriz, "More transaction actions", tint = p.ink)
@@ -59,83 +61,123 @@ internal fun BrownTransactionHeader(
             }
         }
     }
-    BrownTransactionPaymentCard(item, category, account)
-    Spacer(Modifier.height(12.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        OutlinedButton(onClick = onChooseCategory, Modifier.heightIn(min = 48.dp),
-            shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, p.outline),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = p.coffee)) {
-            Icon(Icons.Rounded.Edit, null, Modifier.size(20.dp))
-            Spacer(Modifier.width(7.dp))
-            Text("Change category", maxLines = 1, fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold)
-        }
-        TextButton(onClick = onAddNote, Modifier.heightIn(min = 48.dp),
-            colors = ButtonDefaults.textButtonColors(contentColor = p.coffee)) {
-            Icon(Icons.Rounded.NoteAdd, null, Modifier.size(19.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("Add note", maxLines = 1, fontSize = 13.sp)
-        }
+    BrownTransactionLedgerSummary(item, account, category)
+    Spacer(Modifier.height(16.dp))
+    Text("Manage", color = p.ink, fontFamily = FontFamily.Serif,
+        fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+    Spacer(Modifier.height(8.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TransactionManageAction("Category", Icons.Rounded.ShoppingBasket,
+            Modifier.weight(1f), onChooseCategory)
+        TransactionManageAction("Add note", Icons.Rounded.ChatBubbleOutline,
+            Modifier.weight(1f), onAddNote)
+        TransactionManageAction(if (hasReceipt) "Receipt" else "Add receipt",
+            Icons.AutoMirrored.Rounded.ReceiptLong, Modifier.weight(1f), onReceipt)
+    }
+    Spacer(Modifier.height(16.dp))
+    Text("At a glance", color = p.ink, fontFamily = FontFamily.Serif,
+        fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+    TransactionGlanceRow("Account", account)
+    TransactionGlanceRow("Transaction type", item.type.replace('_', ' ').lowercase()
+        .replaceFirstChar { it.titlecase() })
+    TransactionGlanceRow("Reference", item.transactionCode?.takeIf { it.isNotBlank() } ?: "Not recorded")
+    if (item.fulizaFinancedMinor > 0L || item.fulizaAccessFeeMinor > 0L) {
+        Spacer(Modifier.height(8.dp))
+        BrownTransactionFunding(item, account)
     }
 }
 
 @Composable
-private fun BrownTransactionPaymentCard(item: StoredTransaction, category: String, account: String) {
+private fun BrownTransactionLedgerSummary(item: StoredTransaction, account: String, category: String) {
     val p = homeColors()
     val locale = LocalConfiguration.current.locales[0]
+    val movement = when (item.direction) {
+        MoneyDirection.EXPENSE.name -> "MONEY OUT"
+        MoneyDirection.INCOME.name -> "MONEY IN"
+        MoneyDirection.TRANSFER.name -> "TRANSFER"
+        else -> "TRANSACTION"
+    }
+    val status = when (item.reviewState) {
+        ReviewState.EXCLUDED.name -> "Excluded"
+        ReviewState.NEEDS_REVIEW.name -> "Needs review"
+        else -> "Recorded"
+    }
     val signed = when (item.direction) {
         MoneyDirection.EXPENSE.name -> "−"
         MoneyDirection.INCOME.name -> "+"
         else -> ""
     }
-    val name = item.counterparty?.takeIf { it.isNotBlank() }
-        ?: item.evidenceLabel?.takeIf { it.isNotBlank() } ?: "Transaction"
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp),
-        border = BorderStroke(1.dp, p.outline), color = p.cream) {
-        Box {
-            Image(painter = painterResource(R.drawable.transaction_coin_receipt_brown),
-                contentDescription = null,
-                modifier = Modifier.fillMaxWidth().height(144.dp).align(Alignment.TopCenter),
-                contentScale = ContentScale.FillBounds,
-                alpha = if (p.canvas == PremiumVisualTokens.darkCanvas) .10f else .54f)
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(Modifier.size(48.dp), shape = RoundedCornerShape(14.dp),
-                    color = p.outline.copy(alpha = .25f)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.PersonOutline, null, Modifier.size(28.dp), tint = p.ink)
-                    }
-                }
-                Column(Modifier.weight(1f)) {
-                    Text(name, color = p.ink, fontFamily = FontFamily.Serif,
-                        fontWeight = FontWeight.Bold, fontSize = 21.sp,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    Text("$category  ·  $account", color = p.muted,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp)
-                }
-            }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(signed + formatTransactionDetailMoney(item.amountMinor),
-                    Modifier.weight(1f), color = p.ink, fontFamily = FontFamily.Serif,
-                    fontWeight = FontWeight.Bold, fontSize = 32.sp, maxLines = 1,
-                    overflow = TextOverflow.Ellipsis)
-                Surface(shape = RoundedCornerShape(8.dp), color = p.canvas,
-                    border = BorderStroke(1.dp, p.coffee)) {
-                    Text(when (item.reviewState) {
-                        ReviewState.EXCLUDED.name -> "Excluded"
-                        ReviewState.NEEDS_REVIEW.name -> "Needs review"
-                        else -> "Recorded"
-                    }, Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                        color = p.coffee, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                }
-            }
-            Text(SimpleDateFormat("d MMM yyyy  ·  h:mm a", locale)
-                .format(Date(item.occurredAtEpochMs)), color = p.muted, fontSize = 12.sp)
-            BrownTransactionFunding(item, account)
+    val counterparty = item.counterparty?.takeIf { it.isNotBlank() }
+        ?: item.evidenceLabel?.takeIf { it.isNotBlank() }
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("$movement  ·  ${status.uppercase()}", color = p.coffee,
+            fontWeight = FontWeight.SemiBold, letterSpacing = .7.sp, fontSize = 11.sp)
+        Text(signed + formatTransactionDetailMoney(item.amountMinor), color = p.ink,
+            fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold,
+            fontSize = 29.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(transactionCounterpartySummary(item.direction, counterparty),
+            color = p.ink, fontFamily = FontFamily.Serif, fontSize = 16.sp,
+            maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(SimpleDateFormat("d MMM yyyy  ·  h:mm a", locale)
+            .format(Date(item.occurredAtEpochMs)), color = p.muted, fontSize = 12.sp)
+        HorizontalDivider(Modifier.padding(vertical = 8.dp), color = p.outline.copy(alpha = .6f))
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = p.white) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Rounded.AccountBalanceWallet, null, Modifier.size(20.dp), tint = p.coffee)
+                Text(account, Modifier.weight(1f), color = p.ink, fontSize = 13.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Icon(Icons.Rounded.ArrowForward, null, Modifier.size(17.dp), tint = p.muted)
+                Text(category, Modifier.weight(1f), color = p.ink, fontSize = 13.sp,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(status, color = if (status == "Recorded") MaterialTheme.colorScheme.tertiary else p.coffee,
+                    fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1)
             }
         }
     }
+}
+
+/** A transfer counterparty is not necessarily its destination (for example, incoming M-Pesa). */
+internal fun transactionCounterpartySummary(direction: String, counterparty: String?): String {
+    val name = counterparty?.takeIf { it.isNotBlank() } ?: return "Transaction"
+    return when (direction) {
+        MoneyDirection.EXPENSE.name -> "Paid to $name"
+        MoneyDirection.INCOME.name -> "Received from $name"
+        MoneyDirection.TRANSFER.name -> "Transfer involving $name"
+        else -> "With $name"
+    }
+}
+
+@Composable
+private fun TransactionManageAction(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier, onClick: () -> Unit) {
+    val p = homeColors()
+    Surface(modifier.heightIn(min = 72.dp).clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp), color = p.white) {
+        Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(icon, contentDescription = null, tint = p.coffee, modifier = Modifier.size(22.dp))
+            Text(label, color = p.ink, fontSize = 12.sp, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun TransactionGlanceRow(label: String, value: String) {
+    val p = homeColors()
+    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(label, Modifier.weight(.45f), color = p.muted, fontSize = 12.sp)
+        Text(value, Modifier.weight(.55f), color = p.ink, fontSize = 12.sp,
+            maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            overflow = TextOverflow.Ellipsis)
+    }
+    HorizontalDivider(color = p.outline.copy(alpha = .55f))
 }
 
 @Composable

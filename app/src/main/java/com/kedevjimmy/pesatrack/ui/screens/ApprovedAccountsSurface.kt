@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Savings
@@ -29,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -112,7 +114,7 @@ internal fun ApprovedBalanceHero(
 internal fun ApprovedAccountsList(lines: List<AccountDisplayLine>, savings: List<AccountDisplayLine>,
     hidden: Boolean, onAccountClick: ((String) -> Unit)?, onAdd: (() -> Unit)?,
     onBalanceClick: ((String) -> Unit)?) {
-    var expanded by remember { mutableStateOf(true) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             AccountHeading("Your accounts", Modifier.weight(1f))
@@ -131,6 +133,7 @@ internal fun ApprovedAccountsList(lines: List<AccountDisplayLine>, savings: List
                         .copy(alpha = PesaDesignTokens.faintDividerAlpha))
                     AccountMainRow(line, hidden,
                         expandable = line.name.contains("M-Pesa", true) && savings.isNotEmpty(),
+                        expanded = expanded,
                         onBalanceClick = line.accountId?.let { id ->
                             onBalanceClick?.let { callback -> { callback(id) } }
                         },
@@ -145,7 +148,7 @@ internal fun ApprovedAccountsList(lines: List<AccountDisplayLine>, savings: List
                 if (!hasMpesa) savings.forEach { line ->
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant
                         .copy(alpha = PesaDesignTokens.faintDividerAlpha))
-                    AccountMainRow(line, hidden, false,
+                    AccountMainRow(line, hidden, false, false,
                         onBalanceClick = line.accountId?.let { id ->
                             onBalanceClick?.let { callback -> { callback(id) } }
                         }) {
@@ -158,7 +161,7 @@ internal fun ApprovedAccountsList(lines: List<AccountDisplayLine>, savings: List
 }
 
 @Composable
-private fun AccountMainRow(line: AccountDisplayLine, hidden: Boolean, expandable: Boolean,
+private fun AccountMainRow(line: AccountDisplayLine, hidden: Boolean, expandable: Boolean, expanded: Boolean,
     onBalanceClick: (() -> Unit)?, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically) {
@@ -181,8 +184,11 @@ private fun AccountMainRow(line: AccountDisplayLine, hidden: Boolean, expandable
             Icon(Icons.Rounded.Edit, contentDescription = "Enter ${line.name} balance",
                 modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
         }
-        Icon(if (expandable) Icons.Rounded.ExpandMore else Icons.Rounded.ChevronRight,
-            null, Modifier.padding(start = 4.dp).size(22.dp), tint = mutedCoffee)
+        Icon(if (expandable) {
+            if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore
+        } else Icons.Rounded.ChevronRight,
+            if (expandable) if (expanded) "Collapse M-Pesa accounts" else "Expand M-Pesa accounts" else null,
+            Modifier.padding(start = 4.dp).size(22.dp), tint = mutedCoffee)
     }
 }
 

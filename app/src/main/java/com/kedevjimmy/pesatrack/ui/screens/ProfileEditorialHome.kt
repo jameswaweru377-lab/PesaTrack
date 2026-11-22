@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import com.kedevjimmy.pesatrack.ui.theme.ProfileVisualColors as C
 
 @Composable
@@ -77,58 +78,57 @@ internal fun ProfileNairobiWellnessFeature(
     state: ProfileMoneyHabitsPresentation,
     onClick: () -> Unit
 ) {
-    Box(
-        Modifier.fillMaxWidth().heightIn(min = 144.dp)
+    val accent = PremiumVisualTokens.darkCoffee
+    val text = PremiumVisualTokens.darkText
+    val secondary = PremiumVisualTokens.darkMuted
+    val rated = state.score?.takeIf { !state.isProvisional }
+    val status = when {
+        rated == null -> "Needs info"
+        state.kind == ProfileMoneyHabitsKind.AT_RISK -> "At risk"
+        else -> "On track"
+    }
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 160.dp)
             .clip(RoundedCornerShape(PesaDesignTokens.cardRadius))
+            .background(PremiumVisualTokens.darkSurface)
             .clickable(role = Role.Button, onClick = onClick)
-            .semantics { stateDescription = state.label }
+            .semantics { stateDescription = if (rated == null) "Money health not rated" else "$status, $rated out of 100" }
+            .testTag("profile-money-wellness-card")
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Image(
-            painterResource(R.drawable.profile_money_wellness_nairobi),
-            contentDescription = "Nairobi city at sunset",
-            modifier = Modifier.matchParentSize(),
-            contentScale = ContentScale.Crop
-        )
-        Box(Modifier.matchParentSize().background(Brush.horizontalGradient(listOf(
-            Color.Black.copy(alpha = .87f), Color.Black.copy(alpha = .46f),
-            Color.Transparent
-        ))))
-        Column(
-            Modifier.fillMaxWidth(.82f).padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Surface(shape = CircleShape, color = C.coffee.copy(alpha = .80f)) {
-                    Text("MONEY WELLNESS", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        color = C.cream, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-                Text("Better\nmoney habits", color = Color.White, fontSize = 22.sp,
-                    fontFamily = FontFamily.Serif, lineHeight = 22.sp,
-                    fontWeight = FontWeight.Bold)
-                Text("Make sense of your money", color = Color.White.copy(alpha = .94f),
-                    fontSize = 11.sp, maxLines = 1)
-                Row(Modifier.width(160.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    repeat(2) {
-                        Box(Modifier.width(28.dp).height(2.dp)
-                            .background(C.leaf.copy(alpha = .80f), CircleShape))
-                    }
-                }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("MONEY WELLNESS", color = accent, fontSize = 10.sp,
+                fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text("How is your money?", color = text, fontSize = 19.sp,
+                fontWeight = FontWeight.SemiBold, lineHeight = 22.sp, maxLines = 2)
+            Text(state.subtitle, color = secondary, fontSize = 12.sp,
+                lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            HorizontalDivider(color = PremiumVisualTokens.leaf.copy(alpha = .55f))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("View insights", color = accent, fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold)
+                Icon(Icons.Rounded.ArrowForward, contentDescription = null,
+                    modifier = Modifier.size(20.dp).padding(start = 4.dp), tint = accent)
             }
-            Surface(
-                shape = CircleShape,
-                color = C.cream
-            ) {
-                Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.BarChart, null, tint = C.coffee,
-                        modifier = Modifier.size(16.dp))
-                    Text("Review insights", modifier = Modifier.padding(horizontal = 8.dp),
-                        color = C.ink, fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold)
-                    Icon(Icons.Rounded.ChevronRight, null, tint = C.coffee,
-                        modifier = Modifier.size(16.dp))
-                }
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.size(96.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(
+                    progress = { (rated ?: 0).coerceIn(0, 100) / 100f },
+                    modifier = Modifier.fillMaxSize(),
+                    color = accent,
+                    trackColor = PremiumVisualTokens.darkBorder,
+                    strokeWidth = 8.dp
+                )
+                Text(status, color = text, fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
+                    maxLines = 2, modifier = Modifier.padding(horizontal = 8.dp))
             }
+            Text(if (rated == null) "Complete picture" else "Check in",
+                color = secondary, fontSize = 11.sp)
         }
     }
 }

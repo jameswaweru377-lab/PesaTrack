@@ -594,38 +594,39 @@ fun TransactionDetailScreen(
         val categoryId = pendingCategoryId!!
         AlertDialog(
             onDismissRequest = { if (!learningBusy) pendingCategoryId = null },
-            title = { Text("Remember this category?") },
+            title = { Text("Remember this category?", style = MaterialTheme.typography.titleMedium) },
             text = {
                 Column(
-                    Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
                         "${current.counterparty ?: current.counterpartyPhone} → " +
                             categoryStore.labelFor(categoryId),
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Surface(
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                         ) {
-                            Column(Modifier.padding(12.dp)) {
+                            Column(Modifier.padding(8.dp)) {
                                 Text("$pendingMatchCount",
-                                    style = MaterialTheme.typography.headlineSmall)
+                                    style = MaterialTheme.typography.titleLarge)
                                 Text("Activity matches",
                                     style = MaterialTheme.typography.labelSmall)
                             }
                         }
                         Surface(
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(12.dp),
                             color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
                         ) {
-                            Column(Modifier.padding(12.dp)) {
+                            Column(Modifier.padding(8.dp)) {
                                 Text("$pendingStatementMatchCount",
-                                    style = MaterialTheme.typography.headlineSmall)
+                                    style = MaterialTheme.typography.titleLarge)
                                 Text("Statement matches",
                                     style = MaterialTheme.typography.labelSmall)
                             }
@@ -634,7 +635,8 @@ fun TransactionDetailScreen(
                     Text("Remember for eligible past and future matches. " +
                         "Your source transactions remain separate.",
                         style = MaterialTheme.typography.bodySmall)
-                    TextButton(onClick = { rememberScanExpanded = !rememberScanExpanded }) {
+                    TextButton(onClick = { rememberScanExpanded = !rememberScanExpanded },
+                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp)) {
                         Text(if (rememberScanExpanded) "Hide scan details"
                             else "How were matches found?")
                     }
@@ -773,13 +775,23 @@ fun TransactionDetailScreen(
                 account = accountLabel,
                 onBack = onBack,
                 onChooseCategory = { showCategoryPicker = true },
-                onAddNote = { showAnnotationDialog = true }
+                onAddNote = { showAnnotationDialog = true },
+                onReceipt = {
+                    if (annotation.receiptUri == null) {
+                        receiptPicker.launch(arrayOf("image/*", "application/pdf"))
+                    } else showAnnotationDialog = true
+                },
+                hasReceipt = annotation.receiptUri != null
             )
         }
         if (current.relationType == TransactionStore.RELATION_REFUND) {
             item { RefundLinkCard(current, linkedRefundOriginal) }
         }
         item(key = "transaction-evidence-group") {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("More about this payment", color = homeColors().ink,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold)
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = homeColors().white,
@@ -787,22 +799,22 @@ fun TransactionDetailScreen(
             ) {
             Column {
             RedesignDetailAccordion(
-                title = "Original message",
+                title = "Original SMS",
                 icon = Icons.Rounded.Sms,
                 expanded = messageExpanded,
                 onToggle = { messageExpanded = !messageExpanded },
-                supporting = "View source SMS",
+                supporting = "View source message",
                 grouped = true
             ) {
                 TransactionOriginalMessage(messageEvidence, current.sourceKind)
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             RedesignDetailAccordion(
-                title = "Linked evidence",
+                title = "Evidence & attachments",
                 icon = Icons.Rounded.AttachFile,
                 expanded = evidenceExpanded,
                 onToggle = { evidenceExpanded = !evidenceExpanded },
-                supporting = if (availableSources.isEmpty()) "No attachment added"
+                supporting = if (availableSources.isEmpty()) "None yet"
                     else availableSources.size.toString() + " connected source(s)",
                 grouped = true
             ) {
@@ -841,7 +853,7 @@ fun TransactionDetailScreen(
                     icon = Icons.Rounded.BarChart,
                     expanded = merchantExpanded,
                     onToggle = { merchantExpanded = !merchantExpanded },
-                    supporting = "View earlier payments",
+                    supporting = "Previous payments",
                     grouped = true
                 ) {
                     BrownMerchantHistory(
@@ -853,23 +865,15 @@ fun TransactionDetailScreen(
                     )
                 }
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp)
-                .clickable { showAnnotationDialog = true }
-                .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(Icons.Rounded.AttachFile, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary)
-                Text(if (annotation.receiptUri == null) "Add receipt" else "View receipt",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium)
-                Icon(Icons.Rounded.ChevronRight, contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary)
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+            }
+        }
+        item(key = "transaction-additional-facts") {
+            Surface(Modifier.fillMaxWidth(), color = homeColors().white,
+                shape = RoundedCornerShape(16.dp)) {
             RedesignDetailAccordion(
-                title = "More transaction facts",
+                title = "Additional facts",
                 icon = Icons.AutoMirrored.Rounded.ReceiptLong,
                 expanded = factsExpanded,
                 onToggle = { factsExpanded = !factsExpanded },
@@ -880,7 +884,6 @@ fun TransactionDetailScreen(
                     onAccount = current.accountId?.let { id -> { onAccountClick(id) } },
                     onCategory = { showCategoryPicker = true }
                 )
-            }
             }
             }
         }

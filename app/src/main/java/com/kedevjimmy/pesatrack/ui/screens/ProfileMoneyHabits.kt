@@ -66,7 +66,9 @@ internal data class ProfileMoneyHabitsPresentation(
     val label: String,
     val subtitle: String,
     val isProvisional: Boolean,
-    val callToAction: String
+    val callToAction: String,
+    /** Only the Home evaluator's fully supported score; never an estimated dial value. */
+    val score: Int? = null
 )
 
 /** Never describe missing observations as a healthy financial assessment. */
@@ -92,14 +94,16 @@ internal fun presentProfileMoneyHabits(signals: HomeFinancialSignals?): ProfileM
             else -> "Your money plan needs attention."
         },
         isProvisional = !signals.dataSufficient,
-        callToAction = "Review my plan"
+        callToAction = "Review my plan",
+        score = signals.score.takeIf { signals.dataSufficient }
     )
     if (signals.dataSufficient && signals.status == "On track") {
         return ProfileMoneyHabitsPresentation(
             ProfileMoneyHabitsKind.LOOKING_GOOD, "Looking good",
             "Your spending looks on track.",
             isProvisional = false,
-            callToAction = "Keep it going"
+            callToAction = "Keep it going",
+            score = signals.score
         )
     }
     return ProfileMoneyHabitsPresentation(
