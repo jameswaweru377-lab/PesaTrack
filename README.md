@@ -27,6 +27,8 @@ Bank PDF identification runs locally, asks for bank confirmation when a supporte
 
 **Accuracy comes first:** when a transaction, balance, or document cannot be verified confidently, PesaTrack asks for review or shows the limitation instead of inventing a number.
 
+For imported bank-to-wallet payments, a saved name by itself never removes an expense: automatic own-account classification requires an explicitly confirmed source account and the full destination phone of an explicitly confirmed wallet. Existing SMS can be rechecked locally after an app update without replacing user-entered classifications. Uncertain entries may still need review.
+
 When two statement PDFs contain matching amounts but only a generic narration (such as `TRANSFER`), PesaTrack preserves both records and holds the combined source-only subtotal for review. A narration label is not a verified duplicate receipt code.
 
 Reconciliation relies on confirmed account identities and cash-movement evidence, not a fixed Equity/M-Pesa pairing. If a bank account's full identifier changes, older documents remain in its history but stop serving as proof of a current account movement. Bank PDF **format support is separate**: verified bank-PDF admission remains limited to the supported Equity layout, while other banks' PDFs need their own validation before admission.
@@ -73,14 +75,13 @@ search available even if SMS access is denied. Notifications use Android's
 optional permission prompt. There is no online account registration or OTP.
 Backup restoration remains a separate, user-initiated process.
 
-Returning users no longer see the passive café loading splash. Their existing
-app-lock screen verifies the saved PIN as soon as its complete length is entered,
-without an Unlock or keyboard Done button. The PIN field shows a brief verification
-indicator and uses white masked digits against its dark background. Earlier PINs
-without stored length metadata are checked as a single entry from four to eight
-digits, with one rate-limited failure per entry; a correct entry saves its length
-for future automatic unlocks. Fingerprint unlock remains a round icon beside the
-plain Forgot PIN? recovery link. Existing phone-credential recovery remains.
+Returning users no longer see the passive café loading splash on current main.
+The lock screen uses a compact PesaTrack mark, a borderless black keypad with
+masked dots, and automatic PIN verification without an Unlock button or system
+keyboard. A fingerprint shortcut appears when supported; Forgot PIN? keeps the
+existing phone-credential recovery. Earlier PINs without stored length metadata
+are checked as a single entry from four to eight digits, with one rate-limited
+failure per entry; a correct entry saves its length for future unlocks.
 The first scan checks senders before retrieving financial message text. A
 follow-up pass runs after account confirmation only when the first scan found
 pending events that could not safely be recorded without ownership.

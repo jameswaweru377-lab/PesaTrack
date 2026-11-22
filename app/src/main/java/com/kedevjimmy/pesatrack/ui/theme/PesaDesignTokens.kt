@@ -35,6 +35,7 @@ object PesaDesignTokens {
 
     // An accessible hit area can be larger than its visible icon/pill.
     val minimumTouchTarget = 48.dp
+    val lockKeypadKeySize = 56.dp
     val bottomBarHeight = 64.dp
     val selectedTabHeight = 48.dp
 

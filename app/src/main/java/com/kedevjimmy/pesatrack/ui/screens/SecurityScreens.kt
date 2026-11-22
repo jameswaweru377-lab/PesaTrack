@@ -1,40 +1,23 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
-
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Fingerprint
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -46,22 +29,17 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.security.AppLockManager
+import com.kedevjimmy.pesatrack.security.LockKeypadEntryPolicy
 import com.kedevjimmy.pesatrack.R
-import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
 import com.kedevjimmy.pesatrack.security.PinAutoSubmitPolicy
 import com.kedevjimmy.pesatrack.security.PinEntryAction
-import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 
 @Composable
 internal fun BackupRecoveryBlockingScreen(onRetry: () -> Unit) {
@@ -89,7 +67,6 @@ fun AppLockScreen(
     onRecoverWithDeviceCredential: () -> Unit
 ) {
     BackHandler { /* Locked app never passes back navigation to the hidden app. */ }
-    val blockerInteraction = remember { MutableInteractionSource() }
     var pin by remember {
         mutableStateOf("")
     }
@@ -127,194 +104,27 @@ fun AppLockScreen(
         }
     }
 
-    Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            PremiumVisualTokens.darkSurface,
-                            PremiumVisualTokens.darkCard,
-                            PremiumVisualTokens.darkCanvas
-                        )
-                    )
-                )
-                .clickable(interactionSource = blockerInteraction, indication = null) {
-                    /* Consume taps outside lock controls rather than hitting hidden screens. */
-                }
-                .padding(
-                    horizontal = 28.dp,
-                    vertical = 36.dp
-                ),
-        horizontalAlignment =
-            Alignment.CenterHorizontally,
-        verticalArrangement =
-            Arrangement.Center
-    ) {
-        PesaLogoMark(
-            size = 72.dp
-        )
-
-        Surface(
-            modifier =
-                Modifier
-                    .padding(top = 26.dp)
-                    .size(66.dp),
-            shape = CircleShape,
-            color =
-                Color.White.copy(
-                    alpha = .1f
-                )
-        ) {
-            androidx.compose.foundation.layout.Box(
-                contentAlignment =
-                    Alignment.Center
-            ) {
-                Icon(
-                    Icons.Rounded.Lock,
-                    contentDescription =
-                        null,
-                    tint =
-                        PremiumVisualTokens.darkCoffee,
-                    modifier =
-                        Modifier.size(
-                            30.dp
-                        )
-                )
-            }
-        }
-
-        Text(
-            "PesaTrack is locked",
-            modifier =
-                Modifier.padding(
-                    top = 18.dp
-                ),
-            style =
-                MaterialTheme
-                    .typography
-                    .headlineMedium,
-            fontWeight =
-                FontWeight.Bold,
-            color = Color.White
-        )
-        Text(
-            "Unlock to view your private money data.",
-            modifier =
-                Modifier.padding(
-                    top = 5.dp,
-                    bottom = 22.dp
-                ),
-            style =
-                MaterialTheme
-                    .typography
-                    .bodyMedium,
-            color =
-                Color.White.copy(
-                    alpha = .72f
-                ),
-            textAlign =
-                TextAlign.Center
-        )
-
-        OutlinedTextField(
-            value = pin,
-            onValueChange = {
-                val entered = it.filter(Char::isDigit).take(storedPinLength ?: 8)
-                error = null
-                legacyHint = false
-                pin = entered
-            },
-            modifier =
-                Modifier.fillMaxWidth(),
-            label = {
-                Text(if (checking) "Verifying PIN…" else "PIN")
-            },
-            trailingIcon = if (checking) ({
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    color = Color.White,
-                    strokeWidth = 2.dp
-                )
-            }) else null,
-            supportingText = when {
-                error != null -> ({ Text(error.orEmpty()) })
-                legacyHint -> ({ Text("Continue if your PIN is longer, or clear to retry.") })
-                else -> null
-            },
-            singleLine = true,
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType =
-                        KeyboardType
-                            .NumberPassword,
-                    imeAction = ImeAction.None
-                ),
-            visualTransformation =
-                PasswordVisualTransformation(),
-            textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color.White),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                focusedLabelColor = Color.White,
-                unfocusedLabelColor = Color.White.copy(alpha = .85f),
-                focusedBorderColor = PremiumVisualTokens.darkCoffee,
-                unfocusedBorderColor = Color.White.copy(alpha = .46f),
-                cursorColor = Color.White,
-                focusedContainerColor = Color.Transparent,
-                unfocusedContainerColor = Color.Transparent
-            ),
-            isError =
-                error != null
-        )
-
-        Row(
-            Modifier.fillMaxWidth().padding(top = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            if (biometricAvailable) {
-                Surface(shape = CircleShape, color = Color.White.copy(alpha = .1f)) {
-                    IconButton(onClick = onBiometricUnlock,
-                        modifier = Modifier.size(PesaDesignTokens.minimumTouchTarget)) {
-                        Icon(Icons.Rounded.Fingerprint,
-                            contentDescription = "Unlock with fingerprint",
-                            tint = PremiumVisualTokens.darkCoffee)
-                    }
-                }
-            } else Spacer(Modifier.size(PesaDesignTokens.minimumTouchTarget))
-
-            Text("Forgot PIN?",
-                modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)
-                    .then(if (deviceCredentialRecoveryAvailable) {
-                        Modifier.clickable(onClickLabel = "Recover PIN using phone lock",
-                            onClick = onRecoverWithDeviceCredential)
-                    } else Modifier)
-                    .padding(horizontal = 8.dp, vertical = 12.dp),
-                color = if (deviceCredentialRecoveryAvailable) PremiumVisualTokens.darkCoffee
-                    else Color.White.copy(alpha = .46f),
-                style = MaterialTheme.typography.bodyMedium)
-        }
-
-        Text(
-            "Your PIN is stored only on this device and is not included in backups.",
-            modifier =
-                Modifier.padding(
-                    top = 18.dp
-                ),
-            style =
-                MaterialTheme
-                    .typography
-                    .bodySmall,
-            color =
-                Color.White.copy(
-                    alpha = .58f
-                ),
-            textAlign =
-                TextAlign.Center
-        )
-    }
+    AppLockKeypadSurface(
+        enteredDigits = pin.length,
+        expectedDigits = LockKeypadEntryPolicy.indicatorCount(storedPinLength),
+        checking = checking,
+        error = error,
+        legacyHint = legacyHint,
+        biometricAvailable = biometricAvailable,
+        recoveryAvailable = deviceCredentialRecoveryAvailable,
+        onDigit = { digit ->
+            error = null
+            legacyHint = false
+            pin = LockKeypadEntryPolicy.appendDigit(pin, digit, storedPinLength)
+        },
+        onDelete = {
+            error = null
+            legacyHint = false
+            pin = LockKeypadEntryPolicy.removeLast(pin)
+        },
+        onFingerprint = onBiometricUnlock,
+        onRecover = onRecoverWithDeviceCredential
+    )
 }
 
 @OptIn(

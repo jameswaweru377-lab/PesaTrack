@@ -54,6 +54,7 @@ data class SalaryHistoryCandidate(
 class TransactionStore private constructor(context: Context) {
     private val appContext = context.applicationContext
     private val database = PesaTrackDatabase.get(appContext)
+    private val importedOwnTransferRouting = ImportedOwnTransferRouting(appContext)
 
     /**
      * Provider-neutral entry point for financial movements that were
@@ -198,13 +199,9 @@ class TransactionStore private constructor(context: Context) {
             }
         }
         val accounts = AccountStore.get(appContext).listAccounts()
-        val detectedOwnTransfer =
-            OwnAccountTransferDetector.matchMpesa(
-                parsed = parsed,
-                accounts = accounts,
-                observedWalletId =
-                    AccountStore.DEFAULT_MPESA_ID
-            )
+        val detectedOwnTransfer = importedOwnTransferRouting.match(
+            parsed, sourceKind, accountIdOverride, accounts
+        )
         val ownTransfer =
             accountTransferOverride ?: detectedOwnTransfer
         val useOwnTransfer =
@@ -344,7 +341,7 @@ class TransactionStore private constructor(context: Context) {
                 existingFingerprint.evidenceSource ==
                     "owned_mirror_transfer"
             val safeOwnTransferRefresh =
-                accountTransferOverride != null &&
+                useOwnTransfer &&
                     !preservesUserDecision &&
                     !protectedMirror
 

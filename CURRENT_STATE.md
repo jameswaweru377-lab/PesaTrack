@@ -1,16 +1,32 @@
 # PesaTrack Current State
 
-_Lock screen correction (22 November 2026; Android CI and phone acceptance pending):_
-The returning-user lock screen has no Unlock control and no keyboard Done
-submission. White masked PIN digits remain legible in dark mode, and the PIN
-field briefly displays "Verifying PIN…" while checking an entry. The compact
-fingerprint icon sits directly below the field opposite plain "Forgot PIN?"
-recovery text. Newer saved PINs verify automatically at their recorded length;
-older 4–8 digit PINs without that metadata are checked across candidate lengths
-as one rate-limited typing attempt, storing the correct length after success.
-The existing PIN hash, cooldown and device-credential recovery stay intact.
-The previously documented first-unlock keyboard Done fallback is removed.
-The running phone's APK version and real-device behavior are not yet verified.
+_Daily PIN keypad redesign (22 November 2026; Android CI and phone acceptance pending):_
+The returning-user lock screen is a uniform coffee-black surface with the
+current PesaTrack mark, compact welcome heading, masked PIN indicator dots,
+an on-screen numeric keypad, a fingerprint shortcut where supported and a
+plain Forgot PIN? phone-credential recovery action. The old outlined PIN field,
+system keyboard, Unlock button and keyboard Done fallback are removed. A brief
+spinner and errors remain on the lock screen, with no change to underlying
+protected data. PINs verify automatically at their recorded 4–8 digit length;
+older PINs without that metadata are checked across candidate lengths as one
+rate-limited attempt and persist their length on success. Existing PIN hashes,
+cooldown and device-credential recovery remain intact. No Home review card,
+financial data or permissions changed. Real-device appearance and unlocks are
+not yet verified.
+
+_Historical own-account transfer repair (22 November 2026; Android CI and Redmi verification pending):_
+The local SMS replay now recognizes an interpreted bank-origin "Send Money"
+payment as a transfer when its full destination phone matches a uniquely
+confirmed owned wallet and the recipient name does not contradict the profile.
+The change is provider-neutral; other people's payments, name-only matches,
+unconfirmed or ambiguous accounts and user-classified rows remain untouched.
+Replaying the original message can update the existing ledger row without
+adding its principal to expenses. Old pending bank-to-wallet events without
+stored recipient identity no longer auto-apply solely because two institutions
+were selected. No schema, permissions or statement-import behaviour changed.
+Existing October totals still require a signed update, successful local SMS
+repair and direct on-device inspection; the screenshot alone does not verify
+which specific row is a self-transfer.
 
 _Lock, notification and Activity follow-up (22 November 2026; phone acceptance pending):_
 Returning users skip the passive café splash while first-run onboarding remains.
