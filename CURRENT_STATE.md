@@ -1,5 +1,21 @@
 # PesaTrack Current State
 
+_Daily PIN keypad redesign (22 November 2026; Android CI and phone acceptance pending):_
+The returning-user lock screen is a uniform coffee-black surface with the
+current PesaTrack mark, compact welcome heading, masked PIN indicator dots,
+an on-screen numeric keypad, a fingerprint shortcut where supported and a
+plain Forgot PIN? phone-credential recovery action. The normal entry has no
+system keyboard, Unlock button or keyboard Done fallback. An optional phone-
+keyboard entry allows existing PINs with non-ASCII numerals to unlock without
+changing their saved hash. A brief
+spinner and errors remain on the lock screen, with no change to underlying
+protected data. PINs verify automatically at their recorded 4–8 digit length;
+older PINs without that metadata are checked across candidate lengths as one
+rate-limited attempt and persist their length on success. Existing PIN hashes,
+cooldown and device-credential recovery remain intact. No Home review card,
+financial data or permissions changed. Real-device appearance and unlocks are
+not yet verified.
+
 _Retired Home UI and temporary loading-shell cleanup (22 November 2026; Android CI and Redmi acceptance pending):_
 On a first financial read, Home, Activity and Plan keep the current themed
 background without displaying the retired greeting, full-page loading message
@@ -48,8 +64,9 @@ Returning users skip the passive café splash while first-run onboarding remains
 The lock screen verifies completed PIN entry without an Unlock button; fingerprint
 is a small icon and Forgot PIN? invokes existing device-lock recovery. Stored PIN
 lengths enable automatic completion without weakening failed-attempt lockouts;
-older PINs require keyboard Done for their first post-update unlock. The correct
-PIN then records its length for future automatic entry. Underlying app content is
+older PINs originally required keyboard Done for their first post-update unlock,
+but the correction above removes that requirement. A successful entry stores its
+length for future automatic entry. Underlying app content is
 masked while the secure Android lock dialog is visible. Home's bell opens a
 local-only inbox of up to forty new delivered reminders, with unread counts,
 mark-as-read and relevant page links, not raw financial messages. Older alerts

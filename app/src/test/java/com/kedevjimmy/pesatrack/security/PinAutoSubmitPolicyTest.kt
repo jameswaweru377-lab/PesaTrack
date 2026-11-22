@@ -10,16 +10,45 @@ class PinAutoSubmitPolicyTest {
         assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("12ab", 6))
     }
 
-    @Test fun legacyLengthDoesNotGuessPartialPinLengths() {
-        assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("1234", null))
-        assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("123456", null))
-        assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("1234567", null))
-        assertEquals(PinEntryAction.VERIFY, PinAutoSubmitPolicy.onChange("12345678", null))
+    @Test fun legacyPinAttemptsEveryEligibleLengthWithoutAnySubmitButton() {
+        assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("123", null))
+        assertEquals(PinEntryAction.VERIFY_LEGACY_START, PinAutoSubmitPolicy.onChange("1234", null))
+        assertEquals(PinEntryAction.VERIFY_LEGACY_CONTINUATION, PinAutoSubmitPolicy.onChange("12345", null))
+        assertEquals(PinEntryAction.VERIFY_LEGACY_CONTINUATION, PinAutoSubmitPolicy.onChange("123456", null))
+        assertEquals(PinEntryAction.VERIFY_LEGACY_CONTINUATION, PinAutoSubmitPolicy.onChange("1234567", null))
+        assertEquals(PinEntryAction.VERIFY_LEGACY_CONTINUATION, PinAutoSubmitPolicy.onChange("12345678", null))
     }
 
-    @Test fun keyboardDoneCanVerifyAnOldPinWithoutStoredLength() {
-        assertEquals(PinEntryAction.VERIFY, PinAutoSubmitPolicy.onDone("1234"))
-        assertEquals(PinEntryAction.VERIFY, PinAutoSubmitPolicy.onDone("123456"))
-        assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onDone("123"))
+    @Test fun legacyContinuationDoesNotMultiplyFailedAttemptsForOnePinEntry() {
+        assertEquals(true, PinAutoSubmitPolicy.shouldRecordFailure(PinEntryAction.VERIFY_LEGACY_START))
+        assertEquals(false, PinAutoSubmitPolicy.shouldRecordFailure(PinEntryAction.VERIFY_LEGACY_CONTINUATION))
+        assertEquals(true, PinAutoSubmitPolicy.shouldRecordFailure(PinEntryAction.VERIFY))
+        assertEquals(true, PinAutoSubmitPolicy.isSameLegacyEntry("1234", "12345"))
+        // A 100 ms UI debounce may skip five digits while someone types quickly.
+        assertEquals(true, PinAutoSubmitPolicy.isSameLegacyEntry("1234", "123456"))
+        assertEquals(true, PinAutoSubmitPolicy.isSameLegacyEntry("1234", "12345678"))
+        assertEquals(false, PinAutoSubmitPolicy.isSameLegacyEntry("1234", "22345"))
+        assertEquals(false, PinAutoSubmitPolicy.isSameLegacyEntry("1234", "123456789"))
+        assertEquals(false, PinAutoSubmitPolicy.isSameLegacyEntry("12345", "1234"))
+    }
+
+    @Test fun deletingIncompleteLegacyPinNeverVerifiesOrConsumesAnotherAttempt() {
+        assertEquals(PinEntryAction.VERIFY_LEGACY_CONTINUATION, PinAutoSubmitPolicy.onChange("123456", null))
+        assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("12345", null, isDeletion = true))
+        assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("1234", null, isDeletion = true))
+        assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("123", null, isDeletion = true))
+        assertEquals(PinEntryAction.VERIFY_LEGACY_CONTINUATION, PinAutoSubmitPolicy.onChange("123457", null))
+    }
+
+    @Test fun pendingPinVerificationCannotCompleteInAnotherForegroundSession() {
+        assertEquals(false, PinAutoSubmitPolicy.mayCompleteAfterDelay(4, 4, false))
+        assertEquals(false, PinAutoSubmitPolicy.mayCompleteAfterDelay(4, 5, true))
+        assertEquals(true, PinAutoSubmitPolicy.mayCompleteAfterDelay(4, 4, true))
+    }
+
+    @Test fun invalidPinInputCannotTriggerVerification() {
+        assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("123456789", null))
+        assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("123x", null))
+        assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("1234567", 8))
     }
 }

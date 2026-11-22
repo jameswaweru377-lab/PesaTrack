@@ -1,64 +1,49 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
-
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Fingerprint
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kedevjimmy.pesatrack.security.AppLockManager
+import com.kedevjimmy.pesatrack.security.LockKeypadEntryPolicy
 import com.kedevjimmy.pesatrack.R
-import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
 import com.kedevjimmy.pesatrack.security.PinAutoSubmitPolicy
 import com.kedevjimmy.pesatrack.security.PinEntryAction
-import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 
 @Composable
 internal fun BackupRecoveryBlockingScreen(onRetry: () -> Unit) {
@@ -86,223 +71,115 @@ fun AppLockScreen(
     onRecoverWithDeviceCredential: () -> Unit
 ) {
     BackHandler { /* Locked app never passes back navigation to the hidden app. */ }
-    val blockerInteraction = remember { MutableInteractionSource() }
     var pin by remember {
         mutableStateOf("")
     }
     var error by remember {
         mutableStateOf<String?>(null)
     }
+    var checking by remember { mutableStateOf(false) }
+    var legacyHint by remember { mutableStateOf(false) }
+    var keyboardMode by remember { mutableStateOf(false) }
+    var lastEditWasDeletion by remember { mutableStateOf(false) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var foreground by remember(lifecycle) {
+        mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+    }
+    var backgroundEpoch by remember(lifecycle) { mutableStateOf(0) }
 
-    fun verifyPin(candidate: String) {
-        if (onPinUnlock(candidate)) {
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> foreground = true
+                Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> {
+                    // Cancel pending checks, including rapid background-and-return sequences.
+                    backgroundEpoch++
+                    foreground = false
+                    pin = ""
+                    checking = false
+                    error = null
+                    legacyHint = false
+                    lastEditWasDeletion = false
+                }
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(pin, storedPinLength, lastEditWasDeletion, foreground, backgroundEpoch) {
+        val startedEpoch = backgroundEpoch
+        if (!foreground || PinAutoSubmitPolicy.onChange(pin, storedPinLength, lastEditWasDeletion) == PinEntryAction.WAIT) {
+            checking = false
+            return@LaunchedEffect
+        }
+        checking = true
+        delay(100) // Give the in-field progress state time to render before hashing.
+        if (!PinAutoSubmitPolicy.mayCompleteAfterDelay(startedEpoch, backgroundEpoch, foreground)) {
+            checking = false
+            return@LaunchedEffect
+        }
+        val verified = onPinUnlock(pin)
+        checking = false
+        if (verified) {
             pin = ""
             error = null
-        } else {
+            legacyHint = false
+        } else if (storedPinLength != null || pin.length == 8) {
             val remainingMs = pinLockoutRemainingMs()
             error = if (remainingMs > 0L) {
                 "Too many attempts. Try again in ${lockoutSeconds(remainingMs)} seconds."
             } else "That PIN is not correct."
             pin = ""
+            legacyHint = false
+        } else {
+            // Pre-update PINs have no saved length. A single typing sequence is
+            // checked at 4–8 digits; only its first wrong prefix counts as a
+            // failed attempt, and success stores the length permanently.
+            legacyHint = true
         }
     }
 
-    Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            PremiumVisualTokens.darkSurface,
-                            PremiumVisualTokens.darkCard,
-                            PremiumVisualTokens.darkCanvas
-                        )
-                    )
-                )
-                .clickable(interactionSource = blockerInteraction, indication = null) {
-                    /* Consume taps outside lock controls rather than hitting hidden screens. */
-                }
-                .padding(
-                    horizontal = 28.dp,
-                    vertical = 36.dp
-                ),
-        horizontalAlignment =
-            Alignment.CenterHorizontally,
-        verticalArrangement =
-            Arrangement.Center
-    ) {
-        PesaLogoMark(
-            size = 72.dp
-        )
-
-        Surface(
-            modifier =
-                Modifier
-                    .padding(top = 26.dp)
-                    .size(66.dp),
-            shape = CircleShape,
-            color =
-                Color.White.copy(
-                    alpha = .1f
-                )
-        ) {
-            androidx.compose.foundation.layout.Box(
-                contentAlignment =
-                    Alignment.Center
-            ) {
-                Icon(
-                    Icons.Rounded.Lock,
-                    contentDescription =
-                        null,
-                    tint =
-                        PremiumVisualTokens.darkCoffee,
-                    modifier =
-                        Modifier.size(
-                            30.dp
-                        )
-                )
-            }
-        }
-
-        Text(
-            "PesaTrack is locked",
-            modifier =
-                Modifier.padding(
-                    top = 18.dp
-                ),
-            style =
-                MaterialTheme
-                    .typography
-                    .headlineMedium,
-            fontWeight =
-                FontWeight.Bold,
-            color = Color.White
-        )
-        Text(
-            "Unlock to view your private money data.",
-            modifier =
-                Modifier.padding(
-                    top = 5.dp,
-                    bottom = 22.dp
-                ),
-            style =
-                MaterialTheme
-                    .typography
-                    .bodyMedium,
-            color =
-                Color.White.copy(
-                    alpha = .72f
-                ),
-            textAlign =
-                TextAlign.Center
-        )
-
-        OutlinedTextField(
-            value = pin,
-            onValueChange = {
-                val entered = it.filter(Char::isDigit).take(8)
-                pin = entered
-                error = null
-                when (PinAutoSubmitPolicy.onChange(entered, storedPinLength)) {
-                    PinEntryAction.VERIFY -> verifyPin(entered)
-                    PinEntryAction.WAIT -> Unit
-                }
-            },
-            modifier =
-                Modifier.fillMaxWidth(),
-            label = {
-                Text("PIN")
-            },
-            singleLine = true,
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType =
-                        KeyboardType
-                            .NumberPassword,
-                    imeAction = ImeAction.Done
-                ),
-            keyboardActions = KeyboardActions(onDone = {
-                if (PinAutoSubmitPolicy.onDone(pin) == PinEntryAction.VERIFY) verifyPin(pin)
-            }),
-            visualTransformation =
-                PasswordVisualTransformation(),
-            isError =
-                error != null
-        )
-
-        error?.let {
-            Text(
-                it,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            top = 8.dp
-                        ),
-                color =
-                    MaterialTheme
-                        .colorScheme
-                        .error,
-                style =
-                    MaterialTheme
-                        .typography
-                        .bodySmall
-            )
-        }
-
-        if (storedPinLength == null) {
-            Text("For your existing PIN, press Done once.",
-                modifier = Modifier.padding(top = 8.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = .72f))
-        }
-
-        Row(
-            Modifier.fillMaxWidth().padding(top = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            if (biometricAvailable) {
-                Surface(shape = CircleShape, color = Color.White.copy(alpha = .1f)) {
-                    IconButton(onClick = onBiometricUnlock,
-                        modifier = Modifier.size(PesaDesignTokens.minimumTouchTarget)) {
-                        Icon(Icons.Rounded.Fingerprint,
-                            contentDescription = "Unlock with fingerprint",
-                            tint = PremiumVisualTokens.darkCoffee)
-                    }
-                }
-            } else Spacer(Modifier.size(PesaDesignTokens.minimumTouchTarget))
-
-            if (deviceCredentialRecoveryAvailable) {
-                Text("Forgot PIN?",
-                    modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)
-                        .clickable(onClickLabel = "Recover PIN using phone lock",
-                            onClick = onRecoverWithDeviceCredential)
-                        .padding(horizontal = 8.dp, vertical = 12.dp),
-                    color = PremiumVisualTokens.darkCoffee,
-                    style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-
-        Text(
-            "Your PIN is stored only on this device and is not included in backups.",
-            modifier =
-                Modifier.padding(
-                    top = 18.dp
-                ),
-            style =
-                MaterialTheme
-                    .typography
-                    .bodySmall,
-            color =
-                Color.White.copy(
-                    alpha = .58f
-                ),
-            textAlign =
-                TextAlign.Center
-        )
-    }
+    AppLockKeypadSurface(
+        pinText = pin,
+        enteredDigits = pin.length,
+        expectedDigits = LockKeypadEntryPolicy.indicatorCount(storedPinLength),
+        checking = checking,
+        error = error,
+        legacyHint = legacyHint,
+        biometricAvailable = biometricAvailable,
+        recoveryAvailable = deviceCredentialRecoveryAvailable,
+        keyboardMode = keyboardMode,
+        onDigit = { digit ->
+            error = null
+            legacyHint = false
+            lastEditWasDeletion = false
+            pin = LockKeypadEntryPolicy.appendDigit(pin, digit, storedPinLength)
+        },
+        onDelete = {
+            error = null
+            legacyHint = false
+            lastEditWasDeletion = true
+            pin = LockKeypadEntryPolicy.removeLast(pin)
+        },
+        onKeyboardPinChange = { text ->
+            error = null
+            legacyHint = false
+            val nextPin = LockKeypadEntryPolicy.fromKeyboard(text, storedPinLength)
+            lastEditWasDeletion = nextPin.length < pin.length
+            pin = nextPin
+        },
+        onToggleKeyboard = {
+            keyboardMode = !keyboardMode
+            lastEditWasDeletion = false
+            pin = ""
+            error = null
+            legacyHint = false
+        },
+        onFingerprint = onBiometricUnlock,
+        onRecover = onRecoverWithDeviceCredential
+    )
 }
 
 @OptIn(
