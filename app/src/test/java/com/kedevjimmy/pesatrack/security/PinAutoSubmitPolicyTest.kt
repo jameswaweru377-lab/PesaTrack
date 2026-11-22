@@ -40,6 +40,12 @@ class PinAutoSubmitPolicyTest {
         assertEquals(PinEntryAction.VERIFY_LEGACY_CONTINUATION, PinAutoSubmitPolicy.onChange("123457", null))
     }
 
+    @Test fun pendingPinVerificationCannotCompleteInAnotherForegroundSession() {
+        assertEquals(false, PinAutoSubmitPolicy.mayCompleteAfterDelay(4, 4, false))
+        assertEquals(false, PinAutoSubmitPolicy.mayCompleteAfterDelay(4, 5, true))
+        assertEquals(true, PinAutoSubmitPolicy.mayCompleteAfterDelay(4, 4, true))
+    }
+
     @Test fun invalidPinInputCannotTriggerVerification() {
         assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("123456789", null))
         assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("123x", null))

@@ -309,16 +309,18 @@ class MainActivity : ComponentActivity() {
                             canUseBiometrics(),
                         storedPinLength = appLockManager.storedPinLength(),
                         onPinUnlock = { pin ->
-                            val unlocked =
-                                appLockManager
-                                    .verifyPin(pin)
-                            if (unlocked) {
-                                appLockManager
-                                    .markUnlocked()
-                                appLocked =
+                            if (!captureForeground || !appLocked || !appLockManager.isEnabled()) {
+                                false
+                            } else {
+                                val unlocked = appLockManager.verifyPin(pin)
+                                if (unlocked && captureForeground && appLocked) {
+                                    appLockManager.markUnlocked()
+                                    appLocked = false
+                                    true
+                                } else {
                                     false
+                                }
                             }
-                            unlocked
                         },
                         pinLockoutRemainingMs = {
                             appLockManager
