@@ -35,8 +35,7 @@ object LocalNotificationInboxStore {
 
     fun record(context: Context, key: String, category: String, title: String,
                summary: String, route: String, now: Long = System.currentTimeMillis()) {
-        if (route !in setOf("accounts", "activity-attention", "salary", "bills",
-                "budgets", "saving-goals", "debts", "backup-reminder", "data-health")) {
+        if (!LocalNotificationInboxPolicy.supportsRoute(route)) {
             Log.w("PesaTrackInbox", "Unsupported notification destination")
             return
         }

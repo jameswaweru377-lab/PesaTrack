@@ -33,4 +33,11 @@ class LocalNotificationInboxPolicyTest {
         assertFalse(updated.last().read)
         assertEquals(1, LocalNotificationInboxPolicy.unreadCount(updated))
     }
+
+    @Test fun smartReviewLinkPreservesTheExactReminderIdentity() {
+        assertTrue(LocalNotificationInboxPolicy.supportsRoute(
+            "smart-review/payment%3Aabc?action=review&revision=hash123"))
+        assertFalse(LocalNotificationInboxPolicy.supportsRoute("https://example.com"))
+        assertFalse(LocalNotificationInboxPolicy.supportsRoute("smart-review/payment%3Aabc?action=gift"))
+    }
 }

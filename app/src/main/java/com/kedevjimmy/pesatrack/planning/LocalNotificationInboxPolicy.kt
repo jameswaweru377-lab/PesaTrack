@@ -13,6 +13,14 @@ data class LocalInboxNotice(
 
 object LocalNotificationInboxPolicy {
     private const val MAX_NOTICES = 40
+    private val smartReviewRoute = Regex(
+        "smart-review/[A-Za-z0-9%._~-]{1,256}\\?action=review&revision=[A-Za-z0-9%._~-]{1,256}"
+    )
+
+    fun supportsRoute(route: String): Boolean = route in setOf(
+        "accounts", "activity-attention", "salary", "bills", "budgets",
+        "saving-goals", "debts", "backup-reminder", "data-health"
+    ) || smartReviewRoute.matches(route)
 
     fun record(current: List<LocalInboxNotice>, alert: LocalInboxNotice): List<LocalInboxNotice> =
         (listOf(alert) + current.filterNot { it.key == alert.key })
