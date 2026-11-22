@@ -19,6 +19,22 @@ class GenericTransferMessageShapesTest {
         assertEquals("Example Bank", transfer.source.displayName)
         assertEquals("SAFARICOM_MPESA", transfer.destination.providerKey)
         assertTrue(result.semanticAssessment!!.references.any { it.value == "ABC123XYZ9" })
+        assertEquals("+254700000001", transfer.recipientPhone)
+        assertEquals("SAMPLE OWNER", transfer.recipientName)
+    }
+
+    @Test fun providerNeutralWalletTransferKeepsFullRecipientEvidenceWithoutParentheses() {
+        val result = FinancialMessageInterpreter.interpret(
+            title = "Example Bank",
+            body = "Bank to M-Pesa transfer of KES 2,900 to 0711111111 " +
+                "SAMPLE OWNER PERSON successfully processed. Transaction reference RFI1234567, " +
+                "M-Pesa reference ID WLT123XYZ9."
+        )
+        val transfer = result.events.single() as TransferEventFact
+        assertEquals(290_000L, transfer.amountMinor)
+        assertEquals("+254711111111", transfer.recipientPhone)
+        assertEquals("SAMPLE OWNER PERSON", transfer.recipientName)
+        assertTrue(result.semanticAssessment!!.references.any { it.value == "WLT123XYZ9" })
     }
 
     @Test fun genericReceivedMessageStopsCounterpartyAtReferenceMetadata() {
