@@ -32,11 +32,14 @@ import com.kedevjimmy.pesatrack.planning.LocalNotificationInboxPolicy
 import com.kedevjimmy.pesatrack.planning.LocalNotificationInboxStore
 import com.kedevjimmy.pesatrack.planning.NotificationInboxDisplayPolicy
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import kotlinx.coroutines.delay
 
 /** A history of locally delivered reminders; financial SMS contents are never shown. */
 @Composable
@@ -52,8 +55,25 @@ fun NotificationCenterScreen(
     var unreadOnly by rememberSaveable { mutableStateOf(false) }
     val unreadCount = LocalNotificationInboxPolicy.unreadCount(alerts)
     val timezone = TimeZone.getDefault()
-    val now = System.currentTimeMillis()
-    val display = remember(alerts, unreadOnly, timezone) {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { now = System.currentTimeMillis() }
+    LaunchedEffect(timezone.id) {
+        while (true) {
+            val tomorrow = Calendar.getInstance(timezone).apply {
+                timeInMillis = System.currentTimeMillis()
+                add(Calendar.DAY_OF_YEAR, 1)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+            delay((tomorrow - System.currentTimeMillis()).coerceAtLeast(1_000L))
+            now = System.currentTimeMillis()
+        }
+    }
+    val calendarDay = Calendar.getInstance(timezone).apply { timeInMillis = now }
+    val dayKey = calendarDay.get(Calendar.YEAR) * 1000 + calendarDay.get(Calendar.DAY_OF_YEAR)
+    val display = remember(alerts, unreadOnly, timezone, dayKey) {
         NotificationInboxDisplayPolicy.present(alerts, unreadOnly, now, timezone)
     }
     val colors = MaterialTheme.colorScheme
@@ -72,7 +92,7 @@ fun NotificationCenterScreen(
                     item("featured-date") {
                         Text(SimpleDateFormat("EEEE d MMM yyyy", locale).apply {
                             timeZone = timezone
-                        }.format(Date(now)),
+                        }.format(Date(alert.createdAt)),
                             modifier = Modifier.padding(vertical = 16.dp),
                             style = MaterialTheme.typography.bodyMedium,
                             color = colors.onSurfaceVariant)

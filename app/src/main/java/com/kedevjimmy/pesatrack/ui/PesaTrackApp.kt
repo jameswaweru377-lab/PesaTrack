@@ -215,6 +215,7 @@ fun PesaTrackApp(
     ) {
         composable("notifications") {
             AppScaffold(currentTab = MainTab.HOME, onTabSelected = ::navigateToTab,
+                onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
                 showTopBar = false) { padding ->
                 NotificationCenterScreen(padding,
                     onBack = { navController.popBackStack() },

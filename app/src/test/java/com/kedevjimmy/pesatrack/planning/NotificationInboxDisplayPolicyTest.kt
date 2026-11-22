@@ -62,4 +62,17 @@ class NotificationInboxDisplayPolicyTest {
         assertEquals(setOf("older", "future"), model.older.map { it.key }.toSet())
         assertEquals(4, model.visibleCount)
     }
+
+    @Test fun aNoticeMovesOutOfTodayWhenThePhonePassesMidnight() {
+        val notification = notice("sunday")
+        val before = NotificationInboxDisplayPolicy.present(listOf(notification), false, today, zone)
+        val monday = GregorianCalendar(zone).apply {
+            timeInMillis = today
+            add(Calendar.DAY_OF_YEAR, 1)
+        }.timeInMillis
+        val after = NotificationInboxDisplayPolicy.present(listOf(notification), false, monday, zone)
+        assertEquals(listOf("sunday"), before.today.map { it.key })
+        assertEquals(emptyList<String>(), after.today.map { it.key })
+        assertEquals(listOf("sunday"), after.older.map { it.key })
+    }
 }
