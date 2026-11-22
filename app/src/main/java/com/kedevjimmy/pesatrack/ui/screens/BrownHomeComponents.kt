@@ -153,7 +153,7 @@ internal fun BrownHomeAccounts(
                     row.forEach { group ->
                         BrownAccountTile(group.displayName,
                             trustedBrownHomeBalance(group, balances)?.let(money)
-                                ?: "Balance unavailable",
+                                ?: "Not recorded",
                             Modifier.weight(1f), onAccounts)
                     }
                 }

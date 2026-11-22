@@ -33,6 +33,7 @@ class ProfileMoneyHabitsTest {
         val presentation = presentProfileMoneyHabits(signal("On track", true, 90, 90))
         assertEquals(ProfileMoneyHabitsKind.LOOKING_GOOD, presentation.kind)
         assertEquals("Looking good", presentation.label)
+        assertEquals(80, presentation.score)
     }
 
     @Test fun observedWeakSpendingIsAttentionNotInventedOverallHealth() {
@@ -40,6 +41,7 @@ class ProfileMoneyHabitsTest {
         assertEquals(ProfileMoneyHabitsKind.AT_RISK, presentation.kind)
         assertTrue(presentation.subtitle.contains("needs attention"))
         assertTrue(presentation.isProvisional)
+        assertEquals(null, presentation.score)
     }
 
     @Test fun oneObservedWarningCanBeFlaggedWithoutFullPicture() {
@@ -51,5 +53,6 @@ class ProfileMoneyHabitsTest {
     @Test fun partialButUncertainEvidenceStaysUnrated() {
         val presentation = presentProfileMoneyHabits(signal("Partial picture", false))
         assertEquals(ProfileMoneyHabitsKind.NEEDS_INFORMATION, presentation.kind)
+        assertEquals(null, presentation.score)
     }
 }
