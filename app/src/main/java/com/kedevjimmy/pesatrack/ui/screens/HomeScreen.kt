@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,7 +33,6 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
@@ -102,8 +102,6 @@ import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.PesaTrackTopBar
 import com.kedevjimmy.pesatrack.ui.components.SmartInsightCard
-import com.kedevjimmy.pesatrack.ui.components.SpendingSlice
-import com.kedevjimmy.pesatrack.ui.components.premiumCategoryColor
 import java.text.NumberFormat
 import java.math.RoundingMode
 import java.text.SimpleDateFormat
@@ -867,212 +865,27 @@ fun HomeScreen(
     }
 
     if (!homeLoaded) {
-        LazyColumn(
-            modifier = Modifier
-                .padding(scaffoldPadding)
-                .background(
-                    MaterialTheme.colorScheme
-                        .background
-                ),
-            contentPadding =
-                PaddingValues(
-                    horizontal = 16.dp,
-                    vertical = 14.dp
-                ),
-            verticalArrangement =
-                Arrangement.spacedBy(14.dp)
+        // Do not flash the retired greeting/card before trusted data is ready.
+        // A replacement loading treatment can be added once it is approved.
+        Box(
+            Modifier.fillMaxSize().padding(scaffoldPadding)
+                .background(MaterialTheme.colorScheme.background)
         ) {
-            item {
-                GreetingBlock(
-                    onProfileClick =
-                        onProfileClick
-                )
-            }
-            item {
-                PesaCard {
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(18.dp),
-                        verticalAlignment =
-                            Alignment
-                                .CenterVertically
-                    ) {
-                        if (homeLoading) CircularProgressIndicator(
-                            modifier =
-                                Modifier.size(
-                                    26.dp
-                                ),
-                            strokeWidth = 2.dp
-                        )
-                        Column(
-                            modifier =
-                                Modifier.padding(
-                                    start = 14.dp
-                                )
-                        ) {
-                            Text(
-                                if (homeError) "Your money picture could not load" else "Preparing your money picture",
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .titleMedium,
-                                fontWeight =
-                                    FontWeight
-                                        .SemiBold
-                            )
-                            Text(
-                                if (homeError) "Your saved data is still on this device. Try loading it again." else "Loading your accounts, pay cycle and balances.",
-                                style =
-                                    MaterialTheme
-                                        .typography
-                                        .bodySmall,
-                                color =
-                                    MaterialTheme
-                                        .colorScheme
-                                        .onSurfaceVariant
-                            )
-                            if (homeError) {
-                                TextButton(onClick = { refresh() }) { Text("Try again") }
-                            }
-                        }
-                    }
+            if (homeError) {
+                Column(Modifier.align(Alignment.Center).padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Your money picture could not load",
+                        style = MaterialTheme.typography.titleMedium)
+                    Text("Your saved data is still on this device.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = { refresh() }) { Text("Try again") }
                 }
             }
         }
         return
     }
 
-    val spendSlices = remember(activitySnapshot, receivableShares) {
-        try {
-        activitySnapshot.trustedTransactions
-            .filter {
-                it.reviewState != ReviewState.EXCLUDED.name &&
-                    it.reviewState != ReviewState.NEEDS_REVIEW.name &&
-                    (
-                        it.direction ==
-                            MoneyDirection.EXPENSE.name ||
-                            it.relationType ==
-                                TransactionStore.RELATION_REFUND
-                        )
-            }
-            .groupBy {
-                categoryStore.canonicalId(it.category)
-            }
-            .mapValues { (_, items) ->
-                maxOf(
-                    0L,
-                    items.checkedMoneySumOf { item ->
-                        if (
-                            item.relationType ==
-                            TransactionStore.RELATION_REFUND
-                        ) {
-                            if (
-                                refundCountsInTrustedTotals(
-                                    item = item,
-                                    store = transactionStore
-                                )
-                            ) {
-                                CheckedMoney.negate(item.amountMinor)
-                            } else {
-                                0L
-                            }
-                        } else {
-                            CheckedMoney.add(CheckedMoney.subtract(item.amountMinor, receivableShares[item.id]?.lentMinor ?: 0L), item.feeMinor)
-                        }
-                    }
-                )
-            }
-            .filterValues { it > 0L }
-            .entries
-            .sortedByDescending { it.value }
-            .mapIndexed { index, entry ->
-                SpendingSlice(
-                    label = categoryStore.labelFor(entry.key),
-                    amountMinor = entry.value,
-                    color = premiumCategoryColor(index)
-                )
-            }
-        } catch (_: ArithmeticException) { null }
-    }
-
-    val spentTodayMinor = remember(
-        activitySnapshot,
-        receivableShares,
-        ledgerUpdateState.revision
-    ) { CheckedMoney.orNull {
-        val startCalendar =
-            Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
-        val startOfToday =
-            startCalendar.timeInMillis
-        val startOfTomorrow =
-            (startCalendar.clone() as Calendar)
-                .apply {
-                    add(Calendar.DAY_OF_MONTH, 1)
-                }
-                .timeInMillis
-
-        maxOf(
-            0L,
-            activitySnapshot.trustedTransactions
-                .filter {
-                    it.occurredAtEpochMs >=
-                        startOfToday &&
-                        it.occurredAtEpochMs <
-                            startOfTomorrow &&
-                        it.reviewState !=
-                            ReviewState.EXCLUDED.name &&
-                        it.reviewState !=
-                            ReviewState.NEEDS_REVIEW.name &&
-                        (
-                            it.direction ==
-                                MoneyDirection.EXPENSE.name ||
-                                it.relationType ==
-                                    TransactionStore
-                                        .RELATION_REFUND
-                            )
-                }
-                .checkedMoneySumOf { item ->
-                    if (
-                        item.relationType ==
-                        TransactionStore.RELATION_REFUND
-                    ) {
-                        if (
-                            refundCountsInTrustedTotals(
-                                item = item,
-                                store = transactionStore
-                            )
-                        ) {
-                            CheckedMoney.negate(item.amountMinor)
-                        } else {
-                            0L
-                        }
-                    } else {
-                        CheckedMoney.add(CheckedMoney.subtract(item.amountMinor, receivableShares[item.id]?.lentMinor ?: 0L), item.feeMinor)
-                    }
-                }
-        )
-    } }
-
-    val homeSpendingItems =
-        spendSlices?.take(3)
-            ?.map {
-                HomeSpendingItem(
-                    label = it.label,
-                    amountMinor =
-                        it.amountMinor,
-                    color = it.color
-                )
-            }
-    val totalTrustedSpendingMinor = RecordedOutflowPolicy.available(
-        activitySnapshot.summary.spentMinor, activitySnapshot.summary.feesMinor
-    )
     val unresolvedDuplicateSecondIds =
         activitySnapshot
             .possibleDuplicates
@@ -1393,7 +1206,7 @@ fun HomeScreen(
         text={Text("Net flow is recorded income minus trusted spending and recorded fees, adjusted for refunds. It is NOT your live bank balance or spendable money after bills. Transfers and loan principal should remain separate.")},
         confirmButton={TextButton(onClick={showNetFlowExplanation=false}){Text("Close")}}
     )
-    if(showInvestments) HomeBInvestmentsDialog(
+    if(showInvestments) HomeInvestmentsDialog(
         positions=observedPositions.orEmpty(),
         onDismiss={showInvestments=false}
     )
@@ -1529,105 +1342,6 @@ fun HomeScreen(
         item(key = "annual-accounting-evidence") {
             SharedAccountingEvidenceNotice(selectedCalendar.get(Calendar.YEAR),
                 ledgerUpdateState.revision, onReportsClick)
-        }
-    }
-}
-
-private fun refundCountsInTrustedTotals(
-    item: com.kedevjimmy.pesatrack.data.local.StoredTransaction,
-    store: TransactionStore
-): Boolean {
-    val originalId = item.relatedTransactionId ?: return false
-    val original = store.getById(originalId) ?: return false
-    return original.direction == MoneyDirection.EXPENSE.name &&
-        original.reviewState != ReviewState.EXCLUDED.name &&
-        original.reviewState != ReviewState.NEEDS_REVIEW.name &&
-        original.type !=
-            com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
-                .REVERSAL.name
-}
-
-@Composable
-private fun HomeConceptAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            IconBubble(
-                icon = icon,
-                size = 38.dp,
-                background = MaterialTheme.colorScheme.primaryContainer,
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                label,
-                modifier = Modifier.padding(top = 6.dp),
-                style = MaterialTheme.typography.labelSmall,
-                maxLines = 1
-            )
-        }
-    }
-}
-
-@Composable
-private fun GreetingBlock(
-    onProfileClick: () -> Unit
-) {
-    val hour = remember {
-        Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-    }
-    val greeting = when (hour) {
-        in 5..11 -> "Good morning"
-        in 12..16 -> "Good afternoon"
-        else -> "Good evening"
-    }
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Surface(
-            modifier = Modifier
-                .size(50.dp)
-                .clickable(onClick = onProfileClick),
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primaryContainer
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    Icons.Rounded.Person,
-                    contentDescription = "Open profile",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(27.dp)
-                )
-            }
-        }
-
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 12.dp)
-        ) {
-            Text(
-                greeting,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                "Small steps. Bigger tomorrows.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
