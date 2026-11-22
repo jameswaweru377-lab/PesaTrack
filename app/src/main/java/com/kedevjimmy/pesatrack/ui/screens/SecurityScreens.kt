@@ -21,6 +21,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kedevjimmy.pesatrack.security.AppLockManager
 import com.kedevjimmy.pesatrack.security.LockKeypadEntryPolicy
 import com.kedevjimmy.pesatrack.R
@@ -77,14 +81,45 @@ fun AppLockScreen(
     var legacyHint by remember { mutableStateOf(false) }
     var keyboardMode by remember { mutableStateOf(false) }
     var lastEditWasDeletion by remember { mutableStateOf(false) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var foreground by remember(lifecycle) {
+        mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
+    }
+    var backgroundEpoch by remember(lifecycle) { mutableStateOf(0) }
 
-    LaunchedEffect(pin, storedPinLength, lastEditWasDeletion) {
-        if (PinAutoSubmitPolicy.onChange(pin, storedPinLength, lastEditWasDeletion) == PinEntryAction.WAIT) {
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> foreground = true
+                Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP -> {
+                    // Cancel pending checks, including rapid background-and-return sequences.
+                    backgroundEpoch++
+                    foreground = false
+                    pin = ""
+                    checking = false
+                    error = null
+                    legacyHint = false
+                    lastEditWasDeletion = false
+                }
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
+
+    LaunchedEffect(pin, storedPinLength, lastEditWasDeletion, foreground, backgroundEpoch) {
+        val startedEpoch = backgroundEpoch
+        if (!foreground || PinAutoSubmitPolicy.onChange(pin, storedPinLength, lastEditWasDeletion) == PinEntryAction.WAIT) {
             checking = false
             return@LaunchedEffect
         }
         checking = true
         delay(100) // Give the in-field progress state time to render before hashing.
+        if (!PinAutoSubmitPolicy.mayCompleteAfterDelay(startedEpoch, backgroundEpoch, foreground)) {
+            checking = false
+            return@LaunchedEffect
+        }
         val verified = onPinUnlock(pin)
         checking = false
         if (verified) {

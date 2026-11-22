@@ -4,6 +4,10 @@ enum class PinEntryAction { WAIT, VERIFY, VERIFY_LEGACY_START, VERIFY_LEGACY_CON
 
 /** The first successful unlock of an older PIN persists its length for later entries. */
 object PinAutoSubmitPolicy {
+    /** A delayed PIN check may only complete in the foreground session that started it. */
+    fun mayCompleteAfterDelay(startEpoch: Int, currentEpoch: Int, foreground: Boolean): Boolean =
+        foreground && startEpoch == currentEpoch
+
     fun onChange(pin: String, storedLength: Int?, isDeletion: Boolean = false): PinEntryAction {
         // Backspacing an older PIN is a correction, not a new failed unlock attempt.
         // The previous verification is cancelled by Compose when the PIN changes.
