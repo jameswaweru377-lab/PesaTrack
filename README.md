@@ -75,9 +75,12 @@ Backup restoration remains a separate, user-initiated process.
 
 Returning users no longer see the passive café loading splash. Their existing
 app-lock screen verifies the saved PIN as soon as its complete length is entered,
-without an Unlock button. Earlier PINs without length metadata can also be
-confirmed with the keyboard's Done key; the original failed-attempt lockout and
-phone-credential recovery remain in place. Fingerprint unlock stays optional.
+without an Unlock or keyboard Done button. The PIN field shows a brief verification
+indicator and uses white masked digits against its dark background. Earlier PINs
+without stored length metadata are checked as a single entry from four to eight
+digits, with one rate-limited failure per entry; a correct entry saves its length
+for future automatic unlocks. Fingerprint unlock remains a round icon beside the
+plain Forgot PIN? recovery link. Existing phone-credential recovery remains.
 The first scan checks senders before retrieving financial message text. A
 follow-up pass runs after account confirmation only when the first scan found
 pending events that could not safely be recorded without ownership.

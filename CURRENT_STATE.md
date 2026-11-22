@@ -1,12 +1,25 @@
 # PesaTrack Current State
 
+_Lock screen correction (22 November 2026; Android CI and phone acceptance pending):_
+The returning-user lock screen has no Unlock control and no keyboard Done
+submission. White masked PIN digits remain legible in dark mode, and the PIN
+field briefly displays "Verifying PIN…" while checking an entry. The compact
+fingerprint icon sits directly below the field opposite plain "Forgot PIN?"
+recovery text. Newer saved PINs verify automatically at their recorded length;
+older 4–8 digit PINs without that metadata are checked across candidate lengths
+as one rate-limited typing attempt, storing the correct length after success.
+The existing PIN hash, cooldown and device-credential recovery stay intact.
+The previously documented first-unlock keyboard Done fallback is removed.
+The running phone's APK version and real-device behavior are not yet verified.
+
 _Lock, notification and Activity follow-up (22 November 2026; phone acceptance pending):_
 Returning users skip the passive café splash while first-run onboarding remains.
 The lock screen verifies completed PIN entry without an Unlock button; fingerprint
 is a small icon and Forgot PIN? invokes existing device-lock recovery. Stored PIN
 lengths enable automatic completion without weakening failed-attempt lockouts;
-older PINs require keyboard Done for their first post-update unlock. The correct
-PIN then records its length for future automatic entry. Underlying app content is
+older PINs originally required keyboard Done for their first post-update unlock,
+but the correction above removes that requirement. A successful entry stores its
+length for future automatic entry. Underlying app content is
 masked while the secure Android lock dialog is visible. Home's bell opens a
 local-only inbox of up to forty new delivered reminders, with unread counts,
 mark-as-read and relevant page links, not raw financial messages. Older alerts

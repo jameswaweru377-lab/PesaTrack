@@ -19,12 +19,13 @@ class AppLockManager(
                 PREFS_NAME,
                 Context.MODE_PRIVATE
             )
+    private var previousLegacyPinCandidate: String? = null
 
     fun isEnabled(): Boolean =
         prefs.contains(KEY_PIN_HASH) &&
             prefs.contains(KEY_PIN_SALT)
 
-    /** Old installations did not record PIN length. Null preserves their unlock path. */
+    /** Old installations did not record PIN length; it is learned on a valid entry. */
     fun storedPinLength(): Int? =
         prefs.getInt(KEY_PIN_LENGTH, 0).takeIf { it in LEGACY_PIN_MIN_LENGTH..MAX_PIN_LENGTH }
 
@@ -106,28 +107,41 @@ class AppLockManager(
         if (!isEnabled()) {
             return false
         }
+        val legacyLengthMissing = storedPinLength() == null
+        val continuingLegacyEntry = legacyLengthMissing &&
+            PinAutoSubmitPolicy.isSameLegacyEntry(previousLegacyPinCandidate, pin)
+        val verificationAction = when {
+            !legacyLengthMissing -> PinEntryAction.VERIFY
+            continuingLegacyEntry -> PinEntryAction.VERIFY_LEGACY_CONTINUATION
+            else -> PinEntryAction.VERIFY_LEGACY_START
+        }
+        if (!continuingLegacyEntry) previousLegacyPinCandidate = null
         if (
-            remainingLockoutMs(
-                nowElapsedMs
-            ) > 0L
+            !continuingLegacyEntry && remainingLockoutMs(nowElapsedMs) > 0L
         ) {
             return false
         }
         if (!isSupportedStoredPin(pin)) {
-            recordFailedAttempt(
-                nowElapsedMs
-            )
+            if (PinAutoSubmitPolicy.shouldRecordFailure(verificationAction)) {
+                recordFailedAttempt(nowElapsedMs)
+            }
             return false
         }
 
         val verified = hashMatches(pin)
         if (verified) {
+            previousLegacyPinCandidate = null
             clearFailedAttempts()
             if (!prefs.contains(KEY_PIN_LENGTH)) {
                 prefs.edit().putInt(KEY_PIN_LENGTH, pin.length).apply()
             }
         } else {
-            recordFailedAttempt(nowElapsedMs)
+            if (legacyLengthMissing) previousLegacyPinCandidate = pin
+            // Prefixes of one legacy entry are one rate-limited guess, not
+            // five failures while the user types their original 4–8 digit PIN.
+            if (PinAutoSubmitPolicy.shouldRecordFailure(verificationAction)) {
+                recordFailedAttempt(nowElapsedMs)
+            }
         }
         return verified
     }
