@@ -7,6 +7,7 @@ import com.kedevjimmy.pesatrack.domain.model.AccountType
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -57,9 +58,34 @@ class PayCycleIncomeEvidenceRefreshTest {
         val repaymentId = insertReceipt("SYN-CLIENT", first + 7L * 24 * 60 * 60 * 1_000,
             5_000_00L, account.id, false)
 
+        // Simulate an older installation with a stale persisted projection.
+        db.insertOrThrow("pay_cycles", null, ContentValues().apply {
+            put("id", "stale-before-upgrade"); put("start_transaction_id", startId)
+            put("start_epoch_ms", first); put("end_epoch_ms", second)
+            put("opening_income_minor", 10_000_00L); put("carryover_minor", 0L)
+            put("ending_tracked_minor", 999_00L); put("state", "CLOSED")
+            put("created_at_epoch_ms", first); put("updated_at_epoch_ms", first)
+        })
+
         val cycles = PayCycleStore.get(app)
         val before = cycles.listCycles().single { it.startTransactionId == startId }
         assertNotNull(before.endingTrackedMinor)
+        assertNotEquals(999_00L, before.endingTrackedMinor!!)
+        val nextBefore = cycles.listCycles().single { it.state == "ACTIVE" }
+        val nextPayday = PaydaySnapshotStore.get(app)
+            .snapshotForCycleStart(nextBefore.startTransactionId)
+
+        // A backdated user-authoritative credit may be saved with rebuildPayCycles=false.
+        insertReceipt("SYN-BONUS", first + 14L * 24 * 60 * 60 * 1_000,
+            2_000_00L, account.id, false)
+        LedgerUpdateBus.notifyChanged()
+        val withBackdatedCredit = cycles.listCycles().single { it.startTransactionId == startId }
+        assertEquals(before.endingTrackedMinor!! + 2_000_00L,
+            withBackdatedCredit.endingTrackedMinor!!)
+        if (nextPayday?.hasCompleteLiquidPicture != true) {
+            val nextAfter = cycles.listCycles().single { it.state == "ACTIVE" }
+            assertEquals(nextBefore.carryoverMinor + 2_000_00L, nextAfter.carryoverMinor)
+        }
 
         db.insertOrThrow("personal_receivable_people", null, ContentValues().apply {
             put("id", "synthetic-person"); put("display_name", "Fictional Friend")
@@ -73,11 +99,12 @@ class PayCycleIncomeEvidenceRefreshTest {
             put("created_at_epoch_ms", first)
         })
         val corrected = cycles.listCycles().single { it.startTransactionId == startId }
-        assertEquals(before.endingTrackedMinor!! - 3_000_00L, corrected.endingTrackedMinor!!)
+        assertEquals(withBackdatedCredit.endingTrackedMinor!! - 3_000_00L,
+            corrected.endingTrackedMinor!!)
 
         db.delete("personal_receivable_events", "id=?", arrayOf(annotationId.toString()))
         val undone = cycles.listCycles().single { it.startTransactionId == startId }
-        assertEquals(before.endingTrackedMinor, undone.endingTrackedMinor)
+        assertEquals(withBackdatedCredit.endingTrackedMinor, undone.endingTrackedMinor)
     }
 
     private fun insertReceipt(code: String, date: Long, amount: Long, accountId: String,
