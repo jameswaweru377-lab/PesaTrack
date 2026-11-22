@@ -12,16 +12,34 @@ data class NotificationInboxPresentation(
     val visibleCount: Int
 )
 
+enum class NotificationInboxFilter { ALL_UPDATES, NEEDS_REVIEW, REMINDERS }
+
 object NotificationInboxDisplayPolicy {
-    fun present(notices: List<LocalInboxNotice>, unreadOnly: Boolean,
-                now: Long, timezone: TimeZone): NotificationInboxPresentation {
-        val visible = notices.asSequence().filter { !unreadOnly || !it.read }
-            .sortedByDescending { it.createdAt }.toList()
-        // Only a delivered and still-unread Activity review can headline the inbox.
-        val featured = visible.firstOrNull {
-            !it.read && (it.category.equals("ACTIVITY", ignoreCase = true) ||
-                it.route == "activity-attention")
+    fun needsReview(notice: LocalInboxNotice): Boolean =
+        notice.route == "activity-attention" || notice.route == "accounts" ||
+            notice.route == "data-health" || notice.route.startsWith("smart-review/") ||
+            notice.category.equals("ACTIVITY", ignoreCase = true)
+
+    fun present(notices: List<LocalInboxNotice>, filter: NotificationInboxFilter,
+                now: Long, timezone: TimeZone,
+                dismissedFeaturedKey: String? = null): NotificationInboxPresentation {
+        val visible = notices.asSequence().filter {
+            when (filter) {
+                NotificationInboxFilter.ALL_UPDATES -> true
+                NotificationInboxFilter.NEEDS_REVIEW -> needsReview(it)
+                NotificationInboxFilter.REMINDERS -> !needsReview(it)
+            }
         }
+            .sortedByDescending { it.createdAt }.toList()
+        // The featured treatment is optional UI. Dismissing it leaves the notice in the list.
+        val candidate = if (filter == NotificationInboxFilter.ALL_UPDATES) {
+            visible.firstOrNull {
+                !it.read &&
+                    (it.category.equals("ACTIVITY", ignoreCase = true) ||
+                        it.route == "activity-attention")
+            }
+        } else null
+        val featured = candidate?.takeUnless { it.key == dismissedFeaturedKey }
         val rest = visible.filterNot { it.key == featured?.key }
         val calendar = Calendar.getInstance(timezone).apply {
             timeInMillis = now

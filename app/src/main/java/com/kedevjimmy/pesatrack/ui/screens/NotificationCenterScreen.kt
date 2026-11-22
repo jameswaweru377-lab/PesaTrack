@@ -1,6 +1,5 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,17 +19,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.planning.LocalInboxNotice
 import com.kedevjimmy.pesatrack.planning.LocalNotificationInboxPolicy
 import com.kedevjimmy.pesatrack.planning.LocalNotificationInboxStore
 import com.kedevjimmy.pesatrack.planning.NotificationInboxDisplayPolicy
+import com.kedevjimmy.pesatrack.planning.NotificationInboxFilter
+import com.kedevjimmy.pesatrack.planning.NotificationInboxPresentation
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -52,7 +51,8 @@ fun NotificationCenterScreen(
     val locale = LocalConfiguration.current.locales[0]
     val revision by LocalNotificationInboxStore.revision.collectAsState()
     val alerts = remember(context, revision) { LocalNotificationInboxStore.list(context) }
-    var unreadOnly by rememberSaveable { mutableStateOf(false) }
+    var selectedFilter by rememberSaveable { mutableStateOf(NotificationInboxFilter.ALL_UPDATES) }
+    var dismissedFeaturedKey by rememberSaveable { mutableStateOf<String?>(null) }
     val unreadCount = LocalNotificationInboxPolicy.unreadCount(alerts)
     val timezone = TimeZone.getDefault()
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -73,71 +73,69 @@ fun NotificationCenterScreen(
     }
     val calendarDay = Calendar.getInstance(timezone).apply { timeInMillis = now }
     val dayKey = calendarDay.get(Calendar.YEAR) * 1000 + calendarDay.get(Calendar.DAY_OF_YEAR)
-    val display = remember(alerts, unreadOnly, timezone, dayKey) {
-        NotificationInboxDisplayPolicy.present(alerts, unreadOnly, now, timezone)
+    val display = remember(alerts, selectedFilter, dismissedFeaturedKey, timezone.id, dayKey) {
+        NotificationInboxDisplayPolicy.present(
+            alerts, selectedFilter, now, timezone, dismissedFeaturedKey)
     }
     val colors = MaterialTheme.colorScheme
     Column(Modifier.fillMaxSize().background(colors.background).padding(padding)
         .padding(horizontal = PesaDesignTokens.screenHorizontalPadding)) {
-        NotificationInboxHeader(onBack = onBack, onSettings = { onOpen("settings") })
-        NotificationInboxFilters(unreadOnly, unreadCount,
-            onSelect = { unreadOnly = it },
+        NotificationInboxHeader(unreadCount, onBack = onBack,
+            onSettings = { onOpen("settings") },
             onMarkAllRead = { LocalNotificationInboxStore.markAllRead(context) })
+        NotificationInboxFilters(selectedFilter, onSelect = { selectedFilter = it })
         if (display.visibleCount == 0) {
-            NotificationInboxEmpty(unreadOnly,
-                onAction = { if (unreadOnly) unreadOnly = false else onBack() })
+            NotificationInboxEmpty(selectedFilter,
+                onAction = {
+                    if (selectedFilter == NotificationInboxFilter.ALL_UPDATES) onBack()
+                    else selectedFilter = NotificationInboxFilter.ALL_UPDATES
+                })
         } else {
-            LazyColumn(contentPadding = PaddingValues(bottom = PesaDesignTokens.sectionGap)) {
-                display.featured?.let { alert ->
-                    item("featured-date") {
-                        Text(SimpleDateFormat("EEEE d MMM yyyy", locale).apply {
-                            timeZone = timezone
-                        }.format(Date(alert.createdAt)),
-                            modifier = Modifier.padding(vertical = 16.dp),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = colors.onSurfaceVariant)
-                    }
-                    item("featured-${alert.key}") {
-                        FeaturedReviewNotice(alert) {
-                            LocalNotificationInboxStore.markRead(context, alert.key)
-                            onOpen(alert.route)
-                        }
-                    }
-                }
-                if (display.today.isNotEmpty()) {
-                    item("today-title") { InboxSectionTitle("Today") }
-                    items(display.today, key = { it.key }) { alert ->
-                        NotificationInboxRow(alert, now, timezone, locale) {
-                            LocalNotificationInboxStore.markRead(context, alert.key)
-                            onOpen(alert.route)
-                        }
-                    }
-                }
-                if (display.earlierThisWeek.isNotEmpty()) {
-                    item("week-title") { InboxSectionTitle("Earlier this week") }
-                    items(display.earlierThisWeek, key = { it.key }) { alert ->
-                        NotificationInboxRow(alert, now, timezone, locale) {
-                            LocalNotificationInboxStore.markRead(context, alert.key)
-                            onOpen(alert.route)
-                        }
-                    }
-                }
-                if (display.older.isNotEmpty()) {
-                    item("older-title") { InboxSectionTitle("Earlier") }
-                    items(display.older, key = { it.key }) { alert ->
-                        NotificationInboxRow(alert, now, timezone, locale) {
-                            LocalNotificationInboxStore.markRead(context, alert.key)
-                            onOpen(alert.route)
-                        }
-                    }
-                }
+            NotificationInboxTimeline(display, now, timezone, locale,
+                onDismiss = { dismissedFeaturedKey = it },
+                onOpen = { alert ->
+                    LocalNotificationInboxStore.markRead(context, alert.key)
+                    onOpen(alert.route)
+                })
+        }
+    }
+}
+
+@Composable
+private fun NotificationInboxTimeline(
+    display: NotificationInboxPresentation, now: Long, timezone: TimeZone, locale: Locale,
+    onDismiss: (String) -> Unit, onOpen: (LocalInboxNotice) -> Unit
+) {
+    val earlier = (display.earlierThisWeek + display.older).sortedByDescending { it.createdAt }
+    LazyColumn(contentPadding = PaddingValues(bottom = PesaDesignTokens.sectionGap)) {
+        display.featured?.let { alert ->
+            item("featured-${alert.key}") {
+                FeaturedReviewNotice(alert, onClick = { onOpen(alert) },
+                    onDismiss = { onDismiss(alert.key) })
+            }
+        }
+        if (display.today.isNotEmpty()) {
+            item("today-title") {
+                InboxSectionTitle("Today · " + SimpleDateFormat("EEE d MMM", locale).apply {
+                    timeZone = timezone
+                }.format(Date(now)))
+            }
+            items(display.today, key = { it.key }) { alert ->
+                NotificationInboxRow(alert, now, timezone, locale) { onOpen(alert) }
+            }
+        }
+        if (earlier.isNotEmpty()) {
+            item("earlier-title") { InboxSectionTitle("Earlier") }
+            items(earlier, key = { it.key }) { alert ->
+                NotificationInboxRow(alert, now, timezone, locale) { onOpen(alert) }
             }
         }
     }
 }
 
 @Composable
-private fun NotificationInboxHeader(onBack: () -> Unit, onSettings: () -> Unit) {
+private fun NotificationInboxHeader(unreadCount: Int, onBack: () -> Unit,
+                                    onSettings: () -> Unit, onMarkAllRead: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     var menuOpen by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().heightIn(min = PesaDesignTokens.minimumTouchTarget),
@@ -147,19 +145,22 @@ private fun NotificationInboxHeader(onBack: () -> Unit, onSettings: () -> Unit) 
         }
         Box(Modifier.width(1.dp).height(24.dp).background(colors.outlineVariant))
         Spacer(Modifier.width(8.dp))
-        Image(painterResource(R.drawable.ic_pesatrack_home_mark), contentDescription = null,
-            modifier = Modifier.size(32.dp).clip(RoundedCornerShape(PesaDesignTokens.iconRadius)))
-        Spacer(Modifier.width(8.dp))
-        Box(Modifier.width(1.dp).height(24.dp).background(colors.outlineVariant))
-        Spacer(Modifier.width(8.dp))
         Text("Notifications", Modifier.weight(1f), maxLines = 1,
             overflow = TextOverflow.Ellipsis, color = colors.onBackground,
-            fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 24.sp)
+            fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+        if (unreadCount > 0) {
+            Box(Modifier.size(8.dp).background(colors.primary, CircleShape))
+            Spacer(Modifier.width(8.dp))
+            Text("$unreadCount new", color = colors.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        }
         Box {
             IconButton(onClick = { menuOpen = true }) {
-                Icon(Icons.Rounded.MoreVert, contentDescription = "More notification options")
+                Icon(Icons.Rounded.MoreHoriz, contentDescription = "More notification options")
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                if (unreadCount > 0) DropdownMenuItem(text = { Text("Mark all as read") },
+                    onClick = { menuOpen = false; onMarkAllRead() })
                 DropdownMenuItem(text = { Text("Notification settings") }, onClick = {
                     menuOpen = false
                     onSettings()
@@ -170,50 +171,49 @@ private fun NotificationInboxHeader(onBack: () -> Unit, onSettings: () -> Unit) 
 }
 
 @Composable
-private fun NotificationInboxFilters(unreadOnly: Boolean, unreadCount: Int,
-                                     onSelect: (Boolean) -> Unit, onMarkAllRead: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        InboxFilterChip("All", selected = !unreadOnly) { onSelect(false) }
-        InboxFilterChip("Unread ($unreadCount)", selected = unreadOnly) { onSelect(true) }
-        Spacer(Modifier.weight(1f))
-        if (unreadCount > 0) {
-            TextButton(onClick = onMarkAllRead,
-                contentPadding = PaddingValues(horizontal = 4.dp)) {
-                Text("Mark all read", maxLines = 1, fontSize = 12.sp)
-            }
+private fun NotificationInboxFilters(selected: NotificationInboxFilter,
+                                     onSelect: (NotificationInboxFilter) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 16.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        InboxFilterTab("All updates", selected == NotificationInboxFilter.ALL_UPDATES,
+            Modifier.weight(1f)) { onSelect(NotificationInboxFilter.ALL_UPDATES) }
+        InboxFilterTab("Needs review", selected == NotificationInboxFilter.NEEDS_REVIEW,
+            Modifier.weight(1f)) { onSelect(NotificationInboxFilter.NEEDS_REVIEW) }
+        InboxFilterTab("Reminders", selected == NotificationInboxFilter.REMINDERS,
+            Modifier.weight(1f)) { onSelect(NotificationInboxFilter.REMINDERS) }
+    }
+}
+
+@Composable
+private fun InboxFilterTab(label: String, selected: Boolean,
+                           modifier: Modifier, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Surface(onClick = onClick, modifier = modifier.heightIn(
+        min = PesaDesignTokens.minimumTouchTarget), color = Color.Transparent) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Bottom) {
+            Text(label, color = if (selected) colors.primary else colors.onSurfaceVariant,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                fontSize = 13.sp, maxLines = 1)
+            Spacer(Modifier.height(8.dp))
+            if (selected) HorizontalDivider(color = colors.primary, thickness = 2.dp)
+            else Spacer(Modifier.height(2.dp))
         }
     }
 }
 
 @Composable
-private fun InboxFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun FeaturedReviewNotice(notice: LocalInboxNotice, onClick: () -> Unit,
+                                 onDismiss: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    Surface(onClick = onClick,
-        modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget),
-        shape = RoundedCornerShape(PesaDesignTokens.controlRadius),
-        color = if (selected) colors.primary else colors.surfaceVariant) {
-        Box(Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
-            Text(label, color = if (selected) colors.onPrimary else colors.onSurface,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
-
-@Composable
-private fun FeaturedReviewNotice(notice: LocalInboxNotice, onClick: () -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    Surface(onClick = onClick, color = colors.surfaceVariant,
+    Surface(color = colors.surfaceVariant,
         shape = RoundedCornerShape(PesaDesignTokens.cardRadius)) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 16.dp, horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             NotificationIcon(Icons.Rounded.FactCheck, colors.primary, Modifier.size(48.dp))
             Box(Modifier.width(1.dp).height(48.dp).background(colors.primary.copy(alpha = .65f)))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("NEEDS ATTENTION", color = colors.tertiary,
-                    fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
                 Text(notice.title, color = colors.onSurface, fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -221,11 +221,15 @@ private fun FeaturedReviewNotice(notice: LocalInboxNotice, onClick: () -> Unit) 
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            Column(horizontalAlignment = Alignment.End) {
-                Icon(Icons.Rounded.ChevronRight, contentDescription = null,
-                    modifier = Modifier.size(24.dp), tint = colors.primary)
-                Text("Review now", color = colors.primary,
-                    style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onClick, contentPadding = PaddingValues(horizontal = 4.dp)) {
+                    Text("Review", color = colors.primary, maxLines = 1,
+                        style = MaterialTheme.typography.labelMedium)
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Rounded.Close, contentDescription = "Dismiss featured review",
+                        tint = colors.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                }
             }
         }
     }
@@ -265,7 +269,13 @@ private fun NotificationInboxRow(notice: LocalInboxNotice, now: Long,
     Surface(onClick = onClick, color = Color.Transparent) {
         Row(Modifier.fillMaxWidth().heightIn(min = PesaDesignTokens.minimumTouchTarget)
             .padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.width(12.dp).height(48.dp),
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.width(1.dp).weight(1f).background(colors.outlineVariant))
+                Box(Modifier.size(8.dp).background(colors.primary, CircleShape))
+                Box(Modifier.width(1.dp).weight(1f).background(colors.outlineVariant))
+            }
             NotificationIcon(noticeIcon(notice), colors.primary, Modifier.size(48.dp))
             Box(Modifier.width(1.dp).height(32.dp)
                 .background(colors.outlineVariant.copy(alpha = .65f)))
@@ -311,21 +321,27 @@ private fun noticeIcon(notice: LocalInboxNotice): ImageVector = when (notice.cat
 }
 
 @Composable
-private fun NotificationInboxEmpty(unreadOnly: Boolean, onAction: () -> Unit) {
+private fun NotificationInboxEmpty(filter: NotificationInboxFilter, onAction: () -> Unit) {
     val colors = MaterialTheme.colorScheme
+    val all = filter == NotificationInboxFilter.ALL_UPDATES
+    val title = when (filter) {
+        NotificationInboxFilter.ALL_UPDATES -> "No notifications yet"
+        NotificationInboxFilter.NEEDS_REVIEW -> "Nothing needs review"
+        NotificationInboxFilter.REMINDERS -> "No reminders yet"
+    }
     Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Icons.Rounded.NotificationsNone, contentDescription = null,
             tint = colors.primary, modifier = Modifier.size(48.dp))
         Spacer(Modifier.height(16.dp))
-        Text(if (unreadOnly) "You're all caught up" else "No notifications yet",
+        Text(title,
             color = colors.onBackground, style = MaterialTheme.typography.titleLarge,
             fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
-        Text(if (unreadOnly) "You have no unread reminders."
-            else "Reminders from PesaTrack will appear here.",
+        Text(if (all) "Reminders from PesaTrack will appear here."
+            else "You're all caught up in this section.",
             color = colors.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(16.dp))
-        TextButton(onClick = onAction) { Text(if (unreadOnly) "View all" else "Go back") }
+        TextButton(onClick = onAction) { Text(if (all) "Go back" else "View all updates") }
     }
 }
