@@ -36,6 +36,7 @@ import com.kedevjimmy.pesatrack.ingestion.FinancialRefreshCoordinator
 import com.kedevjimmy.pesatrack.ingestion.RecentSmsCatchUp
 import com.kedevjimmy.pesatrack.ui.PesaTrackApp
 import com.kedevjimmy.pesatrack.ui.screens.StartupSplashScreen
+import com.kedevjimmy.pesatrack.ui.screens.StartupSplashPolicy
 import com.kedevjimmy.pesatrack.ui.screens.AppLockScreen
 import com.kedevjimmy.pesatrack.ui.screens.MandatoryAppLockSetupScreen
 import com.kedevjimmy.pesatrack.ui.screens.SecureAppLockDialog
@@ -199,10 +200,10 @@ class MainActivity : ComponentActivity() {
             var securityConfigured by remember { mutableStateOf(appLockManager.isEnabled()) }
             var welcomeVisible by remember { mutableStateOf(!setupComplete) }
             var showLaunchSplash by remember {
-                mutableStateOf(!setupComplete)
+                mutableStateOf(StartupSplashPolicy.isVisibleAtColdStart(setupComplete))
             }
             LaunchedEffect(Unit) {
-                delay(650)
+                delay(StartupSplashPolicy.durationMs(setupComplete))
                 showLaunchSplash = false
             }
 
@@ -215,14 +216,14 @@ class MainActivity : ComponentActivity() {
             }
 
             androidx.compose.runtime.SideEffect {
-                val darkSurface = useDark || (appLocked && appLockManager.isEnabled()) || (!showLaunchSplash && welcomeVisible)
+                val darkSurface = showLaunchSplash || useDark || (appLocked && appLockManager.isEnabled()) || welcomeVisible
                 val controller = androidx.core.view.WindowCompat.getInsetsController(window, window.decorView)
                 controller.isAppearanceLightStatusBars = !darkSurface
                 controller.isAppearanceLightNavigationBars = !darkSurface
             }
             PesaTrackTheme(darkTheme = useDark) {
                 if (showLaunchSplash) {
-                    StartupSplashScreen(darkTheme = useDark)
+                    StartupSplashScreen(darkTheme = useDark, returningUser = setupComplete)
                 } else if (setupComplete && !securityConfigured) {
                     MandatoryAppLockSetupScreen(onSecured = {
                         securityConfigured = appLockManager.isEnabled()

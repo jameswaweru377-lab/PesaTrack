@@ -1,5 +1,14 @@
 # PesaTrack Current State
 
+_Daily returning-user splash refresh (22 November 2026; Android CI and device review pending):_
+Cold launches for existing users now display the actual PesaTrack copper Home mark
+on a single full-black canvas with a brief peach trace and compact serif wordmark.
+The Android launch window is dark to prevent a white pre-Compose flash.
+The current first-run café splash and onboarding route are unchanged. This does
+not modify Home, financial data, notification timing, the PIN gate, backup,
+permissions or signed updates. Returning lock behavior remains separately owned
+by the pending app-lock PR; CI and Redmi animation/contrast review are pending.
+
 _Historical own-account transfer repair (22 November 2026; Android CI and Redmi verification pending):_
 The local SMS replay now recognizes an interpreted bank-origin "Send Money"
 payment as a transfer when its full destination phone matches a uniquely

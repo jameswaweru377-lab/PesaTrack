@@ -42,6 +42,8 @@ object PesaDesignTokens {
     // while keeping future reuse independent of one-off literals.
     val compactWordmarkLogoSize = 36.dp
     val regularWordmarkLogoSize = 44.dp
+    val dailySplashLogoSize = 80.dp
+    val dailySplashTraceSize = 112.dp
     val wordmarkGap = 10.dp
     val cardOutlineWidth = 1.dp
     const val faintDividerAlpha = 0.30f

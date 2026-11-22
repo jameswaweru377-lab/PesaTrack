@@ -69,6 +69,8 @@ An app-lock PIN protects access to the app's interface; it **does not encrypt th
 
 New installations start with the PesaTrack café splash, then one required local
 name, M-PESA phone and 6–8 digit app-PIN form with explicit financial-SMS consent.
+On later cold launches, the app shows a brief black PesaTrack logo animation
+before the existing local PIN/biometric lock; it does not replay onboarding.
 After Android asks for SMS access, PesaTrack scans financial messages on this
 phone and asks the user to confirm at least one bank or wallet, with manual
 search available even if SMS access is denied. Notifications use Android's
