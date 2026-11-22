@@ -28,6 +28,24 @@ class TransferReconciliationPolicyTest {
         assertEquals(TransferReconciliationPolicy.Basis.ACCOUNT_ROUTE, result.pairs.single().basis)
         assertEquals(500000L, result.pairs.single().principalMinor)
     }
+    @Test fun providerNeutralBankToWalletNarrationFindsExactOwnedWalletRoute() {
+        val description = "Bank to M-Pesa transfer of KES 5,000 to 0712345678 " +
+            "SAMPLE OWNER successfully processed. Transaction reference ABC123456."
+        val result = reconcile(listOf(debit, credit), mapOf("d" to description))
+        assertEquals(1, result.pairs.size)
+        assertEquals(TransferReconciliationPolicy.Basis.ACCOUNT_ROUTE, result.pairs.single().basis)
+    }
+
+    @Test fun providerNeutralNarrationCannotRouteToANameOrSomeoneElsesPhone() {
+        for (description in listOf(
+            "Bank to M-Pesa transfer of KES 5,000 to 0712222222 SAMPLE OWNER successfully processed.",
+            "Bank to M-Pesa transfer of KES 5,000 to ****5678 SAMPLE OWNER successfully processed.",
+            "Bank to M-Pesa transfer of KES 5,000 to 0712345678 and 0712222222 successfully processed.",
+            "Bank to M-Pesa transfer of KES 5,000 to 0712345678 pending approval."
+        )) {
+            assertTrue(description, reconcile(listOf(debit, credit), mapOf("d" to description)).pairs.isEmpty())
+        }
+    }
     @Test fun genericMentionAndNameCannotEstablishRoute() {
         assertTrue(reconcile(listOf(debit, credit), mapOf("d" to "Wallet 0712345678 reference")).pairs.isEmpty())
         assertTrue(reconcile(listOf(debit, credit), mapOf("d" to "Transfer to Wallet James")).pairs.isEmpty())

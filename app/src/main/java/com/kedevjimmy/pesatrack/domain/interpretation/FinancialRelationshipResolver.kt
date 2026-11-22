@@ -15,7 +15,9 @@ data class ResolvedTransferRelationship(
     val destination: FinancialAccountReference,
     override val feeMinor: Long,
     override val confidence: InterpretationConfidence,
-    override val evidence: List<FieldEvidence>
+    override val evidence: List<FieldEvidence>,
+    val recipientPhone: String? = null,
+    val recipientName: String? = null
 ) : ResolvedFinancialRelationship
 
 data class ResolvedPaymentRelationship(
@@ -1442,7 +1444,9 @@ object FinancialRelationshipResolver {
                 observedField =
                     FinancialField.SOURCE_ACCOUNT,
                 fee = fee
-            )
+            ),
+            recipientPhone = action.partyPhone,
+            recipientName = action.recipientName
         )
     }
 

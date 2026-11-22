@@ -81,6 +81,7 @@ class FinancialMessageIngestionCoordinator private constructor(
         IdentityGraphStore.get(appContext)
     private val personalLearningStore =
         PersonalLearningStore.get(appContext)
+    private val transferRecipientRouting = FinancialTransferRecipientRouting(appContext)
 
     fun ingest(
         title: String?,
@@ -262,7 +263,7 @@ class FinancialMessageIngestionCoordinator private constructor(
             }
         var pendingReviewEvents = 0
 
-        interpretation.events.forEach { event ->
+        interpretation.events.map(transferRecipientRouting::route).forEach { event ->
             when (event) {
                 is TransferEventFact -> {
                     understandingStore.observeEntity(
@@ -284,15 +285,8 @@ class FinancialMessageIngestionCoordinator private constructor(
                             event.destination
                         )
 
-                    val canApply =
-                        understandingStore.isUserOwned(
-                            event.source.entityKey
-                        ) &&
-                            understandingStore.isUserOwned(
-                                event.destination.entityKey
-                            ) &&
-                            sourceAccountId != null &&
-                            destinationAccountId != null
+                    val canApply = sourceAccountId != null && destinationAccountId != null &&
+                        transferRecipientRouting.canApply(event, sourceAccountId, destinationAccountId)
 
                     if (!canApply) {
                         understandingStore.recordTransfer(
@@ -1798,6 +1792,13 @@ class FinancialMessageIngestionCoordinator private constructor(
                 understandingStore.entityByKey(
                     event.destinationEntityKey
                 ) ?: return@forEach
+
+            // Legacy pending events do not persist recipient phone/name. Never replay
+            // a bank-to-wallet transfer on provider names alone: a fresh SMS re-scan
+            // must supply full recipient identity before it can be auto-applied.
+            if (destination.accountTypeHint == AccountType.MOBILE_WALLET.name &&
+                source.accountTypeHint in setOf(AccountType.BANK.name, AccountType.OTHER.name))
+                return@forEach
 
             val sourceOwned =
                 understandingStore.isUserOwned(

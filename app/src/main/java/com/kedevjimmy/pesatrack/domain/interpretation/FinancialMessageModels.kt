@@ -70,7 +70,9 @@ data class TransferEventFact(
     val destination: FinancialAccountReference,
     val feeMinor: Long,
     override val confidence: InterpretationConfidence,
-    val evidence: List<FieldEvidence> = emptyList()
+    val evidence: List<FieldEvidence> = emptyList(),
+    val recipientPhone: String? = null,
+    val recipientName: String? = null
 ) : FinancialEventFact {
     override val genericIngestionReady: Boolean =
         true

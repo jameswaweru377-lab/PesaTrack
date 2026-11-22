@@ -65,7 +65,8 @@ data class FinancialActionCandidate(
     val partyPhone: String?,
     val accountReference: String? = null,
     val accountReferenceSpan: MessageSpan? = null,
-    val ruleId: String
+    val ruleId: String,
+    val recipientName: String? = null
 )
 
 enum class CashMovementCandidateKind {
@@ -233,6 +234,10 @@ object FinancialCandidateExtractor {
     // A bank-to-wallet notice is not proof of ownership; ingestion confirms both accounts.
     private val bankToMobileTransferRegex = Regex(
         """\bbank\s+to\s+(m-?pesa|mobile\s+wallet)\s+transfer\s+of\s+(?:Ksh|KES)\s*([0-9,]+(?:\.\d{1,2})?)\s+to\s+((?:\+?254|0)[17]\d{8})\b""",
+        RegexOption.IGNORE_CASE
+    )
+    private val completedTransferRecipientRegex = Regex(
+        """^\s*(?:\(\s*([\p{L}'’-]+(?:\s+[\p{L}'’-]+){1,3})\s*\)|([\p{L}'’-]+(?:\s+[\p{L}'’-]+){1,3}))\s+(?:has\s+been\s+)?(?:successfully\s+processed|processed\s+successfully|completed)\b""",
         RegexOption.IGNORE_CASE
     )
     private val sentAmountRegex = Regex(
@@ -1261,7 +1266,10 @@ object FinancialCandidateExtractor {
                 partyLabel = party.value,
                 partySpan = party.range.toSpan(),
                 partyPhone = mobile.groups[3]?.value?.let(::normalizeKenyanPhone),
-                ruleId = "transfer_to.bank_mobile"
+                ruleId = "transfer_to.bank_mobile",
+                recipientName = completedTransferRecipientRegex
+                    .find(body.substring(mobile.range.last + 1).take(160))
+                    ?.groups?.let { groups -> (groups[1] ?: groups[2])?.value?.trim() }
             )
         }
 

@@ -91,6 +91,15 @@ class OwnAccountTransferDetectorTest {
         assertEquals("account-mpesa", match?.destinationAccountId)
     }
 
+    @Test fun unrelatedRecipientPhoneMustNotBecomeOwnedThroughAContactNumber() {
+        assertNull(OwnAccountTransferDetector.matchConfiguredNotification(
+            title = "Equity",
+            body = "KES 2,900 transferred to M-PESA 0712222222 successfully. " +
+                "For help call 0712345678.",
+            accounts = notificationAccounts
+        ))
+    }
+
     @Test
     fun mpesaNotificationToOwnedBankIdentifierIsTransfer() {
         val match =

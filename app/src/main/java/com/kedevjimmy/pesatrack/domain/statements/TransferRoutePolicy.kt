@@ -13,6 +13,11 @@ object TransferRoutePolicy {
     private val directed = Regex(
         "\\b(to|from)\\s+(account|a/c|m-pesa|mpesa|wallet)\\s*[:#]?\\s*(\\+?[0-9]{8,16})(?![A-Za-z0-9*])",
         RegexOption.IGNORE_CASE)
+    private val bankToMobile = Regex(
+        """\bbank\s+to\s+(?:m-pesa|mpesa|wallet)\s+transfer\s+of\s+(?:KES|KSHS?)\s+[\d,.]+\s+to\s+((?:\+?254|0)[17]\d{8})(?![A-Za-z0-9*])""",
+        RegexOption.IGNORE_CASE
+    )
+    private val financialPhones = Regex("""(?<!\d)(?:\+?254|0)[17]\d{8}(?!\d)""")
     private val allowedIdentifier = Regex("[+0-9 ()-]+")
 
     fun find(row: StatementEvidenceCorrelationPolicy.Observation, description: String,
@@ -21,17 +26,23 @@ object TransferRoutePolicy {
             !row.sourceTotalsVerified || !row.ownershipConfirmed || row.roleProtected ||
             row.movementMinor == 0L || row.movementMinor == Long.MIN_VALUE ||
             row.accountId !in ownership || description.length > 4096) return null
-        val matches = directed.findAll(description).toList()
-        val match = matches.singleOrNull() ?: return null
-        if (hasIdentifierContinuation(description, match.range.last + 1)) return null
-        val direction = match.groupValues[1]
+        val match = directed.findAll(description).singleOrNull()
+        val bankRoute = if (match == null) bankToMobile.findAll(description).singleOrNull() else null
+        if (match == null && bankRoute == null) return null
+        val matched = match ?: bankRoute ?: return null
+        if (hasIdentifierContinuation(description, matched.range.last + 1)) return null
+        if (bankRoute != null && (row.movementMinor >= 0 ||
+                !description.contains("successfully processed", ignoreCase = true) ||
+                financialPhones.findAll(description).count() != 1)) return null
+        val direction = if (bankRoute != null) "to" else match!!.groupValues[1]
         if ((row.movementMinor < 0 && !direction.equals("to", true)) ||
             (row.movementMinor > 0 && !direction.equals("from", true))) return null
-        val token = match.groupValues[3]
+        val token = if (bankRoute != null) bankRoute.groupValues[1] else match!!.groupValues[3]
+        val destinationKind = if (bankRoute != null) "m-pesa" else match!!.groupValues[2]
         val peers = ownership.filter { (_, account) ->
             account.revision > 0 && token.removePrefix("+") in aliases(account) &&
                 (!token.startsWith("+") || account.type == "MOBILE_WALLET") &&
-                (match.groupValues[2].equals("account", true) || match.groupValues[2].equals("a/c", true) ||
+                (destinationKind.equals("account", true) || destinationKind.equals("a/c", true) ||
                     account.type == "MOBILE_WALLET")
         }.keys
         val peer = peers.singleOrNull()?.takeIf { it != row.accountId } ?: return null

@@ -50,4 +50,8 @@ Representative local commands:
 ./gradlew :app:assembleDebug :app:lintDebug
 ```
 
-These tests do not establish real-statement accuracy or device acceptance. This implementation does not add new SMS route parsers, support every bank narration, reconcile fees or loans, recover absent records, or modify existing report definitions. No real financial data is needed to run its tests.
+These tests do not establish real-statement accuracy or device acceptance. This implementation does not support every bank narration, reconcile fees or loans, recover absent records, or modify existing report definitions. No real financial data is needed to run its tests.
+
+# Provider-neutral bank-to-wallet narration
+
+Completed bank-to-M-Pesa transfer narrations may provide an explicitly directed, full recipient mobile number. When that exact number belongs to one confirmed wallet and the outgoing bank record has a verified opposite movement, the statement engine may show a **review-only** transfer match. A name, provider title, masked number, extra recipient number or pending transaction cannot establish ownership. This is independent of the institution's name. Statement matches **never** automatically post into Activity (the existing N2 hold remains).
