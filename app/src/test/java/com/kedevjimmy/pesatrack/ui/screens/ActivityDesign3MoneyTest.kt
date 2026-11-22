@@ -30,6 +30,26 @@ class ActivityDesign3MoneyTest {
         assertEquals(setOf(7L), activityTrustedIncomeIds(ledger(listOf(externalBankReceipt))))
     }
 
+    @Test fun moneyInFilterRejectsUnattributedCreditsEvenWhenLegacyDirectionWasIncome() {
+        val recordedExternal = row(20, "INCOME", 3_000_00)
+        val unknownBankCredit = row(21, "INCOME", 5_000_00)
+            .copy(type = "DEPOSIT", counterparty = null)
+        val ownedTransferReceived = row(22, "INCOME", 9_000_00)
+            .copy(linkedAccountId = "owned-second-account")
+        assertEquals(setOf(20L), activityTrustedIncomeIds(
+            ledger(listOf(recordedExternal, unknownBankCredit, ownedTransferReceived))))
+    }
+
+    @Test fun moneyInAndPayCycleIncomeExcludeFullyRepaidPrincipal() {
+        val allPrincipal = row(31, "INCOME", 2_000_00)
+        val partialPrincipal = row(32, "INCOME", 3_000_00)
+        val other = row(33, "INCOME", 5_000_00).copy(type = "DEPOSIT")
+        val snapshot = ledger(listOf(allPrincipal, partialPrincipal, other)).copy(
+            repaidReceivableMinorById = mapOf(31L to 2_000_00L, 32L to 1_000_00L))
+
+        assertEquals(setOf(32L), activityTrustedIncomeIds(snapshot))
+    }
+
     @Test fun investedFilterShowsOnlyConfirmedInvestmentPurchases() {
         val boughtShares = row(1, "EXPENSE", 2_500_00,
             category = "INVESTMENT", relation = TransactionStore.RELATION_INVESTMENT_BUY)
@@ -96,25 +116,26 @@ class ActivityDesign3MoneyTest {
     private fun ledger(trusted: List<StoredTransaction>) = ActivityLedgerSnapshot(
         transactions = trusted,
         summary = ActivitySummary(46_800_00, 15_740_00, 0, 11_700_00, 0, 0),
-        trustedTransactions = trusted
+        trustedTransactions = trusted,
+        confirmedOwnedAccountIds = setOf("owned-wallet")
     )
 
     private fun row(
         id: Long,
         direction: String,
         amount: Long,
-        category: String = "OTHER",
+        category: String = if (direction == "INCOME") "INCOME" else "OTHER",
         relation: String? = null,
         fee: Long = 0,
         at: Long = 1_700_000_000_000
     ) = StoredTransaction(
         id = id, transactionCode = "TEST$id", fingerprint = "synthetic-$id",
-        type = "SYNTHETIC", amountMinor = amount, feeMinor = fee,
-        balanceMinor = null, counterparty = null, counterpartyPhone = null,
+        type = "RECEIVED", amountMinor = amount, feeMinor = fee,
+        balanceMinor = null, counterparty = "Fictional Client", counterpartyPhone = null,
         occurredAtText = null, occurredAtEpochMs = at, receivedAtEpochMs = at,
-        sourcePackage = null, sourceKind = "TEST", direction = direction,
+        sourcePackage = null, sourceKind = "historical_sms", direction = direction,
         category = category, reviewState = "AUTO_CLASSIFIED", ruleId = null,
-        planningMonth = null, reversalOfCode = null, accountId = null,
+        planningMonth = null, reversalOfCode = null, accountId = "owned-wallet",
         linkedAccountId = null, payCycleId = null, cycleCandidateReason = null,
         cycleOverride = null, relationType = relation
     )

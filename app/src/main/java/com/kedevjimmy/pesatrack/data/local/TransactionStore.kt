@@ -1481,6 +1481,8 @@ class TransactionStore private constructor(context: Context) {
         val effective = monthTransactions.filter { item ->
             accountingEligible(item, reversedIds, possibleDuplicateIds)
         }
+        val confirmedOwnedAccountIds = HistoricalIncomeOwnershipReader(appContext)
+            .confirmedAccountIds()
 
         val cashIncome = effective
             .filter { it.direction == MoneyDirection.INCOME.name }
@@ -1493,11 +1495,15 @@ class TransactionStore private constructor(context: Context) {
         // receivable part is removed from economic income and spending.
         // netMinor below deliberately remains the complete cash-flow delta.
         val receivableShares = PersonalReceivableStore(appContext).linkedShares()
-        val income = effective
-            .filter { it.direction == MoneyDirection.INCOME.name }
-            .checkedMoneySumOf { row ->
-                Math.subtractExact(row.amountMinor, receivableShares[row.id]?.repaidMinor ?: 0L)
-            }
+        val income = IncomeRecognitionProjection.confirmedIncomeMinor(effective, confirmedOwnedAccountIds) {
+            receivableShares[it]?.repaidMinor ?: 0L
+        }
+
+        // Direction is a cash observation, not proof of external earnings.
+        // Keep a separate diagnostic for credits without enough evidence.
+        val unresolvedCredits = IncomeRecognitionProjection.unresolvedCreditsMinor(
+            monthTransactions, possibleDuplicateIds + reversedIds, confirmedOwnedAccountIds
+        ) { receivableShares[it]?.repaidMinor ?: 0L }
 
         val grossSpent = effective
             .filter { it.direction == MoneyDirection.EXPENSE.name }
@@ -1542,7 +1548,8 @@ class TransactionStore private constructor(context: Context) {
                                 it.cycleCandidateReason != null
                             )
                 },
-                refundMinor = refunds
+                refundMinor = refunds,
+                unresolvedCreditsMinor = unresolvedCredits
             ),
             reviewGroups = buildReviewGroups(
                 monthTransactions.filterNot {
@@ -1550,7 +1557,9 @@ class TransactionStore private constructor(context: Context) {
                 }
             ),
             possibleDuplicates = possibleDuplicates,
-            trustedTransactions = effective
+            trustedTransactions = effective,
+            confirmedOwnedAccountIds = confirmedOwnedAccountIds,
+            repaidReceivableMinorById = receivableShares.mapValues { it.value.repaidMinor }
         )
     }
     }

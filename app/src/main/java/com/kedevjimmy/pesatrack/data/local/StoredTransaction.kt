@@ -52,7 +52,9 @@ data class ActivitySummary(
     val transferMinor: Long,
     val netMinor: Long,
     val needsReviewCount: Int,
-    val refundMinor: Long = 0L
+    val refundMinor: Long = 0L,
+    /** Observed incoming credits whose economic origin remains unconfirmed. */
+    val unresolvedCreditsMinor: Long = 0L
 )
 
 data class ReviewGroup(
@@ -69,7 +71,11 @@ data class ActivityLedgerSnapshot(
     val summary: ActivitySummary,
     val reviewGroups: List<ReviewGroup> = emptyList(),
     val possibleDuplicates: List<PossibleDuplicateGroup> = emptyList(),
-    val trustedTransactions: List<StoredTransaction> = emptyList()
+    val trustedTransactions: List<StoredTransaction> = emptyList(),
+    /** Existing account-ownership decisions, never inferred from a receipt name. */
+    val confirmedOwnedAccountIds: Set<String> = emptySet(),
+    /** Explicit receivable principal allocation for matching row presentation. */
+    val repaidReceivableMinorById: Map<Long, Long> = emptyMap()
 )
 
 data class PossibleDuplicateGroup(

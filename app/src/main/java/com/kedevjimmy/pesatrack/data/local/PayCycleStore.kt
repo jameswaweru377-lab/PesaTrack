@@ -26,6 +26,11 @@ class PayCycleStore private constructor(context: Context) {
         PaydaySnapshotStore.get(appContext)
     private val cycleProtectionStore =
         CycleProtectionStore.get(appContext)
+    private var appliedIncomeEvidence: CycleIncomeEvidence? = null
+
+    private fun ensureCurrentIncomeEvidence() {
+        if (appliedIncomeEvidence != CycleIncomeEvidence.read(appContext)) rebuild()
+    }
 
     fun rebuild() {
         synchronized(CanonicalStoreLock.monitor) {
@@ -114,6 +119,7 @@ class PayCycleStore private constructor(context: Context) {
                     }
             )
 
+            val incomeEvidence = CycleIncomeEvidence.read(appContext)
             var previousEnding: Long? = null
             accepted.forEachIndexed { index, event ->
                 val nextStart =
@@ -153,7 +159,8 @@ class PayCycleStore private constructor(context: Context) {
                             startEpochMs = event.occurredAtEpochMs,
                             endEpochMs = it,
                             openingIncomeMinor = event.amountMinor,
-                            carryoverMinor = carryover
+                            carryoverMinor = carryover,
+                            incomeEvidence = incomeEvidence
                         )
                     }
 
@@ -206,6 +213,7 @@ class PayCycleStore private constructor(context: Context) {
             }
 
             db.setTransactionSuccessful()
+            appliedIncomeEvidence = incomeEvidence
         } finally {
             db.endTransaction()
         }
@@ -216,6 +224,7 @@ class PayCycleStore private constructor(context: Context) {
         nowEpochMs: Long = System.currentTimeMillis()
     ): PayCycleSnapshot {
         synchronized(CanonicalStoreLock.monitor) {
+        ensureCurrentIncomeEvidence()
         val cycle = currentCycle()
         val pending = pendingSalaryCandidate()
         val paydaySnapshot =
@@ -339,6 +348,7 @@ class PayCycleStore private constructor(context: Context) {
     }
 
     fun listCycles(): List<PayCycle> = synchronized(CanonicalStoreLock.monitor) {
+        ensureCurrentIncomeEvidence()
         database.readableDatabase.rawQuery(
             """
             SELECT id, start_transaction_id, start_epoch_ms, end_epoch_ms,
@@ -408,12 +418,14 @@ class PayCycleStore private constructor(context: Context) {
         startEpochMs: Long,
         endEpochMs: Long,
         openingIncomeMinor: Long,
-        carryoverMinor: Long
+        carryoverMinor: Long,
+        incomeEvidence: CycleIncomeEvidence
     ): Long {
         val totals = totalsForRange(
             startTransactionId = startTransactionId,
             startEpochMs = startEpochMs,
-            endEpochMs = endEpochMs
+            endEpochMs = endEpochMs,
+            incomeEvidence = incomeEvidence
         )
         return CheckedMoney.total(openingIncomeMinor, carryoverMinor, totals.additionalIncomeMinor,
             totals.refundsMinor, CheckedMoney.negate(totals.spentMinor), CheckedMoney.negate(totals.feesMinor),
@@ -430,8 +442,11 @@ class PayCycleStore private constructor(context: Context) {
     private fun totalsForRange(
         startTransactionId: Long,
         startEpochMs: Long,
-        endEpochMs: Long?
+        endEpochMs: Long?,
+        incomeEvidence: CycleIncomeEvidence = CycleIncomeEvidence.read(appContext)
     ): CycleTotals {
+        val receivableShares = incomeEvidence.receivableShares
+        val confirmedOwnedAccountIds = incomeEvidence.ownedAccountIds
         val selection = buildString {
             append("occurred_at_epoch_ms >= ? ")
             if (endEpochMs != null) append("AND occurred_at_epoch_ms < ? ")
@@ -454,7 +469,8 @@ class PayCycleStore private constructor(context: Context) {
         return database.readableDatabase.rawQuery(
             """
             SELECT id, amount_minor, fee_minor, direction, category,
-                   relation_type, related_transaction_id
+                   relation_type, related_transaction_id, type, review_state,
+                   source_kind, transaction_code, counterparty, account_id, linked_account_id
             FROM transactions
             WHERE $selection
             """.trimIndent(),
@@ -484,8 +500,21 @@ class PayCycleStore private constructor(context: Context) {
                         relatedTransactionId != null &&
                         isTrustedExpense(relatedTransactionId) ->
                         refunds = CheckedMoney.add(refunds, amount)
-                    id != startTransactionId && direction == MoneyDirection.INCOME.name ->
-                        additionalIncome = CheckedMoney.add(additionalIncome, amount)
+                    id != startTransactionId && direction == MoneyDirection.INCOME.name &&
+                        IncomeRecognitionPolicy.classify(
+                            IncomeRecognitionEvidence(
+                                direction = direction, type = cursor.getString(7).orEmpty(),
+                                category = category, reviewState = cursor.getString(8).orEmpty(),
+                                sourceKind = cursor.getString(9).orEmpty(),
+                                transactionCode = cursor.getString(10),
+                                counterparty = cursor.getString(11),
+                                accountId = cursor.getString(12),
+                                linkedAccountId = cursor.getString(13),
+                                relationType = relationType, amountMinor = amount
+                            ), confirmedOwnedAccountIds
+                        ).status == IncomeRecognitionStatus.CONFIRMED ->
+                        additionalIncome = CheckedMoney.add(additionalIncome,
+                            CheckedMoney.subtract(amount, receivableShares[id]?.repaidMinor ?: 0L))
                     direction == MoneyDirection.EXPENSE.name ->
                         spent = CheckedMoney.add(spent, amount)
                     direction == MoneyDirection.TRANSFER.name &&
