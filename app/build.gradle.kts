@@ -164,6 +164,11 @@ android {
         unitTests.isReturnDefaultValues = true
         // The PhoneNoticeDesign Robolectric tests inflate real notification XML.
         unitTests.isIncludeAndroidResources = true
+        // Robolectric downloads Android runtime jars outside Gradle's repository resolver.
+        // Use Maven Central's canonical endpoint to avoid intermittent repo1 fetch errors in CI.
+        unitTests.all {
+            it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+        }
         execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
 }
