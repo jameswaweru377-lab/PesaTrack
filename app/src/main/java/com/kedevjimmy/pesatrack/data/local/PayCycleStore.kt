@@ -432,6 +432,8 @@ class PayCycleStore private constructor(context: Context) {
         startEpochMs: Long,
         endEpochMs: Long?
     ): CycleTotals {
+        val receivableShares = PersonalReceivableStore(appContext).linkedShares()
+        val confirmedOwnedAccountIds = StatementAccountConsentReader(appContext).confirmedAccountIds()
         val selection = buildString {
             append("occurred_at_epoch_ms >= ? ")
             if (endEpochMs != null) append("AND occurred_at_epoch_ms < ? ")
@@ -454,7 +456,8 @@ class PayCycleStore private constructor(context: Context) {
         return database.readableDatabase.rawQuery(
             """
             SELECT id, amount_minor, fee_minor, direction, category,
-                   relation_type, related_transaction_id
+                   relation_type, related_transaction_id, type, review_state,
+                   source_kind, transaction_code, counterparty, account_id, linked_account_id
             FROM transactions
             WHERE $selection
             """.trimIndent(),
@@ -484,8 +487,21 @@ class PayCycleStore private constructor(context: Context) {
                         relatedTransactionId != null &&
                         isTrustedExpense(relatedTransactionId) ->
                         refunds = CheckedMoney.add(refunds, amount)
-                    id != startTransactionId && direction == MoneyDirection.INCOME.name ->
-                        additionalIncome = CheckedMoney.add(additionalIncome, amount)
+                    id != startTransactionId && direction == MoneyDirection.INCOME.name &&
+                        IncomeRecognitionPolicy.classify(
+                            IncomeRecognitionEvidence(
+                                direction = direction, type = cursor.getString(7).orEmpty(),
+                                category = category, reviewState = cursor.getString(8).orEmpty(),
+                                sourceKind = cursor.getString(9).orEmpty(),
+                                transactionCode = cursor.getString(10),
+                                counterparty = cursor.getString(11),
+                                accountId = cursor.getString(12),
+                                linkedAccountId = cursor.getString(13),
+                                relationType = relationType, amountMinor = amount
+                            ), confirmedOwnedAccountIds
+                        ).status == IncomeRecognitionStatus.CONFIRMED ->
+                        additionalIncome = CheckedMoney.add(additionalIncome,
+                            CheckedMoney.subtract(amount, receivableShares[id]?.repaidMinor ?: 0L))
                     direction == MoneyDirection.EXPENSE.name ->
                         spent = CheckedMoney.add(spent, amount)
                     direction == MoneyDirection.TRANSFER.name &&

@@ -74,6 +74,14 @@ internal fun LazyListScope.brownActivityControlItems(
             BrownActivityMonthlyHero(view.snapshot, view.payCycleMode, view.balance)
         }
     }
+    if (view.snapshot.summary.unresolvedCreditsMinor > 0L) {
+        item(key = "activity-unresolved-credits") {
+            BrownActivityUnresolvedCreditsNotice(
+                view.snapshot.summary.unresolvedCreditsMinor,
+                actions.onShowAll
+            )
+        }
+    }
     item(key = "activity-transactions-heading") {
         BrownActivityTransactionsHeading(actions.onShowAll)
     }

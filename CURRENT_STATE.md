@@ -1,5 +1,22 @@
 # PesaTrack Current State
 
+_Income recognition evidence projection (22 November 2026; Android CI and phone verification pending):_
+Activity's Money in summary now uses a read-only recognition check over the
+existing canonical ledger. A user-confirmed income entry, or a referenced
+provider receipt with an independently established Income category and known
+receiving account, can count as genuine income. Generic deposits, unclassified
+receipts, unresolved origins, loan principal, refunds and owned transfers
+cannot silently become earnings. Activity gives a compact, tappable notice for
+unresolved incoming credits. The same policy filters pay-cycle additional
+income and removes linked receivable repayment principal; Home and Reports
+continue reading Activity's shared summary. Historical transaction rows,
+source provenance, account balances, recorded cash-flow net, ownership
+decisions, existing duplicate/mirror handling, dates and backup schema are
+not rewritten. This does **not** auto-post salary from Equity or other bank
+statements: N2 still HOLDs statement-derived posting and assurance promotion,
+with R1/T1 acceptance outstanding. Full money-graph and FX reconciliation
+remain separately gated and owned by the Statements reconciliation work.
+
 _Daily returning-user splash refresh (22 November 2026; Android CI and device review pending):_
 Cold launches for existing users now display the actual PesaTrack copper Home mark
 on a single full-black canvas with a brief peach trace and compact serif wordmark.

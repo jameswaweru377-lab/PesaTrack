@@ -1,6 +1,7 @@
 package com.kedevjimmy.pesatrack.ui.screens
 
 import com.kedevjimmy.pesatrack.data.local.ActivityLedgerSnapshot
+import com.kedevjimmy.pesatrack.data.local.IncomeRecognitionPolicy
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
 import com.kedevjimmy.pesatrack.domain.model.CheckedMoney
@@ -18,7 +19,7 @@ internal data class ActivityDesign3Totals(
 /** Money In must show exactly the income rows accepted by the canonical ledger. */
 internal fun activityTrustedIncomeIds(snapshot: ActivityLedgerSnapshot): Set<Long> =
     snapshot.trustedTransactions.asSequence()
-        .filter { it.direction == MoneyDirection.INCOME.name }
+        .filter { IncomeRecognitionPolicy.isConfirmedIncome(it, snapshot.confirmedOwnedAccountIds) }
         .map { it.id }.toSet()
 
 /** A broker transfer or investment label alone is not a confirmed purchase. */

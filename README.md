@@ -19,6 +19,16 @@
 
 PesaTrack helps you understand money coming in, going out, and moving between your accounts. It builds a personal ledger from supported financial-message evidence and your own entries, while keeping imported statement records available for separate verification and review—without making a cloud account the centre of your finances. For supported completed bank-to-wallet messages, a saved full recipient phone and confirmed account ownership can identify transfers between your accounts across institutions; a different recipient phone is treated as an outgoing payment. Names alone never prove an account belongs to you.
 
+Activity **Money in** means confirmed external income, not every account credit.
+An automatic receipt needs identified account/source evidence and an established
+income purpose; an unknown deposit or first-observed self-transfer is not
+assumed to be salary. Activity separately points out unresolved credits that
+need review. Recorded cash movement and account balances remain distinct:
+money may reach an account without becoming earned income, and a missing
+salary SMS must not suppress a balance supported by other evidence.
+Bank-statement-only receipts still do not post automatically while the N2
+admission gate is on hold.
+
 Saved statement archives are separate evidence: saving a bank PDF never automatically adds its rows to Activity. Only sources that pass their format-specific account, document, balance and totals checks enter verified Statements cash-flow reports; other admitted evidence remains separate and clearly labelled. Every import requires review and consent.
 
 For a reconciled bank statement, source-only insights show gross money movement and monthly trends alongside its verification limits; outgoing movements are not assumed to be spending.
