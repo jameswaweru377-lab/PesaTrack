@@ -1,5 +1,15 @@
 # PesaTrack Current State
 
+_Second retired UI and asset cleanup (22 November 2026; Android CI and Redmi acceptance pending):_
+The uncalled concept Bills/Goals/account-detail pages, former Activity 3 and
+reference summary cards, unused onboarding preview/permission/salary/savings
+pages and one orphaned onboarding illustration were removed after a fresh
+call-site audit of main. Active Activity KES formatting, permission checks and
+the current welcome/lock/splash journeys remain. Source and security contract
+checks pass; Android CI is the pending compilation and regression gate because
+Gradle 9.5 cannot be fetched locally. Release shrinking and the offline Python
+PDF runtime remain untouched pending measured APK analysis.
+
 _Daily returning-user splash refresh (22 November 2026; Android CI and device review pending):_
 Cold launches for existing users now display the actual PesaTrack copper Home mark
 on a single full-black canvas with a brief peach trace and compact serif wordmark.

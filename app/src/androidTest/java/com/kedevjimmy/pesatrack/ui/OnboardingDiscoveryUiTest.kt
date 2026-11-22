@@ -4,15 +4,12 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.kedevjimmy.pesatrack.ui.screens.ReviewDiscoveryPage
-import com.kedevjimmy.pesatrack.ui.screens.OnboardingSalaryChoicePage
-import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingSalarySuggestion
 import com.kedevjimmy.pesatrack.ui.screens.DetectedAccountCheckRow
 import com.kedevjimmy.pesatrack.ui.screens.MpesaConfirmationPage
 import com.kedevjimmy.pesatrack.data.local.DiscoveredFinancialEntity
 import com.kedevjimmy.pesatrack.domain.onboarding.OnboardingOwnershipChoice
 import com.kedevjimmy.pesatrack.domain.interpretation.AccountOwnershipHint
 import com.kedevjimmy.pesatrack.domain.interpretation.FinancialAccountNature
-import org.junit.Assert.assertEquals
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -70,34 +67,6 @@ class OnboardingDiscoveryUiTest {
         }
         compose.onNodeWithTag("onboarding-institution-search").performTextInput("Equity")
         compose.onNodeWithText("Equity Bank").assertExists()
-    }
-
-    @Test fun optionalSalaryRemainsUnconfirmedUntilRadioChoiceAndContinue() {
-        var confirmed = false
-        var skipped = false
-        val synthetic = OnboardingSalarySuggestion(
-            label = "SYNTHETIC PAYROLL",
-            accountId = "synthetic-bank",
-            occurrenceCount = 3,
-            monthCount = 3,
-            representativeAmountMinor = 5_200_000L
-        )
-        compose.setContent {
-            PesaTrackTheme(darkTheme = true) {
-                OnboardingSalaryChoicePage(
-                    suggestion = synthetic, saving = false, error = null,
-                    onConfirmDetected = { confirmed = true },
-                    onEnterManually = {}, onNotMySalary = {},
-                    onSkip = { skipped = true }
-                )
-            }
-        }
-        compose.runOnIdle { assertTrue(!confirmed && !skipped) }
-        compose.onNodeWithText("Continue").performClick()
-        compose.runOnIdle { assertTrue(skipped && !confirmed) }
-        compose.onNodeWithText("Yes, set up my salary").performClick()
-        compose.onNodeWithText("Continue").performClick()
-        compose.runOnIdle { assertTrue(confirmed) }
     }
 
     @Test fun mpesaLockSavingsToggleRequiresExplicitUserAction() {
