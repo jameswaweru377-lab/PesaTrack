@@ -80,6 +80,8 @@ object PhoneNotificationPreview {
             .build()
         return try {
             NotificationManagerCompat.from(context).notify(950 + alert.ordinal, notice)
+            LocalNotificationInboxStore.record(context, "test:${alert.name}:${System.currentTimeMillis()}",
+                "TEST", alert.previewTitle, alert.previewBody, alert.route)
             true
         } catch (_: SecurityException) {
             false

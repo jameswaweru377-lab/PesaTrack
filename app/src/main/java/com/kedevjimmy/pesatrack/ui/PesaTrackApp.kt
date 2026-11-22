@@ -50,6 +50,7 @@ import com.kedevjimmy.pesatrack.ui.screens.PayrollJournalSheet
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreen
 import com.kedevjimmy.pesatrack.ui.screens.HomeScreenCache
 import com.kedevjimmy.pesatrack.ui.screens.MoneySetupScreen
+import com.kedevjimmy.pesatrack.ui.screens.NotificationCenterScreen
 import com.kedevjimmy.pesatrack.ui.screens.MoreScreen
 import com.kedevjimmy.pesatrack.ui.screens.StatementIntelligenceDashboard
 import com.kedevjimmy.pesatrack.ui.screens.MpesaConnectionScreen
@@ -206,12 +207,22 @@ fun PesaTrackApp(
     }
 
     CompositionLocalProvider(LocalAppNotificationsDestination provides {
-        navController.navigate("activity-attention") { launchSingleTop = true }
+        navController.navigate("notifications") { launchSingleTop = true }
     }) {
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
+        composable("notifications") {
+            AppScaffold(currentTab = null, onTabSelected = ::navigateToTab,
+                showTopBar = false) { padding ->
+                NotificationCenterScreen(padding,
+                    onBack = { navController.popBackStack() },
+                    onOpen = { route ->
+                        navController.navigate(route) { launchSingleTop = true }
+                    })
+            }
+        }
         composable("smart-review/{key}?action={action}&revision={revision}", arguments = listOf(
             navArgument("key") { type = NavType.StringType },
             navArgument("action") { type = NavType.StringType; defaultValue = "review" },
@@ -255,7 +266,8 @@ fun PesaTrackApp(
 
         composable(MainTab.HOME.route) {
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
-                onNotificationsClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
+                onNotificationsClick = { navController.navigate("notifications") { launchSingleTop = true } },
+                onReviewClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
                 onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
                 currentTab = MainTab.HOME,
                 useBrownHome = true,
@@ -406,7 +418,7 @@ fun PesaTrackApp(
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.ACTIVITY,
                 useBrownHome = true,
-                onNotificationsClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
+                onNotificationsClick = { navController.navigate("notifications") { launchSingleTop = true } },
                 onTabSelected = ::navigateToTab,
                 onStatementsClick = { navController.navigate("statement-activity") { launchSingleTop = true } }
             ) { padding ->
@@ -440,7 +452,7 @@ fun PesaTrackApp(
             AppScaffold(onProfileClick = { navController.navigate("profile") { launchSingleTop = true } }, onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } }, 
                 currentTab = MainTab.ACTIVITY,
                 useBrownHome = true,
-                onNotificationsClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
+                onNotificationsClick = { navController.navigate("notifications") { launchSingleTop = true } },
                 onTabSelected = ::navigateToTab,
                 onStatementsClick = { navController.navigate("statement-activity") { launchSingleTop = true } }
             ) { padding ->
@@ -503,7 +515,7 @@ fun PesaTrackApp(
         composable(MainTab.PLAN.route) {
             AppScaffold(
                 onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
-                onNotificationsClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
+                onNotificationsClick = { navController.navigate("notifications") { launchSingleTop = true } },
                 onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
                 currentTab = MainTab.PLAN,
                 useHomeHeader = true,
@@ -728,7 +740,7 @@ fun PesaTrackApp(
             AppScaffold(
                 onProfileClick = { navController.navigate("profile") { launchSingleTop = true } },
                 onPaycheckClick = { navController.navigate("paycheck-analysis") { launchSingleTop = true } },
-                onNotificationsClick = { navController.navigate("activity-attention") { launchSingleTop = true } },
+                onNotificationsClick = { navController.navigate("notifications") { launchSingleTop = true } },
                 currentTab = null,
                 onTabSelected = ::navigateToTab,
                 showTopBar = false

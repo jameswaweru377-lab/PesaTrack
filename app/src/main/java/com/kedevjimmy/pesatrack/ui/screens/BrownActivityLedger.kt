@@ -131,7 +131,7 @@ internal fun BrownActivityRow(
             if (position == ActivityGroupPosition.FIRST ||
                 position == ActivityGroupPosition.MIDDLE) {
                 HorizontalDivider(Modifier.padding(start = 64.dp, end = 12.dp),
-                    color = p.outline.copy(alpha = .5f), thickness = .5.dp)
+                    color = p.outline.copy(alpha = .75f), thickness = 1.dp)
             }
         }
     }

@@ -401,6 +401,10 @@ class BillSchedules(private val context: Context) {
                                 )).build()
                             try {
                                 manager.notify(bill.rule.id + dueEpochMs, 921, notice)
+                                LocalNotificationInboxStore.record(context,
+                                    "bill:${bill.rule.id}:$dueEpochMs", "BILLS",
+                                    BillNotificationCopy.headline(category),
+                                    "Review your upcoming payment.", "bills")
                             } catch (_: SecurityException) {
                                 return@forEach
                             }

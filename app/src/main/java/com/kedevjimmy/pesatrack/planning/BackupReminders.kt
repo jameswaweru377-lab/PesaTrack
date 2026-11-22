@@ -84,6 +84,8 @@ object BackupReminders {
             .build()
         try {
             NotificationManagerCompat.from(context).notify(NOTICE_ID, notification)
+            LocalNotificationInboxStore.record(context, "backup:$now", "BACKUP",
+                "Keep your records safe", "It's time to save a private backup.", "backup-reminder", now)
         } catch (_: SecurityException) {
             // The phone's notification permission may be revoked after our earlier check.
             return false

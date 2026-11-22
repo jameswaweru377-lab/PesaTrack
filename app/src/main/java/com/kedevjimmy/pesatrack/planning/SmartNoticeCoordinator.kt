@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -148,6 +149,9 @@ object SmartNoticeCoordinator {
         // Preserve native debt-decision actions above; avoid a second generic button.
         if (foreground || LedgerUpdateBus.state.value.isProcessing || !prefs.importReady()) return@synchronized
         try { manager.notify(ID,builder.build()) } catch (_: SecurityException) { return@synchronized }
+        LocalNotificationInboxStore.record(c, "smart:${selected.key}:${selected.revision}",
+            badge, title, text,
+            "smart-review/${Uri.encode(selected.key)}?action=review&revision=${Uri.encode(selected.revision)}", now)
         prefs.shown(selected,now)
         notice.personId?.let { prefs.personShown(it,now) }
     }

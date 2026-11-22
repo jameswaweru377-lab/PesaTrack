@@ -22,6 +22,7 @@ import com.kedevjimmy.pesatrack.domain.rules.SalaryReminderPolicy
 import com.kedevjimmy.pesatrack.domain.rules.PhoneAlertPolicy
 import com.kedevjimmy.pesatrack.planning.PhoneNotificationChannels
 import com.kedevjimmy.pesatrack.planning.PhoneNoticeDesign
+import com.kedevjimmy.pesatrack.planning.LocalNotificationInboxStore
 import java.math.BigDecimal
 import java.text.NumberFormat
 import java.util.Locale
@@ -109,6 +110,8 @@ object SalaryReminders {
             return // Android permission was revoked while preparing the alert.
         }
         prefs.edit().putLong("salary_notice_last_receipt_id", latest.id).apply()
+        LocalNotificationInboxStore.record(context, "salary:receipt:${latest.id}",
+            "INCOME", "Salary received", "Review your confirmed salary and pay cycle.", "salary", now)
     }
     fun postIfDue(context: Context): Boolean {
         val prefs = preferences(context)
@@ -151,6 +154,8 @@ object SalaryReminders {
                 return false
             }
             prefs.edit().putString(key, signature).putLong("${key}_at", now).apply()
+            LocalNotificationInboxStore.record(context, "salary:$key:$signature", "SALARY",
+                "Has your salary arrived?", "Check your expected payday.", "salary", now)
             return true
         }
         return false
