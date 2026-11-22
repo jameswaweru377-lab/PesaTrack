@@ -24,8 +24,11 @@ class PinAutoSubmitPolicyTest {
         assertEquals(false, PinAutoSubmitPolicy.shouldRecordFailure(PinEntryAction.VERIFY_LEGACY_CONTINUATION))
         assertEquals(true, PinAutoSubmitPolicy.shouldRecordFailure(PinEntryAction.VERIFY))
         assertEquals(true, PinAutoSubmitPolicy.isSameLegacyEntry("1234", "12345"))
+        // A 100 ms UI debounce may skip five digits while someone types quickly.
+        assertEquals(true, PinAutoSubmitPolicy.isSameLegacyEntry("1234", "123456"))
+        assertEquals(true, PinAutoSubmitPolicy.isSameLegacyEntry("1234", "12345678"))
         assertEquals(false, PinAutoSubmitPolicy.isSameLegacyEntry("1234", "22345"))
-        assertEquals(false, PinAutoSubmitPolicy.isSameLegacyEntry("1234", "123456"))
+        assertEquals(false, PinAutoSubmitPolicy.isSameLegacyEntry("1234", "123456789"))
         assertEquals(false, PinAutoSubmitPolicy.isSameLegacyEntry("12345", "1234"))
     }
 

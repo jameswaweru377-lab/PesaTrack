@@ -21,5 +21,5 @@ object PinAutoSubmitPolicy {
 
     fun isSameLegacyEntry(previous: String?, candidate: String): Boolean =
         previous != null && previous.length in 4..7 &&
-            candidate.length == previous.length + 1 && candidate.startsWith(previous)
+            candidate.length in (previous.length + 1)..8 && candidate.startsWith(previous)
 }
