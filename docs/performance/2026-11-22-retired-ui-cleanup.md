@@ -18,7 +18,7 @@ audit, not proof that every runtime route has been exercised.
 | UIR-10 | P2 | Old Activity Design 3 and reference summaries have no callers, but their shared KES label is used in current Activity | Fixed in second pass; shared formatter retained | REMOVE / UPDATE |
 | UIR-11 | P2 | Retired onboarding salary, permissions, savings review, welcome and setup compositions have no callers, while three permission helpers remain active | Fixed in second pass; permission helpers retained | REMOVE / UPDATE |
 | UIR-12 | P3 | `onboarding_analysis_hero.webp` has no production reference | Fixed in second pass | REMOVE |
-| UIR-13 | P2 | Release build has no explicit code/resource shrinking; no measured release APK breakdown is available | Open; keep current release settings unchanged | VERIFY |
+| UIR-13 | P2 | Release build has no explicit code/resource shrinking; signed APK composition measured below | Open; keep current release settings unchanged | VERIFY |
 | UIR-14 | P2 | Current splash is a separate, intentional 700 ms cold-start brand reveal; transitions and fonts need Redmi confirmation | Open | VERIFY |
 | UIR-15 | P3 | Some historical component files contain both active shared widgets and unused local UI | Open; do not delete entire mixed-use files | REVIEW |
 
@@ -61,7 +61,9 @@ The Android test for the removed optional-salary choice was retired; tests
 for detected account ownership, institution search and M-Pesa confirmation
 remain. All 63 bundled financial-message templates are indexed by the runtime
 loader and remain unchanged. No Python PDF extraction, accounting, database,
-permissions, backup, release signing, build settings or CI workflow changed.
+permissions, backup, release signing or build settings changed. The review
+follow-up adds active UI source-contract tests to Android CI so deleted screen
+references cannot silently break the next cleanup.
 
 The app contains no bundled custom font assets: global type uses system
 sans-serif, while approved coffee headings still request serif/cursive.
@@ -71,6 +73,18 @@ regression-gated rollout; a 122 KB image removal is not a meaningful explanation
 for the approximately 83 MB installed/downloaded APK.
 
 The source-contract check was deliberately run red with the retired files
-present, then green after deletion. Local Gradle remains blocked before build
-configuration by a Gradle 9.5 distribution download failure. New Android CI
-and physical-device acceptance are required for this second pass.
+present, then green after deletion. A review caught two more source-contract
+tests pointing at the deleted ApprovedMoneySetupPages file; those tests now
+assert the active OnboardingDarkScanPage and its real indeterminate progress
+indicator. Three other older assertions were updated to reflect the approved
+theme selector, photographic welcome and theme-aware Activity palette.
+
+The CI-produced signed release APK measures 53,114,347 bytes (50.7 MiB):
+approximately 21.0 MiB of bundled Python assets, 15.8 MiB of DEX,
+11.8 MiB of native libraries, 1.4 MiB of Android resource entries and the
+remainder in resource tables/other ZIP entries. The bundled Python runtime
+and offline PDF requirements are active, not abandoned assets. Release
+shrinking and its regression risks remain a separate decision. Local Gradle
+remains blocked before build configuration by a Gradle 9.5 distribution
+download failure. New Android CI and physical-device acceptance are required
+for this second pass.

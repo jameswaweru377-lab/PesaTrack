@@ -108,10 +108,11 @@ class PremiumUiContractTest(unittest.TestCase):
         self.assertNotIn("color = Color.White,\n        shape = RoundedCornerShape(22.dp)", overview)
         self.assertNotIn("color = Color.White,\n        shape = RoundedCornerShape(19.dp)", overview)
 
-    def test_appearance_preview_shows_all_five_tabs_and_coffee_hero(self):
+    def test_appearance_page_uses_current_theme_options(self):
         appearance = source(SCREENS / "ProfileAppearancePage.kt")
-        self.assertIn('Triple("Accounts", Icons.Rounded.AccountBalance', appearance)
-        self.assertIn("PremiumVisualTokens.coffee", appearance)
+        self.assertIn("ThemeMode.entries.forEachIndexed", appearance)
+        self.assertIn("onThemeModeChange(option)", appearance)
+        self.assertIn('ProfileBanner("Make PesaTrack feel like yours"', appearance)
         self.assertNotIn(".background(Color(0xFF101310))", appearance)
 
     def test_onboarding_welcome_is_short_and_uncluttered(self):
@@ -135,7 +136,7 @@ class PremiumUiContractTest(unittest.TestCase):
         for file in (splash, welcome):
             self.assertIn("R.drawable.onboarding_cafe_clean", file)
         self.assertIn("PesaLogoMark(size = 88.dp)", splash)
-        self.assertIn("PesaLogoMark(size = 76.dp)", welcome)
+        self.assertIn('Text("YOUR MONEY.\\nYOUR PLANS."', welcome)
         self.assertIn("colors = ButtonDefaults.buttonColors(", welcome)
         self.assertIn("onGetStarted", welcome)
         self.assertNotIn("onSkip", welcome)
@@ -153,22 +154,22 @@ class PremiumUiContractTest(unittest.TestCase):
         self.assertIn("onContinueWithout", privacy)
         self.assertNotIn("ApprovedReferenceHero(privacy = true)", privacy)
 
-    def test_import_analysis_no_longer_shows_three_dimensional_hero(self):
-        analysis = source(SCREENS / "ApprovedMoneySetupPages.kt")
-        self.assertIn("Understanding your money", analysis)
-        self.assertNotIn("R.drawable.onboarding_analysis_hero", analysis)
+    def test_import_analysis_uses_current_scan_instead_of_retired_hero(self):
+        setup = source(SCREENS / "SmartOnboardingSetupScreen.kt")
+        scan = source(SCREENS / "OnboardingDarkScanPage.kt")
+        self.assertIn("OnboardingDarkScanPage(importing = smsGranted, phase = phase)", setup)
+        self.assertIn("Icons.Rounded.ReceiptLong", scan)
+        self.assertNotIn("R.drawable.onboarding_analysis_hero", scan)
+        self.assertNotIn("ApprovedAnalysisPage(", setup)
 
     def test_import_progress_is_honest_and_uses_theme_surfaces(self):
-        panel_path = SCREENS / "OnboardingProgressPanel.kt"
-        self.assertTrue(panel_path.exists(), "The approved import progress component is missing")
-        panel = source(panel_path)
-        analysis = source(SCREENS / "ApprovedMoneySetupPages.kt")
-        self.assertIn("LinearProgressIndicator(", panel)
-        self.assertNotIn("progress =", panel)
-        self.assertIn("MaterialTheme.colorScheme", panel)
-        self.assertIn("OnboardingProgressPanel(", analysis)
-        self.assertIn('"Reading your financial SMS"', analysis)
-        self.assertIn('"Checking for duplicates"', analysis)
+        scan = source(SCREENS / "OnboardingDarkScanPage.kt")
+        setup = source(SCREENS / "SmartOnboardingSetupScreen.kt")
+        self.assertIn("CircularProgressIndicator(", scan)
+        self.assertNotIn("progress =", scan)
+        self.assertIn("PremiumVisualTokens.darkCanvas", scan)
+        self.assertIn("Text(phase", scan)
+        self.assertIn('"Checking for duplicates…"', setup)
 
     def test_sms_disclosure_and_account_review_stay_compact_and_explicit(self):
         privacy = source(SCREENS / "OnboardingLocalProfilePage.kt")
@@ -256,7 +257,7 @@ class PremiumUiContractTest(unittest.TestCase):
             self.assertIn("val " + key, tokens)
             self.assertIn("PremiumVisualTokens." + key, palette)
         self.assertIn("moneyMovementColor(", home)
-        self.assertIn("moneyMovementColor(direction, refund)", ledger)
+        self.assertIn("themeMoneyMovementColor(direction, refund)", ledger)
         self.assertIn("PremiumVisualTokens.transfer", accounts)
 
     def test_core_text_colours_reach_wcag_aa_contrast(self):
