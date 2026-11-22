@@ -74,6 +74,9 @@ phone and asks the user to confirm at least one bank or wallet, with manual
 search available even if SMS access is denied. Notifications use Android's
 optional permission prompt. There is no online account registration or OTP.
 Backup restoration remains a separate, user-initiated process.
+Home's bell opens a private notification history with All/Unread views, dated
+reminders, and links back to the relevant work; it never creates demo financial
+alerts or copies SMS messages into the notification list.
 
 Returning users no longer see the passive café loading splash. Their existing
 app-lock screen verifies the saved PIN as soon as its complete length is entered,
