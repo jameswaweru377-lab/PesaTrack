@@ -1796,8 +1796,9 @@ class FinancialMessageIngestionCoordinator private constructor(
             // Legacy pending events do not persist recipient phone/name. Never replay
             // a bank-to-wallet transfer on provider names alone: a fresh SMS re-scan
             // must supply full recipient identity before it can be auto-applied.
-            if (destination.accountTypeHint == AccountType.MOBILE_WALLET.name &&
-                source.accountTypeHint in setOf(AccountType.BANK.name, AccountType.OTHER.name))
+            if (!com.kedevjimmy.pesatrack.domain.rules.LegacyPendingTransferReplayPolicy.canApply(
+                    source.accountTypeHint, destination.accountTypeHint
+                ))
                 return@forEach
 
             val sourceOwned =
@@ -1914,6 +1915,12 @@ class FinancialMessageIngestionCoordinator private constructor(
                 understandingStore.entityByKey(
                     event.destinationEntityKey
                 ) ?: return@forEach
+
+            // Account selection alone cannot validate a legacy bank-to-wallet
+            // transfer: the pending row never stored the recipient's number.
+            if (!com.kedevjimmy.pesatrack.domain.rules.LegacyPendingTransferReplayPolicy.canApply(
+                    source.accountTypeHint, destination.accountTypeHint
+                )) return@forEach
 
             if (
                 !understandingStore.isUserOwned(

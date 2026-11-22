@@ -1,5 +1,19 @@
 # PesaTrack Current State
 
+_Historical own-account transfer repair (22 November 2026; Android CI and Redmi verification pending):_
+The local SMS replay now recognizes an interpreted bank-origin "Send Money"
+payment as a transfer when its full destination phone matches a uniquely
+confirmed owned wallet and the recipient name does not contradict the profile.
+The change is provider-neutral; other people's payments, name-only matches,
+unconfirmed or ambiguous accounts and user-classified rows remain untouched.
+Replaying the original message can update the existing ledger row without
+adding its principal to expenses. Old pending bank-to-wallet events without
+stored recipient identity no longer auto-apply solely because two institutions
+were selected. No schema, permissions or statement-import behaviour changed.
+Existing October totals still require a signed update, successful local SMS
+repair and direct on-device inspection; the screenshot alone does not verify
+which specific row is a self-transfer.
+
 _Lock, notification and Activity follow-up (22 November 2026; phone acceptance pending):_
 Returning users skip the passive café splash while first-run onboarding remains.
 The lock screen verifies completed PIN entry without an Unlock button; fingerprint
