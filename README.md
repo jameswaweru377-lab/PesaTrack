@@ -109,6 +109,11 @@ The Accounts list and account details let you manually record the exact bank or 
 
 Financial screens automatically re-read local records on the first launch after an APK update and when the app returns after a longer break. Existing SMS catch-up and transaction-change refreshes remain in place. This **does not** connect to a bank or make an unobserved balance available; Plan's balance-attention icon explains missing or stale evidence.
 
+Home, Activity and Plan no longer show the older temporary loading page when
+their first local read is pending. They retain the current theme background
+until trusted content is ready, and keep a Retry action if that read fails.
+A redesigned loading treatment is awaiting phone review and approval.
+
 - [Product charter](docs/PRODUCT_CHARTER.md) — what PesaTrack is building and what it deliberately avoids.
 - [Current engineering state](CURRENT_STATE.md) — engineering progress, limitations, and pending acceptance.
 - [Development tracker](docs/tracker/README.md) — tasks, ownership, and review rules.

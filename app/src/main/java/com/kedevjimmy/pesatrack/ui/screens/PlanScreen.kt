@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -153,7 +155,6 @@ fun PlanScreen(
         mutableStateOf(false)
     }
     var showFundingEvidence by remember { mutableStateOf(false) }
-    var loading by remember { mutableStateOf(initialData == null) }
     var hasLoaded by remember { mutableStateOf(initialData != null) }
     var loadError by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(
@@ -165,11 +166,9 @@ fun PlanScreen(
         if (hasLoaded && !ScreenRefreshPolicy.needsRead(
                 stateCache?.revision, ledgerUpdateState.revision, localRefresh
             )) {
-            loading = false
             return@LaunchedEffect
         }
         if (hasLoaded) delay(180) // batch closely spaced import notifications
-        loading = true
         loadError = null
         val refreshStarted = android.os.SystemClock.elapsedRealtime()
         try {
@@ -250,12 +249,18 @@ fun PlanScreen(
             throw cancelled
         } catch (failure: Exception) {
             loadError = "Could not load your plan. Try again."
-        } finally { loading = false }
+        }
     }
-    if (!hasLoaded && (loading || loadError != null)) {
-        Column(Modifier.padding(scaffoldPadding).padding(18.dp)) {
-            Text(if (loading) "Loading your plan…" else loadError.orEmpty())
-            if (!loading) TextButton(onClick = { localRefresh += 1 }) { Text("Retry") }
+    if (!hasLoaded) {
+        Box(Modifier.fillMaxSize().padding(scaffoldPadding)
+            .background(MaterialTheme.colorScheme.background)) {
+            if (loadError != null) {
+                Column(Modifier.align(Alignment.Center).padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(loadError.orEmpty())
+                    TextButton(onClick = { localRefresh += 1 }) { Text("Retry") }
+                }
+            }
         }
         return
     }
