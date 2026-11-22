@@ -84,6 +84,8 @@ object PlanningReminders {
             .setPriority(NotificationCompat.PRIORITY_HIGH).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(PhoneNotificationChannels.privatePublicVersion(c,PhoneAlertPolicy.PLAN_CHANNEL)).build()
         try { manager.notify("$kind:$key",925,notification) } catch (_: SecurityException) { return }
+        LocalNotificationInboxStore.record(c, "plan:$key", if (budget) "BUDGET" else "SAVINGS",
+            title, text, route)
         prefs.edit().putBoolean(key,true).apply()
     }
 }

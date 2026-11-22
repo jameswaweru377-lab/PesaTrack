@@ -3,6 +3,7 @@ package com.kedevjimmy.pesatrack
 import android.os.Bundle
 import android.app.Activity
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.background
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.invisibleToUser
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,6 +42,7 @@ import com.kedevjimmy.pesatrack.ui.screens.SecureAppLockDialog
 import com.kedevjimmy.pesatrack.ui.screens.LocalFinancialContentUnlocked
 import com.kedevjimmy.pesatrack.ui.theme.PesaTrackTheme
 import com.kedevjimmy.pesatrack.ui.theme.ThemeMode
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
@@ -197,7 +199,7 @@ class MainActivity : ComponentActivity() {
             var securityConfigured by remember { mutableStateOf(appLockManager.isEnabled()) }
             var welcomeVisible by remember { mutableStateOf(!setupComplete) }
             var showLaunchSplash by remember {
-                mutableStateOf(true)
+                mutableStateOf(!setupComplete)
             }
             LaunchedEffect(Unit) {
                 delay(650)
@@ -283,6 +285,12 @@ class MainActivity : ComponentActivity() {
                 )
                             }
                         }
+                        if (appLocked || pinRecoveryAuthorized) {
+                            androidx.compose.foundation.layout.Box(
+                                androidx.compose.ui.Modifier.matchParentSize()
+                                    .background(PremiumVisualTokens.darkCanvas)
+                            )
+                        }
                         if (pinRecoveryAuthorized) {
                             SecureAppLockDialog {
                                 MandatoryAppLockSetupScreen(
@@ -299,6 +307,7 @@ class MainActivity : ComponentActivity() {
                     AppLockScreen(
                         biometricAvailable =
                             canUseBiometrics(),
+                        storedPinLength = appLockManager.storedPinLength(),
                         onPinUnlock = { pin ->
                             val unlocked =
                                 appLockManager

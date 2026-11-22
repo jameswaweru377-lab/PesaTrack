@@ -107,6 +107,8 @@ object HomeBalanceReviewNotification {
             return
         }
         state.edit().putString("signature", signature).putLong("shown_at", now).apply()
+        LocalNotificationInboxStore.record(appContext, "balance:$signature", "ACCOUNTS", title,
+            "Add missing balances when you're ready.", "accounts", now)
         preferences.recordBalanceNotice(now)
     }
 }

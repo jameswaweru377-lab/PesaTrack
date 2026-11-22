@@ -6,10 +6,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,6 +70,12 @@ internal fun homeColors(): HomeColors {
 @Composable
 internal fun BrownHomeHeader(onNotifications: () -> Unit) {
     val p = MaterialTheme.colorScheme
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val revision by com.kedevjimmy.pesatrack.planning.LocalNotificationInboxStore.revision.collectAsState()
+    val unread = remember(context, revision) {
+        com.kedevjimmy.pesatrack.planning.LocalNotificationInboxStore.list(context)
+            .count { !it.read }
+    }
     Box(Modifier.fillMaxWidth().height(76.dp).background(p.background)
         .padding(horizontal = 12.dp)) {
         Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally,
@@ -81,9 +91,17 @@ internal fun BrownHomeHeader(onNotifications: () -> Unit) {
                 letterSpacing = 1.2.sp, fontSize = 8.sp, lineHeight = 12.sp)
         }
         Box(Modifier.align(Alignment.CenterEnd).size(48.dp)
-            .clickable(onClickLabel = "Notifications", onClick = onNotifications),
+            .clickable(onClickLabel = if (unread > 0) "Notifications, $unread unread" else "Notifications",
+                onClick = onNotifications),
             contentAlignment = Alignment.Center) {
             Icon(Icons.Rounded.NotificationsNone, "Notifications", Modifier.size(26.dp), tint = p.onBackground)
+            if (unread > 0) {
+                Box(Modifier.align(Alignment.TopEnd).size(18.dp)
+                    .background(p.primary, CircleShape), contentAlignment = Alignment.Center) {
+                    Text(if (unread > 9) "9+" else "$unread", color = p.onPrimary, fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }

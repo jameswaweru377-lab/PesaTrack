@@ -63,6 +63,7 @@ fun AppScaffold(
     onPaycheckClick: () -> Unit = {},
     onStatementsClick: (() -> Unit)? = null,
     onNotificationsClick: (() -> Unit)? = null,
+    onReviewClick: (() -> Unit)? = null,
     showTopBar: Boolean = true,
     useHomeHeader: Boolean = false,
     useBrownHome: Boolean = false,
@@ -110,8 +111,7 @@ fun AppScaffold(
     if (currentTab == MainTab.HOME && useBrownHome) {
         BrownActivityHomeReviewPrompt(onReview = {
             when {
-                onNotificationsClick != null -> onNotificationsClick()
-                sharedNotifications != null -> sharedNotifications()
+                onReviewClick != null -> onReviewClick()
                 else -> onTabSelected(MainTab.ACTIVITY)
             }
         })

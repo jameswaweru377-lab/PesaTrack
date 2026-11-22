@@ -1,5 +1,18 @@
 # PesaTrack Current State
 
+_Lock, notification and Activity follow-up (22 November 2026; phone acceptance pending):_
+Returning users skip the passive café splash while first-run onboarding remains.
+The lock screen verifies completed PIN entry without an Unlock button; fingerprint
+is a small icon and Forgot PIN? invokes existing device-lock recovery. Stored PIN
+lengths enable automatic completion without weakening failed-attempt lockouts;
+older PINs require keyboard Done for their first post-update unlock. The correct
+PIN then records its length for future automatic entry. Underlying app content is
+masked while the secure Android lock dialog is visible. Home's bell opens a
+local-only inbox of up to forty new delivered reminders, with unread counts,
+mark-as-read and relevant page links, not raw financial messages. Older alerts
+cannot be retroactively recovered. Within-day Activity row dividers are more
+visible without changing the ledger or daily net. CI and Redmi acceptance pending.
+
 _Small UI and reminder polish (21 November 2026; Redmi visual acceptance pending):_
 Plan's Planning status has no decorative border. Home no longer displays an
 inline balance-review notice; eligible missing balances can generate a quiet,

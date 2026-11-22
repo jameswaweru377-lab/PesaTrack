@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -19,18 +20,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -48,12 +49,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.security.AppLockManager
 import com.kedevjimmy.pesatrack.R
 import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
+import com.kedevjimmy.pesatrack.security.PinAutoSubmitPolicy
+import com.kedevjimmy.pesatrack.security.PinEntryAction
+import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 
 @Composable
 internal fun BackupRecoveryBlockingScreen(onRetry: () -> Unit) {
@@ -73,6 +78,7 @@ internal fun BackupRecoveryBlockingScreen(onRetry: () -> Unit) {
 @Composable
 fun AppLockScreen(
     biometricAvailable: Boolean,
+    storedPinLength: Int?,
     onPinUnlock: (String) -> Boolean,
     pinLockoutRemainingMs: () -> Long,
     onBiometricUnlock: () -> Unit,
@@ -86,6 +92,19 @@ fun AppLockScreen(
     }
     var error by remember {
         mutableStateOf<String?>(null)
+    }
+
+    fun verifyPin(candidate: String) {
+        if (onPinUnlock(candidate)) {
+            pin = ""
+            error = null
+        } else {
+            val remainingMs = pinLockoutRemainingMs()
+            error = if (remainingMs > 0L) {
+                "Too many attempts. Try again in ${lockoutSeconds(remainingMs)} seconds."
+            } else "That PIN is not correct."
+            pin = ""
+        }
     }
 
     Column(
@@ -182,12 +201,13 @@ fun AppLockScreen(
         OutlinedTextField(
             value = pin,
             onValueChange = {
-                pin =
-                    it.filter(
-                        Char::isDigit
-                    )
-                        .take(8)
+                val entered = it.filter(Char::isDigit).take(8)
+                pin = entered
                 error = null
+                when (PinAutoSubmitPolicy.onChange(entered, storedPinLength)) {
+                    PinEntryAction.VERIFY -> verifyPin(entered)
+                    PinEntryAction.WAIT -> Unit
+                }
             },
             modifier =
                 Modifier.fillMaxWidth(),
@@ -199,8 +219,12 @@ fun AppLockScreen(
                 KeyboardOptions(
                     keyboardType =
                         KeyboardType
-                            .NumberPassword
+                            .NumberPassword,
+                    imeAction = ImeAction.Done
                 ),
+            keyboardActions = KeyboardActions(onDone = {
+                if (PinAutoSubmitPolicy.onDone(pin) == PinEntryAction.VERIFY) verifyPin(pin)
+            }),
             visualTransformation =
                 PasswordVisualTransformation(),
             isError =
@@ -227,84 +251,37 @@ fun AppLockScreen(
             )
         }
 
-        Button(
-            onClick = {
-                if (
-                    onPinUnlock(pin)
-                ) {
-                    pin = ""
-                    error = null
-                } else {
-                    val remainingMs =
-                        pinLockoutRemainingMs()
-                    error =
-                        if (remainingMs > 0L) {
-                            "Too many attempts. Try again in " +
-                                lockoutSeconds(
-                                    remainingMs
-                                ) +
-                                " seconds."
-                        } else {
-                            "That PIN is not correct."
-                        }
-                }
-            },
-            enabled =
-                pin.length >= 4,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        top = 16.dp
-                    ),
-            shape =
-                RoundedCornerShape(
-                    18.dp
-                )
+        if (storedPinLength == null) {
+            Text("For your existing PIN, press Done once.",
+                modifier = Modifier.padding(top = 8.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = .72f))
+        }
+
+        Row(
+            Modifier.fillMaxWidth().padding(top = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Icon(
-                Icons.Rounded.LockOpen,
-                contentDescription = null
-            )
-            Spacer(
-                Modifier.width(8.dp)
-            )
-            Text("Unlock")
-        }
+            if (biometricAvailable) {
+                Surface(shape = CircleShape, color = Color.White.copy(alpha = .1f)) {
+                    IconButton(onClick = onBiometricUnlock,
+                        modifier = Modifier.size(PesaDesignTokens.minimumTouchTarget)) {
+                        Icon(Icons.Rounded.Fingerprint,
+                            contentDescription = "Unlock with fingerprint",
+                            tint = PremiumVisualTokens.darkCoffee)
+                    }
+                }
+            } else Spacer(Modifier.size(PesaDesignTokens.minimumTouchTarget))
 
-        if (biometricAvailable) {
-            OutlinedButton(
-                onClick =
-                    onBiometricUnlock,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            top = 10.dp
-                        ),
-                shape =
-                    RoundedCornerShape(
-                        18.dp
-                    )
-            ) {
-                Icon(
-                    Icons.Rounded.Fingerprint,
-                    contentDescription =
-                        null
-                )
-                Spacer(
-                    Modifier.width(8.dp)
-                )
-                Text("Use biometrics")
-            }
-        }
-
-        if (deviceCredentialRecoveryAvailable) {
-            OutlinedButton(
-                onClick = onRecoverWithDeviceCredential,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-            ) {
-                Text("Forgot PIN? Verify phone lock")
+            if (deviceCredentialRecoveryAvailable) {
+                Text("Forgot PIN?",
+                    modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)
+                        .clickable(onClickLabel = "Recover PIN using phone lock",
+                            onClick = onRecoverWithDeviceCredential)
+                        .padding(horizontal = 8.dp, vertical = 12.dp),
+                    color = PremiumVisualTokens.darkCoffee,
+                    style = MaterialTheme.typography.bodyMedium)
             }
         }
 

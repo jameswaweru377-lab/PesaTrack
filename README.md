@@ -35,7 +35,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 
 | | Feature | What it helps with |
 | --- | --- | --- |
-| 💸 | **Track activity** | Browse dated transactions with a right-aligned trusted daily net, compact payment-method and recorded-fee badges (unknown outgoing fees are marked unavailable), and a slowly scrolling Year/Month/Today summary. Pending review items can prompt a dismissible reminder after app unlock; the review queue remains accessible through Activity. Recorded account balances are separate from daily net and do not imply a salary forecast. |
+| 💸 | **Track activity** | Browse dated transactions with a right-aligned trusted daily net, compact payment-method badges, clearer within-day row dividers and a slowly scrolling Year/Month/Today summary. Individual fee pills are hidden; recorded fees remain in the transaction facts. Pending review items can prompt a dismissible reminder after app unlock; the review queue remains accessible through Activity. Recorded account balances are separate from daily net and do not imply a salary forecast. |
 | 🧾 | **Import statements** | Review supported M-Pesa and bank statement files with duplicate and verification safeguards. Unsupported or incomplete formats are not silently accepted. |
 | 📊 | **Understand your cash flow** | Explore Money In, Money Out, categories, account context, and reports based on recorded evidence. |
 | 📄 | **Export a personal money report** | Save an offline PesaTrack-branded PDF of your selected Reports period, including trusted Activity totals, categories, trends and selected large expenses. Exported PDFs are not encrypted bank statements. |
@@ -45,7 +45,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 
 ### Five places to find what matters
 
-**Home** for your available money and accounts, with a non-repeating review prompt only if local items need attention after unlock · **Activity** for a compact monthly expense summary and transaction ledger with daily net, short filters, an unobtrusive totals ticker and on-demand search/advanced filters · **Plan** for spendable money, budgets and bills, including a compact savings-goal subpage and a bottom-sheet budget category chooser · **Accounts** for banks and wallets · **Profile** for Money Wellness, a vertical Statements / Import statements / Reports / Pay cycle workspace and a dedicated Settings page. Profile's Appearance settings offer System, Light and Dark. The separate More landing and hamburger drawer have been retired; older More links redirect safely to Profile. Category icons use a shared colour-coded visual vocabulary in the category chooser and Activity, while Settings and Profile workspace rows have roomier spacing.
+**Home** for your available money and accounts, with an unread badge on the bell opening a private, local history of notifications delivered after the update · **Activity** for a compact monthly expense summary and transaction ledger with daily net, short filters, an unobtrusive totals ticker and on-demand search/advanced filters · **Plan** for spendable money, budgets and bills, including a compact savings-goal subpage and a bottom-sheet budget category chooser · **Accounts** for banks and wallets · **Profile** for Money Wellness, a vertical Statements / Import statements / Reports / Pay cycle workspace and a dedicated Settings page. Profile's Appearance settings offer System, Light and Dark. The separate More landing and hamburger drawer have been retired; older More links redirect safely to Profile. Category icons use a shared colour-coded visual vocabulary in the category chooser and Activity, while Settings and Profile workspace rows have roomier spacing.
 
 > **Screenshots:** A gallery of real, privacy-safe screens will be added after device capture and review. Unlocked screens can temporarily be captured for private UI feedback, so redact personal transactions, account numbers, and statement details before sharing. No private records will be published as examples.
 
@@ -72,6 +72,12 @@ phone and asks the user to confirm at least one bank or wallet, with manual
 search available even if SMS access is denied. Notifications use Android's
 optional permission prompt. There is no online account registration or OTP.
 Backup restoration remains a separate, user-initiated process.
+
+Returning users no longer see the passive café loading splash. Their existing
+app-lock screen verifies the saved PIN as soon as its complete length is entered,
+without an Unlock button. Earlier PINs without length metadata can also be
+confirmed with the keyboard's Done key; the original failed-attempt lockout and
+phone-credential recovery remain in place. Fingerprint unlock stays optional.
 The first scan checks senders before retrieving financial message text. A
 follow-up pass runs after account confirmation only when the first scan found
 pending events that could not safely be recorded without ownership.

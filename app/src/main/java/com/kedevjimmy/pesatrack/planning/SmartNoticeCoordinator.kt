@@ -148,6 +148,12 @@ object SmartNoticeCoordinator {
         // Preserve native debt-decision actions above; avoid a second generic button.
         if (foreground || LedgerUpdateBus.state.value.isProcessing || !prefs.importReady()) return@synchronized
         try { manager.notify(ID,builder.build()) } catch (_: SecurityException) { return@synchronized }
+        LocalNotificationInboxStore.record(c, "smart:${selected.key}:${selected.revision}",
+            badge, title, text, when (selected.kind) {
+                SmartNoticeKind.ACCOUNT -> "accounts"
+                SmartNoticeKind.ACTIVITY -> "activity-attention"
+                SmartNoticeKind.PAYMENT, SmartNoticeKind.DISCOVERY -> "debts"
+            }, now)
         prefs.shown(selected,now)
         notice.personId?.let { prefs.personShown(it,now) }
     }

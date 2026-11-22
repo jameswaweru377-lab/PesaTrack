@@ -24,6 +24,10 @@ class AppLockManager(
         prefs.contains(KEY_PIN_HASH) &&
             prefs.contains(KEY_PIN_SALT)
 
+    /** Old installations did not record PIN length. Null preserves their unlock path. */
+    fun storedPinLength(): Int? =
+        prefs.getInt(KEY_PIN_LENGTH, 0).takeIf { it in LEGACY_PIN_MIN_LENGTH..MAX_PIN_LENGTH }
+
     /** Biometrics are optional; the PIN remains the required recovery path. */
     fun isBiometricUnlockEnabled(): Boolean =
         prefs.getBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, true)
@@ -76,6 +80,7 @@ class AppLockManager(
                     Base64.NO_WRAP
                 )
             )
+            .putInt(KEY_PIN_LENGTH, pin.length)
             .remove(
                 KEY_LAST_BACKGROUND_EPOCH_MS
             )
@@ -115,6 +120,19 @@ class AppLockManager(
             return false
         }
 
+        val verified = hashMatches(pin)
+        if (verified) {
+            clearFailedAttempts()
+            if (!prefs.contains(KEY_PIN_LENGTH)) {
+                prefs.edit().putInt(KEY_PIN_LENGTH, pin.length).apply()
+            }
+        } else {
+            recordFailedAttempt(nowElapsedMs)
+        }
+        return verified
+    }
+
+    private fun hashMatches(pin: String): Boolean {
         val salt =
             prefs.getString(
                 KEY_PIN_SALT,
@@ -151,26 +169,9 @@ class AppLockManager(
                     salt = salt
                 )
             }.getOrNull()
-                ?: run {
-                    recordFailedAttempt(
-                        nowElapsedMs
-                    )
-                    return false
-                }
+                ?: return false
 
-        val verified =
-            MessageDigest.isEqual(
-                expected,
-                actual
-            )
-        if (verified) {
-            clearFailedAttempts()
-        } else {
-            recordFailedAttempt(
-                nowElapsedMs
-            )
-        }
-        return verified
+        return MessageDigest.isEqual(expected, actual)
     }
 
     fun remainingLockoutMs(
@@ -356,6 +357,7 @@ class AppLockManager(
             "app_lock_pin_hash"
         private const val KEY_PIN_SALT =
             "app_lock_pin_salt"
+        private const val KEY_PIN_LENGTH = "app_lock_pin_length"
         private const val KEY_BIOMETRIC_UNLOCK_ENABLED = "biometric_unlock_enabled"
         private const val KEY_BACKGROUND_LOCK_GRACE_MS = "background_lock_grace_ms"
         private const val KEY_LAST_BACKGROUND_EPOCH_MS =
