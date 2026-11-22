@@ -32,4 +32,30 @@ if rg -q 'homeSpendingItems|spendSlices|spentTodayMinor|totalTrustedSpendingMino
     exit 1
 fi
 
+# A second reachability audit identified obsolete, uncalled page families.
+# Shared money-formatting and permission helpers are retained in live files.
+retired_sources=(
+    ConnectedConceptScreens.kt
+    ActivityDesign3SummaryCard.kt
+    ActivityReferenceSummary.kt
+    LinkedSavingsReviewPage.kt
+    PesaTrackAccountDetailsPage.kt
+    ApprovedMoneySetupPages.kt
+    OnboardingSalaryChoicePage.kt
+    SmartOnboardingPermissionComponents.kt
+    SmartOnboardingComponents.kt
+    PremiumWelcomeHero.kt
+    OnboardingPremiumHeader.kt
+)
+for source in "${retired_sources[@]}"; do
+    if [[ -e "$screens/$source" ]]; then
+        echo "Retired UI implementation remains: $source" >&2
+        exit 1
+    fi
+done
+if [[ -e "$root/app/src/main/res/drawable-nodpi/onboarding_analysis_hero.webp" ]]; then
+    echo 'Unreferenced onboarding artwork remains' >&2
+    exit 1
+fi
+
 echo 'Retired UI entry contracts passed'

@@ -3,7 +3,7 @@ package com.kedevjimmy.pesatrack.ui.screens
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class ActivityReferenceFinancialDisplayTest {
+class ActivityMoneyLabelsTest {
     @Test fun wholeShillingAmountsRemainReadable() {
         assertEquals("KES 0", activityKesLabel(0))
         assertEquals("KES 100", activityKesLabel(10_000))
@@ -25,10 +25,4 @@ class ActivityReferenceFinancialDisplayTest {
         assertEquals("KES 51,057.00", activityKesLabel(total, true))
     }
 
-    @Test fun lowButNonzeroPercentageIsNotMisreportedAsZero() {
-        assertEquals("0%", activityShareLabel(0L, 10_000L))
-        assertEquals("<1%", activityShareLabel(1L, 10_000L))
-        assertEquals("1%", activityShareLabel(100L, 10_000L))
-        assertEquals("100%", activityShareLabel(10_000L, 10_000L))
-    }
 }

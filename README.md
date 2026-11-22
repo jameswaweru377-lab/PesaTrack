@@ -113,6 +113,11 @@ Home, Activity and Plan no longer show the older temporary loading page when
 their first local read is pending. They retain the current theme background
 until trusted content is ready, and keep a Retry action if that read fails.
 A redesigned loading treatment is awaiting phone review and approval.
+Unused concept screens, superseded onboarding composition code and orphaned
+artwork have also been removed. The current Activity number formatter and
+permission helpers are retained; legitimate import progress and the approved
+brief startup splash remain. APK-size optimization is being measured separately
+from changes to financial processing or release signing.
 
 - [Product charter](docs/PRODUCT_CHARTER.md) — what PesaTrack is building and what it deliberately avoids.
 - [Current engineering state](CURRENT_STATE.md) — engineering progress, limitations, and pending acceptance.
