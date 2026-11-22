@@ -65,6 +65,9 @@ internal class FinancialTransferRecipientRouting(context: Context) {
     }
 
     private fun isBankToWallet(event: TransferEventFact) =
-        event.source.accountTypeHint == AccountType.BANK &&
-            event.destination.accountTypeHint == AccountType.MOBILE_WALLET
+        event.destination.accountTypeHint == AccountType.MOBILE_WALLET &&
+            (event.source.accountTypeHint == AccountType.BANK ||
+                // Smaller institutions can be selected as banks by the user even
+                // when the provider registry has no canonical bank category.
+                (event.source.accountTypeHint == AccountType.OTHER && event.recipientPhone != null))
 }

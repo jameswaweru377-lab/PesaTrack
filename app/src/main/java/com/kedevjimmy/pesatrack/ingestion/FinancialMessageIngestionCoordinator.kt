@@ -285,9 +285,8 @@ class FinancialMessageIngestionCoordinator private constructor(
                             event.destination
                         )
 
-                    val canApply = transferRecipientRouting.canApply(
-                        event, sourceAccountId, destinationAccountId
-                    )
+                    val canApply = sourceAccountId != null && destinationAccountId != null &&
+                        transferRecipientRouting.canApply(event, sourceAccountId, destinationAccountId)
 
                     if (!canApply) {
                         understandingStore.recordTransfer(
@@ -1797,8 +1796,9 @@ class FinancialMessageIngestionCoordinator private constructor(
             // Legacy pending events do not persist recipient phone/name. Never replay
             // a bank-to-wallet transfer on provider names alone: a fresh SMS re-scan
             // must supply full recipient identity before it can be auto-applied.
-            if (source.accountTypeHint == AccountType.BANK.name &&
-                destination.accountTypeHint == AccountType.MOBILE_WALLET.name) return@forEach
+            if (destination.accountTypeHint == AccountType.MOBILE_WALLET.name &&
+                source.accountTypeHint in setOf(AccountType.BANK.name, AccountType.OTHER.name))
+                return@forEach
 
             val sourceOwned =
                 understandingStore.isUserOwned(
