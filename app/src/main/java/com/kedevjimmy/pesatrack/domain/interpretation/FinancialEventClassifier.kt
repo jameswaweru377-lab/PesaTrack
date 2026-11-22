@@ -23,7 +23,9 @@ object FinancialEventClassifier {
                         confidence =
                             relationship.confidence,
                         evidence =
-                            relationship.evidence
+                            relationship.evidence,
+                        recipientPhone = relationship.recipientPhone,
+                        recipientName = relationship.recipientName
                     )
                 )
             is ResolvedPaymentRelationship ->
