@@ -32,6 +32,14 @@ class PinAutoSubmitPolicyTest {
         assertEquals(false, PinAutoSubmitPolicy.isSameLegacyEntry("12345", "1234"))
     }
 
+    @Test fun deletingIncompleteLegacyPinNeverVerifiesOrConsumesAnotherAttempt() {
+        assertEquals(PinEntryAction.VERIFY_LEGACY_CONTINUATION, PinAutoSubmitPolicy.onChange("123456", null))
+        assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("12345", null, isDeletion = true))
+        assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("1234", null, isDeletion = true))
+        assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("123", null, isDeletion = true))
+        assertEquals(PinEntryAction.VERIFY_LEGACY_CONTINUATION, PinAutoSubmitPolicy.onChange("123457", null))
+    }
+
     @Test fun invalidPinInputCannotTriggerVerification() {
         assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("123456789", null))
         assertEquals(PinEntryAction.WAIT, PinAutoSubmitPolicy.onChange("123x", null))

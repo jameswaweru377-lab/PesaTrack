@@ -76,9 +76,10 @@ fun AppLockScreen(
     var checking by remember { mutableStateOf(false) }
     var legacyHint by remember { mutableStateOf(false) }
     var keyboardMode by remember { mutableStateOf(false) }
+    var lastEditWasDeletion by remember { mutableStateOf(false) }
 
-    LaunchedEffect(pin, storedPinLength) {
-        if (PinAutoSubmitPolicy.onChange(pin, storedPinLength) == PinEntryAction.WAIT) {
+    LaunchedEffect(pin, storedPinLength, lastEditWasDeletion) {
+        if (PinAutoSubmitPolicy.onChange(pin, storedPinLength, lastEditWasDeletion) == PinEntryAction.WAIT) {
             checking = false
             return@LaunchedEffect
         }
@@ -118,20 +119,25 @@ fun AppLockScreen(
         onDigit = { digit ->
             error = null
             legacyHint = false
+            lastEditWasDeletion = false
             pin = LockKeypadEntryPolicy.appendDigit(pin, digit, storedPinLength)
         },
         onDelete = {
             error = null
             legacyHint = false
+            lastEditWasDeletion = true
             pin = LockKeypadEntryPolicy.removeLast(pin)
         },
         onKeyboardPinChange = { text ->
             error = null
             legacyHint = false
-            pin = LockKeypadEntryPolicy.fromKeyboard(text, storedPinLength)
+            val nextPin = LockKeypadEntryPolicy.fromKeyboard(text, storedPinLength)
+            lastEditWasDeletion = nextPin.length < pin.length
+            pin = nextPin
         },
         onToggleKeyboard = {
             keyboardMode = !keyboardMode
+            lastEditWasDeletion = false
             pin = ""
             error = null
             legacyHint = false
