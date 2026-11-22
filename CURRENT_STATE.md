@@ -16,6 +16,22 @@ cooldown and device-credential recovery remain intact. No Home review card,
 financial data or permissions changed. Real-device appearance and unlocks are
 not yet verified.
 
+_Retired Home UI and temporary loading-shell cleanup (22 November 2026; Android CI and Redmi acceptance pending):_
+On a first financial read, Home, Activity and Plan keep the current themed
+background without displaying the retired greeting, full-page loading message
+or spinner. Genuine read errors still offer a Retry action; a successful
+refresh continues to use the existing ledger-revision caches and the approved
+coffee/cream screens. This is a temporary quiet first-load state until the
+owner approves a new loading treatment.
+Unused former Home B, reference, monochrome and overview screen compositions
+were removed. Their still-used Statements/Plan/Activity colour helpers,
+upcoming-bill model, investment observation dialog and bill amount pill were
+preserved in smaller files. An Android test targeting the removed reference
+screen was retired. No financial classification, stored records, navigation,
+settings, theme choices, permissions, backup, signing or release configuration
+was changed. A Redmi visual pass is still needed to check first load and
+warm-switch behaviour, and the full Android build is not yet verified.
+
 _Notification inbox design (22 November 2026; Android CI and Redmi visual check pending):_
 The Home bell opens the approved coffee-black Notifications layout with a compact
 back/title/unread-count header, a settings and mark-all-read overflow, All updates /
