@@ -67,4 +67,18 @@ class StatementAccountConsentReaderTest {
         assertFalse(account.id in consent.rejectedAccountIds())
         assertTrue(account.id in reader.confirmedAccountIds())
     }
+
+    @Test fun archivedOwnedAccountRemainsHistoricalIncomeEvidenceButNotStatementAdmission() {
+        val account = AccountStore.get(app).save("Fictional Closed Bank", AccountType.BANK)
+        val consent = AccountOwnershipConsentStore(app)
+        consent.recordConsent(account.id, true)
+        assertTrue(account.id in HistoricalIncomeOwnershipReader(app).confirmedAccountIds())
+        AccountStore.get(app).setEnabled(account.id, false)
+
+        assertTrue(account.id in HistoricalIncomeOwnershipReader(app).confirmedAccountIds())
+        assertFalse(account.id in StatementAccountConsentReader(app).confirmedAccountIds())
+
+        consent.recordConsent(account.id, false)
+        assertFalse(account.id in HistoricalIncomeOwnershipReader(app).confirmedAccountIds())
+    }
 }

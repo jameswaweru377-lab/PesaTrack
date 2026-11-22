@@ -32,6 +32,15 @@ class AccountOwnershipConsentStore(context: Context) {
         confirmed(database.readableDatabase)
     }
 
+    /** Archived accounts still had an explicit owner when their old receipts arrived. */
+    fun confirmedHistoricalRevisions(): Map<String, Long> = synchronized(CanonicalStoreLock.monitor) {
+        database.readableDatabase.rawQuery(
+            "SELECT account_id,revision FROM account_ownership_consents WHERE decision='CONFIRMED'", null
+        ).use { cursor -> buildMap {
+            while (cursor.moveToNext()) put(cursor.getString(0), cursor.getLong(1))
+        } }
+    }
+
     /** Explicit B2 rejections must override any older account-recognition hint. */
     fun rejectedAccountIds(): Set<String> = synchronized(CanonicalStoreLock.monitor) {
         database.readableDatabase.rawQuery(

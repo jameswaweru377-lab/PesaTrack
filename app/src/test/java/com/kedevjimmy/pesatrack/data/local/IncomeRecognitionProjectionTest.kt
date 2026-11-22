@@ -40,6 +40,20 @@ class IncomeRecognitionProjectionTest {
             })
     }
 
+    @Test fun unresolvedReceiptsExcludeFullOrPartialPrincipalRepayments() {
+        val fullRepayment = row(21, 3_000_00).copy(type = "DEPOSIT", category = "UNCATEGORIZED")
+        val partialRepayment = row(22, 5_000_00).copy(type = "DEPOSIT", category = "UNCATEGORIZED")
+        val receipts = listOf(fullRepayment, partialRepayment)
+        val repaid: (Long) -> Long = { if (it == 21L) 3_000_00L else 2_000_00L }
+
+        assertEquals(3_000_00L, IncomeRecognitionProjection.unresolvedCreditsMinor(
+            receipts, emptySet(), confirmedOwned, repaid))
+        assertEquals(0L, IncomeRecognitionProjection.confirmedAmountMinor(
+            row(23, 3_000_00), confirmedOwned, 3_000_00L))
+        assertEquals(1_000_00L, IncomeRecognitionProjection.confirmedAmountMinor(
+            row(24, 3_000_00), confirmedOwned, 2_000_00L))
+    }
+
     @Test(expected = ArithmeticException::class)
     fun totalsRejectOverflowInsteadOfShowingWrappedMoney() {
         IncomeRecognitionProjection.confirmedIncomeMinor(

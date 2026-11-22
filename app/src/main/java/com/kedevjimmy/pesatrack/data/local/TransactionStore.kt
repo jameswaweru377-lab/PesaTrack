@@ -1481,7 +1481,7 @@ class TransactionStore private constructor(context: Context) {
         val effective = monthTransactions.filter { item ->
             accountingEligible(item, reversedIds, possibleDuplicateIds)
         }
-        val confirmedOwnedAccountIds = StatementAccountConsentReader(appContext)
+        val confirmedOwnedAccountIds = HistoricalIncomeOwnershipReader(appContext)
             .confirmedAccountIds()
 
         val cashIncome = effective
@@ -1503,7 +1503,7 @@ class TransactionStore private constructor(context: Context) {
         // Keep a separate diagnostic for credits without enough evidence.
         val unresolvedCredits = IncomeRecognitionProjection.unresolvedCreditsMinor(
             monthTransactions, possibleDuplicateIds + reversedIds, confirmedOwnedAccountIds
-        )
+        ) { receivableShares[it]?.repaidMinor ?: 0L }
 
         val grossSpent = effective
             .filter { it.direction == MoneyDirection.EXPENSE.name }
@@ -1558,7 +1558,8 @@ class TransactionStore private constructor(context: Context) {
             ),
             possibleDuplicates = possibleDuplicates,
             trustedTransactions = effective,
-            confirmedOwnedAccountIds = confirmedOwnedAccountIds
+            confirmedOwnedAccountIds = confirmedOwnedAccountIds,
+            repaidReceivableMinorById = receivableShares.mapValues { it.value.repaidMinor }
         )
     }
     }

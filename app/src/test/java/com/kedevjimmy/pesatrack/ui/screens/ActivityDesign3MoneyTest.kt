@@ -40,6 +40,16 @@ class ActivityDesign3MoneyTest {
             ledger(listOf(recordedExternal, unknownBankCredit, ownedTransferReceived))))
     }
 
+    @Test fun moneyInAndPayCycleIncomeExcludeFullyRepaidPrincipal() {
+        val allPrincipal = row(31, "INCOME", 2_000_00)
+        val partialPrincipal = row(32, "INCOME", 3_000_00)
+        val other = row(33, "INCOME", 5_000_00).copy(type = "DEPOSIT")
+        val snapshot = ledger(listOf(allPrincipal, partialPrincipal, other)).copy(
+            repaidReceivableMinorById = mapOf(31L to 2_000_00L, 32L to 1_000_00L))
+
+        assertEquals(setOf(32L), activityTrustedIncomeIds(snapshot))
+    }
+
     @Test fun investedFilterShowsOnlyConfirmedInvestmentPurchases() {
         val boughtShares = row(1, "EXPENSE", 2_500_00,
             category = "INVESTMENT", relation = TransactionStore.RELATION_INVESTMENT_BUY)

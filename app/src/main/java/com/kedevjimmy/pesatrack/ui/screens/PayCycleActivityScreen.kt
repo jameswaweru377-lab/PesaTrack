@@ -269,9 +269,10 @@ internal fun PayCycleActivityScreen(scaffoldPadding: PaddingValues, onCalendar: 
                         }
                     }
                 }
+                val verifiedIncomeIds = activityTrustedIncomeIds(ledger)
                 val rows = ledger.transactions.filter {
                     filter == "All" || filter == "Spending" && it.direction == "EXPENSE" ||
-                        filter == "Income" && it.direction == "INCOME" || filter == "Transfers" && it.direction == "TRANSFER"
+                        filter == "Income" && it.id in verifiedIncomeIds || filter == "Transfers" && it.direction == "TRANSFER"
                 }
                 if (rows.isEmpty()) item { Text("No transactions in this view.", style = MaterialTheme.typography.bodyMedium) }
                 rows.groupBy { salaryDisplayDate(it.occurredAtEpochMs) }.forEach { (date, transactions) ->

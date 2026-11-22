@@ -9,7 +9,14 @@ receipts, unresolved origins, loan principal, refunds and owned transfers
 cannot silently become earnings. Activity gives a compact, tappable notice for
 unresolved incoming credits. The same policy filters pay-cycle additional
 income and removes linked receivable repayment principal; Home and Reports
-continue reading Activity's shared summary. Historical transaction rows,
+continue reading Activity's shared summary. Its
+unresolved-credit totals and Money In row selection also deduct explicitly
+linked personal-loan principal. The pay-cycle Income filter uses those same
+confirmed row IDs. Archived but explicitly owned receiving accounts retain
+their historical income evidence while being excluded from new statement
+admission. Pay-cycle carryover projections refresh when recognition ownership
+or repayment evidence changes, including for existing installations.
+Historical transaction rows,
 source provenance, account balances, recorded cash-flow net, ownership
 decisions, existing duplicate/mirror handling, dates and backup schema are
 not rewritten. This does **not** auto-post salary from Equity or other bank

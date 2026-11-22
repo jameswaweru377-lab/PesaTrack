@@ -73,7 +73,9 @@ data class ActivityLedgerSnapshot(
     val possibleDuplicates: List<PossibleDuplicateGroup> = emptyList(),
     val trustedTransactions: List<StoredTransaction> = emptyList(),
     /** Existing account-ownership decisions, never inferred from a receipt name. */
-    val confirmedOwnedAccountIds: Set<String> = emptySet()
+    val confirmedOwnedAccountIds: Set<String> = emptySet(),
+    /** Explicit receivable principal allocation for matching row presentation. */
+    val repaidReceivableMinorById: Map<Long, Long> = emptyMap()
 )
 
 data class PossibleDuplicateGroup(
