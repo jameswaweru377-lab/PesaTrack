@@ -11,9 +11,18 @@ class SelfNameEvidencePolicyTest {
             SelfNameEvidencePolicy.compare("  James   Mwangi Waweru ", "James Mwangi Waweru"))
     }
 
-    @Test fun reorderedThreeNamesAreNotStrongEvidence() {
-        assertEquals(SelfNameEvidenceLevel.NO_MATCH,
+    @Test fun reorderedThreeNamesAreRecognizedOnlyAsIdentityEvidence() {
+        assertEquals(SelfNameEvidenceLevel.EXACT_THREE_NAMES,
             SelfNameEvidencePolicy.compare("James Mwangi Waweru", "Waweru James Mwangi"))
+    }
+
+    @Test fun twoNameProfilesAndReorderedPairsRemainCorroboratingOnly() {
+        assertEquals(SelfNameEvidenceLevel.TWO_OF_THREE_REVIEW,
+            SelfNameEvidencePolicy.compare("Sample Owner", "OWNER SAMPLE"))
+        assertEquals(SelfNameEvidenceLevel.TWO_OF_THREE_REVIEW,
+            SelfNameEvidencePolicy.compare("Sample Owner", "Sample Owner"))
+        assertEquals(SelfNameEvidenceLevel.NO_MATCH,
+            SelfNameEvidencePolicy.compare("Sample Owner", "Sample Stranger"))
     }
     @Test fun unsupportedExtraTokensCannotBeDiscardedIntoAnExactMatch() {
         for (candidate in listOf("James Mwangi Waweru 123", "James X Mwangi Waweru", "James Mwangi Waweru!")) {
@@ -38,7 +47,7 @@ class SelfNameEvidencePolicyTest {
     }
 
     @Test fun invalidProfileCannotDriveIdentity() {
-        for (profile in listOf(null, "", "James Waweru", "John John Doe", "James 123 Waweru")) {
+        for (profile in listOf(null, "", "John John Doe", "James 123 Waweru")) {
             assertEquals(SelfNameEvidenceLevel.NO_MATCH,
                 SelfNameEvidencePolicy.compare(profile, "James Mwangi Waweru"))
         }
