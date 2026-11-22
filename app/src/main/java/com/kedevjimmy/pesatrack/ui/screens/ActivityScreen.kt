@@ -670,7 +670,6 @@ fun ActivityScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(horizontal = 12.dp, vertical = 6.dp)
         ) {
-            Text("Loading your activity…", style = MaterialTheme.typography.bodyMedium)
             if (activityError) {
                 Text("Activity could not load. Your saved data is unchanged.")
                 TextButton(onClick = { refresh() }) { Text("Try again") }
