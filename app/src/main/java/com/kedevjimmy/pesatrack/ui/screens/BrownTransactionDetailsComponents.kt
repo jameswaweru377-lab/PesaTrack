@@ -109,12 +109,6 @@ private fun BrownTransactionLedgerSummary(item: StoredTransaction, account: Stri
     }
     val counterparty = item.counterparty?.takeIf { it.isNotBlank() }
         ?: item.evidenceLabel?.takeIf { it.isNotBlank() }
-    val preposition = when (item.direction) {
-        MoneyDirection.EXPENSE.name -> "Paid to"
-        MoneyDirection.INCOME.name -> "Received from"
-        MoneyDirection.TRANSFER.name -> "Transferred to"
-        else -> "With"
-    }
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("$movement  ·  ${status.uppercase()}", color = p.coffee,
@@ -122,7 +116,7 @@ private fun BrownTransactionLedgerSummary(item: StoredTransaction, account: Stri
         Text(signed + formatTransactionDetailMoney(item.amountMinor), color = p.ink,
             fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold,
             fontSize = 29.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(if (counterparty == null) "Transaction" else "$preposition $counterparty",
+        Text(transactionCounterpartySummary(item.direction, counterparty),
             color = p.ink, fontFamily = FontFamily.Serif, fontSize = 16.sp,
             maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(SimpleDateFormat("d MMM yyyy  ·  h:mm a", locale)
@@ -143,6 +137,17 @@ private fun BrownTransactionLedgerSummary(item: StoredTransaction, account: Stri
                     maxLines = 1)
             }
         }
+    }
+}
+
+/** A transfer counterparty is not necessarily its destination (for example, incoming M-Pesa). */
+internal fun transactionCounterpartySummary(direction: String, counterparty: String?): String {
+    val name = counterparty?.takeIf { it.isNotBlank() } ?: return "Transaction"
+    return when (direction) {
+        MoneyDirection.EXPENSE.name -> "Paid to $name"
+        MoneyDirection.INCOME.name -> "Received from $name"
+        MoneyDirection.TRANSFER.name -> "Transfer involving $name"
+        else -> "With $name"
     }
 }
 
