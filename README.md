@@ -76,12 +76,19 @@ phone and asks the user to confirm at least one bank or wallet, with manual
 search available even if SMS access is denied. Notifications use Android's
 optional permission prompt. There is no online account registration or OTP.
 Backup restoration remains a separate, user-initiated process.
+Home's bell opens a private notification history with All updates, Needs review
+and Reminders tabs, a true local unread count, dated reminders, and links back
+to the relevant work. A featured review notice can be collapsed without being
+marked as read; the notice stays available in the list. The inbox never creates
+demo financial alerts or copies SMS messages into the notification list.
 
-Returning users no longer see the passive café loading splash. Their existing
-app-lock screen verifies the saved PIN as soon as its complete length is entered,
-without an Unlock button. Earlier PINs without length metadata can also be
-confirmed with the keyboard's Done key; the original failed-attempt lockout and
-phone-credential recovery remain in place. Fingerprint unlock stays optional.
+Returning users no longer see the passive café loading splash on current main.
+The lock screen uses a compact PesaTrack mark, a borderless black keypad with
+masked dots, and automatic PIN verification without an Unlock button or system
+keyboard. A fingerprint shortcut appears when supported; Forgot PIN? keeps the
+existing phone-credential recovery. Earlier PINs without stored length metadata
+are checked as a single entry from four to eight digits, with one rate-limited
+failure per entry; a correct entry saves its length for future unlocks.
 The first scan checks senders before retrieving financial message text. A
 follow-up pass runs after account confirmation only when the first scan found
 pending events that could not safely be recorded without ownership.

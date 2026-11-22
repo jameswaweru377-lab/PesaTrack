@@ -5,9 +5,36 @@ Cold launches for existing users now display the actual PesaTrack copper Home ma
 on a single full-black canvas with a brief peach trace and compact serif wordmark.
 The Android launch window is dark to prevent a white pre-Compose flash.
 The current first-run café splash and onboarding route are unchanged. This does
-not modify Home, financial data, notification timing, the PIN gate, backup,
-permissions or signed updates. Returning lock behavior remains separately owned
-by the pending app-lock PR; CI and Redmi animation/contrast review are pending.
+not modify Home, financial data, notification timing, PIN authentication,
+backup, permissions or signed updates. The separate lock-screen presentation
+change is in PR #709; Redmi animation/contrast review is still pending.
+
+_Daily PIN keypad redesign (22 November 2026; Android CI and phone acceptance pending):_
+The returning-user lock screen is a uniform coffee-black surface with the
+current PesaTrack mark, compact welcome heading, masked PIN indicator dots,
+an on-screen numeric keypad, a fingerprint shortcut where supported and a
+plain Forgot PIN? phone-credential recovery action. The old outlined PIN field,
+system keyboard, Unlock button and keyboard Done fallback are removed. A brief
+spinner and errors remain on the lock screen, with no change to underlying
+protected data. PINs verify automatically at their recorded 4–8 digit length;
+older PINs without that metadata are checked across candidate lengths as one
+rate-limited attempt and persist their length on success. Existing PIN hashes,
+cooldown and device-credential recovery remain intact. No Home review card,
+financial data or permissions changed. Real-device appearance and unlocks are
+not yet verified.
+
+_Notification inbox design (22 November 2026; Android CI and Redmi visual check pending):_
+The Home bell opens the approved coffee-black Notifications layout with a compact
+back/title/unread-count header, a settings and mark-all-read overflow, All updates /
+Needs review / Reminders filters, and the existing five-tab bottom bar. Actual
+unread Activity review notices may appear once in a featured attention card;
+closing that card leaves the unread notice accessible as a normal dated row.
+Other delivered reminders use date-grouped borderless rows with subtle dividers,
+timeline markers and unread indicators.
+The light theme uses the same shared color system. No synthetic notices or money
+figures are created; local delivery history, read persistence, navigation and
+notification permissions remain unchanged. Android 7 visual behavior and phone
+acceptance are not yet verified.
 
 _Historical own-account transfer repair (22 November 2026; Android CI and Redmi verification pending):_
 The local SMS replay now recognizes an interpreted bank-origin "Send Money"
@@ -28,8 +55,9 @@ Returning users skip the passive café splash while first-run onboarding remains
 The lock screen verifies completed PIN entry without an Unlock button; fingerprint
 is a small icon and Forgot PIN? invokes existing device-lock recovery. Stored PIN
 lengths enable automatic completion without weakening failed-attempt lockouts;
-older PINs require keyboard Done for their first post-update unlock. The correct
-PIN then records its length for future automatic entry. Underlying app content is
+older PINs originally required keyboard Done for their first post-update unlock,
+but the correction above removes that requirement. A successful entry stores its
+length for future automatic entry. Underlying app content is
 masked while the secure Android lock dialog is visible. Home's bell opens a
 local-only inbox of up to forty new delivered reminders, with unread counts,
 mark-as-read and relevant page links, not raw financial messages. Older alerts
