@@ -102,8 +102,6 @@ import com.kedevjimmy.pesatrack.ui.components.IconBubble
 import com.kedevjimmy.pesatrack.ui.components.PesaCard
 import com.kedevjimmy.pesatrack.ui.components.PesaTrackTopBar
 import com.kedevjimmy.pesatrack.ui.components.SmartInsightCard
-import com.kedevjimmy.pesatrack.ui.components.SpendingSlice
-import com.kedevjimmy.pesatrack.ui.components.premiumCategoryColor
 import java.text.NumberFormat
 import java.math.RoundingMode
 import java.text.SimpleDateFormat
@@ -888,135 +886,6 @@ fun HomeScreen(
         return
     }
 
-    val spendSlices = remember(activitySnapshot, receivableShares) {
-        try {
-        activitySnapshot.trustedTransactions
-            .filter {
-                it.reviewState != ReviewState.EXCLUDED.name &&
-                    it.reviewState != ReviewState.NEEDS_REVIEW.name &&
-                    (
-                        it.direction ==
-                            MoneyDirection.EXPENSE.name ||
-                            it.relationType ==
-                                TransactionStore.RELATION_REFUND
-                        )
-            }
-            .groupBy {
-                categoryStore.canonicalId(it.category)
-            }
-            .mapValues { (_, items) ->
-                maxOf(
-                    0L,
-                    items.checkedMoneySumOf { item ->
-                        if (
-                            item.relationType ==
-                            TransactionStore.RELATION_REFUND
-                        ) {
-                            if (
-                                refundCountsInTrustedTotals(
-                                    item = item,
-                                    store = transactionStore
-                                )
-                            ) {
-                                CheckedMoney.negate(item.amountMinor)
-                            } else {
-                                0L
-                            }
-                        } else {
-                            CheckedMoney.add(CheckedMoney.subtract(item.amountMinor, receivableShares[item.id]?.lentMinor ?: 0L), item.feeMinor)
-                        }
-                    }
-                )
-            }
-            .filterValues { it > 0L }
-            .entries
-            .sortedByDescending { it.value }
-            .mapIndexed { index, entry ->
-                SpendingSlice(
-                    label = categoryStore.labelFor(entry.key),
-                    amountMinor = entry.value,
-                    color = premiumCategoryColor(index)
-                )
-            }
-        } catch (_: ArithmeticException) { null }
-    }
-
-    val spentTodayMinor = remember(
-        activitySnapshot,
-        receivableShares,
-        ledgerUpdateState.revision
-    ) { CheckedMoney.orNull {
-        val startCalendar =
-            Calendar.getInstance().apply {
-                set(Calendar.HOUR_OF_DAY, 0)
-                set(Calendar.MINUTE, 0)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
-        val startOfToday =
-            startCalendar.timeInMillis
-        val startOfTomorrow =
-            (startCalendar.clone() as Calendar)
-                .apply {
-                    add(Calendar.DAY_OF_MONTH, 1)
-                }
-                .timeInMillis
-
-        maxOf(
-            0L,
-            activitySnapshot.trustedTransactions
-                .filter {
-                    it.occurredAtEpochMs >=
-                        startOfToday &&
-                        it.occurredAtEpochMs <
-                            startOfTomorrow &&
-                        it.reviewState !=
-                            ReviewState.EXCLUDED.name &&
-                        it.reviewState !=
-                            ReviewState.NEEDS_REVIEW.name &&
-                        (
-                            it.direction ==
-                                MoneyDirection.EXPENSE.name ||
-                                it.relationType ==
-                                    TransactionStore
-                                        .RELATION_REFUND
-                            )
-                }
-                .checkedMoneySumOf { item ->
-                    if (
-                        item.relationType ==
-                        TransactionStore.RELATION_REFUND
-                    ) {
-                        if (
-                            refundCountsInTrustedTotals(
-                                item = item,
-                                store = transactionStore
-                            )
-                        ) {
-                            CheckedMoney.negate(item.amountMinor)
-                        } else {
-                            0L
-                        }
-                    } else {
-                        CheckedMoney.add(CheckedMoney.subtract(item.amountMinor, receivableShares[item.id]?.lentMinor ?: 0L), item.feeMinor)
-                    }
-                }
-        )
-    } }
-
-    val homeSpendingItems =
-        spendSlices?.take(3)
-            ?.map {
-                HomeSpendingItem(
-                    label = it.label,
-                    amountMinor =
-                        it.amountMinor,
-                    color = it.color
-                )
-            }
-    val totalTrustedSpendingMinor = RecordedOutflowPolicy.available(
-        activitySnapshot.summary.spentMinor, activitySnapshot.summary.feesMinor
-    )
     val unresolvedDuplicateSecondIds =
         activitySnapshot
             .possibleDuplicates
@@ -1475,20 +1344,6 @@ fun HomeScreen(
                 ledgerUpdateState.revision, onReportsClick)
         }
     }
-}
-
-private fun refundCountsInTrustedTotals(
-    item: com.kedevjimmy.pesatrack.data.local.StoredTransaction,
-    store: TransactionStore
-): Boolean {
-    val originalId = item.relatedTransactionId ?: return false
-    val original = store.getById(originalId) ?: return false
-    return original.direction == MoneyDirection.EXPENSE.name &&
-        original.reviewState != ReviewState.EXCLUDED.name &&
-        original.reviewState != ReviewState.NEEDS_REVIEW.name &&
-        original.type !=
-            com.kedevjimmy.pesatrack.domain.model.MpesaTransactionType
-                .REVERSAL.name
 }
 
 @Composable

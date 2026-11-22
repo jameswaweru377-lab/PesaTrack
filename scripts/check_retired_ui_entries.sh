@@ -27,5 +27,9 @@ if rg -q 'fun (HomeBGreeting|HomeBHealth|ReferenceHomeHeader|MonochromeAvailable
     echo 'Retired Home page implementation remains' >&2
     exit 1
 fi
+if rg -q 'homeSpendingItems|spendSlices|spentTodayMinor|totalTrustedSpendingMinor' "$screens/HomeScreen.kt"; then
+    echo 'Unused calculations from the retired Home dashboard remain' >&2
+    exit 1
+fi
 
 echo 'Retired UI entry contracts passed'
