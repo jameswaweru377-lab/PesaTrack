@@ -136,10 +136,14 @@ class MainActivity : ComponentActivity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
             setContentView(android.widget.LinearLayout(this).apply {
                 orientation = android.widget.LinearLayout.VERTICAL
+                // This native recovery screen appears before Compose. Give it an
+                // explicit light surface so the dark startup window cannot hide text.
+                setBackgroundColor(android.graphics.Color.WHITE)
                 setPadding(32, 64, 32, 32)
                 addView(android.widget.TextView(this@MainActivity).apply {
                     text = getString(R.string.backup_recovery_retry_message)
                     textSize = 18f
+                    setTextColor(android.graphics.Color.BLACK)
                 })
                 addView(android.widget.Button(this@MainActivity).apply {
                     text = getString(R.string.backup_recovery_retry_action)

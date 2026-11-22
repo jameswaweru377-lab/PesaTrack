@@ -84,8 +84,10 @@ demo financial alerts or copies SMS messages into the notification list.
 
 Returning users no longer see the passive café loading splash on current main.
 The lock screen uses a compact PesaTrack mark, a borderless black keypad with
-masked dots, and automatic PIN verification without an Unlock button or system
-keyboard. A fingerprint shortcut appears when supported; Forgot PIN? keeps the
+masked dots, and automatic PIN verification without an Unlock button or required
+system keyboard. Users with PINs in other numeral scripts can select the phone
+keyboard, preserving the original characters. A fingerprint shortcut appears
+when supported; Forgot PIN? keeps the
 existing phone-credential recovery. Earlier PINs without stored length metadata
 are checked as a single entry from four to eight digits, with one rate-limited
 failure per entry; a correct entry saves its length for future unlocks.

@@ -75,6 +75,7 @@ fun AppLockScreen(
     }
     var checking by remember { mutableStateOf(false) }
     var legacyHint by remember { mutableStateOf(false) }
+    var keyboardMode by remember { mutableStateOf(false) }
 
     LaunchedEffect(pin, storedPinLength) {
         if (PinAutoSubmitPolicy.onChange(pin, storedPinLength) == PinEntryAction.WAIT) {
@@ -105,6 +106,7 @@ fun AppLockScreen(
     }
 
     AppLockKeypadSurface(
+        pinText = pin,
         enteredDigits = pin.length,
         expectedDigits = LockKeypadEntryPolicy.indicatorCount(storedPinLength),
         checking = checking,
@@ -112,6 +114,7 @@ fun AppLockScreen(
         legacyHint = legacyHint,
         biometricAvailable = biometricAvailable,
         recoveryAvailable = deviceCredentialRecoveryAvailable,
+        keyboardMode = keyboardMode,
         onDigit = { digit ->
             error = null
             legacyHint = false
@@ -121,6 +124,17 @@ fun AppLockScreen(
             error = null
             legacyHint = false
             pin = LockKeypadEntryPolicy.removeLast(pin)
+        },
+        onKeyboardPinChange = { text ->
+            error = null
+            legacyHint = false
+            pin = LockKeypadEntryPolicy.fromKeyboard(text, storedPinLength)
+        },
+        onToggleKeyboard = {
+            keyboardMode = !keyboardMode
+            pin = ""
+            error = null
+            legacyHint = false
         },
         onFingerprint = onBiometricUnlock,
         onRecover = onRecoverWithDeviceCredential

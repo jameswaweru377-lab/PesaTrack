@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,6 +25,8 @@ import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -34,7 +37,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kedevjimmy.pesatrack.ui.components.PesaLogoMark
@@ -44,6 +50,7 @@ import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 /** Daily unlock surface; the existing PIN and biometric policies remain in AppLockScreen. */
 @Composable
 internal fun AppLockKeypadSurface(
+    pinText: String,
     enteredDigits: Int,
     expectedDigits: Int,
     checking: Boolean,
@@ -51,7 +58,10 @@ internal fun AppLockKeypadSurface(
     legacyHint: Boolean,
     biometricAvailable: Boolean,
     recoveryAvailable: Boolean,
+    keyboardMode: Boolean,
     onDigit: (Char) -> Unit,
+    onKeyboardPinChange: (String) -> Unit,
+    onToggleKeyboard: () -> Unit,
     onDelete: () -> Unit,
     onFingerprint: () -> Unit,
     onRecover: () -> Unit
@@ -60,15 +70,40 @@ internal fun AppLockKeypadSurface(
     Column(
         Modifier.fillMaxSize().background(PremiumVisualTokens.darkCanvas)
             .clickable(interactionSource = blockerInteraction, indication = null) {}
-            .navigationBarsPadding().verticalScroll(rememberScrollState())
+            .navigationBarsPadding().imePadding().verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp, vertical = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         LockBrandHeader()
         LockPinPrompt(enteredDigits, expectedDigits, checking, error, legacyHint)
-        LockNumberPad(biometricAvailable, onDigit, onDelete, onFingerprint)
-        LockRecoveryFooter(recoveryAvailable, onRecover)
+        if (keyboardMode) LockAlternatePinField(pinText, onKeyboardPinChange)
+        else LockNumberPad(biometricAvailable, onDigit, onDelete, onFingerprint)
+        LockRecoveryFooter(recoveryAvailable, keyboardMode, onRecover, onToggleKeyboard)
+    }
+}
+
+@Composable
+private fun LockAlternatePinField(pin: String, onPinChange: (String) -> Unit) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        OutlinedTextField(
+            value = pin, onValueChange = onPinChange, modifier = Modifier.fillMaxWidth(),
+            singleLine = true, label = { Text("PIN") },
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = PremiumVisualTokens.darkText,
+                unfocusedTextColor = PremiumVisualTokens.darkText,
+                focusedLabelColor = PremiumVisualTokens.darkCoffee,
+                unfocusedLabelColor = PremiumVisualTokens.darkMuted,
+                focusedBorderColor = PremiumVisualTokens.darkCoffee,
+                unfocusedBorderColor = PremiumVisualTokens.darkBorder,
+                cursorColor = PremiumVisualTokens.darkCoffee
+            )
+        )
+        Text("Use the same numerals as when you created your PIN.",
+            modifier = Modifier.padding(top = 8.dp), fontSize = 12.sp,
+            color = PremiumVisualTokens.darkMuted, textAlign = TextAlign.Center)
     }
 }
 
@@ -166,7 +201,10 @@ private fun RowScope.LockDigitKey(
 }
 
 @Composable
-private fun LockRecoveryFooter(recoveryAvailable: Boolean, onRecover: () -> Unit) {
+private fun LockRecoveryFooter(
+    recoveryAvailable: Boolean, keyboardMode: Boolean,
+    onRecover: () -> Unit, onToggleKeyboard: () -> Unit
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)
             .then(if (recoveryAvailable) Modifier.clickable(onClickLabel =
@@ -175,6 +213,13 @@ private fun LockRecoveryFooter(recoveryAvailable: Boolean, onRecover: () -> Unit
             Text("Forgot PIN?", fontSize = 14.sp,
                 color = if (recoveryAvailable) PremiumVisualTokens.darkCoffee
                 else PremiumVisualTokens.darkMuted.copy(alpha = .65f))
+        }
+        Box(Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget)
+            .clickable(onClickLabel = if (keyboardMode) "Use numeric keypad"
+                else "Use phone keyboard for other numeral scripts", onClick = onToggleKeyboard)
+            .padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
+            Text(if (keyboardMode) "Use keypad" else "Use phone keyboard",
+                fontSize = 12.sp, color = PremiumVisualTokens.darkMuted)
         }
         Spacer(Modifier.height(8.dp))
         Text("Your financial data stays on this phone.",
