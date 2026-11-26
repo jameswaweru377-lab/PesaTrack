@@ -1,5 +1,16 @@
 # PesaTrack Current State
 
+_Activity attention-card visual refinement (26 November 2026; phone review pending):_
+The unresolved-credit and pending-review notices retain their shared horizontal
+swipe slot, but now use the borderless Financial Insights card surface, copper
+insight icon, three-level type hierarchy and compact copy in both light and dark
+themes. The page counter and swipe instruction are no longer displayed. The
+Month/Pay cycle controls are visually 40 dp tall while retaining a 48 dp touch
+area. The notice disappears altogether once neither unresolved credit nor
+pending review attention remains. The existing destination callbacks and all
+ledger amounts/classifications are unchanged.
+
+
 _Debt and Accounts dark-theme readability (26 November 2026; Android CI and phone acceptance pending):_
 Debt overview lender cards, personal receivable summaries, individual lender history,
 and their buttons/icons now select readable coffee-black surfaces and text from the

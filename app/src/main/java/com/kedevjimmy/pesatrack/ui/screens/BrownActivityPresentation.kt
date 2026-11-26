@@ -130,11 +130,17 @@ private fun BrownActivityPeriodPill(label: String, selected: Boolean, onClick: (
     val p = homeColors()
     Surface(onClick = onClick,
         modifier = Modifier.heightIn(min = PesaDesignTokens.minimumTouchTarget),
-        shape = RoundedCornerShape(PesaDesignTokens.iconRadius),
-        color = if (selected) p.coffee else p.white) {
-        Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
-            Text(label, color = if (selected) MaterialTheme.colorScheme.onPrimary else p.muted,
-                fontSize = 13.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
+        color = p.canvas) {
+        Box(Modifier.padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+            Surface(shape = RoundedCornerShape(PesaDesignTokens.iconRadius),
+                color = if (selected) p.coffee else p.white) {
+                Box(Modifier.height(40.dp).padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center) {
+                    Text(label, color = if (selected) MaterialTheme.colorScheme.onPrimary else p.muted,
+                        fontSize = 13.sp,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
+                }
+            }
         }
     }
 }
