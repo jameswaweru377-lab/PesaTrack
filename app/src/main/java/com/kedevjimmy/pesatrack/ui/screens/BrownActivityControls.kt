@@ -27,7 +27,8 @@ internal data class BrownActivityControlView(
     val searchOpen: Boolean,
     val searchQuery: String,
     val extraFiltersOpen: Boolean,
-    val selectedFilter: String
+    val selectedFilter: String,
+    val pendingReviewCount: Int
 )
 
 /** Callbacks deliberately delegate to the existing ledger/review owner, ActivityScreen. */
@@ -40,6 +41,8 @@ internal data class BrownActivityControlActions(
     val onToggleFilters: () -> Unit,
     val onHeaderHeightChanged: (Int) -> Unit,
     val onShowAll: () -> Unit,
+    val onShowUnresolved: () -> Unit,
+    val onShowReview: () -> Unit,
     val onSelectFilter: (String) -> Unit,
     val onToolsChanged: () -> Unit,
     val onPaycheckClick: () -> Unit,
@@ -74,16 +77,16 @@ internal fun LazyListScope.brownActivityControlItems(
             BrownActivityMonthlyHero(view.snapshot, view.payCycleMode, view.balance)
         }
     }
-    if (view.snapshot.summary.unresolvedCreditsMinor > 0L) {
-        item(key = "activity-unresolved-credits") {
-            BrownActivityUnresolvedCreditsNotice(
-                view.snapshot.summary.unresolvedCreditsMinor,
-                actions.onShowAll
-            )
+    if (view.snapshot.summary.unresolvedCreditsMinor > 0L || view.pendingReviewCount > 0) {
+        item(key = "activity-attention-notices") {
+            BrownActivityAttentionNotices(view.snapshot.summary.unresolvedCreditsMinor,
+                view.pendingReviewCount, actions.onShowUnresolved, actions.onShowReview)
         }
     }
-    item(key = "activity-transactions-heading") {
-        BrownActivityTransactionsHeading(actions.onShowAll)
+    if (view.selectedFilter == "Unresolved Credits") item(key = "unresolved-credits-title") {
+        androidx.compose.material3.TextButton(onClick = actions.onShowAll) {
+            Text("‹  Unresolved credits · Back to activity")
+        }
     }
     item(key = "premium-filters") {
         Box(Modifier.padding(bottom = 4.dp)) {

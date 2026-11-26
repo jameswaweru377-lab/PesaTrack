@@ -789,7 +789,8 @@ fun ActivityScreen(
         possibleDuplicateIds = possibleDuplicateIds,
         trustedIncomeIds = trustedIncomeIds,
         receivableLinks = receivableLinks,
-        categoryLabel = categoryStore::labelFor
+        categoryLabel = categoryStore::labelFor,
+        confirmedOwnedAccountIds = confirmedAccountIds
     )
 
     // Progressive UI materialization. The complete monthly ledger still owns
@@ -838,12 +839,14 @@ fun ActivityScreen(
     LaunchedEffect(selectedMonthEpochMs, payCycleMode, chosenCycle?.startTransactionId) {
         activityListState.scrollToItem(0)
     }
-    // The slim attention row changes the filter; move past the title, overview,
-    // section heading and compact filters to the existing review section.
+    // The attention card changes the filter; move past the overview and filters.
     LaunchedEffect(selectedFilter, selectedGlobalQueue, stickyActivityHeaderHeightPx) {
         if (selectedFilter == "Needs Review" && selectedGlobalQueue == "Attention" &&
             stickyActivityHeaderHeightPx > 0) {
-            val firstReviewItem = 4 + (if (activityError) 1 else 0) +
+            val hasAttentionCard = (displaySnapshot ?: snapshot).summary.unresolvedCreditsMinor > 0L ||
+                activityPendingReviewCount(globalOverview, relationshipReviews.size,
+                    reviewableFinancialEntities.size, identityReviewCount) > 0
+            val firstReviewItem = 3 + (if (hasAttentionCard) 1 else 0) +
                 (if (showExtraFilters) 2 else 0) +
                 (if (cycleError && payCycleMode) 1 else 0)
             snapshotFlow { activityListState.layoutInfo.totalItemsCount }
@@ -884,7 +887,9 @@ fun ActivityScreen(
                 view = BrownActivityControlView(
                     periodLabel, payCycleMode, displaySnapshot ?: snapshot,
                     recordedBalance, showSearch, searchQuery,
-                    showExtraFilters, selectedFilter
+                    showExtraFilters, selectedFilter,
+                    activityPendingReviewCount(globalOverview, relationshipReviews.size,
+                        reviewableFinancialEntities.size, identityReviewCount)
                 ),
                 actions = BrownActivityControlActions(
                     onMonthMode = { payCycleMode = false },
@@ -897,6 +902,17 @@ fun ActivityScreen(
                     onShowAll = {
                         searchQuery = ""; showSearch = false; showExtraFilters = false
                         selectedFilter = "All"; selectedGlobalQueue = null
+                        selectedFinancialSource = null
+                    },
+                    onShowUnresolved = {
+                        payCycleMode = false
+                        searchQuery = ""; showSearch = false; showExtraFilters = false
+                        selectedFilter = "Unresolved Credits"; selectedGlobalQueue = null
+                        selectedFinancialSource = null
+                    },
+                    onShowReview = {
+                        searchQuery = ""; showSearch = false
+                        selectedFilter = "Needs Review"; selectedGlobalQueue = "Attention"
                         selectedFinancialSource = null
                     },
                     onSelectFilter = { filter ->
