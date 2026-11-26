@@ -47,7 +47,7 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 
 | | Feature | What it helps with |
 | --- | --- | --- |
-| 💸 | **Track activity** | Browse dated transactions with a right-aligned trusted daily net, compact payment-method badges, clearer within-day row dividers and a slowly scrolling Year/Month/Today summary. Individual fee pills are hidden; recorded fees remain in the transaction facts. Pending review items can prompt a dismissible reminder after app unlock; the review queue remains accessible through Activity. Recorded account balances are separate from daily net and do not imply a salary forecast. |
+| 💸 | **Track activity** | Browse dated transactions with a right-aligned trusted daily net, compact payment-method badges, clearer within-day row dividers and a slowly scrolling Year/Month/Today summary. Individual fee pills are hidden; recorded fees remain in the transaction facts. Unresolved credits and pending reviews share a compact swipeable Activity insight card, which disappears when there is nothing to review. Recorded account balances are separate from daily net and do not imply a salary forecast. |
 | 🧾 | **Import statements** | Review supported M-Pesa and bank statement files with duplicate and verification safeguards. Unsupported or incomplete formats are not silently accepted. |
 | 📊 | **Understand your cash flow** | Explore Money In, Money Out, categories, account context, and reports based on recorded evidence. |
 | 📄 | **Export a personal money report** | Save an offline PesaTrack-branded PDF of your selected Reports period, including trusted Activity totals, categories, trends and selected large expenses. Exported PDFs are not encrypted bank statements. |
