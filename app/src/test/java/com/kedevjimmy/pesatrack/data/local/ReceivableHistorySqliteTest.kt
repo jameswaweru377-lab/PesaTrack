@@ -19,13 +19,13 @@ class ReceivableHistorySqliteTest {
             occurred_at_epoch_ms INTEGER, source_kind TEXT
         )""")
         listOf(
-            listOf(1, "Sample Borrower", "+254 712 555 010", 1001L, "sms"),
-            listOf(2, "Another Person", "0712-555-011", 1002L, "sms"),
-            listOf(3, "Payment to Sample Borrower (+254 712 555 010)", null, 1003L, "statement_import")
+            arrayOf<Any?>(1, "Sample Borrower", "+254 712 555 010", 1001L, "sms"),
+            arrayOf<Any?>(2, "Another Person", "0712-555-011", 1002L, "sms"),
+            arrayOf<Any?>(3, "Payment to Sample Borrower (+254 712 555 010)", null, 1003L, "statement_import")
         ).forEach { row ->
             execSQL("""INSERT INTO transactions
                 (id,counterparty,counterparty_phone,occurred_at_epoch_ms,source_kind)
-                VALUES (?,?,?,?,?)""", row.toTypedArray())
+                VALUES (?,?,?,?,?)""", row)
         }
     }
 
