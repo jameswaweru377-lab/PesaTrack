@@ -140,7 +140,10 @@ internal fun ReceivableHistoryReview(
                     }?.let { name = it }
                 }
             } catch (cancelled: CancellationException) { throw cancelled }
-            catch (failure: Exception) { error = failure.message ?: "Could not search imported transactions." }
+            catch (failure: Exception) {
+                android.util.Log.e("PesaTrackReceivables", "History search failed")
+                error = "Could not search imported transactions. Please try again."
+            }
             finally { busy = false }
         }
     }

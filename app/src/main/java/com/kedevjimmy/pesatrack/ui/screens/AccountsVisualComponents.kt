@@ -49,6 +49,7 @@ import com.kedevjimmy.pesatrack.ui.theme.AmberSoft
 import com.kedevjimmy.pesatrack.ui.theme.AquaSoft
 import com.kedevjimmy.pesatrack.ui.theme.AuroraAqua
 import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import com.kedevjimmy.pesatrack.ui.theme.Rose
 import com.kedevjimmy.pesatrack.ui.theme.RoseSoft
 import com.kedevjimmy.pesatrack.ui.theme.Sky
@@ -134,20 +135,29 @@ internal fun accountDisplayLines(entries: List<AccountBalancePresentation>): Lis
 
 @Composable
 internal fun DebtDirectionSelector(owedToMe: Boolean, onIowe: () -> Unit, onOwedToMe: () -> Unit) {
+    val dark = MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas
     Surface(shape = RoundedCornerShape(PesaDesignTokens.innerRadius),
-        color = AccountCream) {
+        color = if (dark) MaterialTheme.colorScheme.surface else AccountCream) {
         Row(Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             listOf(false to "I owe", true to "Owed to me").forEach { (isReceivable, label) ->
                 Surface(onClick = if (isReceivable) onOwedToMe else onIowe,
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     shape = RoundedCornerShape(12.dp),
-                    color = if (owedToMe == isReceivable) AccountBlack
-                        else AccountCream,
+                    color = when {
+                        owedToMe == isReceivable && dark -> MaterialTheme.colorScheme.surfaceVariant
+                        owedToMe == isReceivable -> AccountBlack
+                        dark -> MaterialTheme.colorScheme.surface
+                        else -> AccountCream
+                    },
                     shadowElevation = if (owedToMe == isReceivable) 1.dp else 0.dp) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(label, style = MaterialTheme.typography.labelLarge,
-                            color = if (owedToMe == isReceivable) Color.White
-                                else AccountBlack,
+                            color = when {
+                                dark && owedToMe == isReceivable -> MaterialTheme.colorScheme.primary
+                                dark -> MaterialTheme.colorScheme.onSurface
+                                owedToMe == isReceivable -> Color.White
+                                else -> AccountBlack
+                            },
                             fontWeight = if (owedToMe == isReceivable) FontWeight.Bold else FontWeight.Normal)
                     }
                 }

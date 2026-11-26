@@ -59,6 +59,10 @@ Reconciliation relies on confirmed account identities and cash-movement evidence
 
 **Home** for your available money and accounts, with an unread badge on the bell opening a private, local history of notifications delivered after the update · **Activity** for a compact monthly expense summary and transaction ledger with daily net, short filters, an unobtrusive totals ticker and on-demand search/advanced filters · **Plan** for spendable money, budgets and bills, including a compact savings-goal subpage and a bottom-sheet budget category chooser · **Accounts** for banks and wallets · **Profile** for Money Wellness, a vertical Statements / Import statements / Reports / Pay cycle workspace and a dedicated Settings page. Profile's Appearance settings offer System, Light and Dark. The separate More landing and hamburger drawer have been retired; older More links redirect safely to Profile. Category icons use a shared colour-coded visual vocabulary in the category chooser and Activity, while Settings and Profile workspace rows have roomier spacing.
 
+Accounts keeps M-Pesa's nested savings accounts folded until you open them. Debt
+cards and borrowing history follow the selected light or dark appearance, and
+Find payments searches saved name/phone evidence locally for explicit review.
+
 > **Screenshots:** A gallery of real, privacy-safe screens will be added after device capture and review. Unlocked screens can temporarily be captured for private UI feedback, so redact personal transactions, account numbers, and statement details before sharing. No private records will be published as examples.
 
 ## Privacy by design

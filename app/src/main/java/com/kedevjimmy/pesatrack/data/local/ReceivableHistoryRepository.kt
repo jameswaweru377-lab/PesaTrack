@@ -18,6 +18,18 @@ data class ReceivableHistoryPage(val candidates: List<ReceivableHistoryCandidate
 enum class ReceivableHistorySourceFilter { ALL, MESSAGES, STATEMENTS }
 data class ReceivableHistorySelection(val row: StoredTransaction, val kind: String, val amountMinor: Long)
 
+/** The same bound SQLite statement is used for name, phone and statement-description searches. */
+internal fun receivableHistoryIdsSql(
+    includeStatementPhone: Boolean, sourceClause: String = "", dateClause: String = ""
+): String = """SELECT t.id FROM transactions t
+    WHERE (LOWER(COALESCE(t.counterparty,'')) LIKE LOWER(?) ESCAPE '\'
+       OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(t.counterparty_phone,''),' ',''),'-',''),'+',''),'(',''),')','') LIKE ?
+       ${if (includeStatementPhone) "OR (t.source_kind='statement_import' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(t.counterparty,''),' ',''),'-',''),'+',''),'(',''),')',''),'.','') LIKE ?)" else ""}
+    )
+    $sourceClause
+    $dateClause
+    ORDER BY t.occurred_at_epoch_ms DESC, t.id DESC LIMIT ? OFFSET ?""".trimIndent()
+
 /** Bounded canonical-history queries and a single atomic user decision. No SMS/network access. */
 class ReceivableHistoryRepository(context: Context) {
     private val app = context.applicationContext
@@ -78,14 +90,7 @@ class ReceivableHistoryRepository(context: Context) {
                     add(batchLimit.toString()); add(batchOffset.toString())
                 }.toTypedArray()
                 return database.readableDatabase.rawQuery(
-                    """SELECT t.id FROM transactions t
-                       WHERE (LOWER(COALESCE(t.counterparty,'')) LIKE LOWER(?) ESCAPE '\'
-                          OR REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(t.counterparty_phone,''),' ',''),'-',''),'+',''),'(',''),')','') LIKE ?
-                          ${if (embeddedStatementPhone != null) "OR (t.source_kind='statement_import' AND REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(COALESCE(t.counterparty,''),' ',''),'-',''),'+',''),'(',''),')',''),'.','') LIKE ?)" else ""})
-                          )
-                          $sourceClause
-                          $dateClause
-                       ORDER BY t.occurred_at_epoch_ms DESC, t.id DESC LIMIT ? OFFSET ?""",
+                    receivableHistoryIdsSql(embeddedStatementPhone != null, sourceClause, dateClause),
                     args
                 ).use { c -> buildList { while (c.moveToNext()) add(c.getLong(0)) } }
             }

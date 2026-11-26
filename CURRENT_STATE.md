@@ -1,5 +1,21 @@
 # PesaTrack Current State
 
+_Debt and Accounts dark-theme readability (26 November 2026; Android CI and phone acceptance pending):_
+Debt overview lender cards, personal receivable summaries, individual lender history,
+and their buttons/icons now select readable coffee-black surfaces and text from the
+active app theme in dark mode. Light-mode card colours and the existing layout stay
+unchanged. Lender event rows use a faint brown divider on the dark canvas.
+The local receivable-history name/phone search has an extra SQL closing bracket
+removed; a synthetic SQLite regression covers name, phone, source/date filters
+and literal wildcard input. Search failures no longer display raw SQL to the user.
+On Accounts, M-Pesa savings branches start collapsed, can be expanded manually,
+and Add account has a more squared outline. Open PR #722 also proposes the
+M-Pesa collapsed default; reconcile that overlap if PR #722 is merged later.
+No debt amounts, accounting classifications, persisted transactions, backup
+format, permissions, signing or release workflow have been changed. Real-device
+theme contrast, accessibility, and the full Find payments journey remain to be
+verified after Android CI.
+
 _Activity attention navigation (26 November 2026; Android CI and phone verification pending):_
 The unresolved-credit notice now opens a period-specific list of receipts still
 classified as unresolved by the existing income-recognition policy. Tapping an

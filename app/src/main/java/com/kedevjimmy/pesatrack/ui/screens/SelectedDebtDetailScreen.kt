@@ -24,6 +24,8 @@ import com.kedevjimmy.pesatrack.data.local.DebtEventRecord
 import com.kedevjimmy.pesatrack.data.local.DebtEventType
 import com.kedevjimmy.pesatrack.data.local.DebtStore
 import com.kedevjimmy.pesatrack.data.local.LedgerUpdateBus
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
+import com.kedevjimmy.pesatrack.ui.theme.PesaDesignTokens
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -58,6 +60,8 @@ internal fun SelectedDebtDetailScreen(
     val drawn = sumRecentDebtEvents(history, DebtEventType.DRAWDOWN)
     val repaid = sumRecentDebtEvents(history, DebtEventType.REPAYMENT)
     val fees = sumRecentDebtEvents(history, DebtEventType.FEE)
+    val dark = MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas
+    val debtText = if (dark) MaterialTheme.colorScheme.onSurface else AccountBlack
     LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
@@ -71,39 +75,46 @@ internal fun SelectedDebtDetailScreen(
             }
         }
         item {
-            Surface(shape = RoundedCornerShape(24.dp), color = AccountMint) {
+            Surface(shape = RoundedCornerShape(24.dp),
+                color = if (dark) MaterialTheme.colorScheme.surface else AccountMint) {
                 Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.AccountBalanceWallet, null,
-                            modifier = Modifier.size(45.dp), tint = AccountBlack)
+                            modifier = Modifier.size(45.dp), tint = debtText)
                         Column(Modifier.padding(start = 14.dp)) {
-                            Text("Recorded outstanding", color = AccountBlack)
+                            Text("Recorded outstanding", color = debtText)
                             Text(if (unknown) "Balance needs confirmation"
                                 else formatKesAmount(debt.outstandingMinor),
-                                fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium)
+                                fontWeight = FontWeight.Bold, style = MaterialTheme.typography.headlineMedium,
+                                color = debtText)
                         }
                     }
                     Text(when (debt.balanceQuality) {
                         DebtBalanceQuality.OBSERVED -> "Observed from recorded evidence"
                         DebtBalanceQuality.ESTIMATED -> "Estimated from saved activity"
                         DebtBalanceQuality.UNKNOWN -> "Amount could not be established"
-                    }, style = MaterialTheme.typography.bodySmall)
+                    }, style = MaterialTheme.typography.bodySmall, color = debtText)
                     Text("Not a live lender balance", style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (debt.hasUnresolvedDrawdown || unknown) Text("⚠ Review borrowing and fee evidence",
-                        color = Color(0xFF98601A), style = MaterialTheme.typography.bodyMedium)
+                        color = if (dark) MaterialTheme.colorScheme.tertiary else Color(0xFF98601A),
+                        style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
         item {
-            Surface(shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, Color(0xFFE0E4E0)),
-                color = Color.White) {
+            Surface(shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp,
+                    if (dark) MaterialTheme.colorScheme.outlineVariant else Color(0xFFE0E4E0)),
+                color = if (dark) MaterialTheme.colorScheme.surface else Color.White) {
                 Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("Drawn" to drawn, "Repaid" to repaid, "Fees" to fees).forEach { (label, amount) ->
                         Column(Modifier.weight(1f)) {
-                            Text(label, style = MaterialTheme.typography.bodySmall)
+                            Text(label, style = MaterialTheme.typography.bodySmall,
+                                color = if (dark) MaterialTheme.colorScheme.onSurfaceVariant else debtText)
                             Text(if (!loaded || amount == null) "—" else formatKesAmount(amount),
-                                fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium,
+                                color = debtText)
                         }
                     }
                 }
@@ -122,7 +133,8 @@ internal fun SelectedDebtDetailScreen(
         }
         items(history, key = { it.id }) { event ->
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.ReceiptLong, null, tint = AccountBlack)
+                Icon(Icons.Rounded.ReceiptLong, null,
+                    tint = if (dark) MaterialTheme.colorScheme.primary else AccountBlack)
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(when (event.type) {
                         DebtEventType.DRAWDOWN -> "Borrowing recorded"
@@ -137,17 +149,20 @@ internal fun SelectedDebtDetailScreen(
                 }
                 Text(formatKesAmount(event.amountMinor), fontWeight = FontWeight.SemiBold)
             }
-            HorizontalDivider(color = Color(0xFFE2E4E2))
+            HorizontalDivider(color = if (dark) MaterialTheme.colorScheme.primary
+                .copy(alpha = PesaDesignTokens.faintDividerAlpha) else Color(0xFFE2E4E2))
         }
         item {
             OutlinedButton(onClick = onConfirmBalance, modifier = Modifier.fillMaxWidth(),
-                border = BorderStroke(1.dp, AccountBlack)) {
-                Text("Review balance", color = AccountBlack)
+                border = BorderStroke(1.dp,
+                    if (dark) MaterialTheme.colorScheme.outline else AccountBlack)) {
+                Text("Review balance", color = debtText)
             }
         }
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Info, null, tint = AccountBlack, modifier = Modifier.size(18.dp))
+                Icon(Icons.Rounded.Info, null, tint = if (dark) MaterialTheme.colorScheme.primary else AccountBlack,
+                    modifier = Modifier.size(18.dp))
                 Text("Linked transactions remain unchanged until you confirm a review.",
                     Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodySmall)
             }
