@@ -1,5 +1,16 @@
 # PesaTrack Current State
 
+_Activity attention navigation (26 November 2026; Android CI and phone verification pending):_
+The unresolved-credit notice now opens a period-specific list of receipts still
+classified as unresolved by the existing income-recognition policy. Tapping an
+entry continues to use the existing transaction-details correction flow; no
+credit is automatically promoted into Money in. The separate Home review dialog
+was removed and Activity now presents unresolved credits and pending review
+attention in one swipeable notice slot. The redundant Transactions / All activity
+heading was removed. This is a presentation-only change; the calculation of
+income, balances, review decisions and stored transactions remains unchanged.
+
+
 _Income recognition evidence projection (22 November 2026; Android CI and phone verification pending):_
 Activity's Money in summary now uses a read-only recognition check over the
 existing canonical ledger. A user-confirmed income entry, or a referenced

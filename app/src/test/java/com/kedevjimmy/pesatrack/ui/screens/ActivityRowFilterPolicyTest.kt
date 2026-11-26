@@ -36,6 +36,19 @@ class ActivityRowFilterPolicyTest {
         assertEquals(listOf(2L), filter(records, "Needs Review", setOf(1L,2L,3L), setOf(2L)).map { it.id })
     }
 
+    @Test fun unresolvedCreditsShowOnlyUnverifiedIncomeAndNeverDuplicates() {
+        val unverified = row(11, "INCOME", "AUTO_CLASSIFIED")
+        val needsReview = row(12, "INCOME", "NEEDS_REVIEW")
+        val transfer = row(13, "TRANSFER", "AUTO_CLASSIFIED")
+        val duplicate = row(14, "INCOME", "AUTO_CLASSIFIED")
+        val excluded = row(15, "INCOME", "EXCLUDED")
+        val records = listOf(unverified, needsReview, transfer, duplicate, excluded)
+        assertEquals(listOf(11L, 12L),
+            filter(records, "Unresolved Credits", emptySet(), setOf(14L)).map { it.id })
+        assertEquals(emptyList<Long>(),
+            filter(records, "Money In", emptySet(), setOf(14L)).map { it.id })
+    }
+
     private fun filter(
         records: List<StoredTransaction>,
         filter: String,

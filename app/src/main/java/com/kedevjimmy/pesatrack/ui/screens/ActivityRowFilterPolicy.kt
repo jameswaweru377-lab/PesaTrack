@@ -2,6 +2,8 @@ package com.kedevjimmy.pesatrack.ui.screens
 
 import com.kedevjimmy.pesatrack.data.local.StoredTransaction
 import com.kedevjimmy.pesatrack.data.local.TransactionStore
+import com.kedevjimmy.pesatrack.data.local.IncomeRecognitionPolicy
+import com.kedevjimmy.pesatrack.data.local.IncomeRecognitionStatus
 import com.kedevjimmy.pesatrack.domain.model.MoneyDirection
 import com.kedevjimmy.pesatrack.domain.model.ReviewState
 
@@ -16,6 +18,7 @@ internal fun activityFilteredRows(
     possibleDuplicateIds: Set<Long>,
     trustedIncomeIds: Set<Long>,
     receivableLinks: Map<Long, ReceivableActivityLink>,
+    confirmedOwnedAccountIds: Set<String> = emptySet(),
     categoryLabel: (String) -> String
 ): List<StoredTransaction> {
     val query = searchQuery.trim()
@@ -24,6 +27,9 @@ internal fun activityFilteredRows(
         if (item.id in possibleDuplicateIds && selectedFilter != "Needs Review") return@filter false
 
         val matchesFilter = when (selectedFilter) {
+            "Unresolved Credits" -> IncomeRecognitionPolicy.classify(
+                item, confirmedOwnedAccountIds
+            ).status == IncomeRecognitionStatus.UNRESOLVED
             "Owed to me" -> receivableLinks[item.id]?.let { it.active && it.kind == "LENT" } == true
             "Repayments" -> receivableLinks[item.id]?.let { it.active && it.kind == "REPAID" } == true
             "Needs Review" -> item.reviewState == ReviewState.NEEDS_REVIEW.name ||
