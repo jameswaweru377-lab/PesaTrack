@@ -18,8 +18,8 @@ internal fun activityFilteredRows(
     possibleDuplicateIds: Set<Long>,
     trustedIncomeIds: Set<Long>,
     receivableLinks: Map<Long, ReceivableActivityLink>,
-    categoryLabel: (String) -> String,
-    confirmedOwnedAccountIds: Set<String> = emptySet()
+    confirmedOwnedAccountIds: Set<String> = emptySet(),
+    categoryLabel: (String) -> String
 ): List<StoredTransaction> {
     val query = searchQuery.trim()
     return transactions.filter { item ->
