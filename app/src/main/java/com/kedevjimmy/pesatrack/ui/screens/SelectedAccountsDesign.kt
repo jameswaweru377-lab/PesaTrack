@@ -366,31 +366,40 @@ internal fun SelectedAccountTiles(
 internal fun SelectedDebtsHero(
     debts: List<DebtAccountSnapshot>, known: Long?, unknownCount: Int, isCurrent: Boolean
 ) {
-    Surface(shape = RoundedCornerShape(24.dp), color = AccountBlack) {
+    val dark = MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas
+    Surface(shape = RoundedCornerShape(24.dp),
+        color = if (dark) MaterialTheme.colorScheme.surface else AccountBlack) {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("R E P A Y M E N T   H O R I Z O N", style = MaterialTheme.typography.labelSmall,
-                color = Color(0xFFBBD9C2))
+                color = if (dark) MaterialTheme.colorScheme.primary else Color(0xFFBBD9C2))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(58.dp).background(Color(0xFF343C38), RoundedCornerShape(16.dp)),
+                Box(Modifier.size(58.dp).background(
+                    if (dark) MaterialTheme.colorScheme.surfaceVariant else Color(0xFF343C38),
+                    RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.Layers, null, tint = Color.White)
                 }
                 Spacer(Modifier.width(14.dp))
                 Column {
                     Text(if (isCurrent) "TOTAL RECORDED DEBT" else "LAST VERIFIED DEBT",
-                        style = MaterialTheme.typography.labelMedium, color = Color(0xFFD7E4D9))
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (dark) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFFD7E4D9))
                     Text(known?.let(::formatKesAmount) ?: "Unavailable",
                         style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Bold, color = Color.White)
+                        fontWeight = FontWeight.Bold,
+                        color = if (dark) MaterialTheme.colorScheme.onSurface else Color.White)
                 }
             }
             Text("${debts.size} borrowing source(s) · $unknownCount unconfirmed balance(s)",
-                color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                color = if (dark) MaterialTheme.colorScheme.onSurface else Color.White,
+                style = MaterialTheme.typography.bodyMedium)
         }
     }
-    if (unknownCount > 0) Surface(shape = RoundedCornerShape(14.dp), color = AccountMint) {
+    if (unknownCount > 0) Surface(shape = RoundedCornerShape(14.dp),
+        color = if (dark) MaterialTheme.colorScheme.surfaceVariant else AccountMint) {
         Row(Modifier.fillMaxWidth().padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Info, null, tint = AccountBlack)
+            Icon(Icons.Rounded.Info, null,
+                tint = if (dark) MaterialTheme.colorScheme.primary else AccountBlack)
             Text("Unknown balances excluded from total", Modifier.padding(start = 10.dp),
                 style = MaterialTheme.typography.bodyMedium)
         }
@@ -401,20 +410,25 @@ internal fun SelectedDebtsHero(
 internal fun SelectedDebtLenders(
     debts: List<DebtAccountSnapshot>, onOpen: (DebtAccountSnapshot) -> Unit
 ) {
+    val dark = MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas
     Text("Your lenders", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     debts.chunked(2).forEach { pair ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             pair.forEach { debt ->
-                Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(20.dp), color = AccountMint) {
+                Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(20.dp),
+                    color = if (dark) MaterialTheme.colorScheme.surface else AccountMint) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         AccountProviderMark(debt.name)
                         Text(debt.name, style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1, fontWeight = FontWeight.Bold)
+                            maxLines = 1, fontWeight = FontWeight.Bold,
+                            color = if (dark) MaterialTheme.colorScheme.onSurface else AccountBlack)
                         Text(if (hasUnknownDebtBalance(debt)) "Confirm balance"
-                            else formatKesAmount(debt.outstandingMinor), fontWeight = FontWeight.SemiBold)
+                            else formatKesAmount(debt.outstandingMinor), fontWeight = FontWeight.SemiBold,
+                            color = if (dark) MaterialTheme.colorScheme.primary else AccountBlack)
                         OutlinedButton(onClick = { onOpen(debt) }, modifier = Modifier.fillMaxWidth(),
-                            border = BorderStroke(1.dp, AccountBlack)) {
-                            Text("View", color = AccountBlack)
+                            border = BorderStroke(1.dp,
+                                if (dark) MaterialTheme.colorScheme.outline else AccountBlack)) {
+                            Text("View", color = if (dark) MaterialTheme.colorScheme.onSurface else AccountBlack)
                         }
                     }
                 }
@@ -426,18 +440,24 @@ internal fun SelectedDebtLenders(
 
 @Composable
 internal fun SelectedAccountDebtsLink(onClick: () -> Unit) {
-    Surface(onClick = onClick, shape = RoundedCornerShape(18.dp), color = Color.White) {
+    val dark = MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas
+    Surface(onClick = onClick, shape = RoundedCornerShape(18.dp),
+        color = if (dark) MaterialTheme.colorScheme.surface else Color.White) {
         Row(Modifier.fillMaxWidth().padding(vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(52.dp).background(AccountMint, RoundedCornerShape(16.dp)),
+            Box(Modifier.size(52.dp).background(
+                if (dark) MaterialTheme.colorScheme.surfaceVariant else AccountMint,
+                RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Layers, null, tint = AccountBlack)
+                Icon(Icons.Rounded.Layers, null,
+                    tint = if (dark) MaterialTheme.colorScheme.primary else AccountBlack)
             }
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
                 Text("Borrowing & debts", fontWeight = FontWeight.Bold)
                 Text("View balances and repayments", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Icon(Icons.Rounded.ChevronRight, null, tint = AccountBlack)
+            Icon(Icons.Rounded.ChevronRight, null,
+                tint = if (dark) MaterialTheme.colorScheme.onSurfaceVariant else AccountBlack)
         }
     }
 }

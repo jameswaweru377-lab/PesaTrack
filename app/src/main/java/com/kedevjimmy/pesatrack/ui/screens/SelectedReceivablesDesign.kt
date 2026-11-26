@@ -19,17 +19,24 @@ import androidx.compose.ui.unit.dp
 import com.kedevjimmy.pesatrack.data.local.ReceivablePerson
 import com.kedevjimmy.pesatrack.data.local.ReceivableEvent
 import com.kedevjimmy.pesatrack.data.local.PersonalReceivableStore
+import com.kedevjimmy.pesatrack.ui.theme.PremiumVisualTokens
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 @Composable
 internal fun SelectedReceivablesSummary(people: List<ReceivablePerson>, total: Long?, unknown: Int) {
-    Surface(shape = RoundedCornerShape(24.dp), color = AccountCream) {
+    val dark = MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas
+    Surface(shape = RoundedCornerShape(24.dp),
+        color = if (dark) MaterialTheme.colorScheme.surface else AccountCream) {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(62.dp).background(AccountMint, RoundedCornerShape(19.dp)),
-                    contentAlignment = Alignment.Center) { Icon(Icons.Rounded.ReceiptLong, null, tint = AccountBlack) }
+                Box(Modifier.size(62.dp).background(
+                    if (dark) MaterialTheme.colorScheme.surfaceVariant else AccountMint,
+                    RoundedCornerShape(19.dp)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.ReceiptLong, null,
+                        tint = if (dark) MaterialTheme.colorScheme.primary else AccountBlack)
+                }
                 Column(Modifier.padding(start = 14.dp)) {
                     Text("Open personal loans", style = MaterialTheme.typography.titleMedium)
                     Text(total?.let(::receivableMoney) ?: "Balance unavailable",
@@ -47,11 +54,15 @@ internal fun SelectedReceivablesSummary(people: List<ReceivablePerson>, total: L
 
 @Composable
 internal fun SelectedReceivablePersonRow(person: ReceivablePerson, onOpen: () -> Unit) {
+    val dark = MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas
     Surface(onClick = onOpen, color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(15.dp)) {
         Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(54.dp).background(AccountMint, RoundedCornerShape(18.dp)),
+            Box(Modifier.size(54.dp).background(
+                if (dark) MaterialTheme.colorScheme.surfaceVariant else AccountMint,
+                RoundedCornerShape(18.dp)),
                 contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Person, null, tint = AccountBlack)
+                Icon(Icons.Rounded.Person, null,
+                    tint = if (dark) MaterialTheme.colorScheme.primary else AccountBlack)
             }
             Column(Modifier.weight(1f).padding(start = 12.dp)) {
                 Text(person.name, fontWeight = FontWeight.Bold,
@@ -72,14 +83,17 @@ internal fun SelectedReceivablePersonRow(person: ReceivablePerson, onOpen: () ->
 
 @Composable
 internal fun SelectedPersonalLoanHero(person: ReceivablePerson, history: List<ReceivableEvent>) {
+    val dark = MaterialTheme.colorScheme.background == PremiumVisualTokens.darkCanvas
     val lent = runCatching { history.filter { it.active && it.kind == PersonalReceivableStore.LENT }
         .fold(0L) { sum, event -> Math.addExact(sum, event.amountMinor) } }.getOrNull()
     val repaid = runCatching { history.filter { it.active && it.kind == PersonalReceivableStore.REPAID }
         .fold(0L) { sum, event -> Math.addExact(sum, event.amountMinor) } }.getOrNull()
-    Surface(shape = RoundedCornerShape(24.dp), color = AccountMint) {
+    Surface(shape = RoundedCornerShape(24.dp),
+        color = if (dark) MaterialTheme.colorScheme.surface else AccountMint) {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text("Still owed to you", style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold, color = AccountBlack)
+                fontWeight = FontWeight.SemiBold,
+                color = if (dark) MaterialTheme.colorScheme.onSurface else AccountBlack)
             Text(person.outstandingMinor?.let(::receivableMoney) ?: "Balance unavailable",
                 style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
             Text("${lent?.let(::receivableMoney) ?: "Unknown"} lent · ${repaid?.let(::receivableMoney) ?: "Unknown"} repaid",
@@ -88,7 +102,8 @@ internal fun SelectedPersonalLoanHero(person: ReceivablePerson, history: List<Re
                 val share = (repaid.toDouble() / lent.toDouble()).coerceIn(0.0, 1.0).toFloat()
                 Text("${(share * 100).toInt()}% repaid", style = MaterialTheme.typography.bodyMedium)
                 LinearProgressIndicator(progress = { share }, modifier = Modifier.fillMaxWidth().height(10.dp),
-                    color = AccountBlack, trackColor = Color(0xFFC9DDCE))
+                    color = if (dark) MaterialTheme.colorScheme.primary else AccountBlack,
+                    trackColor = if (dark) MaterialTheme.colorScheme.outlineVariant else Color(0xFFC9DDCE))
             }
             Text("Based on recorded transactions, not a live wallet balance.",
                 style = MaterialTheme.typography.bodySmall,
